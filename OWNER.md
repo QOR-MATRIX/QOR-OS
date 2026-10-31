@@ -28,18 +28,18 @@ Demiurge's QQ engine, ARQADE and QOR Media, on Linux. Code:
 
 ## Checked
 
-CI passed on both systems at `8d93b19`, with the new names: every suite, and on
+CI passed on both systems at `eb9091f`, with the new names: every suite, and on
 Windows all three products. Both games' 33 rules tests pass, and their recorded
-runs replay in Node and in QQ. **Two things went wrong on the way.** My rename
-broke QQ's build for one run, now fixed. And ARQADE passed only on its automatic
-second attempt in the last two runs: once a test found the game paused mid-fight,
-most likely a click taken by the real mouse, though that is not proven. I cut that
-exposure; it passes hidden on Linux, and its first Windows run is the CI this push
-starts.
+runs replay in Node and in QQ. demiurge-chain #117 passes all its checks and can
+merge. **Two things went wrong on the way.** My rename broke QQ's build for one
+run, now fixed. And ARQADE passed only on its automatic second attempt in two runs:
+once a test found the game paused mid-fight, most likely a click taken by the real
+mouse, though that is not proven. I cut that exposure, and at `eb9091f` ARQADE
+passed first time. One clean run does not prove the cause.
 
 ## Needs you
 
-1. **Merge demiurge-chain #117.** Nothing players see changes.
+1. **Merge demiurge-chain #117.** Its checks pass, and nothing players see changes.
 2. **Know this about the names.** There is a small RPG called EverRift on itch.io,
    one word. Near Darkveil are *The Dark Veil: West Haven* and a *dark veil*
    prototype. A search is not trademark clearance.
