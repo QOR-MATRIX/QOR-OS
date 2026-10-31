@@ -75,8 +75,9 @@ the runner's desktop, so they run only when:
 
 A product whose suites fail is run once more (on Linux, its failed suites).
 On a Windows desktop someone is using, a test window can lose the keyboard to
-another application, and a genuine failure fails both attempts. The step
-summary says whether the products ran.
+another application, or a synthetic click to the real pointer, wherever it rests,
+and a genuine failure fails both attempts. The step summary says whether the
+products ran.
 
 ## Providing Qt to CI
 

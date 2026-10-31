@@ -762,6 +762,19 @@ class TestGames : public QObject
         }
         return everRiftPilot.call({everRift(), QJSValue(calm)}).toVariant().toMap();
     }
+    // A potion, in Ever Rift or Darkveil: by the screen's Drink button the first time in a game, then by Q. A fight drinks
+    // many times, and on Windows the real pointer can take any one synthetic press away (above), onto whatever it rests on:
+    // once, it seems, the Pause button, which ended the run mid-fight.
+    bool drankByButton = false;
+    void drink()
+    {
+        if (!drankByButton && click(QStringLiteral("Drink"))) {
+            drankByButton = true;
+            return;
+        }
+        QTest::keyClick(window, Qt::Key_Q);
+    }
+
     // Ever Rift: Space held to strike, and let go.
     bool striking = false;
     void strike(bool on)
@@ -772,7 +785,7 @@ class TestGames : public QObject
         striking = on;
     }
     // Ever Rift: the pilot's choice played, the way by W, A, S and D, a strike by Space, a whirl by the pad's X, a
-    // dash by L, and a potion by the screen's Drink button.
+    // dash by L, and a potion as drink() says.
     void playEverRift(const QVariantMap &choice)
     {
         const QVariantList way = choice.value("way").toList();
@@ -783,7 +796,7 @@ class TestGames : public QObject
         if (choice.value("dash").toBool())
             QTest::keyClick(window, Qt::Key_L);
         if (choice.value("potion").toBool())
-            click(QStringLiteral("Drink"));
+            drink();
     }
 
     // How long a case may play, by the wall clock: what the watchdog lets it, less a margin, so a slow renderer's run says
@@ -811,7 +824,7 @@ class TestGames : public QObject
         return darkveilPilot.call({rules, darkveil(), calm}).toVariant().toMap();
     }
     // Darkveil: the pilot's choice played, the way by W, A, S and D, a strike by Space, a bolt by the pad's X, a nova by
-    // I, a roll by L, a potion by the screen's Drink button, talking by E, and an answer by its number.
+    // I, a roll by L, a potion as drink() says, talking by E, and an answer by its number.
     void playDarkveil(const QVariantMap &choice)
     {
         const QVariantList way = choice.value("way").toList();
@@ -824,7 +837,7 @@ class TestGames : public QObject
         if (choice.value("roll").toBool())
             QTest::keyClick(window, Qt::Key_L);
         if (choice.value("potion").toBool())
-            click(QStringLiteral("Drink"));
+            drink();
         if (choice.value("talk").toBool())
             QTest::keyClick(window, Qt::Key_E);
         if (const int say = choice.value("say").toInt(); say > 0)
@@ -1555,6 +1568,7 @@ private slots:
     void ever_rifts_card_opens_it_and_play_starts_the_run()
     {
         behaviour = QStringLiteral("Ever Rift");
+        drankByButton = false;
         open(QStringLiteral("Ever Rift"), QStringLiteral("everrift"), kEverRift, QStringLiteral("EVER RIFT"));
         if (QTest::currentTestFailed())
             return;
@@ -1692,6 +1706,7 @@ private slots:
     void darkveils_card_opens_it_and_play_starts_the_run()
     {
         behaviour = QStringLiteral("Darkveil");
+        drankByButton = false;
         open(QStringLiteral("Darkveil"), QStringLiteral("darkveil"), kDarkveil, QStringLiteral("DARKVEIL"));
         if (QTest::currentTestFailed())
             return;

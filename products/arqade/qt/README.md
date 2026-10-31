@@ -135,7 +135,7 @@ pwsh products/arqade/qt/build.ps1 -Shots dir   # and save what the interface and
     the signal evolves and a perk is chosen while the world holds; then left standing until the hull breaks.
   - Ever Rift: moved by D, the left arrow, the pad's left stick and the screen's Up button; played through its first
     floor and down its stairs by `tests/ever-rift-pilot.js` (a strike by Space, a whirl by the pad's X, a dash by L and a
-    potion by the screen's Drink button); then walked among the second floor's enemies without a blow until the
+    potion by the screen's Drink button once, then by Q); then walked among the second floor's enemies without a blow until the
     delver falls.
   - Darkveil: moved by D, the left arrow, the pad's left stick and the screen's Up button, the view turned by C, Z and the
     pad's shoulder; the Elder answered by the screen's button; fought to its first beacon by `../tests/darkveil-pilot.js`;
