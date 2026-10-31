@@ -148,8 +148,9 @@ published before.
 - [ ] The online world grown from the RPG, its server in demiurge-chain, after Phase 2's sign-in (its own record)
 - [ ] Each named game's rules, Node test and fixture in demiurge-chain, by a pull request there
 
-  Ever Rift's and Darkveil's, with its ADR-129: committed on `session/ever-rift-and-darkveil` in the upstream clone, not
-  pushed. Pushing it publishes them, and waits for the owner's word.
+  Ever Rift's and Darkveil's, with its ADR-129: demiurge-chain
+  [#117](https://github.com/QOR-MATRIX/demiurge-chain/pull/117), opened on the owner's word on 31 October, waits for
+  their merge.
 
 ## Phase 2 · Identity and keys
 
