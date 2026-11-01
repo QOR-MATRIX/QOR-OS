@@ -1234,7 +1234,8 @@ void TestPointerCapture::aShellSurfaceEndsIt()
               return run(uR"({"gesture":{"begin":{"fingers":3}}})"_s)
                      && run(uR"({"gesture":{"move":[0,-30],"steps":3}})"_s);
           },
-          [this] { return run(uR"({"gesture":{"end":true}})"_s); } },
+          // The fingers stop before they lift, or the flick would open Overview.
+          [this] { return run(uR"({"gesture":{"end":true,"after":300}})"_s); } },
     };
     int rounds = 0;
     for (const Way &way : ways) {
