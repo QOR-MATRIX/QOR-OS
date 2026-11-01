@@ -19,7 +19,9 @@
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QLocalSocket>
 #include <QMap>
+#include <QProcess>
 #include <QQmlApplicationEngine>
 #include <QQuickItem>
 #include <QQuickStyle>
@@ -909,8 +911,9 @@ private slots:
             QVERIFY(s.open(two.b.url()));
             s.call("openScene", QStringLiteral("beta"));
         }
+        // Even told to go back to the last one.
         Studio named;
-        QVERIFY(named.open(two.a.url(), {{QStringLiteral("reopenLast"), false}}));
+        QVERIFY(named.open(two.a.url(), {{QStringLiteral("reopenLast"), true}}));
         QCOMPARE(named.get("project").toUrl(), two.a.url());
         QVERIFY(!named.entity(QStringLiteral("Only in beta")));
     }
@@ -943,6 +946,90 @@ private slots:
         QVERIFY(bare.get("noticeIsProblem").toBool());
         QVERIFY(bare.notice().contains(name));
     }
+
+#ifdef Q_OS_LINUX
+    // The real program, in a data folder of its own: what its command line asks of the window. The recent list has a mark
+    // in it that goes when the list is written again, which is what entering a project does and a capture does not.
+    void theRealProgramsCommandLine()
+    {
+        QTemporaryDir data;
+        QTemporaryDir frames;
+        Project last;
+        Project named;
+        const QString store = QDir(data.path()).filePath(QStringLiteral("Demiurge/QQ Studio/workspaces"));
+        const QString recent = store + QStringLiteral("/recent.json");
+        const auto plant = [&] {
+            return writeFile(recent, QJsonDocument(QJsonObject{{QStringLiteral("version"), 1},
+                                                               {QStringLiteral("projects"), QJsonArray{last.real()}},
+                                                               {QStringLiteral("mark"), true}}).toJson());
+        };
+        const auto kept = [&] { return QJsonDocument::fromJson(readBytes(recent)).object(); };
+        const auto first = [&] { return kept().value(QStringLiteral("projects")).toArray().at(0).toString(); };
+        const auto marked = [&] { return kept().contains(QStringLiteral("mark")); };
+
+        QProcessEnvironment env = QProcessEnvironment::systemEnvironment();
+        env.insert(QStringLiteral("XDG_DATA_HOME"), data.path());
+        env.insert(QStringLiteral("QQ_MCP_PIPE"), QStringLiteral("qq-workspace-test-%1").arg(QCoreApplication::applicationPid()));
+        // What Qt leaves at its exit is no part of what a capture's exit code says.
+        env.insert(QStringLiteral("ASAN_OPTIONS"), env.value(QStringLiteral("ASAN_OPTIONS")) + QStringLiteral(":detect_leaks=0"));
+        const auto start = [&env](QProcess &p, const QStringList &arguments) {
+            p.setProcessEnvironment(env);
+            p.start(QStringLiteral(QQ_STUDIO), arguments);
+            return p.waitForStarted();
+        };
+
+        // Nothing on the command line: back to the last project.
+        QVERIFY(plant());
+        {
+            QProcess studio;
+            QVERIFY(start(studio, {}));
+            QTRY_VERIFY_WITH_TIMEOUT(!marked(), 60000);
+            QCOMPARE(first(), last.real());
+            studio.kill();
+            studio.waitForFinished();
+        }
+
+        // A project named wins.
+        QVERIFY(plant());
+        {
+            QProcess studio;
+            QVERIFY(start(studio, {QStringLiteral("--project"), named.path()}));
+            QTRY_VERIFY_WITH_TIMEOUT(!marked(), 60000);
+            QCOMPARE(first(), named.real());
+            studio.kill();
+            studio.waitForFinished();
+        }
+
+        // A capture of a named project keeps nothing, and joins no list.
+        QVERIFY(plant());
+        QFile::remove(store + QLatin1Char('/') + QFileInfo(qq::ProjectWorkspace::fileFor(named.real())).fileName());
+        const QString frame = QDir(frames.path()).filePath(QStringLiteral("frame.png"));
+        {
+            QProcess studio;
+            QVERIFY(start(studio, {QStringLiteral("--project"), named.path(), QStringLiteral("--capture"), frame}));
+            QVERIFY(studio.waitForFinished(120000));
+            QCOMPARE(studio.exitCode(), 0);
+            QVERIFY(QFileInfo::exists(frame));
+            QVERIFY(marked());
+            QVERIFY(!QFileInfo::exists(store + QLatin1Char('/') + QFileInfo(qq::ProjectWorkspace::fileFor(named.real())).fileName()));
+        }
+
+        // A model on the command line asks for a new scene, not the last project. The agents' pipe opens once the window
+        // has made up its mind, so by then the list would have been written.
+        {
+            QProcess studio;
+            QVERIFY(start(studio, {fixture(QStringLiteral("orb.gltf"))}));
+            QLocalSocket pipe;
+            QTRY_VERIFY_WITH_TIMEOUT(([&] {
+                pipe.connectToServer(env.value(QStringLiteral("QQ_MCP_PIPE")));
+                return pipe.waitForConnected(200);
+            }()), 60000);
+            QVERIFY(marked());
+            studio.kill();
+            studio.waitForFinished();
+        }
+    }
+#endif
 
     // A look at something (--capture) leaves nothing behind.
     void aCaptureKeepsNothing()
