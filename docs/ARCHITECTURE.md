@@ -261,6 +261,7 @@ own KMS backend is Phase 3
 | `tst_golden` | Qt Test (GPU) | every Kit component in every variant against reference images |
 | `shell_e2e` | scripted shell (GPU) | whole flows with synthetic input, controllers included |
 | `prism_e2e` | Python + real clients (GPU, Linux) | the compositor with real Wayland clients: windows, Spaces, displays |
+| `tst_pointercapture` | Qt Test + raw Wayland clients (Linux, offscreen, in software) | pointer lock, confinement and relative motion from the hostile side: who may, after what, what ends them, the way out, every protocol error, floods ([SHELL.md](design/SHELL.md#capturing-the-pointer)) |
 | `prism_products` | scripted Prism (Linux, offscreen, in software) | Prism starting stand-ins for ARQADE, QOR Media, QQ Studio and the QQ Player, laying out and naming their windows, passing the Motion setting |
 | `tools_generate_tokens` | Python unittest | color math, generated outputs current |
 

@@ -287,6 +287,69 @@ Where swipes come from:
 - **Bare metal**: Qt's libinput backend reports no gestures. Prism's KMS
   backend will read them from libinput (Phase 3).
 
+### Capturing the pointer
+
+A first-person game takes the mouse: the pointer stops, and the game hears only
+how it moves (`zwp_pointer_constraints_v1`, `zwp_relative_pointer_manager_v1`,
+[QOR-0020](../decisions/QOR-0020-unreal-engine-on-qor-os.md); the code is
+`prism/compositor/pointercapture.h`). What a client sends is hostile, so Prism
+decides everything here.
+
+**Who may.** Only the active window, with nothing of the shell over it, while it
+has the keyboard and the pointer is on it. Its subsurfaces count as it, since a game
+may draw in them.
+
+**After a person's action on it.** That means a mouse button pressed on the surface,
+or a key other than a modifier reaching it, in the last five seconds. Those are what
+Qt Wayland Compositor delivers to a client from the output window's input, and no
+client has a way to send input. Moving over it, the wheel, and a held key's repeats
+are not actions. So a window that opens under the pointer captures nothing by itself,
+and a lock that asks long after the last action waits for the next.
+
+**The way out.** <kbd>Super</kbd>+<kbd>Esc</kbd> lets go, and the first time a window
+takes the pointer a toast says so. It is an application shortcut like all of the
+shell's: Qt's shortcut map takes it before any item, so no client hears it or can hold
+on to it. It stands aside while nothing is captured.
+
+**What ends a capture.** The way out; another window, or a window of Prism's, becoming
+active; the lock screen; any shell surface (Beam, Overview, Home, Control Center,
+editing widgets) or a system gesture, each brought up by the keys and Guide that work
+all the while; Prism losing the host's focus; the pointer's focus going elsewhere; and
+the client giving up its object, surface or `wl_pointer`, or going away. Whatever its
+lifetime, a capture never comes back by itself. A `persistent` one starts again on the
+next action, and a `oneshot` one never does.
+
+**While captured.** Nothing of the shell hears a pointer the person cannot see: the
+output windows' pointer events stop at a filter. Buttons and the wheel go straight to
+the client, and a click over the Shelf is the game's. A locked client hears no
+`wl_pointer` motion, enter or leave; a confined one sees the pointer stop at its region's
+edge. Keys, shortcuts and controllers are untouched.
+
+**Who hears motion.** The client whose window has the keyboard, with the pointer on that
+window, needing no lock. A motion that crosses the window's edge is not heard, since it
+would say how far off the pointer went. On the lock screen no client hears the pointer at
+all, from the moment it locks, though its window is still fading out.
+
+**Limits a client meets.** `already_constrained` as the protocol says. An unknown lifetime,
+or more than 32 objects of these protocols kept at once, ends that client. A region of
+more than 1024 rectangles counts as empty.
+
+**Nothing runs when it is unused.** With no object of either protocol alive the output
+windows have no filter, and there is no timer either way. Moving a mouse under a lock
+draws nothing.
+
+**Nested, and what waits for real hardware.** Prism's KMS backend (Phase 3) is not built,
+so motion comes through a seam it will fill (`PointerMotionSource`), and today's source
+works it out from the output window's positions. Nested, then:
+
+- **The host's pointer is not held.** It goes on moving under a lock, and at the edge of the
+  host's screen or of Prism's window the motion stops. A click reaches the game wherever the
+  host's pointer is, but while it is outside Prism's window the host has it.
+- **There is one kind of delta.** The host has already applied its acceleration, so
+  `dx_unaccel` is `dx`. Their difference, and unclipped motion, need libinput.
+- **The cursor position hint is kept, and not used.** A Wayland host lets no client warp.
+- **Timestamps are the event's**, whole milliseconds in a field of microseconds.
+
 ## Keyboard reference
 
 | Shortcut | Action |
@@ -303,6 +366,7 @@ Where swipes come from:
 | <kbd>Ctrl</kbd>+<kbd>,</kbd> | Settings |
 | <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>L</kbd> | Lock |
 | <kbd>Esc</kbd> | Close Beam, Control Center, Overview or popovers |
+| <kbd>Super</kbd>+<kbd>Esc</kbd> | Let go of a pointer a window has captured (Prism) |
 | <kbd>F11</kbd> | Toggle full screen (simulator window) |
 
 Shortcuts avoid the Windows key in simulation because the host OS owns it.

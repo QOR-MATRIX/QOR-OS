@@ -23,8 +23,21 @@ import QOR.Shell
 // Status: experimental. Runs nested (inside another Wayland/X11 session or
 // WSLg) and on Qt's eglfs (KMS) platform; Prism's own KMS backend is a Phase 2
 // deliverable.
-WaylandCompositor {
+PrismCompositor {
     id: prism
+
+    // The one surface that may capture the pointer or hear its motion (QOR-0020): the
+    // active window's, with nothing of the shell over it. The lock screen, or anything
+    // that comes over a window, takes this away and with it any capture.
+    mayCapturePointer: {
+        const window = desktop.focusedLayer.active;
+        return !desktop.locked && desktop.surface === "" && !desktop.editingWidgets && !desktop.gestureTracking
+                && window !== null && window.focused && !window.minimized && !window.closing
+                ? window.shellSurface?.surface ?? null : null;
+    }
+    // Locked, no client hears the pointer, from the moment it locks: its window is still
+    // there for a moment, fading out.
+    pointerWithheld: desktop.locked
 
     property var options: ({})
     // [{ width, height, screen?, fullScreen? }]
@@ -257,10 +270,13 @@ WaylandCompositor {
         }
     }
 
+    Binding { target: desktop; property: "pointerCapturedBy"; value: prism.pointerCapturedBy }
+
     Component.onCompleted: {
         desktop.windowLayer.surfaceDelegate = clientSurface;
         // A window Prism opens (a product it starts) may take focus.
         desktop.activationToken = () => activation.createToken();
+        desktop.releasePointer = () => prism.releasePointer();
     }
 
     XdgShell {
@@ -269,8 +285,9 @@ WaylandCompositor {
         onToplevelCreated: (toplevel, xdgSurface) => {
             // A client may keep only so many windows: each costs Prism a surface, a
             // frame and a texture, and a client could otherwise open them without end.
+            // A window on its way out is still listed, and its client's objects may be gone.
             const client = xdgSurface.surface.client;
-            if (desktop.allWindows().filter(w => w.shellSurface && w.shellSurface.surface.client === client).length
+            if (desktop.allWindows().filter(w => w.shellSurface?.surface?.client === client).length
                     >= WindowManagement.mostWindowsPerClient) {
                 toplevel.sendClose();
                 return;
@@ -292,6 +309,8 @@ WaylandCompositor {
         preferredScale: desktop.Screen.devicePixelRatio
     }
     CursorShapeManagerV1 { }
+    RelativePointerManagerV1 { }
+    PointerConstraintsV1 { }
     XdgActivationV1 {
         id: activation
         // A trusted request focuses the window; any other only asks for attention.

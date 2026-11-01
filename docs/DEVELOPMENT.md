@@ -183,11 +183,15 @@ scale.
 | `{"wait": ms}` | Pause |
 | `{"waitFor": {"windows": n \| "window": spec \| "gone": spec \| "popups": n, "timeout": ms}}` | Wait for a condition; fail on timeout |
 | `{"click": target}`, `{"doubleClick": target}`, `{"rightClick": target}`, `{"move": target}` | Pointer input |
+| `{"press": target}`, `{"release": target}` | A left button held across other steps |
 | `{"drag": {"from": target, "to": target \| "by": [dx, dy], "steps": n}}` | Press, move in steps, release |
 | `{"scroll": {"at": target, "notches": n}}` | Mouse wheel; positive `n` scrolls down |
 | `{"gesture": {"fingers": 3, "by": [dx, dy], "steps": n, "ms": 16, "at": target}}` | A touchpad swipe, as Qt's native gestures. In parts: `{"begin": {"fingers": 3, "at": target}}`, `{"move": [dx, dy], "steps": n, "ms": 16}`, `{"end": true, "after": ms}` (`after` holds the fingers still before they lift) |
 | `{"touch": {"fingers": n, "from": target, "by": [dx, dy], "steps": n, "ms": 16, "spread": 60}}` | A touchscreen drag: the fingers land one by one in a row, move together and lift together |
 | `{"key": "Escape"}`, `{"key": "Ctrl+Alt+Right"}` | Key press and release. Modifier keys go down first and up last, as on a keyboard, which Prism needs. Wayland clients receive evdev scan codes |
+| `{"keyRepeat": "a"}` | What a key held down sends after its first press |
+| `{"hostFocus": false}` | Nested, what going to another of the host's windows sends; `true` to come back |
+| `{"follow": folder}` | Steps handed over one at a time, for a test that decides what comes next from what a client saw: `N.json` in the folder, counting from 0, each answered by `N.done` once it has run, until one says `{"stop": true}` |
 | `{"gamepad": {"connect": family \| "tap" \| "press" \| "release": button \| "stick": [x, y], "ms": n \| "disconnect": true}}` | A virtual game controller ([CONTROLLERS.md](CONTROLLERS.md)) |
 | `{"call": "setSurface", "args": [...]}` | Call a `Desktop` method (`launch`, `setSurface`, `switchSpace`, ...) |
 | `{"restore": spec}` | What clicking the window's app on the Shelf does |
@@ -297,6 +301,7 @@ QOR_SANITIZE=address,undefined tools/dev/products.sh --product qq --tests tst_lo
 - `tools/ci/check_secrets.py [--staged]` looks for a secret's shape, and says where, never what. A made-up value in a test
   goes in `tools/ci/secrets-allowed.txt` with its reason.
 - `prism_untrusted` (`tests/prism/untrusted.e2e.json`) runs Prism with clients that lie about themselves.
+- `tst_pointercapture` runs Prism with raw Wayland clients that try to take the pointer.
 - `tst_lockdown` plays games that try to get out, and `tst_player` shows the kernel's wall holding them.
 - **To add a CI action or a download**, pin it by commit or SHA-256. Anything that downloads a tool to run it goes in the
   Security workflow, on a hosted runner, never on the workstation.

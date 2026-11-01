@@ -151,6 +151,35 @@ if(TARGET prism)
                 "--client=$<TARGET_FILE:prism-test-client> --unseen --after 9000 --title Unseen")
         set_tests_properties(prism_untrusted PROPERTIES TIMEOUT 120)
     endif()
+
+    # Pointer lock and relative motion (QOR-0020), from the client's side: raw Wayland
+    # clients of a Prism this suite starts, offscreen and in software, and drives with a
+    # person's input through `prism --script`. No display and no graphics card.
+    find_package(Qt6 ${QOR_QT_MIN_VERSION} REQUIRED COMPONENTS WaylandScannerTools)
+    find_package(PkgConfig REQUIRED)
+    pkg_check_modules(QOR_WAYLAND_CLIENT REQUIRED IMPORTED_TARGET wayland-client)
+    enable_language(C)
+    set(pointer_capture_protocols "")
+    foreach(protocol IN ITEMS xdg-shell relative-pointer-unstable-v1 pointer-constraints-unstable-v1)
+        set(xml "${CMAKE_SOURCE_DIR}/prism/compositor/protocols/${protocol}.xml")
+        set(header "${CMAKE_CURRENT_BINARY_DIR}/wayland-${protocol}-client-protocol.h")
+        set(code "${CMAKE_CURRENT_BINARY_DIR}/wayland-${protocol}-protocol.c")
+        add_custom_command(OUTPUT "${header}" "${code}"
+            COMMAND Wayland::Scanner client-header "${xml}" "${header}"
+            COMMAND Wayland::Scanner private-code "${xml}" "${code}"
+            DEPENDS "${xml}"
+            VERBATIM)
+        # Scanner output is not ours to fix.
+        set_source_files_properties("${code}" PROPERTIES COMPILE_OPTIONS "-w")
+        list(APPEND pointer_capture_protocols "${header}" "${code}")
+    endforeach()
+    qor_add_test(tst_pointercapture
+        SOURCES prism/tst_pointercapture.cpp ${pointer_capture_protocols}
+        LIBRARIES PkgConfig::QOR_WAYLAND_CLIENT)
+    target_include_directories(tst_pointercapture PRIVATE "${CMAKE_CURRENT_BINARY_DIR}")
+    target_compile_definitions(tst_pointercapture PRIVATE QOR_PRISM="$<TARGET_FILE:prism>")
+    add_dependencies(tst_pointercapture prism)
+    set_tests_properties(tst_pointercapture PROPERTIES TIMEOUT 300)
 endif()
 
 # ── Tooling tests (Python) ──────────────────────────────────────────────────

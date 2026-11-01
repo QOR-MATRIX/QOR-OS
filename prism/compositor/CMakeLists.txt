@@ -1,9 +1,11 @@
 # prism — the QOR OS Wayland compositor (Linux only, experimental).
 
 # WaylandCompositorPrivate: which configures a client has yet to acknowledge
-# (WindowManagement.configureAcked), which Qt keeps private.
+# (WindowManagement.configureAcked), and a surface's input region and subsurfaces
+# (pointercapture.cpp), which Qt keeps private. QuickPrivate: the same file stops Qt Quick's
+# frame-synchronous hover while a client has the pointer.
 find_package(Qt6 ${QOR_QT_MIN_VERSION} QUIET COMPONENTS
-    WaylandCompositor WaylandCompositorPrivate WaylandScannerTools)
+    WaylandCompositor WaylandCompositorPrivate WaylandScannerTools QuickPrivate)
 if(NOT Qt6WaylandCompositor_FOUND OR NOT Qt6WaylandCompositorPrivate_FOUND)
     message(WARNING "Qt Wayland Compositor not found: skipping the prism compositor. "
                     "Install the Qt Wayland Compositor module for your kit to build it.")
@@ -23,9 +25,12 @@ qt6_generate_wayland_protocol_server_sources(prism PRIVATE_CODE FILES
     ${CMAKE_CURRENT_SOURCE_DIR}/protocols/cursor-shape-v1.xml
     ${CMAKE_CURRENT_SOURCE_DIR}/protocols/tablet-v2.xml
     ${CMAKE_CURRENT_SOURCE_DIR}/protocols/xdg-activation-v1.xml
+    ${CMAKE_CURRENT_SOURCE_DIR}/protocols/relative-pointer-unstable-v1.xml
+    ${CMAKE_CURRENT_SOURCE_DIR}/protocols/pointer-constraints-unstable-v1.xml
 )
 # Scanner output is not ours to fix; keep its warnings out of the build log.
-foreach(protocol IN ITEMS fractional-scale-v1 cursor-shape-v1 tablet-v2 xdg-activation-v1)
+foreach(protocol IN ITEMS fractional-scale-v1 cursor-shape-v1 tablet-v2 xdg-activation-v1
+                         relative-pointer-unstable-v1 pointer-constraints-unstable-v1)
     set_source_files_properties("${CMAKE_CURRENT_BINARY_DIR}/qwayland-server-${protocol}.cpp"
                                 "${CMAKE_CURRENT_BINARY_DIR}/wayland-${protocol}-protocol.c"
                                 PROPERTIES COMPILE_OPTIONS "-w")
@@ -39,6 +44,7 @@ qt_add_qml_module(prism
         Compositor.qml
     SOURCES
         extensions.h extensions.cpp
+        pointercapture.h pointercapture.cpp
     DEPENDENCIES
         QtQuick
         QtWayland.Compositor
@@ -53,6 +59,7 @@ target_link_libraries(prism PRIVATE
     Qt6::QuickControls2
     Qt6::WaylandCompositor
     Qt6::WaylandCompositorPrivate
+    Qt6::QuickPrivate
     qor_kit
     qor_services
     qor_kitplugin

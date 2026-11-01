@@ -3,6 +3,7 @@
 
 #include "gamepadmanager.h"
 #include "injection.h"
+#include "keycodes.h"
 #include "library.h"
 #include "producthost.h"
 #include "services.h"
@@ -745,6 +746,17 @@ private:
                 mouse(QEvent::MouseMove, *p, Qt::NoButton);
                 return 100;
             });
+        } else if (step.contains(u"press"_s) || step.contains(u"release"_s)) {
+            // {"press": target}, {"release": target}: a button held across other steps.
+            const bool down = step.contains(u"press"_s);
+            const QJsonValue target = step[down ? u"press"_s : u"release"_s];
+            m_queue.push_back([this, target, down] {
+                const auto p = resolve(target);
+                if (!p)
+                    return -1;
+                mouse(down ? QEvent::MouseButtonPress : QEvent::MouseButtonRelease, *p, Qt::LeftButton);
+                return 60;
+            });
         } else if (step.contains(u"drag"_s)) {
             enqueueDrag(step[u"drag"_s].toObject());
         } else if (step.contains(u"gesture"_s)) {
@@ -786,6 +798,22 @@ private:
                         : QString();
                 key(k, combination.keyboardModifiers(), text);
                 return 150;
+            });
+        } else if (step.contains(u"keyRepeat"_s)) {
+            // {"keyRepeat": "a"}: what a key held down sends after the first press.
+            const QKeySequence sequence = QKeySequence::fromString(step[u"keyRepeat"_s].toString());
+            if (sequence.isEmpty()) {
+                m_error = u"cannot parse key"_s;
+                return false;
+            }
+            const int k = sequence[0].key();
+            m_queue.push_back([this, k] {
+                ensureFocus();
+                const input::InjectedInput injected;
+                const quint32 code = input::evdevKeyCode(k);
+                QWindowSystemInterface::handleExtendedKeyEvent(m_window, ulong(m_clock.elapsed()), QEvent::KeyPress, k,
+                                                               {}, code ? code + 8 : 0, 0, 0, QString(), true);
+                return 100;
             });
         } else if (step.contains(u"call"_s)) {
             const QString method = step[u"call"_s].toString();
@@ -932,6 +960,16 @@ private:
                 }
                 return 0;
             });
+        } else if (step.contains(u"hostFocus"_s)) {
+            // {"hostFocus": false}: nested, what the person going to another of the host's windows sends.
+            const bool focused = step[u"hostFocus"_s].toBool();
+            m_queue.push_back([this, focused] {
+                QWindowSystemInterface::handleFocusWindowChanged<QWindowSystemInterface::SynchronousDelivery>(
+                    focused ? m_window : nullptr, Qt::ActiveWindowFocusReason);
+                return 100;
+            });
+        } else if (step.contains(u"follow"_s)) {
+            enqueueFollow(path(step[u"follow"_s].toString()), 0);
         } else if (step.contains(u"log"_s)) {
             const QString message = step[u"log"_s].toString();
             m_queue.push_back([message] {
@@ -943,6 +981,37 @@ private:
             return false;
         }
         return true;
+    }
+
+    // {"follow": folder}: steps handed over one at a time, for a test that decides what
+    // comes next from what a client of Prism's saw (tst_pointercapture). Each is N.json
+    // in the folder, counting from 0, answered by N.done once it has run; {"stop": true}
+    // ends them.
+    void enqueueFollow(const QString &folder, int index)
+    {
+        m_queue.push_back([this, folder, index] {
+            const QDir dir(folder);
+            QFile file(dir.filePath(QString::number(index) + u".json"_s));
+            if (!file.open(QIODevice::ReadOnly)) {
+                enqueueFollow(folder, index);
+                return 5;
+            }
+            const QJsonObject step = QJsonDocument::fromJson(file.readAll()).object();
+            if (step.contains(u"stop"_s))
+                return 0;
+            if (!expand(step))
+                return -1;
+            m_queue.push_back([this, dir, index] {
+                QFile done(dir.filePath(QString::number(index) + u".done"_s));
+                if (!done.open(QIODevice::WriteOnly)) {
+                    m_error = u"cannot write %1"_s.arg(done.fileName());
+                    return -1;
+                }
+                return 0;
+            });
+            enqueueFollow(folder, index + 1);
+            return 0;
+        });
     }
 
     // Supported conditions: {"windows": n} (open, non-closing windows),
@@ -1099,6 +1168,9 @@ private:
             { u"desktopWidgets"_s, desktopWidgets() },
             { u"surface"_s, m_desktop->property("surface").toString() },
             { u"locked"_s, m_desktop->property("locked").toBool() },
+            // A client holds the pointer (Prism), and what the shell last said in passing.
+            { u"pointerCaptured"_s, m_desktop->property("pointerCapturedBy").value<QObject *>() != nullptr },
+            { u"toast"_s, toastText() },
             { u"controller"_s, QJsonValue::fromVariant(plain(m_desktop->property("controllerState"))) },
             // Frames the shell has drawn: a client inside Prism gets frame
             // callbacks only when Prism draws, which a host compositor (WSLg)
@@ -1108,6 +1180,12 @@ private:
             { u"productTheme"_s, productTheme() },
             { u"library"_s, libraryState() },
         };
+    }
+
+    QString toastText() const
+    {
+        const QObject *toast = m_desktop->findChild<QObject *>(u"toast"_s);
+        return toast ? toast->property("text").toString() : QString();
     }
 
     // The Library and Home: the ids of its games, how much media it holds,

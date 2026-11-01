@@ -63,7 +63,7 @@ generated with the image's SBOM).
 | [IBM Plex Mono](https://fonts.google.com/specimen/IBM+Plex+Mono) | as carried | `products/qq/studio/fonts/`, `tools/qor-media/fonts/` | SIL Open Font License 1.1, `IBMPlexMono-OFL.txt` beside each copy |
 | [Great Vibes](https://fonts.google.com/specimen/Great+Vibes) | as carried | `tools/qor-media/fonts/` | SIL Open Font License 1.1, `GreatVibes-OFL.txt` |
 | [Lucide](https://lucide.dev) icons (113-icon subset, recoloured) | lucide-static 1.61.0 | `kit/icons/*.svg` | ISC; icons derived from Feather are MIT. See [`kit/icons/LICENSE.lucide.txt`](kit/icons/LICENSE.lucide.txt) |
-| [wayland-protocols](https://gitlab.freedesktop.org/wayland/wayland-protocols): fractional-scale-v1, cursor-shape-v1, tablet-v2 | 1.47 | `prism/compositor/protocols/*.xml` | MIT; the notice is in each file's `<copyright>` element |
+| [wayland-protocols](https://gitlab.freedesktop.org/wayland/wayland-protocols): fractional-scale-v1, cursor-shape-v1, tablet-v2, xdg-activation-v1, relative-pointer-unstable-v1, pointer-constraints-unstable-v1, xdg-shell | 1.47 | `prism/compositor/protocols/*.xml` | MIT; the notice is in each file's `<copyright>` element |
 
 ## Build-time tooling
 
