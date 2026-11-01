@@ -172,8 +172,11 @@ QTOS's practice, which QOR OS keeps:
 - **Render on demand.** No continuous frames or wakeups when nothing changes.
   Shell and Kit changes are benchmarked before and after on the same machine
   ([docs/PERFORMANCE.md](docs/PERFORMANCE.md)).
-- **CI runs on self-hosted runners with the licensed kit** ([docs/CI.md](docs/CI.md)).
-  If CI does not run, first check that the runners are online.
+- **CI's Qt jobs are paused, and their self-hosted runners stopped, until a replacement
+  is shown to be isolated** ([docs/CI.md](docs/CI.md#what-ci-trusts)). A runner being
+  online is not a build having passed, and Release readiness fails while a required
+  build or test did not run. Until then, a result is a run on the machine that states
+  its commit, commands, environment, failures and skips.
 - **Report failures honestly, with the output.** Never weaken a test or a
   check to make it pass. Loosening a check is the owner's decision.
 - **On the owner's Windows machine:**

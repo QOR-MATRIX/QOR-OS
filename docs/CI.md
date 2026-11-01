@@ -13,7 +13,20 @@ Monday. Pull-request runs cancel superseded runs. Each OS job runs only when tha
 
 ## What CI trusts
 
-**Build's jobs on the workstation are paused, since 1 November 2026.** Lint and Security still run, on hosted runners.
+**Build's jobs on the workstation are paused, and both of its runners are stopped, since 1 November 2026.** Lint and Security
+still run, on hosted runners. So nothing builds or tests QOR OS on GitHub today, and evidence comes only from runs on the machine
+that say what they ran at which commit.
+
+**A runner being there is not a build having passed.** Runners online, runners allowed, a job that ran and a test that passed are
+four different things:
+
+- Whether a runner is online is the owner's to read: `gh api repos/QOR-MATRIX/qor-os/actions/runners`. A job's token cannot.
+- Whether a job may use one is **Qt availability**, the first job.
+- Whether a build and its tests ran and passed is **Release readiness**, the last job, on a machine of GitHub's. It fails unless
+  every step a release needs ran and passed: each platform's job, the suites that draw, Prism's protocol check, and the products
+  (which may stand down when a push or pull request did not change them, and never at a tag or a manual run). So a run that built
+  nothing is red, as the Build workflow's result, by design. Its summary tells a step that failed from a step that did not run.
+  `tests/tools/test_release_readiness.py` and `test_build_workflow.py` hold it to this.
 
 The workstation's Windows runner runs as the signed-in person. Its Linux runner runs in WSL in the `sudo` and `docker`
 groups, with the Windows drives mounted and Windows programs a call away. That machine holds the Store's signing keys and
@@ -22,13 +35,14 @@ people's code: pinned actions, and the Rust crates the QOR core builds, with the
 at a time or away from the GPU changes none of this. So:
 
 - **A workstation runner runs nothing until a person says it is isolated:** `QOR_WINDOWS_RUNNER_ISOLATED` or
-  `QOR_LINUX_RUNNER_ISOLATED`, set to `true`. Without it, Build **succeeds having built and tested nothing**. A warning and
-  its summary say so, and that result is not a pass.
+  `QOR_LINUX_RUNNER_ISOLATED`, set to `true`, and neither is set until its replacement has been shown to hold. A second account
+  on the same machine does not qualify until a job under it has been shown unable to reach the first's files and privileges.
+  Without it nothing is built or tested, and Release readiness fails.
 - **The job's first step checks that claim** before anything from the repository runs, and a job that can still reach Windows
   or a credential stops there.
-- **What is still open:** the runners are online, and a workflow naming their labels would reach them, so whatever can write
-  workflows can run code there. That is the owner, and the GitHub Apps installed on the organisation with workflow access,
-  until the owner limits them. The check covers the places it names, not everything a job could do.
+- **What is still open:** the runners are registered, and started again a workflow naming their labels would reach them, so
+  whatever can write workflows could run code there. That is the owner, and the GitHub Apps installed on the organisation with
+  workflow access, until the owner limits them. The check covers the places it names, not everything a job could do.
 
 What GitHub itself enforces on this private repository, on the Free plan: no forks, so no pull requests from them; a read-only
 default token; and no secrets for a job to take. It does **not** offer branch protection or rulesets (both refused by the API,
@@ -183,7 +197,13 @@ The variables took their `QOR_` names on 27 October 2026
 a job is skipped; once they are set, jobs wait in the queue whenever the runner
 is not running.
 
-**Starting the runners at sign-in** is a Startup-folder entry for each, which
+**Both runners were stopped on 1 November 2026, at the owner's word, and do not start at sign-in.** They stay registered, as
+`DESKTOP-Q38RMM0-qtos` and `DESKTOP-Q38RMM0-qtos-linux`, with their folders untouched. Their two Startup entries were moved to
+`%USERPROFILE%\ghr\startup-held\`, so putting them back is moving them back. Neither goes back until the place it runs in has been
+shown to hold. Stopping the Linux one also let go of what had kept `Ubuntu` running, and `/tmp` there is in memory, so a
+distribution left with no client loses what is in `/tmp` once WSL stops it.
+
+**Starting the runners at sign-in**, when they run again, is a Startup-folder entry for each, which
 the owner adds once. Assistants do not write Startup entries.
 
 ```powershell
