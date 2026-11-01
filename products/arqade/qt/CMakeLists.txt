@@ -16,7 +16,7 @@
 #   pwsh products/arqade/qt/build.ps1            # build and test
 #   pwsh products/arqade/qt/build.ps1 -Deploy    # and make the self-contained copy the launcher opens
 #
-# Changed for QOR OS: src/controllerback, a controller's Back as the way back from a game; Ever Rift's and Darkveil's
+# Changed for QOR OS: src/controllerback, a controller's Back as the way back from a game; Ever Rift's, Darkveil's and Bellwick's
 # packages (QOR OS's QOR-0017); every suite built with QQ's tests/virtualpads.cpp; and QOR OS's exploit mitigations (QOR-0018).
 
 cmake_minimum_required(VERSION 3.22)
@@ -187,6 +187,101 @@ qt_add_resources(arqade_core "ever-rift"
         ../games/ever-rift/assets/descend.wav
         ../games/ever-rift/assets/cleared.wav
         ../games/ever-rift/assets/fallen.wav
+)
+qt_add_resources(arqade_core "bellwick"
+    PREFIX /games/bellwick
+    BASE "${CMAKE_CURRENT_SOURCE_DIR}/../games/bellwick"
+    FILES
+        ../games/bellwick/scenes/bellwick.qml
+        ../games/bellwick/logic/bellwick.qml
+        ../games/bellwick/logic/rules.mjs
+        ../games/bellwick/assets/backdrop-0.glb
+        ../games/bellwick/assets/backdrop-1.glb
+        ../games/bellwick/assets/backdrop-2.glb
+        ../games/bellwick/assets/backdrop-3.glb
+        ../games/bellwick/assets/block-hush.glb
+        ../games/bellwick/assets/block-life.glb
+        ../games/bellwick/assets/block-note.glb
+        ../games/bellwick/assets/block-power.glb
+        ../games/bellwick/assets/block-rich.glb
+        ../games/bellwick/assets/block-used.glb
+        ../games/bellwick/assets/boing.glb
+        ../games/bellwick/assets/boing.wav
+        ../games/bellwick/assets/brass.glb
+        ../games/bellwick/assets/break.wav
+        ../games/bellwick/assets/brick.glb
+        ../games/bellwick/assets/bump.wav
+        ../games/bellwick/assets/check.wav
+        ../games/bellwick/assets/creak.wav
+        ../games/bellwick/assets/die.wav
+        ../games/bellwick/assets/door.wav
+        ../games/bellwick/assets/faller.glb
+        ../games/bellwick/assets/flit.glb
+        ../games/bellwick/assets/goal.wav
+        ../games/bellwick/assets/gourd.glb
+        ../games/bellwick/assets/great-bell.glb
+        ../games/bellwick/assets/hit.wav
+        ../games/bellwick/assets/hover.wav
+        ../games/bellwick/assets/hushling.glb
+        ../games/bellwick/assets/item.wav
+        ../games/bellwick/assets/jump.wav
+        ../games/bellwick/assets/kite.glb
+        ../games/bellwick/assets/land.wav
+        ../games/bellwick/assets/late.wav
+        ../games/bellwick/assets/leap.wav
+        ../games/bellwick/assets/level-0.glb
+        ../games/bellwick/assets/level-1.glb
+        ../games/bellwick/assets/level-2.glb
+        ../games/bellwick/assets/level-3.glb
+        ../games/bellwick/assets/level-4.glb
+        ../games/bellwick/assets/level-5.glb
+        ../games/bellwick/assets/level-6.glb
+        ../games/bellwick/assets/level-7.glb
+        ../games/bellwick/assets/level.wav
+        ../games/bellwick/assets/life.glb
+        ../games/bellwick/assets/life.wav
+        ../games/bellwick/assets/lost.wav
+        ../games/bellwick/assets/mid-bell.glb
+        ../games/bellwick/assets/mover.glb
+        ../games/bellwick/assets/muffle.glb
+        ../games/bellwick/assets/muffled.wav
+        ../games/bellwick/assets/mumble.glb
+        ../games/bellwick/assets/note.glb
+        ../games/bellwick/assets/note0.wav
+        ../games/bellwick/assets/note1.wav
+        ../games/bellwick/assets/note2.wav
+        ../games/bellwick/assets/note3.wav
+        ../games/bellwick/assets/note4.wav
+        ../games/bellwick/assets/note5.wav
+        ../games/bellwick/assets/note6.wav
+        ../games/bellwick/assets/note7.wav
+        ../games/bellwick/assets/power.wav
+        ../games/bellwick/assets/ring.wav
+        ../games/bellwick/assets/shatter.wav
+        ../games/bellwick/assets/shrink.wav
+        ../games/bellwick/assets/silver.glb
+        ../games/bellwick/assets/silver.wav
+        ../games/bellwick/assets/sky-0.hdr
+        ../games/bellwick/assets/sky-1.hdr
+        ../games/bellwick/assets/sky-2.hdr
+        ../games/bellwick/assets/sky-3.hdr
+        ../games/bellwick/assets/slam.wav
+        ../games/bellwick/assets/spit.wav
+        ../games/bellwick/assets/spring.glb
+        ../games/bellwick/assets/spring.wav
+        ../games/bellwick/assets/stomp.wav
+        ../games/bellwick/assets/struck.wav
+        ../games/bellwick/assets/tam-brass.glb
+        ../games/bellwick/assets/tam-kite.glb
+        ../games/bellwick/assets/tam.glb
+        ../games/bellwick/assets/thistle.glb
+        ../games/bellwick/assets/thump.wav
+        ../games/bellwick/assets/wave.glb
+        ../games/bellwick/assets/won.wav
+        ../games/bellwick/assets/world-0.wav
+        ../games/bellwick/assets/world-1.wav
+        ../games/bellwick/assets/world-2.wav
+        ../games/bellwick/assets/world-3.wav
 )
 qt_add_resources(arqade_core "darkveil"
     PREFIX /games/darkveil

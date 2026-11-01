@@ -251,6 +251,7 @@ QVariantList Library::arqadeGames() const
         { "rift", "Rift Survivor", QT_TRANSLATE_NOOP("Library", "Survival and evolution") },
         { "everrift", "Ever Rift", QT_TRANSLATE_NOOP("Library", "Dungeon and action RPG") },
         { "darkveil", "Darkveil", QT_TRANSLATE_NOOP("Library", "Open world action RPG") },
+        { "bellwick", "Bellwick", QT_TRANSLATE_NOOP("Library", "Platformer") },
         { "flux", "Flux Four", QT_TRANSLATE_NOOP("Library", "Arena · strategy") },
         { "reversi", "Rift Reversi", QT_TRANSLATE_NOOP("Library", "Arena · territory") },
     };

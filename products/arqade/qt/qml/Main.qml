@@ -20,7 +20,7 @@ Window {
     /// The game being played, by its card's kind ("orbital"), or "" on the home.
     property string playing: ""
     /// Every game a card plays, by its kind: all the launcher may ask to open (ADR-118).
-    readonly property var games: ["orbital", "void", "synapse", "rift", "everrift", "darkveil", "flux", "reversi"]
+    readonly property var games: ["orbital", "void", "synapse", "rift", "everrift", "darkveil", "bellwick", "flux", "reversi"]
 
     width: 1360
     height: 860

@@ -25,7 +25,7 @@ import ARQADE
 //
 // Changed for QOR OS: a controller's Back (View, Share) puts the game away too, since ARQADE has the controller to
 // itself in Prism and no Esc comes from it there. No game binds Back, and the game never hears it (ControllerBack).
-// Ever Rift and Darkveil, QOR OS's own (its QOR-0017), are played here too.
+// Ever Rift, Darkveil and Bellwick, QOR OS's own (its QOR-0017), are played here too.
 Item {
     id: view
 
@@ -42,6 +42,7 @@ Item {
         rift: { name: "Rift Survivor", file: "qrc:/games/rift-survivor/scenes/rift-survivor.qml" },
         everrift: { name: "Ever Rift", file: "qrc:/games/ever-rift/scenes/ever-rift.qml" },
         darkveil: { name: "Darkveil", file: "qrc:/games/darkveil/scenes/darkveil.qml" },
+        bellwick: { name: "Bellwick", file: "qrc:/games/bellwick/scenes/bellwick.qml" },
         flux: { name: "Flux Four", file: "qrc:/games/arenas/scenes/flux-four.qml", arena: "flux" },
         reversi: { name: "Rift Reversi", file: "qrc:/games/arenas/scenes/rift-reversi.qml", arena: "reversi" },
     })

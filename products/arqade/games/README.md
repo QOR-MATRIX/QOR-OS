@@ -1,7 +1,7 @@
 # ARQADE's games, rebuilt in QQ
 
-Changed for QOR OS: Ever Rift and Darkveil, the first of QOR OS's own games (its QOR-0017), and the left stick's four
-ways among the pad's bindings.
+Changed for QOR OS: Ever Rift, Darkveil and Bellwick, the first of QOR OS's own games (its QOR-0017), and the left stick's
+four ways among the pad's bindings.
 
 ARQADE's four solo games and its two arenas are rebuilt as QQ games (ADR-102 decision 2; DIRECTION P7.20 and P7.24).
 They are played in ARQADE's Qt app ([`../qt/`](../qt/README.md)) by QQ's runtime ([`products/qq/`](../../qq/README.md)).
@@ -17,6 +17,7 @@ Player as it is (an arena there has nobody to ask, so it stays in its lobby).
 | Flux Four and Rift Reversi | Rebuilt, 24 October 2026: play in ARQADE against another person, on ARQADE's server; a run replays in QQ and in Node |
 | Ever Rift | QOR OS's own, 30 October 2026: plays in ARQADE, its rules replay a run in QQ and in Node |
 | Darkveil | QOR OS's own, 31 October 2026: the same |
+| Bellwick | QOR OS's own, 31 October 2026, a working title: the same |
 
 ## A game's package
 
@@ -229,6 +230,56 @@ made as play starts, only what is near is drawn, and an idle piece is hidden and
 eye and turns with the view, and a tall column of light stands over what to do next. Sound comes from where it happens.
 With reduced motion the eye keeps exactly to the hero, the view turns at once, and nothing on the ground spins.
 
+## Bellwick
+
+QOR OS's own game, the third of the seven its QOR-0017 sets out: a platformer on islands in the sky. Bellwick is a working
+title until the owner names it. The Hush has muffled the bells that hold the isles up. Tam, the smallest ringer in the town of
+Bellwick, runs and jumps across eight levels in four regions, the Green Isles, the Rooftops, Frostmere and the Still, and rings
+the Great Bell at the end of each. Old Muffle waits at the top of the Belfry and again in the Last Belfry: ended there, the
+run is won. Spending every life ends it, and so does the clock.
+
+- **Tam** walks, and runs with the run held; turning on the ground skids, and on ice everything takes room. A jump goes higher
+  held and higher again at a run. It is still allowed six steps after leaving an edge and kept seven before landing, and a
+  head that catches a block's corner slips past it. Down in the air is a **slam**, which holds a moment and drops, through brick
+  and whatever is below. The hand bell, **ring**, reaches about four tiles every two thirds of a second: what it reaches stands
+  stunned, and hush blocks wake.
+- **Blocks and what they give.** Struck from under: a note block gives a note, a rich block several, a power block brass or
+  the kite, a life block a life. Brass takes one blow and breaks brick with its head; the kite does that and glides while the
+  jump is held. A brick above a small Tam only knocks. Hush blocks are ghosts until rung, stand for four seconds, and flicker
+  before they go.
+- **What walks.** Mumbles walk off edges; hushlings turn at them. Thistles are all spines, safe to stomp only once rung. Flits
+  keep a beat in the air, boings hop at Tam, gourds spit seeds, icicles drop on who stands under them. A stomp bounces, higher
+  with the jump held, and each stomp in one bounce doubles.
+- **Old Muffle** prowls, leaps at Tam and lands with two waves along the ground, then stands open with his bell showing. Open or
+  rung, he can be stomped; shut, he hurts. He hears the bell only once in a while, and quickens with each blow: three at the
+  Belfry, five at the Last Belfry.
+- **The way through.** Each level has a mid-way bell or two to wake at, its clock, three silver bells, and most a secret
+  room behind a door, reached before the Great Bell, past whose wall the eye does not go until Tam does. A fall spends a life and puts back what moves, not what was picked up or struck: a life spent is not more notes.
+- **The score** counts notes, stomps, silver bells, how high on the post the Great Bell was reached, the seconds left, Old
+  Muffle, and the lives left at the end. A hundred notes are one more life.
+
+Move with A and D, the arrows, the pad's left stick or d-pad, or the screen's buttons; jump with Space, J or the pad's A; run with
+Shift, L or X; ring with K, E or B; slam with S, down or the screen's Down, in the air; go through a door with W, up or the
+screen's Up; P or Start pauses.
+
+**Its rules** are written for replay as the others are, in tiles of 32 units with collision against them each axis on its own.
+`make_levels.py` lays each level out by hand in set pieces and writes them between the markers in `logic/rules.mjs`.
+**Rewarded from the start** (QOR-0017): its rules, its Node test, its pilot, its solver and its fixtures go to demiurge-chain under Apache-2.0 once the
+owner names it, and not before. Nothing has crossed yet.
+
+**Every level can be finished, and a machine shows it.** `../tests/bellwick-solver.mjs` searches each level by the rules
+themselves, trying what a hand could do from each moment, and writes what it finds to `../tests/fixtures/bellwick-route.json`,
+which the Node test plays from the title to the last bell. Changing a level or a rule means running it again (a few minutes).
+
+**In 3D, from the side.** The level is turned to face the eye and tipped nearly upright, so the tops of things show without
+losing their heights. `make_assets.py` writes everything with the standard library, the same bytes each time. Each level's ground
+is flat-shaded under a painted picture for its region (grass over earth with stones in it, roof tiles over plaster and brick, snow over
+ice, moss over dark stone), split into sectors so only what is near is drawn, with what grows there standing behind where Tam
+runs. Each region has its own far country, sky, light and music. Tam and what walks are rigged models of shapes with their own
+clips, on the game's clock. Blocks, notes, bells and platforms come from pools. A note sounds a step higher when it follows
+quickly on the last, so a row of them climbs a scale. With reduced motion the eye keeps exactly to Tam, nothing turns or
+swells, and Tam does not squash.
+
 ## The arenas: Flux Four and Rift Reversi
 
 Two people play one board on ARQADE's server, which keeps every match and decides every move, as it does for the
@@ -294,6 +345,17 @@ asked for is in the server's answer, which the run keeps. An arena's run is not 
   one who goes straight for the wardens falls; a still hero never found, and the veil closing; two heroes in one valley;
   and a run replaying to the outcome of the same events live. Its fixture replays, and not altered; its state is pinned;
   and its source uses none of the forbidden functions, nor a clock.
+- `../tests/bellwick.test.mjs` (Node, in QOR OS's lint workflow), 29 tests, with `../tests/bellwick-pilot.js`, a pilot it shares
+  with `tst_games`: the same run for a seed, and things moved by another; every level whole; nothing moving on the title or
+  paused; walking, running, skids, walls and ice; a held jump, a running jump, a jump late off an edge and one pressed early,
+  corners slipped past and blocks struck squarely; planks from under and above; stomps, bounces and what a run of them is worth;
+  thistles, slams, the bell's reach and its wait; hush blocks waking and sleeping, and never round Tam; each block and what it
+  gives; forms, a blow and a glide; notes climbing, a hundred of them, and nothing put back by a fall; platforms, fallers and
+  springs; flits, boings, gourds, seeds and icicles; waking at a mid-way bell, the clock, and the run's end; doors; the Great
+  Bell; Old Muffle shut, open, rung and ended, and the run won; the pilot finishing the first level however seldom it looks;
+  a still Tam caught by the clock; the solver's run through the whole game; and a run replaying to the outcome of the same
+  events live. Its fixture replays, and not altered; its state is pinned; and its source uses none of the forbidden functions,
+  nor a clock.
 - `../tests/ever-rift.test.mjs` (Node, in QOR OS's lint workflow), 14 tests: the same floors and run for a seed;
   every floor whole, its stairs in the furthest room and the warden on the last; movement, the corner slip, walls, and
   nothing moving on the title or paused; a swing's arc and reach, fury, and a held swing again; a whirl's three blows
@@ -333,6 +395,10 @@ asked for is in the server's answer, which the run keeps. An arena's run is not 
   screen's button; fought to its first beacon by the shared pilot, by the keys, the pad and the screen's buttons; then
   walked among what is left without a blow until a third fall ends the run. Its run replays in QQ to its outcome, and so
   does its fixture.
+- `../qt/tests/tst_games.cpp` plays Bellwick too: moved each way there is, jumped and rung by the keys, the pad and the screen's
+  buttons; run through its first level to the Great Bell by the shared pilot; then run on, jumping only at walls, until its lives
+  are spent. Its run replays in QQ to its outcome, and so does its fixture. Every level loads its ground, far country and sky with
+  nothing to warn of.
 - `../qt/tests/tst_games.cpp` plays both arenas against a stand-in ARQADE that signs in as the website does, keeps
   matches as `arena-store.ts` keeps them and moves for the opponent. Signed out, an arena says why and offers nothing.
   Flux Four opens a match, a challenger joins, and four pulses go down one column by Space, the key 5, the pad's A and

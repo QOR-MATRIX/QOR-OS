@@ -51,6 +51,10 @@ first line:
 - products/arqade/games/darkveil/logic/rules.mjs
 - products/arqade/tests/darkveil.test.mjs
 - products/arqade/tests/darkveil-pilot.js
+- products/arqade/games/bellwick/logic/rules.mjs
+- products/arqade/tests/bellwick.test.mjs
+- products/arqade/tests/bellwick-pilot.js
+- products/arqade/tests/bellwick-solver.mjs
 
 Third-party components
 ----------------------

@@ -368,6 +368,7 @@ Item {
                             { kind: "rift", number: "04", name: "Rift Survivor", tag: qsTr("Survival / evolution"), line: qsTr("One signal. Ninety seconds. Evolve."), here: true },
                             { kind: "everrift", number: "05", name: "Ever Rift", tag: qsTr("Dungeon / action RPG"), line: qsTr("Three floors down. Break the warden."), here: true },
                             { kind: "darkveil", number: "06", name: "Darkveil", tag: qsTr("Open world / action RPG"), line: qsTr("Light the beacons. End the Hollow King."), here: true },
+                            { kind: "bellwick", number: "07", name: "Bellwick", tag: qsTr("Platformer"), line: qsTr("Run, jump, and ring the bells back."), here: true },
                         ]
                         GameCard {
                             id: solo

@@ -5,12 +5,12 @@ over its ARQADE screen, under the launcher's product host, as QOR Media is docke
 [ADR-102](../../../docs/decisions/ADR-102-arqade-in-the-launcher-on-qt.md) decided it, and roadmap item P7.19 in
 [`docs/DIRECTION.md`](../../../docs/DIRECTION.md) tracks it.
 
-Changed for QOR OS: Ever Rift and Darkveil, QOR OS's own games, among those it plays and tests.
+Changed for QOR OS: Ever Rift, Darkveil and Bellwick, QOR OS's own games, among those it plays and tests.
 
 This is the shell: the home, the games, the arenas and their rankings, and the player's Sparks. The four games and the
 two arenas are rebuilt in QQ (P7.20, P7.24), in [`../games/`](../games/README.md), and all six play here: the arenas
-against another person, on ARQADE's server. In QOR OS two more play here too: Ever Rift and Darkveil, QOR OS's own (its
-QOR-0017).
+against another person, on ARQADE's server. In QOR OS three more play here too: Ever Rift, Darkveil and Bellwick, QOR OS's own
+(its QOR-0017).
 
 ## What it does
 
@@ -140,6 +140,9 @@ pwsh products/arqade/qt/build.ps1 -Shots dir   # and save what the interface and
   - Darkveil: moved by D, the left arrow, the pad's left stick and the screen's Up button, the view turned by C, Z and the
     pad's shoulder; the Elder answered by the screen's button; fought to its first beacon by `../tests/darkveil-pilot.js`;
     then walked among what is left without a blow until a third fall ends the run.
+  - Bellwick: moved by D, the left arrow, the pad's left stick and the screen's Right button; jumped by Space, the pad's A and
+    the screen's button; rung by K, the pad's B and the screen's button; run through its first level to the Great Bell by
+    `../tests/bellwick-pilot.js`; then run on, jumping only at walls, until its lives are spent. Every level loads with nothing to warn of.
   - The arenas, against a stand-in ARQADE that signs in as the website does, keeps matches as `arena-store.ts` keeps
     them and moves for the opponent. Signed out, an arena says why and offers nothing. Flux Four opens a match, a
     challenger joins, and four pulses dropped by Space, the key 5, the pad's A and the pointer win it; then a rematch's

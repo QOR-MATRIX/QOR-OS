@@ -38,6 +38,7 @@ rules=(
     products/arqade/games/arenas/logic/arena.mjs
     products/arqade/games/ever-rift/logic/rules.mjs
     products/arqade/games/darkveil/logic/rules.mjs
+    products/arqade/games/bellwick/logic/rules.mjs
 )
 # The Node tests of QOR OS's own games, written here and shared with their
 # rules (QOR-0017). The four games' tests live upstream only.
@@ -45,6 +46,9 @@ tests=(
     products/arqade/tests/ever-rift.test.mjs
     products/arqade/tests/darkveil.test.mjs
     products/arqade/tests/darkveil-pilot.js
+    products/arqade/tests/bellwick.test.mjs
+    products/arqade/tests/bellwick-pilot.js
+    products/arqade/tests/bellwick-solver.mjs
 )
 # Developed here since QOR-0015; status says where each left upstream.
 developed=(

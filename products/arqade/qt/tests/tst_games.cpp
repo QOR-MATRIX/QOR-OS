@@ -11,6 +11,8 @@
 //   beacon by the shared pilot; then walked among what is left, without a blow, until a third fall ends the run.
 //   Ever Rift (QOR OS's own): moved each way there is; fought through the first floor and down its stairs; then walked
 //   among the second floor's enemies without a blow until the delver falls.
+//   Bellwick (QOR OS's own): moved, jumped and rung each way there is; run through its first level to the Great Bell by the
+//   shared pilot; then run on, jumping only at walls, until its lives are spent. Every level loads with nothing to warn of.
 //
 // And the two arenas (P7.24), against another person on ARQADE's server, here a stand-in that signs in as the website
 // does, keeps matches as arena-store.ts keeps them, and plays the opponent when the test says:
@@ -75,6 +77,7 @@ const QUrl kSynapse(QStringLiteral("qrc:/games/synapse/scenes/synapse.qml"));
 const QUrl kRiftSurvivor(QStringLiteral("qrc:/games/rift-survivor/scenes/rift-survivor.qml"));
 const QUrl kEverRift(QStringLiteral("qrc:/games/ever-rift/scenes/ever-rift.qml"));
 const QUrl kDarkveil(QStringLiteral("qrc:/games/darkveil/scenes/darkveil.qml"));
+const QUrl kBellwick(QStringLiteral("qrc:/games/bellwick/scenes/bellwick.qml"));
 const QUrl kFluxFour(QStringLiteral("qrc:/games/arenas/scenes/flux-four.qml"));
 const QUrl kRiftReversi(QStringLiteral("qrc:/games/arenas/scenes/rift-reversi.qml"));
 // Rift Survivor's rules (logic/rules.mjs): a run's length in steps.
@@ -844,6 +847,42 @@ class TestGames : public QObject
             QTest::keyClick(window, Qt::Key(Qt::Key_0 + say));
     }
 
+    // Bellwick: the rules' game as it stands, Tam, and what the shared pilot would do next, run in the game's own engine on it.
+    QJSValue bellwick() const { return logic() ? logic()->property("game").value<QJSValue>() : QJSValue(); }
+    QJSValue tam() const { return bellwick().property("hero"); }
+    QJSValue bellwickPilot;
+    QVariantMap bellwickChoice(bool calm)
+    {
+        if (bellwickPilot.isUndefined()) {
+            QFile source(QStringLiteral(ARQADE_SHARED_PILOTS "/bellwick-pilot.js"));
+            if (!source.open(QIODevice::ReadOnly))
+                return {};
+            bellwickPilot = qmlEngine(logic())->evaluate(QString::fromUtf8(source.readAll()), source.fileName());
+        }
+        const QJSValue rules = logic()->property("rules").value<QJSValue>();
+        return bellwickPilot.call({rules, bellwick(), QJSValue(calm)}).toVariant().toMap();
+    }
+    // Bellwick: the pilot's choice played: the way by A and D, running by L held, a jump by Space held.
+    bool bellwickRunning = false, bellwickJumping = false;
+    void playBellwick(const QVariantMap &choice)
+    {
+        const bool right = choice.value("right").toBool(), left = choice.value("left").toBool();
+        steer({right ? 1 : left ? -1 : 0, 0});
+        const bool run = choice.value("run").toBool(), jump = choice.value("jump").toBool();
+        if (run != bellwickRunning) {
+            run ? QTest::keyPress(window, Qt::Key_L) : QTest::keyRelease(window, Qt::Key_L);
+            bellwickRunning = run;
+        }
+        if (jump != bellwickJumping) {
+            jump ? QTest::keyPress(window, Qt::Key_Space) : QTest::keyRelease(window, Qt::Key_Space);
+            bellwickJumping = jump;
+        }
+    }
+    void letGoOfBellwick()
+    {
+        playBellwick({{"right", false}, {"left", false}, {"run", false}, {"jump", false}});
+    }
+
     // Synapse: node `n` (0 to 3) pressed by the keys 1 to 4 (way 0), the pad's X, Y, B and A (1), or its button (2).
     void node(int n, int way)
     {
@@ -954,7 +993,7 @@ private slots:
     // The six games and the two arenas all play here.
     void every_card_plays_its_game_here()
     {
-        for (const char *name : {"Orbital", "Void Runner", "Synapse", "Rift Survivor", "Ever Rift", "Darkveil", "Flux Four",
+        for (const char *name : {"Orbital", "Void Runner", "Synapse", "Rift Survivor", "Ever Rift", "Darkveil", "Bellwick", "Flux Four",
                                  "Rift Reversi"})
             QVERIFY2(find(window->contentItem(), [&](QQuickItem *i) {
                          return i->property("name").toString() == QLatin1String(name) && i->property("here").toBool();
@@ -1016,7 +1055,7 @@ private slots:
         QTRY_VERIFY(page->property("contentY").toReal() > 0);
         QTRY_VERIFY(inView());
         pad(QStringLiteral("Up"));
-        QTRY_VERIFY(focusedOn("Ever Rift") || focusedOn("Darkveil"));
+        QTRY_VERIFY(focusedOn("Ever Rift") || focusedOn("Darkveil") || focusedOn("Bellwick"));
         pad(QStringLiteral("Up"));
         QTRY_VERIFY(focusedOn("Void Runner") || focusedOn("Synapse"));
         for (int i = 0; i < 3; ++i)
@@ -1875,6 +1914,198 @@ private slots:
         QTRY_VERIFY(!game());
         QVERIFY(home()->isVisible());
         QVERIFY2(warnings.isEmpty(), qPrintable(warnings.join('\n')));
+    }
+
+    void bellwicks_card_opens_it_and_play_starts_the_run()
+    {
+        behaviour = QStringLiteral("Bellwick");
+        open(QStringLiteral("Bellwick"), QStringLiteral("bellwick"), kBellwick, QStringLiteral("BELLWICK"));
+        if (QTest::currentTestFailed())
+            return;
+        QTest::qWait(600);
+        save(window, "bellwick-title.png");
+        QVERIFY(click(QStringLiteral("Play")));
+        QTRY_COMPARE(bellwick().property("phase").toString(), QStringLiteral("playing"));
+        QTRY_COMPARE(screenText(QStringLiteral("Lives")), QStringLiteral("LIVES 3"));
+        QCOMPARE(screenText(QStringLiteral("Silver")), QStringLiteral("SILVER 0 OF 3"));
+        QCOMPARE(screenText(QStringLiteral("Level name")), QStringLiteral("1 OF 8  ·  WINDMILL GREEN"));
+        QTest::qWait(600);
+        save(window, "bellwick-green.png");
+        QVERIFY2(warnings.isEmpty(), qPrintable(warnings.join('\n')));
+    }
+
+    // Held for a moment each way there is, Tam moves that way: D on the keys, the left arrow, the pad's left stick, and the
+    // screen's Right button under the pointer. Then Space, the pad's A and the screen's Jump button each jump, and K, the pad's
+    // B and the screen's Ring button each ring.
+    void tam_moves_jumps_and_rings_by_keys_the_pad_and_the_screens_buttons()
+    {
+        struct Way { const char *name; double dx; std::function<void(bool)> hold; };
+        const auto mouseOn = [this](const QString &name, bool down) {
+            QQuickItem *drawn = find(game(), [&](QQuickItem *i) { return i->objectName() == name; });
+            const QPoint at = drawn->mapToScene(QPointF(drawn->width() / 2, drawn->height() / 2)).toPoint();
+            down ? QTest::mousePress(window, Qt::LeftButton, Qt::NoModifier, at)
+                 : QTest::mouseRelease(window, Qt::LeftButton, Qt::NoModifier, at);
+        };
+        const QList<Way> ways = {
+            {"D", 1, [this](bool down) { down ? QTest::keyPress(window, Qt::Key_D) : QTest::keyRelease(window, Qt::Key_D); }},
+            {"the left arrow", -1, [this](bool down) { down ? QTest::keyPress(window, Qt::Key_Left) : QTest::keyRelease(window, Qt::Key_Left); }},
+            {"the left stick right", 1, [this](bool down) { input->gamepadState(QVector2D(down ? 1.0f : 0.0f, 0), {}, false, false); }},
+            {"the Right button", 1, [&](bool down) { mouseOn(QStringLiteral("Right"), down); }},
+        };
+        for (const Way &way : ways) {
+            const double x = tam().property("x").toNumber();
+            way.hold(true);
+            QTest::qWait(250);
+            way.hold(false);
+            QTest::qWait(200);
+            const double moved = tam().property("x").toNumber() - x;
+            QVERIFY2(moved * way.dx > 4, qPrintable(QStringLiteral("%1 moved Tam %2").arg(QLatin1String(way.name)).arg(moved)));
+        }
+        const auto jumped = [this](const std::function<void()> &press) {
+            QTRY_VERIFY(tam().property("ground").toBool());
+            const double y = tam().property("y").toNumber();
+            press();
+            QTRY_VERIFY(tam().property("y").toNumber() < y - 8);
+        };
+        jumped([this] { QTest::keyClick(window, Qt::Key_Space); });
+        jumped([this] { pad(QStringLiteral("A")); });
+        jumped([this] { click(QStringLiteral("Jump")); });
+        QTRY_VERIFY(tam().property("ground").toBool());
+        const auto rang = [this](const std::function<void()> &press) {
+            QTRY_COMPARE(tam().property("ringCool").toInt(), 0);
+            press();
+            QTRY_VERIFY(tam().property("ringCool").toInt() > 0);
+        };
+        rang([this] { QTest::keyClick(window, Qt::Key_K); });
+        save(window, "bellwick-ring.png");
+        rang([this] { pad(QStringLiteral("B")); });
+        rang([this] { click(QStringLiteral("Ring")); });
+        QVERIFY(!placedVoices(QStringLiteral("ring.wav")).isEmpty());
+        QVERIFY2(warnings.isEmpty(), qPrintable(warnings.join('\n')));
+    }
+
+    // Played as a person plays it (tests/bellwick-pilot.js): the first level run from end to end, over its gaps and up to the
+    // Great Bell, which rings it out; notes taken on the way are heard from where they hung.
+    void a_run_through_the_first_level_rings_the_great_bell()
+    {
+        QVERIFY(logic());
+        QElapsedTimer waited;
+        waited.start();
+        bool airShot = false, belled = false, noteHeard = false;
+        while (bellwick().property("level").toInt() == 0 && bellwick().property("phase").toString() == QLatin1String("playing")) {
+            QVERIFY2(waited.elapsed() < playingLimit(), "the time ran out and Tam was still running");
+            playBellwick(bellwickChoice(false));
+            noteHeard = noteHeard || !placedVoices(QStringLiteral("note0.wav")).isEmpty();
+            if (!airShot && !tam().property("ground").toBool() && tam().property("x").toNumber() > 800) {
+                save(window, "bellwick-jump.png");
+                airShot = true;
+            }
+            if (!belled && bellwick().property("clearing").toInt() > 0) {
+                letGoOfBellwick();
+                QTest::qWait(500);
+                save(window, "bellwick-great-bell.png");
+                belled = true;
+            }
+            QTest::qWait(4);
+        }
+        letGoOfBellwick();
+        QVERIFY(belled);
+        QCOMPARE(bellwick().property("phase").toString(), QStringLiteral("playing"));
+        QCOMPARE(bellwick().property("level").toInt(), 1);
+        QCOMPARE(bellwick().property("levels").toInt(), 1);
+        QVERIFY(bellwick().property("notes").toInt() >= 3);
+        QVERIFY2(noteHeard, "no note was heard from a place in the level");
+        QTRY_COMPARE(screenText(QStringLiteral("Level name")), QStringLiteral("2 OF 8  ·  OVER THE HEDGES"));
+        QTest::qWait(600);
+        save(window, "bellwick-hedges.png");
+        QVERIFY2(warnings.isEmpty(), qPrintable(warnings.join('\n')));
+    }
+
+    // Then run on, jumping only when a wall has stopped it, into whatever is there, until the lives are spent.
+    void running_into_everything_the_lives_run_out()
+    {
+        QVERIFY(logic());
+        QElapsedTimer waited;
+        waited.start();
+        bool hurtShot = false;
+        while (bellwick().property("phase").toString() != QLatin1String("over")) {
+            QVERIFY2(waited.elapsed() < playingLimit(), "the time ran out and Tam still ran");
+            playBellwick(bellwickChoice(true));
+            if (!hurtShot && tam().property("dying").toInt() > 0) {
+                save(window, "bellwick-fall.png");
+                hurtShot = true;
+            }
+            QTest::qWait(4);
+        }
+        letGoOfBellwick();
+        QVERIFY(hurtShot);
+        QCOMPARE(bellwick().property("lives").toInt(), 0);
+        QTRY_COMPARE(screenText(QStringLiteral("Result")), QStringLiteral("THE HUSH HOLDS"));
+        QVERIFY(screenText(QStringLiteral("Final")).startsWith(QStringLiteral("SCORE ")));
+        QVERIFY(screenText(QStringLiteral("Details")).startsWith(QStringLiteral("1 of 8 levels")));
+        QTest::qWait(400);
+        save(window, "bellwick-over.png");
+        QVERIFY2(warnings.isEmpty(), qPrintable(warnings.join('\n')));
+    }
+
+    void bellwicks_kept_run_replays_to_its_outcome()
+    {
+        QVariantMap outcome;
+        keptRunReplays(kBellwick, QStringLiteral("bellwick"), &outcome);
+        if (QTest::currentTestFailed())
+            return;
+        QCOMPARE(outcome.value("levels").toInt(), 1);
+        QCOMPARE(outcome.value("lives").toInt(), 0);
+        QCOMPARE(outcome.value("won").toBool(), false);
+        QCOMPARE(outcome.value("over").toBool(), true);
+        QVERIFY(outcome.value("notes").toInt() >= 3);
+        QCOMPARE(QStringLiteral("SCORE ") + QLocale(QLocale::English, QLocale::UnitedKingdom).toString(outcome.value("score").toInt()),
+                 screenText(QStringLiteral("Final")));
+    }
+
+    void bellwicks_kept_run_replays_in_qq_as_its_rules_replay_it()
+    {
+        fixtureReplays(QStringLiteral("bellwick"), kBellwick);
+    }
+
+    void esc_leaves_bellwick_too()
+    {
+        QTest::keyClick(window, Qt::Key_Escape);
+        QTRY_COMPARE(window->property("playing").toString(), QString());
+        QTRY_VERIFY(!game());
+        QVERIFY(home()->isVisible());
+        QVERIFY2(warnings.isEmpty(), qPrintable(warnings.join('\n')));
+    }
+
+    // Every level loads its ground, its far country and its sky with nothing to warn of: a game played through would reach
+    // each in its turn, and no other case gets past the second. The rules are told to go there, so nothing here is kept.
+    void every_level_of_bellwick_shows_its_ground_far_country_and_sky()
+    {
+        behaviour = QStringLiteral("Bellwick");
+        open(QStringLiteral("Bellwick"), QStringLiteral("bellwick"), kBellwick, QStringLiteral("BELLWICK"));
+        if (QTest::currentTestFailed())
+            return;
+        QVERIFY(click(QStringLiteral("Play")));
+        QTRY_COMPARE(bellwick().property("phase").toString(), QStringLiteral("playing"));
+        QJSValue rules = logic()->property("rules").value<QJSValue>();
+        const int levels = rules.property("MAPS").property("length").toInt();
+        QCOMPARE(levels, 8);
+        for (int n = 0; n < levels; ++n) {
+            rules.property("enter").call({bellwick(), QJSValue(n)});
+            QTRY_VERIFY(screenText(QStringLiteral("Level name")).startsWith(QString::number(n + 1) + QStringLiteral(" OF 8")));
+            QObject *ground = nullptr;
+            for (const QVariant &e : asList(game()->property("entityList")))
+                if (QObject *entity = e.value<QObject *>(); entity && entity->property("name").toString() == QLatin1String("Ground"))
+                    ground = entity;
+            QVERIFY(ground);
+            QTRY_COMPARE(ground->property("status").toInt(), 1);
+            QTest::qWait(500);
+            save(window, QStringLiteral("bellwick-level-%1.png").arg(n + 1));
+        }
+        QVERIFY2(warnings.isEmpty(), qPrintable(warnings.join('\n')));
+        QTest::keyClick(window, Qt::Key_Escape);
+        QTRY_VERIFY(!game());
+        QVERIFY(home()->isVisible());
     }
 
     // Signed out, an arena says so, and offers nothing to do: no match to open or join.

@@ -111,7 +111,7 @@ QQ's, ARQADE's and QOR Media's suites.
   - **The Library** (`library.h`) finds, until the core's index (Phase 2):
     - the QQ games QOR OS carries (`QOR_GAMES`, else `share/qor-os/games`);
     - the person's own QQ projects in Documents;
-    - ARQADE's games (eight since Darkveil);
+    - ARQADE's games (nine since Bellwick);
     - video, music and pictures.
   - It remembers what was played, and where QOR Media last stopped, which Prism now takes from QOR Media's reports.
     A game plays in the QQ Player or in ARQADE (`play`), and a film resumes there.
@@ -144,7 +144,15 @@ published before.
   models with clips, in QQ's props. ARQADE's sixth card and Prism's Library carry it. Its Node test (19 tests) runs in the
   lint workflow, and steps two players in one valley; `tst_games` plays it to its first beacon and to a third fall, and its
   recorded run replays to the same outcome in QQ and in Node.
-- [ ] A platformer, a racer, a pixel-art game and an arcade game
+- [x] Bellwick (a working title), the platformer
+
+  **31 October** ([games/README.md](../products/arqade/games/README.md#bellwick)): eight hand-laid levels in four regions, run,
+  jump, stomp, slam and a hand bell that stuns and wakes hush blocks; blocks, two powers, six kinds of enemy, platforms, secret
+  rooms, and Old Muffle twice. ARQADE's seventh card and Prism's Library carry it. Its Node test (29 tests) runs in the lint
+  workflow and plays a run that a solver found through the whole game by the rules themselves, so every level is shown to be
+  finishable; `tst_games` plays it through its first level and to its last life, and its recorded run replays to the same
+  outcome in QQ and in Node.
+- [ ] A racer, a pixel-art game and an arcade game
 - [ ] The online world grown from the RPG, its server in demiurge-chain, after Phase 2's sign-in (its own record)
 - [ ] Each named game's rules, Node test and fixture in demiurge-chain, by a pull request there
 

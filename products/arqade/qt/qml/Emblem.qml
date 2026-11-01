@@ -7,12 +7,13 @@ import ARQADE
 // A game's emblem: a small 3D scene of what the game is about, in the portal's gilt and ember. It turns slowly, faster
 // when its card is hovered, and holds still with reduced motion.
 //
-// Changed for QOR OS: Ever Rift's, a blade pointing down through the three floors, and Darkveil's, a beacon lit in its
+// Changed for QOR OS: Bellwick's, a bell swinging over an island; Ever Rift's, a blade pointing down through the three
+// floors; and Darkveil's, a beacon lit in its
 // valley (QOR OS's QOR-0017).
 View3D {
     id: emblem
 
-    // "rift", "void", "synapse", "orbital", "everrift", "darkveil", "flux" or "reversi".
+    // "rift", "void", "synapse", "orbital", "everrift", "darkveil", "bellwick", "flux" or "reversi".
     required property string kind
     property bool lively: false
     readonly property bool moving: !Theme.reducedMotion && emblem.visible
@@ -59,7 +60,7 @@ View3D {
     }
 
     Loader3D {
-        sourceComponent: ({ "rift": rift, "void": runner, "synapse": synapse, "orbital": orbital, "everrift": everRift, "darkveil": darkveil, "flux": flux, "reversi": reversi })[emblem.kind] ?? null
+        sourceComponent: ({ "rift": rift, "void": runner, "synapse": synapse, "orbital": orbital, "everrift": everRift, "darkveil": darkveil, "bellwick": bellwick, "flux": flux, "reversi": reversi })[emblem.kind] ?? null
     }
 
     component Gilt: PrincipledMaterial {
@@ -120,6 +121,47 @@ View3D {
             }
             Gilt { id: gilded }
             Ember { id: embered; strength: 1.2; tint: Theme.accent }
+        }
+    }
+
+    // Bellwick: a gilt bell swinging over an island, an ember for its clapper, and a little one rising to it.
+    Component {
+        id: bellwick
+        Node {
+            eulerRotation: Qt.vector3d(16, emblem.t * 18, 0)
+            Node {
+                position.y: 62
+                eulerRotation.z: 16 * Math.sin(emblem.t * 2.2)
+                Model {
+                    source: "#Cone"
+                    position.y: -62
+                    scale: Qt.vector3d(0.92, 0.72, 0.92)
+                    materials: Gilt { baseColor: Theme.giltBright; roughness: 0.3 }
+                }
+                Model {
+                    source: "#Sphere"
+                    position.y: 10
+                    scale: Qt.vector3d(0.4, 0.34, 0.4)
+                    materials: Gilt { }
+                }
+                Model {
+                    source: "#Sphere"
+                    position.y: -76
+                    scale: Qt.vector3d(0.14, 0.14, 0.14)
+                    materials: Ember { strength: 1.8 }
+                }
+            }
+            Model {
+                geometry: TorusGeometry { radius: 62; tubeRadius: 2.4; rings: 96; segments: 16 }
+                position.y: -66
+                materials: Gilt { baseColor: Theme.gilt }
+            }
+            Model {
+                source: "#Sphere"
+                position: Qt.vector3d(58, -48 + 16 * Math.abs(Math.sin(emblem.t * 2.2)), 0)
+                scale: Qt.vector3d(0.14, 0.14, 0.14)
+                materials: Ember { strength: 1.2 }
+            }
         }
     }
 
