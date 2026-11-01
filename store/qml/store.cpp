@@ -136,7 +136,8 @@ QVariantList Store::items() const
 {
     if (!m_itemsValid) {
         m_items.clear();
-        for (const CatalogItem &item : engine()->catalog().items)
+        // Themes and widgets. A format 2 listing belongs to a view, which this page does not have.
+        for (const CatalogItem &item : engine()->catalog().formatOneItems())
             m_items.append(describe(item.id));
         m_itemsValid = true;
     }

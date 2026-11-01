@@ -4,7 +4,7 @@
 # Vendored third-party assets, generated files, and the products from
 # demiurge-chain, which keep their own form (QOR-0015, docs/UPSTREAM.md), are
 # never rewritten by hooks.
-exclude: '^(kit/fonts/|kit/icons/|prism/compositor/protocols/|kit/Tokens\.qml$|platform/common/lumentokens\.h$|docs/design/tokens\.(md|json)$|store/catalog/|tests/store/fixtures/|products/|tools/qor-media/)'
+exclude: '^(kit/fonts/|kit/icons/|prism/compositor/protocols/|kit/Tokens\.qml$|platform/common/lumentokens\.h$|docs/design/tokens\.(md|json)$|store/catalog/|tests/store/fixtures/|tests/store/fixtures-demo/|products/|tools/qor-media/)'
 
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks

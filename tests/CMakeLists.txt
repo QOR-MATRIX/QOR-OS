@@ -28,6 +28,23 @@ target_compile_definitions(tst_store PRIVATE
     QOR_STORE_CATALOG="${CMAKE_SOURCE_DIR}/store/catalog"
     QOR_STORE_PUB="${CMAKE_SOURCE_DIR}/store/keys/store.pub"
     QOR_STORE_FIXTURES="${CMAKE_CURRENT_SOURCE_DIR}/store/fixtures")
+# Format 2 and every hostile package: it signs what it needs as it runs, with keys it makes and drops (testsigner.h).
+if(WIN32)
+    set(QOR_STORE_TEST_SIGNER store/testsigner_windows.cpp)
+    set(QOR_STORE_TEST_CRYPTO bcrypt)
+else()
+    set(QOR_STORE_TEST_SIGNER store/testsigner_openssl.cpp)
+    set(QOR_STORE_TEST_CRYPTO OpenSSL::Crypto)
+endif()
+qor_add_test(tst_store_format2
+    SOURCES store/tst_store_format2.cpp store/testsigner.h ${QOR_STORE_TEST_SIGNER}
+    LIBRARIES qor_store qor_storeplugin Qt6::GuiPrivate ${QOR_STORE_TEST_CRYPTO})
+target_compile_definitions(tst_store_format2 PRIVATE
+    QOR_SOURCE_DIR="${CMAKE_SOURCE_DIR}"
+    QOR_STORE_CATALOG="${CMAKE_SOURCE_DIR}/store/catalog"
+    QOR_STORE_PUB="${CMAKE_SOURCE_DIR}/store/keys/store.pub"
+    QOR_STORE_FIXTURES="${CMAKE_CURRENT_SOURCE_DIR}/store/fixtures"
+    QOR_STORE_DEMO="${CMAKE_CURRENT_SOURCE_DIR}/store/fixtures-demo")
 # Prism's side of the QOR host protocol (prism/shell/producthost.h), against
 # a product with no window that tst_producthost_product stands in for.
 qt_add_executable(tst_producthost_product prism/producthost_product.cpp)
