@@ -66,14 +66,16 @@ QQ's, ARQADE's and QOR Media's suites.
   so since 29 October the script fences them from it and they draw in software. Fenced, in software, at `6dd9e43` on
   1 November, every suite runs to its end:
   - QOR Media passes all 9 suites; docking is skipped on Wayland, and the video case skips, needing a Windows sample file;
-  - ARQADE passes all 4, with no case skipped. The stall at Orbital's ten locks was Qt's threaded render loop starving
-    the event loop on Wayland at these frame rates, not a stuck frame; in software ARQADE draws on the basic loop.
-    `tst_games` takes 49 minutes;
+  - ARQADE passed all 4 at `6dd9e43`, with no case skipped. At `fcea2e0` `games` passed 65 of 67: Ever Rift's calm pilot
+    stood still in one run, a rare deadlock of the pilot's (about 1 seed in 300 by the rules alone, at any frame rate), and
+    those cases passed run alone. The stall at Orbital's ten locks was Qt's threaded render loop starving the event loop on
+    Wayland at these frame rates; in software ARQADE draws on the basic loop. `tst_games` takes about 50 minutes;
   - QQ passes 7 of 8. The one failure is the QQ Player's floor of 20 frames a second, reading 5 to 6 in software. Whether
     Linux CI stays red on it or lets it stand is the owner's decision (`--accept-software-floor`). The live-provider case
     skips, needing `QQ_LIVE_ENDPOINT=1`.
 
-  A pass in software says nothing of a real GPU, real sound or real controllers. Linux CI can run them
+  In software some checks are eased, and the owner has not been asked to accept that: [CI.md](CI.md#what-linux-runs) lists what
+  software alone no longer shows. A pass in software says nothing of a real GPU, real sound or real controllers. Linux CI can run them
   ([CI.md](CI.md#what-linux-runs)), but `QOR_RUN_LINUX_PRODUCTS` is not set, so it does not yet.
 - [x] Each runs as a Wayland client of Prism, and Prism places it (the launcher's `place` request becomes a Prism layout request)
 
