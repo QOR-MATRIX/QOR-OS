@@ -13,6 +13,9 @@
 // A filter narrows the list by name. The list is read again whenever the project changes (saving, a prefab kept).
 //
 // Under the list, what the game keeps from one play to the next (P3.16), and Forget, to play it as someone new would.
+//
+// Changed for QOR OS: reset(), so a filter typed in one project is not left on the next's files; and a file's name is
+// text, never markup (AGENTS.md).
 
 import QtQuick
 import QtQuick.Controls
@@ -32,6 +35,11 @@ ColumnLayout {
 
     function sizeText(bytes) {
         return bytes < 1024 ? qsTr("%1 bytes").arg(bytes) : qsTr("%1 KB").arg((bytes / 1024).toFixed(1))
+    }
+
+    /// The project is being left: nothing typed for it stays.
+    function reset() {
+        filter.text = ""
     }
 
     spacing: 4
@@ -121,6 +129,7 @@ ColumnLayout {
                 }
                 Label {
                     text: row.modelData.name
+                    textFormat: Text.PlainText
                     font.pixelSize: 12
                     elide: Text.ElideMiddle
                     Layout.fillWidth: true
@@ -140,6 +149,7 @@ ColumnLayout {
             font.pixelSize: 11
             opacity: 0.7
             elide: Text.ElideRight
+            textFormat: Text.PlainText
             text: !panel.store ? ""
                   : panel.store.keys.length === 0 ? qsTr("Nothing kept between plays")
                   : qsTr("Kept between plays: %1 (%2)").arg(panel.store.keys.join(", ")).arg(panel.sizeText(panel.store.size))

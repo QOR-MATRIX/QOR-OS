@@ -1,6 +1,7 @@
 # QQ's tests: Qt Test, rendering for real on the machine's GPU and judging what was drawn by its pixels.
 #
 # Changed for QOR OS: every suite is built with virtualpads.cpp, so no controller on the machine joins in.
+# Changed for QOR OS: tst_workspace.
 
 qt_add_executable(tst_world tst_world.cpp)
 
@@ -104,6 +105,18 @@ target_link_libraries(tst_publish PRIVATE
 )
 
 add_test(NAME tst_publish COMMAND tst_publish)
+
+qt_add_executable(tst_workspace tst_workspace.cpp)
+
+# Each project's workspace in the real Studio, from the hostile side too; the agent's run, against a stand-in provider.
+target_compile_definitions(tst_workspace PRIVATE QQ_FIXTURES="${CMAKE_CURRENT_SOURCE_DIR}/fixtures")
+
+target_link_libraries(tst_workspace PRIVATE
+    Qt6::Test Qt6::Gui Qt6::Qml Qt6::Quick Qt6::Quick3D Qt6::QuickControls2 Qt6::Network
+    qqagent qqstudio qqstudioplugin qqruntime qqruntimeplugin
+)
+
+add_test(NAME tst_workspace COMMAND tst_workspace)
 
 # Every suite in this folder, so a new one cannot forget.
 get_directory_property(qq_suites BUILDSYSTEM_TARGETS)

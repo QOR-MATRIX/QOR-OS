@@ -74,6 +74,9 @@ public:
     Q_INVOKABLE void forgetKey();
     /// Put the scene back as it was when the last run started. Logic files it wrote stay in the project's logic folder.
     Q_INVOKABLE bool undo();
+    /// The project this worked in is being left: stop, and keep nothing of it, so what was seen in one project is not
+    /// shown in the next and its scene can never be put back there. Changed for QOR OS.
+    Q_INVOKABLE void forget();
 
     /// The model, and how it works: what ADR-085 records.
     static QString model() { return QStringLiteral("claude-opus-5-5"); }
