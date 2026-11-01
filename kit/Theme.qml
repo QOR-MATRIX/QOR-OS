@@ -112,7 +112,10 @@ QtObject {
     readonly property color accent: resolve(Tokens.color.accent)
     readonly property color accentHover: resolve(Tokens.color.accentHover)
     readonly property color accentText: resolve(Tokens.color.accentText)
-    readonly property color onAccent: resolve(Tokens.color.onAccent)
+    // QML reads a binding named onAccent as a handler, since `accent` is a property too, and the colour is left invalid.
+    // An alias is no binding.
+    readonly property color _onAccent: resolve(Tokens.color.onAccent)
+    readonly property alias onAccent: theme._onAccent
     readonly property color focusRing: resolve(Tokens.color.focusRing)
     readonly property color shadow: neutral(Tokens.color.shadow)
     readonly property color scrim: neutral(Tokens.color.scrim)

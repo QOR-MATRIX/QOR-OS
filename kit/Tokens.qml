@@ -8,6 +8,7 @@ import QtQml
 QtObject {
     // ── Typed token groups ─────────────────────────────────────────
     component ColorRoles: QtObject {
+        id: roles
         readonly property var background: ({ "light": [0.962, 0.006, 262, 1], "dark": [0.165, 0.014, 262, 1], "followAccent": false })
         readonly property var surface: ({ "light": [0.992, 0.003, 262, 1], "dark": [0.215, 0.014, 262, 1], "followAccent": false })
         readonly property var surfaceRaised: ({ "light": [1, 0, 262, 1], "dark": [0.262, 0.015, 262, 1], "followAccent": false })
@@ -28,7 +29,8 @@ QtObject {
         readonly property var accent: ({ "light": [0.565, 0.2, 0, 1], "dark": [0.575, 0.19, 0, 1], "followAccent": true, "maxLuminance": 0.175, "highContrast": { "light": [0.5, 0.2, 0, 1], "dark": [0.54, 0.18, 0, 1] } })
         readonly property var accentHover: ({ "light": [0.52, 0.2, 0, 1], "dark": [0.535, 0.19, 0, 1], "followAccent": true, "maxLuminance": 0.175, "highContrast": { "light": [0.45, 0.2, 0, 1], "dark": [0.5, 0.18, 0, 1] } })
         readonly property var accentText: ({ "light": [0.5, 0.18, 0, 1], "dark": [0.8, 0.12, 0, 1], "followAccent": true, "highContrast": { "light": [0.42, 0.18, 0, 1], "dark": [0.87, 0.11, 0, 1] } })
-        readonly property var onAccent: ({ "light": [0.99, 0.01, 0, 1], "dark": [0.995, 0.008, 0, 1], "followAccent": true, "highContrast": { "light": [1, 0, 0, 1], "dark": [1, 0, 0, 1] } })
+        readonly property var _onAccent: ({ "light": [0.99, 0.01, 0, 1], "dark": [0.995, 0.008, 0, 1], "followAccent": true, "highContrast": { "light": [1, 0, 0, 1], "dark": [1, 0, 0, 1] } })
+        readonly property alias onAccent: roles._onAccent
         readonly property var focusRing: ({ "light": [0.6, 0.2, 0, 0.55], "dark": [0.72, 0.17, 0, 0.6], "followAccent": true, "highContrast": { "light": [0.48, 0.2, 0, 1], "dark": [0.8, 0.15, 0, 1] } })
         readonly property var shadow: ({ "light": [0.16, 0.03, 262, 0.22], "dark": [0, 0, 0, 0.55], "followAccent": false })
         readonly property var scrim: ({ "light": [0.2, 0.02, 262, 0.16], "dark": [0, 0, 0, 0.4], "followAccent": false, "highContrast": { "light": [0.2, 0.02, 262, 0.3], "dark": [0, 0, 0, 0.6] } })

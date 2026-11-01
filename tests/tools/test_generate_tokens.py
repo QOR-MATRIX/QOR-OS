@@ -14,6 +14,16 @@ assert SPEC.loader is not None
 SPEC.loader.exec_module(gen)
 
 
+class Qml(unittest.TestCase):
+    def test_a_role_named_like_a_handler_keeps_its_value(self) -> None:
+        # QML reads a binding named onAccent as a handler, since `accent` is a property too, and the role has no value.
+        tokens = json.loads((REPO / "kit" / "tokens" / "lumen.tokens.json").read_text(encoding="utf-8"))
+        qml = gen.emit_qml(tokens)
+        self.assertNotRegex(qml, r"property var on[A-Z]")
+        self.assertIn("readonly property var _onAccent: ({", qml)
+        self.assertIn("readonly property alias onAccent: roles._onAccent", qml)
+
+
 class ColorMath(unittest.TestCase):
     def test_white_and_black(self) -> None:
         self.assertEqual(gen.to_hex(1.0, 0.0, 0.0, 1.0), "#ffffff")
@@ -56,7 +66,7 @@ class Generation(unittest.TestCase):
         qml = gen.emit_qml(self.tokens)
         self.assertIn("pragma Singleton", qml)
         for name in self.tokens["color"]["roles"]:
-            self.assertIn(f"readonly property var {name}:", qml)
+            self.assertRegex(qml, rf"readonly property (var|alias) {name}:")
 
     def test_high_contrast_values_are_complete(self) -> None:
         for name, role in self.tokens["color"]["roles"].items():

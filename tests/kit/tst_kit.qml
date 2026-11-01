@@ -15,6 +15,11 @@ TestCase {
         Spring { }
     }
 
+    // A binding that throws leaves its property without a value and the test passing. Here it fails the test.
+    function init() {
+        failOnWarning(/.*/);
+    }
+
     function test_tokensGenerated() {
         compare(Tokens.name, "Lumen");
         verify(Tokens.accentPresets.length >= 6);
@@ -26,8 +31,32 @@ TestCase {
     function test_themeResolvesEveryRole() {
         const roles = ["background", "surface", "surfaceRaised", "glassTint", "textPrimary", "textSecondary",
                        "accent", "onAccent", "separator", "shadow", "positive", "critical"];
-        for (const role of roles)
+        for (const role of roles) {
+            // An invalid colour still has an alpha of 1.
+            verify(Theme[role].valid, role);
             verify(Theme[role].a > 0 || role === "separator", role);
+        }
+    }
+
+    // QML reads a binding named onAccent as a handler, since `accent` is a property too, and keeps no colour. It then draws
+    // as black on every accent fill, and takes Theme.productColors with it.
+    function test_theInkOnAnAccentFillIsTheLightOneItShouldBe() {
+        verify(Tokens.color.onAccent !== undefined);
+        verify(Tokens.color.onAccent.followAccent);
+        verify(Theme.onAccent.hslLightness > 0.9);
+        compare(Theme.onAccent.toString(), Theme.resolve(Tokens.color.onAccent).toString());
+    }
+
+    function test_productColorsNameEveryColourTheProductsDo() {
+        const colours = Theme.productColors;
+        verify(colours);
+        const names = Object.keys(Tokens.products);
+        verify(names.length > 0);
+        compare(Object.keys(colours).length, names.length);
+        for (const name of names)
+            verify(/^#([0-9a-f]{6}|[0-9a-f]{8})$/.test(colours[name]), name + " is " + colours[name]);
+        verify(Qt.color(colours["on-accent"]).hslLightness > 0.9);
+        verify(colours["on-accent"] !== colours["void"]);
     }
 
     function test_darkTextIsLightOnDark() {

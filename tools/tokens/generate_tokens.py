@@ -22,6 +22,7 @@ from __future__ import annotations
 import argparse
 import json
 import math
+import re
 import sys
 from pathlib import Path
 
@@ -143,6 +144,7 @@ def emit_qml(tokens: dict) -> str:
 
     line("// ── Typed token groups ─────────────────────────────────────────")
     line("component ColorRoles: QtObject {")
+    line("id: roles", 2)
     for name, role in roles.items():
         follow = "true" if role.get("followAccent") else "false"
         extra = ""
@@ -151,11 +153,16 @@ def emit_qml(tokens: dict) -> str:
         if "highContrast" in role:
             hc = role["highContrast"]
             extra += f", \"highContrast\": {{ \"light\": {qml_list(hc['light'])}, \"dark\": {qml_list(hc['dark'])} }}"
+        # QML reads a binding named on<Capital> as a signal handler when the rest names a property too (onAccent, accent),
+        # and the role is left with no value. An alias is no binding.
+        handler_like = re.fullmatch(r"on[A-Z].*", name) is not None
         line(
-            f"readonly property var {name}: ({{ \"light\": {qml_list(role['light'])}, "
+            f"readonly property var {'_' + name if handler_like else name}: ({{ \"light\": {qml_list(role['light'])}, "
             f"\"dark\": {qml_list(role['dark'])}, \"followAccent\": {follow}{extra} }})",
             2,
         )
+        if handler_like:
+            line(f"readonly property alias {name}: roles._{name}", 2)
     line("}")
     line()
 

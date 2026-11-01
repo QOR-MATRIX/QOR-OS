@@ -1105,6 +1105,7 @@ private:
             // may stop asking it to do.
             { u"frames"_s, qint64(m_frames.load()) },
             { u"products"_s, productsState() },
+            { u"productTheme"_s, productTheme() },
             { u"library"_s, libraryState() },
         };
     }
@@ -1142,6 +1143,13 @@ private:
                                           { u"running"_s, product.value(u"running"_s).toBool() } });
         }
         return products;
+    }
+
+    // The colours Prism hands the products (QOR-0016), by the name they know them by.
+    QJsonObject productTheme() const
+    {
+        auto *host = m_engine ? m_engine->singletonInstance<ProductHost *>("QOR.Shell", "ProductHost") : nullptr;
+        return host ? QJsonObject::fromVariantMap(host->theme()) : QJsonObject {};
     }
 
     QQuickWindow *m_window;
