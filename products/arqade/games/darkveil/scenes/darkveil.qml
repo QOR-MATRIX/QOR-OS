@@ -31,7 +31,7 @@ Scene {
     Group {
         name: "Stage"
         position: Qt.vector3d(0, 0.4, 0)
-        eulerRotation: Qt.vector3d(0, 0, 0)
+        eulerRotation: Qt.vector3d(0, 25, 0)
         scale: Qt.vector3d(1, 1, 1)
 
         Group {
