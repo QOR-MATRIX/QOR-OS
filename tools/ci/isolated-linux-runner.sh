@@ -495,7 +495,11 @@ runner_install() {
         tar -xzf "$work/$file" -C /opt/actions-runner --no-same-owner
         rm -rf "$work"
     fi
-    /usr/local/sbin/qor-ci-job /opt/actions-runner/bin/Runner.Listener --version
+    # From a copy in the home, as runner_once runs it: it writes its diagnostics beside itself, and /opt is read-only to a job.
+    cp -a /opt/actions-runner /home/runner/.actions-runner-check
+    chown -R runner:runner /home/runner/.actions-runner-check
+    /usr/local/sbin/qor-ci-job /home/runner/.actions-runner-check/bin/Runner.Listener --version
+    rm -rf /home/runner/.actions-runner-check
 }
 
 # One job, from an empty home: the token from stdin, never an argument here, never printed. --ephemeral makes GitHub
