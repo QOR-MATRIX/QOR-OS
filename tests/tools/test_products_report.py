@@ -120,7 +120,8 @@ class TheFloor(unittest.TestCase):
             self.assertFalse(self.stands(suite(3, "tst_player", floor_failed(reads), totals=(9, 1, 0)), **FAILED_ONE), reads)
 
     def test_it_does_not_when_the_player_crashed_after_its_totals(self):
-        for ending in (("SEGFAULT", "0"), ("Subprocess aborted", "0"), ("Subprocess killed", "0"), ("Timeout", "0")):
+        for ending in (("SEGFAULT", "0"), ("Subprocess aborted", "0"), ("Subprocess killed", "0"), ("Timeout", "0"),
+                       ("SEGFAULT", "1")):
             self.assertFalse(self.stands(FLOOR, tst_player=ending), ending)
 
     def test_it_does_not_when_its_exit_status_is_not_its_one_failure(self):
