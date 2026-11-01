@@ -49,6 +49,7 @@
     .\tools\ci\isolated-linux-runner.ps1 -Action Register -Repo qor-os
     .\tools\ci\isolated-linux-runner.ps1 -Action Remove
 #>
+#Requires -Version 7.0
 [CmdletBinding()]
 param(
     [ValidateSet('Create', 'Check', 'Prove', 'Remove', 'Register')]
