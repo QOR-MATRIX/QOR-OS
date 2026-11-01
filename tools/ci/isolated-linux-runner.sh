@@ -130,13 +130,16 @@ install_packages() {
     apt-get purge -y -qq sudo cron anacron at snapd cloud-init polkitd pkexec openssh-server openssh-client \
         landscape-client ubuntu-pro-client wsl-pro-service unattended-upgrades apport ubuntu-wsl > /dev/null
     apt-get autoremove -y -qq --purge > /dev/null
-    # docs/BUILDING.md's list for WSL2 and build.yml's, without Weston: nothing in `ctest -LE gpu` starts it.
+    # docs/BUILDING.md's list for WSL2 and build.yml's, without Weston: nothing in `ctest -LE gpu` starts it. And libxrandr2,
+    # which hosted images and a desktop already have: without it the kit's FFmpeg plugin does not load, nothing decodes
+    # audio, and tst_audio fails with "No QtMultimedia backends found". The kit's other gaps here are GTK's theme, printing
+    # and SQL drivers, which nothing loads.
     apt-get install -y -qq --no-install-recommends \
         build-essential cmake ninja-build git python3 pkg-config ca-certificates curl xz-utils file binutils \
         libgl1-mesa-dev libegl1-mesa-dev libgles-dev libdrm-dev libgbm-dev libvulkan-dev libgl1-mesa-dri \
         libxkbcommon-dev libxkbcommon-x11-dev libxkbcommon-x11-0 libfontconfig1-dev libfreetype-dev libdbus-1-3 \
         libdbus-1-dev libwayland-dev wayland-protocols libinput-dev libxcb-cursor0 libxcb-icccm4 libxcb-keysyms1 \
-        libxcb-shape0 libpulse0 libssl-dev > /dev/null
+        libxcb-shape0 libxrandr2 libpulse0 libssl-dev > /dev/null
     # Ubuntu's cmake ships a throwaway signing key for Windows Store apps. Nothing here needs it, and taking it away keeps
     # check_runner_boundary.sh's search free of exceptions.
     find /usr/share -name 'Windows_TemporaryKey.pfx' -delete
