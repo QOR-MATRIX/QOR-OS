@@ -343,3 +343,7 @@ jobs:
         if: steps.products.outputs.run == 'true'
         timeout-minutes: 180
         run: tools/dev/products.sh --qt "$QOR_QT_DIR" --build-root build/ci-products
+
+      - name: Exploit mitigations (the products)
+        if: steps.products.outputs.run == 'true'
+        run: python3 tools/ci/check_hardening.py build/ci-products

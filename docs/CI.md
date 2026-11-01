@@ -89,17 +89,22 @@ end says `STOPPED`. Nothing is excluded. These are the cases that do not simply 
 
 | Case | In software, under WSL | Why |
 |------|------------------------|-----|
-| `tst_player`: `thePlaygroundPlaysAndItsStartIsMeasured` | **Fails**, and so fails the step, until the owner says otherwise | Its floor of 20 frames a second, a real performance check, reads about 5. It stays a check on Windows. See below |
-| `tst_agent`: `theRealProviderIsReachedOverTls` | Skipped, everywhere | Needs `QQ_LIVE_ENDPOINT=1`, to reach the real provider |
-| `tst_playback`: `video_decodes_through_ffmpeg` | Skipped | Windows' sample video is not on this machine |
-| `tst_playback`: `it_docks_inside_the_launchers_window_and_lifts_out_to_full_screen` | Skipped | Wayland has no window handles to dock by; Prism places the window ([QOR-0010](decisions/QOR-0010-on-wayland-prism-places-the-products-windows.md)) |
+| QQ's `tst_player`: `thePlaygroundPlaysAndItsStartIsMeasured` | **Fails, and so fails the step**, until the owner says otherwise | Its floor of 20 frames a second, a real performance check, reads 5 to 6 here. It stays a check on Windows. See below |
+| QQ's `tst_agent`: `theRealProviderIsReachedOverTls` | Skipped, as everywhere | Needs `QQ_LIVE_ENDPOINT=1`, to reach the real provider |
+| QOR Media's `playback`: `video_decodes_through_ffmpeg` | Skipped | Windows' sample video is not on this machine |
+| QOR Media's `playback`: `it_docks_inside_the_launchers_window_and_lifts_out_to_full_screen` | Skipped | Wayland has no window handles to dock by; Prism places the window ([QOR-0010](decisions/QOR-0010-on-wayland-prism-places-the-products-windows.md)) |
 
-**The QQ Player's floor** fails on purpose: `tst_player` asks for 20 frames a second of
-the bundled playground, and software gives 5.2. Nothing is wrong with the game, and
-nothing should lower the floor, so it should stay red or be accepted by name, and the
-owner decides which. `tools/dev/products.sh --accept-software-floor` is the second: in
-software only, when that check in that case is the only failure in the product, it reports the
-failure and lets it stand. `build.yml` does not pass it.
+**The QQ Player's floor** asks for 20 frames a second of the bundled playground. Software
+cannot give that, and it says nothing of the game, so the floor is neither lowered nor skipped:
+the case fails and says what it read. Whether Linux CI stays red on it or lets it stand is the
+owner's decision. `tools/dev/products.sh --accept-software-floor` is the second: in software only,
+with that check in that case the product's only failure, it reports the failure and lets it stand.
+`build.yml` does not pass it, so the step is red on this alone.
+
+**How long.** On this laptop, with the builds incremental, about 70 minutes: QQ 17, ARQADE 50
+(`games`, which is `tst_games`, 49), QOR Media under one. So a cold build and a second go at a
+failed `games` fit the step's limit of 180 minutes, and the job has 270 with the variable set.
+What the products built then has its exploit mitigations read back, as on Windows.
 
 **What is different in software, and why each is no loosening:**
 
@@ -118,7 +123,7 @@ failure and lets it stand. `build.yml` does not pass it.
   not looping. Why Qt does this is not known. Whether it happens at a GPU's frame rates,
   which would matter to a game in Prism, has not been looked at.
 - **Longer limits on the wall's time** (`QTEST_FUNCTION_TIMEOUT` 30 minutes, a suite 90), since
-  Rift Survivor's hull takes 13½ minutes to break and `tst_games` about 50 in all.
+  Rift Survivor's hull takes 13½ minutes to break. They stop a hung game, and check nothing else.
 - **Darkveil's pilot decides once a tick, as on a GPU.** Deciding once a frame, every eight ticks,
   it played another game: it went home to the healer before it met the Elder. `tst_games` reads
   the renderer's own name for this (`pilotTurn`), so a GPU never takes that path.
