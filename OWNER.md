@@ -1,6 +1,6 @@
 # Where QOR OS stands
 
-For Andrew, 31 October 2026. One page, rewritten every session (`AGENTS.md` §2).
+For Andrew, 1 November 2026. One page, rewritten every session (`AGENTS.md` §2).
 
 ## What QOR OS is
 
@@ -11,48 +11,53 @@ Demiurge's QQ engine, ARQADE and QOR Media, on Linux. Code:
 
 ## This session
 
-1. **Your names are in:** Rift Delve is **Ever Rift** and Gloamreach is
-   **Darkveil**, in every folder, file, card and test (decision record QOR-0019).
-   In Darkveil's story the darkness is now "the veil", and the last blade
-   Veilbane; that wording is mine, and easy to change.
-2. **The rules did not change.** Only their words did, and the rename altered two
-   lines in each recorded run: its scene and its game's name.
-3. **Their rules are public, on your word:** demiurge-chain #117, a pull request
-   (*a request to merge*) with its record ADR-129. The names are public from it.
-4. **You merged demiurge-chain #116.** The homepage shows it, and the five live
-   services answered when read from outside.
-5. **Earlier today:** the security bar (QOR-0018), with what is left listed in
-   `SECURITY.md`; CI (*the automatic build and test run*) one job at a time on this
-   laptop, after it reset itself during two full builds, the true cause unproven;
-   and Darkveil, built and played by a scripted player on a real graphics card.
+1. **The platformer is built:** Bellwick, a working title, ARQADE's seventh
+   card, with eight levels in four regions. A search program finishes the whole
+   game by the real rules. It and its tests caught my errors: gaps too wide to
+   jump, a sealed floor, and the level's end bell ringing for a secret room.
+2. **Ever Rift and Darkveil now face the camera.** "Up" ran diagonally across
+   the screen. Their rules did not change.
+3. **A real bug, found by accident:** the labels on Lumen's accent buttons, check
+   marks and radio dots have been black since the first version, where the design
+   says near-white. And Prism never passed your colours to the products. Both are
+   fixed, and frames still take about 2.79 ms. Tests now catch this.
+4. **CI no longer fails because the screen went off.** CI (*the automatic build
+   and test run*) kept running in Modern Standby (*this laptop's sleep: working,
+   screen off, windows barely drawing*) and failed for an hour across unrelated
+   tests. `tools/ci/with_display.py` now keeps the screen on while tests draw,
+   wakes the laptop first, and refuses to run if it is locked. It changes none
+   of your settings.
 
 ## Checked
 
-CI passed on both systems at `eb9091f`, with the new names: every suite, and on
-Windows all three products. Both games' 33 rules tests pass, and their recorded
-runs replay in Node and in QQ. demiurge-chain #117 passes all its checks and can
-merge. **Two things went wrong on the way.** My rename broke QQ's build for one
-run, now fixed. And ARQADE passed only on its automatic second attempt in two runs:
-once a test found the game paused mid-fight, most likely a click taken by the real
-mouse, though that is not proven. I cut that exposure, and at `eb9091f` ARQADE
-passed first time. One clean run does not prove the cause.
+At `3bf213a`: Security, Lint, and both systems' builds and OS tests pass. On
+Windows, QQ passed, and **ARQADE passed every test first time, Bellwick's
+included.** **The Build is still red: QOR Media fails one test, on both
+attempts.** It copies a PDF's text, and Windows' clipboard is refusing every
+program on this laptop, with no QOR program running. So this is the machine and
+not the code. The suspect is `msrdc.exe`, the viewer for Linux windows; that is
+unproven. I tried to end it and the permission system refused, so it is yours to
+do. demiurge-chain #117 still passes and can merge. Nobody has played or heard
+Bellwick, Ever Rift or Darkveil.
 
 ## Needs you
 
-1. **Merge demiurge-chain #117.** Its checks pass, and nothing players see changes.
-2. **Know this about the names.** There is a small RPG called EverRift on itch.io,
-   one word. Near Darkveil are *The Dark Veil: West Haven* and a *dark veil*
-   prototype. A search is not trademark clearance.
-3. **Play Darkveil and Ever Rift.** Nobody has watched them move or heard them.
-4. **Move the Store's signing keys off this PC.** A CI job here could read them.
-5. **During CI, keep the laptop on AC,** and leave the mouse and keyboard alone
-   while test windows are open: they reach those windows.
-6. **The Linux machine:** an SSD of 500 GB or more for USB-C and a USB stick of
-   8 GB or more, then BUILDING.md's steps.
-7. **Legal, still open:** trademark advice, the legal entity, the Qt letter,
+1. **Free the clipboard.** If copy and paste fails for you too, this is why. In
+   a terminal: `taskkill /IM msrdc.exe /F` (no Linux windows were showing), or
+   restart the laptop. I am watching, and rerun the failed job when it frees.
+2. **Merge demiurge-chain #117.** Nothing players see changes.
+3. **Name Bellwick.** Nothing of it goes public until then. Near it are *Bell
+   Kingdom* and *Curse Crackers*. A search is not trademark clearance.
+4. **Play Bellwick, Ever Rift and Darkveil.**
+5. **Move the Store's signing keys off this PC.** A CI job here could read them.
+6. **During CI:** on AC, lid open, unlocked, mouse and keyboard left alone. That
+   clipboard test also clears what you had copied, on every Windows run.
+7. **The Linux machine:** a USB-C SSD of 500 GB or more and a USB stick of 8 GB
+   or more, then BUILDING.md's steps.
+8. **Legal, still open:** trademark advice, the legal entity, the Qt letter,
    replacing the 5 October key.
 
 ## Next
 
-The platformer, then the racer, pixel-art and arcade games; and Phase 1's goal
-on the Linux machine: Orb Run in Prism with a DualSense.
+The racer, then the pixel-art and arcade games; and Phase 1's goal on the Linux
+machine: Orb Run in Prism with a DualSense.

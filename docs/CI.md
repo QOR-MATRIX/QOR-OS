@@ -278,7 +278,15 @@ So on Windows the steps that draw go through `tools/ci/with_display.py`. It hold
 that ends with its process and changes no setting. If the machine is already asleep it wakes it, and if it cannot, or the
 desktop is locked, it says so and runs nothing. If the machine sleeps anyway (a lid, the power button), the step says that too.
 Measured on this laptop: a request alone does not wake it, a mouse move of no distance does, and woken with nothing holding it
-it was asleep again in 32 seconds. Linux's suites draw in software out of sight, and passed through both standbys.
+it was asleep again in 32 seconds. The next Build's Products step ran 24 minutes through it with no standby, and ARQADE, which had
+failed 40 cases, passed all of them first time. Linux's suites draw in software out of sight, and passed through both standbys.
+
+**Something can hold the clipboard.** `tst_reader`'s `a_pages_text_is_selected_and_copied` is the one case that uses the real
+clipboard, and it clears what was on it. On 1 November 2026 it failed on both attempts, with `OleSetClipboard` reporting
+`0x800401d0: OpenClipboard Failed` and Qt "Unable to obtain clipboard", in a step otherwise clean. Every program on the machine
+was refused (`OpenClipboard`, error 5) with no QOR program running and no window named as the holder, so a process held it
+without a window. WSLg's viewer `msrdc.exe` is the suspect, unproven. To test that, end it (`taskkill /IM msrdc.exe /F`) or
+restart the machine.
 
 **A stopped machine leaves damage behind.** The next Build on the Linux runner failed to link, with undefined references to
 code that had not changed: five objects written as the machine stopped were empty, dated a minute before it, so Ninja took
