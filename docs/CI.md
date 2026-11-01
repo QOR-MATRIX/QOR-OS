@@ -48,6 +48,41 @@ As for the rest ([QOR-0018](decisions/QOR-0018-the-security-and-quality-bar.md))
 - **Anything that downloads a tool to run it goes in Security**, on a hosted runner.
 - **Left to the owner:** the Store's keys off this machine (`OWNER.md`). Until then, a compromised job here can read them.
 
+### An isolated place for Linux jobs
+
+`tools/ci/isolated-linux-runner.ps1` makes `qor-ci`, a fresh Ubuntu 24.04 from Microsoft's catalogue, needing no administrator
+and holding no credential. The Qt kit is streamed in from `~/Qt/6.12.0/gcc_64`, and nothing else from that home. **It serves no
+job yet:** no runner is registered to it and Build does not use it.
+
+**`wsl.conf` is not the boundary.** With automount and interop off, a process with no privilege still reached Windows' 9P file
+server over `AF_VSOCK` and attached to `C:\` (measured on 1 November 2026, WSL 2.7.11). So a job runs through `qor-ci-job`, a
+sandbox whose system-call filter refuses `AF_VSOCK` and `io_uring`, with Landlock scoping and a per-unit network filter. A plain
+`wsl -d qor-ci -u runner` is outside it, and `check_runner_boundary.sh` fails there on purpose. Anyone already on Windows as the
+owner can be root in `qor-ci`.
+
+**What the distributions share.** One kernel, one user namespace, one network namespace (so one loopback), one `/dev` and one
+`binfmt_misc` table. A second distribution's start can empty that table, and Windows programs then answer `Exec format error` in
+the other. The script masks the units that write to shared things and unmounts the table, and repairs what a first start cannot
+be stopped from doing. Never `chmod` or `rm` a device node here, and never stop `systemd-binfmt`.
+
+**The Qt licence is an open question.** The kit's `moc` is a licence wrapper. In `qor-ci` it says it cannot find Qt's licence
+service and cannot acquire a licence, then works and exits 0. Neither the service nor an account file is copied in, and the bypass
+variable its message names is not set. Whether building in that state is allowed is for the owner and Qt, so **`qor-ci` takes no
+runner and no further builds until that is answered.**
+
+**What remains.** One kernel and VM with the other distributions, so a kernel exploit gets everything; this is not a VM per job. A
+job has the internet, so it can send out the source and its token. It can see the other distribution's sockets in `/proc/net`, and
+it shares CPU and memory. Only private address ranges are refused, so a public address of this machine would not be. A job's DNS
+goes to public resolvers, because WSL's DNS address is local and any listener on all addresses answers there.
+
+**Before Build can move here.** The GPU and Prism-protocol steps need a display, which it lacks. Whatever listens on loopback
+needs another answer, since the sandbox closes it. Each job starts from an empty home, so a cold build each time, and there is no
+Docker. Its labels include `qt`, so point `QOR_LINUX_RUNNER` at `isolated` and `QOR_LINUX_QT_DIR` at `/opt/qt/6.12.0/gcc_64` before
+registering, or a job could land on either runner. The Windows job needs its own answer.
+
+**Second stage, not run.** `-Action Register` serves one `--ephemeral` job at a time from an empty home, with the token piped from
+`gh` and never printed. It holds no credential between jobs, and nothing starts it at sign-in.
+
 ## What the Build job needs on a runner
 
 - **The commercial Qt 6.12 kit** (below).

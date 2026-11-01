@@ -254,6 +254,11 @@ jobs:
           done
           if command -v cmd.exe >/dev/null 2>&1; then reachable="$reachable Windows programs on the PATH;"; fi
           if [ -e /proc/sys/fs/binfmt_misc/WSLInterop ]; then reachable="$reachable Windows interop;"; fi
+          # wsl.conf does not close this: a process that opens AF_VSOCK reaches Windows' file server (isolated-linux-runner.sh).
+          opened=0
+          python3 -I -c 'import socket; socket.socket(socket.AF_VSOCK, socket.SOCK_STREAM)' 2>/dev/null || opened=$?
+          if [ "$opened" -eq 0 ]; then reachable="$reachable AF_VSOCK, the way to Windows' file server;"; fi
+          if [ "$opened" -eq 127 ]; then reachable="$reachable perhaps AF_VSOCK: no python3 to test it;"; fi
           if id -nG | grep -qwE 'sudo|docker|adm'; then reachable="$reachable a privileged group;"; fi
           for held in .ssh .aws .config/gh .npmrc .local/share/Qt/qtaccount.ini; do
             if [ -e "$HOME/$held" ]; then reachable="$reachable ~/$held;"; fi

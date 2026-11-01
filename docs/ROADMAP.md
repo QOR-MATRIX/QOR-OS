@@ -373,7 +373,9 @@ vendor's claim. No firmware turns an output-only HDMI port into an input, so thi
 - [ ] CI that cannot reach the owner's keys or credentials ([CI.md](CI.md#what-ci-trusts)). Build's workstation jobs fail closed
   until their runner is isolated: the gate is pull request #2, for the owner to merge
   - [ ] The Store's keys and their backup off the workstation (the owner's act)
-  - [ ] Linux jobs in a distribution of their own, with no Windows drive, no Windows programs and no credentials
+  - [ ] Linux jobs in a distribution of their own, with no Windows drive, no Windows programs and no credentials. `qor-ci` is
+    built and its boundary tried ([CI.md](CI.md#an-isolated-place-for-linux-jobs)). Still to do: ask Qt whether it may build without
+    the licence service, register its runner, move Build's Linux job to it, retire the `Ubuntu` runner and settle the GPU steps
   - [ ] Windows jobs under an account or a virtual machine that cannot reach the owner's profile
   - [ ] The GitHub Apps with workflow access to every repository limited, so that they cannot reach the runners (the owner's act)
 - [x] Prism: the bus, the keyboard, the lock screen, what a client's name and title can do, the Store's widgets

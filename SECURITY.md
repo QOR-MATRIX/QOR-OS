@@ -106,6 +106,12 @@ Say so if you find a way past one; these are the walls we know are low.
   ([docs/CI.md](docs/CI.md#what-ci-trusts)), but the runners stay online. Whatever can write workflows
   can address them, and that includes GitHub Apps installed on the organisation with workflow
   access.
+- **Under WSL, any Linux process can reach the Windows drive with the Windows user's rights.** Measured on 1 November 2026: with
+  drives unmounted and interop off, a process with no privilege opened `AF_VSOCK` to Windows' 9P file server and attached to
+  `C:\`. Only a filter on the process closes that, as in `qor-ci`'s job sandbox and the QQ Player's wall. So nothing run in WSL
+  without such a filter is contained, whatever `wsl.conf` says. A device has no WSL.
+- **A game past QQ's own checks can still use local sockets on Linux,** which the display and sound need. The kernel's wall
+  refuses it the network and its files, not what listens on a local socket.
 - **On Windows the Player has only QQ's own checks.** Windows is a development
   host, not the device. Qt Quick's `Canvas` (reads any picture) and `grabToImage`
   (writes over any picture) and Qt Multimedia's camera, microphone, screen capture
