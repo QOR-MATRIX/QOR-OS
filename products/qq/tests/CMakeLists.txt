@@ -105,6 +105,13 @@ target_link_libraries(tst_publish PRIVATE
 
 add_test(NAME tst_publish COMMAND tst_publish)
 
+# Changed for QOR OS: these ask the renderer for its name (drawnin.h), which only Qt's private headers can do.
+set(QT_NO_PRIVATE_MODULE_WARNING ON)
+find_package(Qt6 6.12 REQUIRED COMPONENTS GuiPrivate)
+foreach(suite tst_studio tst_play tst_agent)
+    target_link_libraries(${suite} PRIVATE Qt6::GuiPrivate)
+endforeach()
+
 # Every suite in this folder, so a new one cannot forget.
 get_directory_property(qq_suites BUILDSYSTEM_TARGETS)
 foreach(suite IN LISTS qq_suites)
