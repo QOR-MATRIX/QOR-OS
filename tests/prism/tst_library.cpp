@@ -53,6 +53,24 @@ QVariantMap byId(const QVariantList &items, const QString &id)
     return {};
 }
 
+// What QQ Studio's build writes (products/qq/studio/gamebuild.cpp), but for its files.
+QJsonObject builtManifest()
+{
+    return { { u"format"_s, 1 },
+             { u"kind"_s, u"game"_s },
+             { u"title"_s, u"Orb Run"_s },
+             { u"scene"_s, u"scenes/level.qml"_s },
+             { u"build"_s, 3 },
+             { u"engine"_s, QJsonObject { { u"id"_s, u"qq"_s }, { u"version"_s, u"0.1.0"_s } } } };
+}
+
+void writeManifest(const QString &folder, const QJsonObject &manifest)
+{
+    QFile file(QDir(folder).filePath(u"game.json"_s));
+    QVERIFY(file.open(QIODevice::WriteOnly));
+    file.write(QJsonDocument(manifest).toJson());
+}
+
 QString historyFile()
 {
     return QDir(QStandardPaths::writableLocation(QStandardPaths::AppDataLocation)).filePath(u"library-history.json"_s);
@@ -116,6 +134,139 @@ private slots:
         // The same game twice is one.
         QCOMPARE(Library::scan({ games.path(), games.path() }, {}, {}).games.size(), 2);
     }
+
+    // A game QQ Studio built is known by what it says of itself, and plays the
+    // copy. A game being built or replaced is not listed.
+    void a_built_game_is_known_by_what_it_says_of_itself()
+    {
+        QTemporaryDir games;
+        touch(games.filePath(u"orb-run-1a2b/scenes/aaa-first.qml"_s));
+        touch(games.filePath(u"orb-run-1a2b/scenes/level.qml"_s));
+        touch(games.filePath(u".building-orb-run-1a2b-Xy12Zw/scenes/level.qml"_s));
+        touch(games.filePath(u".old-orb-run-1a2b-Xy12Zw/scenes/level.qml"_s));
+        writeManifest(games.filePath(u"orb-run-1a2b"_s), builtManifest());
+
+        const QVariantList found = Library::scan({ games.path() }, {}, {}).games;
+        QCOMPARE(found.size(), 1);
+        const QVariantMap game = found.first().toMap();
+        QCOMPARE(game.value(u"source"_s).toString(), u"built"_s);
+        QCOMPARE(game.value(u"kind"_s).toString(), u"game"_s);
+        QCOMPARE(game.value(u"title"_s).toString(), u"Orb Run"_s);
+        QCOMPARE(game.value(u"build"_s).toInt(), 3);
+        QVERIFY(game.value(u"subtitle"_s).toString().contains(u"3"_s));
+        // Its first scene as it says, not the first by name.
+        QCOMPARE(game.value(u"path"_s).toString(), games.filePath(u"orb-run-1a2b/scenes/level.qml"_s));
+    }
+
+    // Any folder here could hold such a file. Whatever is wrong with what it
+    // says, nothing of it is taken, and the folder is a QQ game like any other.
+    void what_a_built_game_says_is_a_strangers_word_data()
+    {
+        QTest::addColumn<QString>("key");
+        QTest::addColumn<QJsonValue>("value");
+        QTest::newRow("another format") << u"format"_s << QJsonValue(2);
+        QTest::newRow("a format that is text") << u"format"_s << QJsonValue(u"1"_s);
+        QTest::newRow("no kind") << u"kind"_s << QJsonValue();
+        QTest::newRow("another kind") << u"kind"_s << QJsonValue(u"asset-pack"_s);
+        QTest::newRow("another engine") << u"engine"_s << QJsonValue(QJsonObject { { u"id"_s, u"other"_s } });
+        QTest::newRow("no title") << u"title"_s << QJsonValue();
+        QTest::newRow("a blank title") << u"title"_s << QJsonValue(u"  \n "_s);
+        QTest::newRow("a title too long") << u"title"_s << QJsonValue(QString(81, u'x'));
+        QTest::newRow("no build") << u"build"_s << QJsonValue();
+        QTest::newRow("a scene that climbs") << u"scene"_s << QJsonValue(u"scenes/../../outside.qml"_s);
+        QTest::newRow("a scene that climbs at once") << u"scene"_s << QJsonValue(u"../outside.qml"_s);
+        QTest::newRow("a scene by its full path") << u"scene"_s << QJsonValue(u"/etc/outside.qml"_s);
+        QTest::newRow("a scene by the other slash") << u"scene"_s << QJsonValue(u"scenes\\..\\..\\outside.qml"_s);
+        QTest::newRow("a scene by the other slash, inside")
+            << u"scene"_s << QJsonValue(u"scenes/..\\..\\outside.qml"_s);
+        QTest::newRow("a scene not in scenes") << u"scene"_s << QJsonValue(u"logic/level.qml"_s);
+        QTest::newRow("a scene deeper") << u"scene"_s << QJsonValue(u"scenes/deep/level.qml"_s);
+        QTest::newRow("a scene that is not a scene") << u"scene"_s << QJsonValue(u"scenes/level.txt"_s);
+        QTest::newRow("a scene that is not there") << u"scene"_s << QJsonValue(u"scenes/gone.qml"_s);
+    }
+    void what_a_built_game_says_is_a_strangers_word()
+    {
+        QFETCH(QString, key);
+        QFETCH(QJsonValue, value);
+        QTemporaryDir games;
+        const QString folder = games.filePath(u"orb-run"_s);
+        touch(QDir(folder).filePath(u"scenes/level.qml"_s));
+        touch(QDir(folder).filePath(u"scenes/deep/level.qml"_s));
+        touch(QDir(folder).filePath(u"scenes/level.txt"_s));
+        touch(QDir(folder).filePath(u"logic/level.qml"_s));
+        touch(games.filePath(u"outside.qml"_s));
+        QJsonObject manifest = builtManifest();
+        if (value.isUndefined() || value.isNull())
+            manifest.remove(key);
+        else
+            manifest.insert(key, value);
+        writeManifest(folder, manifest);
+
+        const QVariantList found = Library::scan({ games.path() }, {}, {}).games;
+        QCOMPARE(found.size(), 1);
+        const QVariantMap game = found.first().toMap();
+        QCOMPARE(game.value(u"source"_s).toString(), u"qq"_s);
+        QCOMPARE(game.value(u"title"_s).toString(), u"Orb Run"_s);
+        QVERIFY2(game.value(u"path"_s).toString().startsWith(folder + u"/scenes/"_s),
+                 qPrintable(game.value(u"path"_s).toString()));
+    }
+
+    void a_built_game_that_is_not_json_or_too_large_is_a_game_like_any_other()
+    {
+        QTemporaryDir games;
+        const QString broken = games.filePath(u"broken"_s);
+        const QString large = games.filePath(u"large"_s);
+        touch(QDir(broken).filePath(u"scenes/level.qml"_s));
+        touch(QDir(large).filePath(u"scenes/level.qml"_s));
+        QFile notJson(QDir(broken).filePath(u"game.json"_s));
+        QVERIFY(notJson.open(QIODevice::WriteOnly));
+        notJson.write("{ not json");
+        notJson.close();
+        QFile tooLarge(QDir(large).filePath(u"game.json"_s));
+        QVERIFY(tooLarge.open(QIODevice::WriteOnly));
+        QVERIFY(tooLarge.resize(33 * 1024 * 1024));
+        tooLarge.close();
+
+        const QVariantList found = Library::scan({ games.path() }, {}, {}).games;
+        QCOMPARE(found.size(), 2);
+        for (const QVariant &game : found)
+            QCOMPARE(game.toMap().value(u"source"_s).toString(), u"qq"_s);
+    }
+
+#ifdef Q_OS_UNIX
+    // What leads out by a link is not believed, wherever in the game the link is.
+    void a_built_game_is_not_believed_through_a_link_data()
+    {
+        QTest::addColumn<QString>("what");
+        QTest::newRow("the manifest") << u"manifest"_s;
+        QTest::newRow("the scene") << u"scene"_s;
+        QTest::newRow("the scenes folder") << u"scenes"_s;
+    }
+    void a_built_game_is_not_believed_through_a_link()
+    {
+        QFETCH(QString, what);
+        QTemporaryDir games;
+        QTemporaryDir outside;
+        const QString folder = games.filePath(u"orb-run"_s);
+        touch(outside.filePath(u"scenes/level.qml"_s));
+        writeManifest(outside.path(), builtManifest());
+        QDir().mkpath(folder);
+        if (what == u"manifest"_s) {
+            touch(QDir(folder).filePath(u"scenes/level.qml"_s));
+            QVERIFY(QFile::link(outside.filePath(u"game.json"_s), QDir(folder).filePath(u"game.json"_s)));
+        } else if (what == u"scene"_s) {
+            QDir(folder).mkpath(u"scenes"_s);
+            QVERIFY(QFile::link(outside.filePath(u"scenes/level.qml"_s), QDir(folder).filePath(u"scenes/level.qml"_s)));
+            writeManifest(folder, builtManifest());
+        } else {
+            QVERIFY(QFile::link(outside.filePath(u"scenes"_s), QDir(folder).filePath(u"scenes"_s)));
+            writeManifest(folder, builtManifest());
+        }
+
+        for (const QVariant &game : Library::scan({ games.path() }, {}, {}).games)
+            QCOMPARE(game.toMap().value(u"source"_s).toString(), u"qq"_s);
+    }
+#endif
 
     // Video, music and pictures, newest first, three deep at most; nothing
     // else, and nothing hidden.

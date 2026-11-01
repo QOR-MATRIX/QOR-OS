@@ -21,11 +21,17 @@
 // command line, the Studio goes back to the last project, by the same way and past the same trust check as any other
 // change of project: only a person starting it directly does that, since the launcher names its project. A model given
 // on the command line asks for a new scene, and a capture is a look at what was asked for, which keeps no workspace.
+//
+// Changed for QOR OS: qq-studio --project <folder> --build <scene> makes a game of the project (gamebuild.h) with no window
+// and no display, prints "QQ-BUILD {json}" and exits: 0 built, 3 refused.
 
 #include <QCommandLineParser>
+#include <QCoreApplication>
 #include <QDir>
 #include <QGuiApplication>
 #include <QImage>
+#include <QJsonDocument>
+#include <QJsonObject>
 #include <QQmlApplicationEngine>
 #include <QQuickStyle>
 #include <QQuickWindow>
@@ -35,6 +41,7 @@
 
 #include <memory>
 
+#include "gamebuild.h"
 #include "gpu.h"
 #include "launcherlink.h"
 #include "mcpserver.h"
@@ -72,10 +79,33 @@ void captureWhenSettled(QQuickWindow *window, const QString &file)
     poll->start(50);
 }
 
+/// A build asks for no window, so it needs no display: it starts no graphical application.
+int buildAndExit(int argc, char *argv[])
+{
+    QCoreApplication app(argc, argv);
+    QCoreApplication::setApplicationName(QStringLiteral("QQ Studio"));
+    QCoreApplication::setOrganizationName(QStringLiteral("Demiurge"));
+    QCommandLineParser parser;
+    const QCommandLineOption project(QStringLiteral("project"), QStringLiteral("The project folder."), QStringLiteral("folder"));
+    const QCommandLineOption build(QStringLiteral("build"), QStringLiteral("The scene the game starts in."), QStringLiteral("scene"));
+    parser.addHelpOption();
+    parser.addOption(project);
+    parser.addOption(build);
+    parser.process(app);
+    const QVariantMap result = qq::GameBuild::make(parser.value(project), parser.value(build), qq::GameBuild::gamesFolder());
+    qInfo("QQ-BUILD %s", QJsonDocument(QJsonObject::fromVariantMap(result)).toJson(QJsonDocument::Compact).constData());
+    return result.value(QStringLiteral("ok")).toBool() ? 0 : 3;
+}
+
 }  // namespace
 
 int main(int argc, char *argv[])
 {
+    for (int i = 1; i < argc; ++i) {
+        if (qstrcmp(argv[i], "--build") == 0)
+            return buildAndExit(argc, argv);
+    }
+
     // Before the application exists: the GPU is chosen when the first window is shown.
     const QString gpu = qq::preferHighPerformanceGpu();
     QGuiApplication app(argc, argv);
@@ -100,6 +130,7 @@ int main(int argc, char *argv[])
     parser.addOption(project);
     parser.addOption(capture);
     parser.addOption(channel);
+    parser.addOption({QStringLiteral("build"), QStringLiteral("Make a game of the project, starting in <scene>, and exit."), QStringLiteral("scene")});
     parser.process(app);
 
     const QStringList positional = parser.positionalArguments();

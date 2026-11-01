@@ -30,6 +30,8 @@
 // one way to change project, switchProject(): it asks about unsaved work, leaves nothing of the old project behind, goes
 // past the same trust check as anything else that runs a project's files, then restores. Unsaved work is asked about too
 // before a new scene, another scene or logic file, or the window closing. Names from outside are text, never markup.
+// Changed for QOR OS: Build saves, then makes a game of the project (gamebuild.h). Play runs the project, here, as it
+// stands; the Library plays the copy, which changes only by building again.
 
 import QtQuick
 // Before the Material style: Qt Quick 3D has a type called Material too, and the import that comes later wins.
@@ -970,6 +972,39 @@ ApplicationWindow {
         launcher.publish(project, qsTr("Publish %1").arg(sceneName))
     }
 
+    /// Save what is on the screen, then make a game of the project: what is built is what is on the disk.
+    function buildGame() {
+        if (playing || gameBuild.busy)
+            return
+        if (String(project) === "") {
+            say(qsTr("Choose a project to build: Project, then a folder."), true)
+            return
+        }
+        // Built, its files are one press from playing in the Library, so this asks first as opening does.
+        if (!projectTrusted) {
+            trusting(() => buildGame())
+            return
+        }
+        if ((savedText === "" || sceneHasWork()) && !saveScene())
+            return
+        if (logicEditor.dirty && !logicEditor.save())
+            return
+        say(qsTr("Building %1…").arg(projectInfo.name))
+        gameBuild.start(project, sceneFile)
+    }
+
+    GameBuild {
+        id: gameBuild
+        objectName: "gameBuild"
+        onFinished: (result) => {
+            if (result.ok)
+                window.say(qsTr("Built %1, build %2: it is in the Library. Play here runs the project; the Library plays this copy.")
+                           .arg(result.title).arg(result.build))
+            else
+                window.say(result.problem, true)
+        }
+    }
+
     function removeSelection() {
         if (playing || !selection || selection === scene)
             return
@@ -1340,6 +1375,15 @@ ApplicationWindow {
                     enabled: window.canPublish
                     onClicked: window.publish()
                 }
+            }
+            StudioButton {
+                objectName: "buildButton"
+                kind: "ghost"
+                text: gameBuild.busy ? qsTr("Building…") : qsTr("Build")
+                enabled: !window.playing && !gameBuild.busy
+                ToolTip.visible: hovered
+                ToolTip.text: qsTr("Save, then make a game of this project for the Library. Play runs the project here; the Library plays the copy.")
+                onClicked: window.buildGame()
             }
             StudioButton {
                 id: playButton
