@@ -66,6 +66,14 @@ add_dependencies(tst_player qq-player)
 
 add_test(NAME tst_player COMMAND tst_player)
 
+# Changed for QOR OS: the kernel's wall around a game, from the hostile side (QOR-0018). The Linux wall needs Linux.
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    qt_add_executable(tst_playerwall tst_playerwall.cpp ../player/sandbox.cpp)
+    target_include_directories(tst_playerwall PRIVATE ../player)
+    target_link_libraries(tst_playerwall PRIVATE Qt6::Test Qt6::Gui Qt6::Qml qqruntime)
+    add_test(NAME tst_playerwall COMMAND tst_playerwall)
+endif()
+
 qt_add_executable(tst_agent tst_agent.cpp)
 
 # The real programs, started as an MCP client and the launcher start them.

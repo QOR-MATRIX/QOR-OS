@@ -491,7 +491,8 @@ the web has no audio, so in a browser sound is QQ's own, on the page's Web Audio
   can still do, once trusted, is what a person's own code can do.
 - **What an agent writes** runs only once the creator allows it in the Agent panel.
 - **The Player's walls (QOR-0018).** QQ's own checks (`runtime/confinement.h`) everywhere, and on Linux the kernel's
-  (`player/sandbox.h`): Landlock for files and programs, seccomp for the network. Natively on Windows, Qt Quick's `Canvas`
+  (`player/sandbox.h`): Landlock for files and programs, seccomp for the network, by any route to a socket
+  (`tests/tst_playerwall.cpp`). Natively on Windows, Qt Quick's `Canvas`
   and `grabToImage` and Qt Multimedia's types get past the first, which is why a stranger's game plays only in a browser.
 - **2D, as built in P3.10:** a Tiled map is read one tile layer per TileMap, from its first tileset, which must be one
   image (a collection of images is refused, with the reason); object layers, tile animations, one-way platforms and
