@@ -4,6 +4,7 @@
     python tools/store/build_store.py build      # sign changed packages and the catalogue
     python tools/store/build_store.py check      # verify store/catalog against store/content (CI)
     python tools/store/build_store.py fixtures   # regenerate tests/store/fixtures
+    python tools/store/build_store.py demo       # regenerate tests/store/fixtures-demo (format 2)
 
 store/content/ holds the sources: developers.json, then one folder per item
 under themes/ or widgets/ with a listing.json (the catalogue text) and the
@@ -17,6 +18,10 @@ signs that developer's packages. `build` creates missing keys and writes the
 store's public key to store/keys/store.pub, which QOR OS embeds as its root of
 trust. Items whose content is unchanged keep their existing signed package, so
 a rebuild changes nothing. See docs/STORE.md.
+
+`fixtures` and `demo` sign with throwaway keys that are generated, used once and
+dropped, so neither reads those keys, and each re-signs everything in its own
+folder every time it runs: run one only when its folder must change.
 """
 
 from __future__ import annotations
@@ -42,6 +47,9 @@ CONTENT = REPO / "store" / "content"
 CATALOG = REPO / "store" / "catalog"
 STORE_PUB = REPO / "store" / "keys" / "store.pub"
 FIXTURES = REPO / "tests" / "store" / "fixtures"
+DEMO = REPO / "tests" / "store" / "fixtures-demo"
+EMBER_CLIMB = REPO / "products" / "qq" / "samples" / "ember-climb"
+APACHE_LICENCE = REPO / "LICENSES" / "Apache-2.0.txt"
 # Never a new folder while the old one holds the keys: `build` would create a new store key, and every installation
 # trusts the old one.
 KEYS = Path.home() / ".qor-os" / "store-signing"
@@ -152,6 +160,8 @@ def validate(item: Item, developers: dict) -> None:
         raise SystemExit(f"{where}: version must be major.minor.patch")
     if item.listing["developer"] not in developers:
         raise SystemExit(f"{where}: unknown developer {item.listing['developer']}")
+    if item.listing.get("price", 0) != 0:
+        raise SystemExit(f"{where}: the Store carries only free items (QOR-0006)")
     if item.kind == "theme" and "theme.json" not in item.files:
         raise SystemExit(f"{where}: a theme needs theme.json")
     if item.kind == "widget":
@@ -399,9 +409,174 @@ def fixtures() -> None:
     print(f"Wrote {FIXTURES.relative_to(REPO)}")
 
 
+# ── The demonstration catalogue (format 2, QOR-0021) ────────────────────────
+
+DEMO_DEVELOPER = "org.example.demo"
+# Tests read this catalogue for years, and an expired one is refused.
+DEMO_EXPIRES = "2099-12-31"
+# Keep these as store/src/filerules.cpp has them: the engine is what enforces this, and this only stops a mistake sooner.
+PASSIVE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".webp", ".hdr", ".ktx", ".ktx2", ".wav", ".ogg", ".flac", ".mp3",
+                      ".glb", ".gltf", ".bin", ".txt"}
+GAME_EXTENSIONS = PASSIVE_EXTENSIONS | {".qml", ".mjs", ".js", ".json", ".tmj", ".tsj"}
+EMBER_CLIMB_NOTICE = b"""Ember Climb
+Copyright 2026 Demiurge
+
+These files came from QOR-MATRIX/demiurge-chain under the Apache License, Version 2.0, as they stand in QOR OS, whose
+LICENSES/from-demiurge-chain.txt lists them. LICENSE.txt in this package is that licence's text.
+"""
+
+
+class Format2Item(Item):
+    """An item of a format 2 catalogue. Its manifest mirrors what identifies it there, for its developer to sign."""
+
+    def __init__(self, kind: str, listing: dict, files: dict[str, bytes]):
+        super().__init__(kind, listing, files)
+        allowed = PASSIVE_EXTENSIONS if kind == "asset-pack" else GAME_EXTENSIONS
+        for path in files:
+            if Path(path).suffix.lower() not in allowed:
+                raise SystemExit(f"{listing['id']}: a {kind} may not hold {path}")
+        if listing["licence"]["file"] not in files:
+            raise SystemExit(f"{listing['id']}: the package does not hold its licence's file")
+
+    @property
+    def stores(self) -> list[str]:
+        return sorted({placement["store"] for placement in self.listing["placements"]})
+
+    def manifest(self) -> bytes:
+        manifest = {
+            "format": 2,
+            "id": self.id,
+            "kind": self.kind,
+            "stores": self.stores,
+            "version": self.version,
+            "name": self.listing["name"],
+            "developer": self.listing["developer"],
+            "licence": self.listing["licence"],
+            "dependencies": self.listing.get("dependencies", []),
+            "files": {path: hashlib.sha256(data).hexdigest() for path, data in sorted(self.files.items())},
+        }
+        if "edition" in self.listing:
+            manifest["edition"] = self.listing["edition"]
+        return (json.dumps(manifest, indent=2, sort_keys=True) + "\n").encode("utf-8")
+
+
+def format2_entry(item: Format2Item, package: bytes, previews: dict[str, bytes]) -> dict:
+    listing = item.listing
+    edition = {"edition": listing["edition"]} if "edition" in listing else {}
+    return {
+        "id": item.id,
+        "kind": item.kind,
+        "placements": listing["placements"],
+        "entitlement": {"type": "free"},
+        "platforms": listing["platforms"],
+        **edition,
+        "name": listing["name"],
+        "developer": listing["developer"],
+        "version": item.version,
+        "summary": listing["summary"],
+        "description": listing["description"],
+        "whatsNew": listing.get("whatsNew", ""),
+        "released": listing["released"],
+        "tags": listing.get("tags", []),
+        "featured": bool(listing.get("featured", False)),
+        "executable": False,
+        "licence": listing["licence"],
+        "provenance": listing["provenance"],
+        "engines": listing["engines"],
+        "dependencies": listing.get("dependencies", []),
+        "previews": [{"file": path, "sha256": hashlib.sha256(data).hexdigest()} for path, data in sorted(previews.items())],
+        "package": {"file": f"packages/{item.package_name}", "size": len(package),
+                    "sha256": hashlib.sha256(package).hexdigest(),
+                    "unpacked": sum(len(data) for data in read_package(package).values())},
+    }
+
+
+def write_format2_catalogue(out: Path, sequence: int, items: list[tuple[Format2Item, dict[str, bytes]]], drafts: list[dict],
+                            store_key: ec.EllipticCurvePrivateKey, developer_key: ec.EllipticCurvePrivateKey) -> None:
+    entries = []
+    for item, previews in items:
+        manifest = item.manifest()
+        package = make_package(item, manifest, sign(developer_key, manifest))
+        (out / "packages").mkdir(parents=True, exist_ok=True)
+        (out / "packages" / item.package_name).write_bytes(package)
+        for path, data in previews.items():
+            (out / path).parent.mkdir(parents=True, exist_ok=True)
+            (out / path).write_bytes(data)
+        entries.append(format2_entry(item, package, previews))
+    catalog = {
+        "format": 2,
+        "store": "QOR OS demonstration",
+        "sequence": sequence,
+        "expires": DEMO_EXPIRES,
+        "developers": {DEMO_DEVELOPER: {"name": "A demonstration, not a publisher", "verified": False,
+                                        "key": base64.b64encode(public_point(developer_key)).decode("ascii")}},
+        "items": entries + drafts,
+    }
+    data = (json.dumps(catalog, indent=2, ensure_ascii=False) + "\n").encode("utf-8")
+    (out / "catalog.json").write_bytes(data)
+    (out / "catalog.json.sig").write_bytes(sign(store_key, data))
+
+
+def demo(out: Path = DEMO) -> None:
+    """Writes two catalogues, in turn, from Ember Climb's Apache-2.0 files: pack v1 then v2, with the game in both."""
+    import shutil
+
+    assets = EMBER_CLIMB / "assets"
+    art = {name: (assets / name).read_bytes() for name in ("hero.png", "tiles.png", "ember.png", "torch.png")}
+    notices = {"LICENSE.txt": APACHE_LICENCE.read_bytes(), "NOTICE.txt": EMBER_CLIMB_NOTICE}
+    common = {
+        "developer": DEMO_DEVELOPER,
+        "released": "2026-11-01",
+        "licence": {"spdx": "Apache-2.0", "file": "LICENSE.txt"},
+        "provenance": {"origin": "QOR-MATRIX/demiurge-chain", "author": "Demiurge",
+                       "source": "products/qq/samples/ember-climb in QOR OS",
+                       "permission": "Apache-2.0, with its licence and notice kept in this package"},
+        "engines": [{"id": "qq", "min": "0.1.0", "below": "1.0.0"}],
+        "platforms": ["linux-x86_64"],
+    }
+    pack = {**common, "id": "org.example.demo.pack.ember-climb-art", "name": "Ember Climb's art",
+            "placements": [{"store": "creator", "category": "2D art"}],
+            "summary": "Pixel art for a small platformer.",
+            "description": "A demonstration of an asset pack: the hero and the tiles from Ember Climb.",
+            "tags": ["pixel art"]}
+    pack_v1 = Format2Item("asset-pack", {**pack, "version": "1.0.0"},
+                          {**notices, "art/hero.png": art["hero.png"], "art/tiles.png": art["tiles.png"]})
+    pack_v2 = Format2Item("asset-pack", {**pack, "version": "1.1.0", "whatsNew": "Adds the ember and the torch."},
+                          {**notices, **{f"art/{name}": data for name, data in art.items()}})
+    game_files = {path.relative_to(EMBER_CLIMB).as_posix(): path.read_bytes()
+                  for folder in ("assets", "logic", "scenes") for path in sorted((EMBER_CLIMB / folder).rglob("*"))
+                  if path.is_file()}
+    edition_group = "org.example.demo.ember-climb"
+    game = Format2Item("game", {**common, "id": "org.example.demo.game.ember-climb", "name": "Ember Climb",
+                                "placements": [{"store": "player", "category": "Platformers"}],
+                                "edition": {"group": edition_group, "role": "game"},
+                                "version": "1.0.0", "summary": "Gather the embers and light the forge.",
+                                "description": "A demonstration of a game: QQ's platformer sample, as a package.",
+                                "tags": ["platformer"]},
+                       {**notices, **game_files})
+    preview = {"previews/hero.png": art["hero.png"]}
+    # The game's editable project: a separate package with a separate entitlement, and a draft until a later stage takes
+    # projects. It has no package to carry, and is here so the demonstration shows a draft staying out of every view.
+    project = {"id": "org.example.demo.project.ember-climb", "kind": "project",
+               "placements": [{"store": "creator", "category": "Projects"}], "entitlement": {"type": "free"},
+               "platforms": ["linux-x86_64"], "executable": False,
+               "edition": {"group": edition_group, "role": "editable-project"}}
+
+    # Throwaway keys, as the fixtures' are: never written down, so there is nothing to keep out of the repository.
+    store_key = ec.generate_private_key(ec.SECP256R1())
+    developer_key = ec.generate_private_key(ec.SECP256R1())
+    if out.exists():
+        shutil.rmtree(out)
+    out.mkdir(parents=True)
+    (out / "store.pub").write_bytes(base64.b64encode(public_point(store_key)) + b"\n")
+    write_format2_catalogue(out / "v1", 1, [(pack_v1, preview), (game, preview)], [project], store_key, developer_key)
+    write_format2_catalogue(out / "v2", 2, [(pack_v2, preview), (game, preview)], [project], store_key, developer_key)
+    print(f"Wrote {out.relative_to(REPO) if out.is_relative_to(REPO) else out}")
+
+
 def main(argv: list[str]) -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("command", choices=["build", "check", "fixtures"])
+    parser.add_argument("command", choices=["build", "check", "fixtures", "demo"])
     parser.add_argument("--keys", type=Path, default=DEFAULT_KEYS, help="folder of signing keys (build)")
     args = parser.parse_args(argv)
 
@@ -409,6 +584,9 @@ def main(argv: list[str]) -> int:
         return check(CONTENT, CATALOG, STORE_PUB)
     if args.command == "fixtures":
         fixtures()
+        return 0
+    if args.command == "demo":
+        demo()
         return 0
     developers, _ = read_content(CONTENT)
     store_key = load_or_create_key(args.keys / "store.pem")
