@@ -321,6 +321,13 @@ class TheScriptOutside(unittest.TestCase):
         check = re.search(r"function Invoke-Check \{\n(.*?)\n\}", self.code.replace("\r\n", "\n"), re.S).group(1)
         self.assertIn("| Out-Host", check)
 
+    def test_it_tries_again_when_the_distribution_will_not_start(self):
+        # A timeout starting qor-ci stopped Create once, before the table it had to repair could be repaired.
+        code = self.code.replace("\r\n", "\n")
+        self.assertRegex(code, r"function Install-Inside \{\n\s*Start-Distro\n")
+        self.assertRegex(code, r"function Restore-SharedTable \{\n\s*try \{ Start-Distro \}")
+        self.assertRegex(code, r"finally \{ Restore-SharedTable \}")
+
     def test_registering_is_a_stage_of_its_own(self):
         self.assertEqual(len(re.findall(r"^\s*Invoke-Register\s*$", self.code, re.M)), 1)
         self.assertRegex(self.code.replace("\r\n", "\n"), r"'Register' \{\n\s*Assert-Distro\n\s*Install-Inside\n\s*Invoke-Register\n")

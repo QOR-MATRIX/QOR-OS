@@ -79,6 +79,19 @@ function Assert-Distro {
     if (-not (Test-Distro)) { throw "There is no $distro yet. Run this script with no -Action first." }
 }
 
+# Seen once, on 1 November 2026, with another build filling WSL's memory: Wsl/Service/0x8007274c, a timeout starting the
+# distribution. Why is not known. Three starts straight after, at the same memory, took under two seconds each, so it is
+# not the usual thing, and a second try costs little.
+function Start-Distro {
+    foreach ($attempt in 1..3) {
+        wsl.exe -d $distro -u root --exec true | Out-Host
+        if ($LASTEXITCODE -eq 0) { return }
+        Write-Host "$distro did not start: exit $LASTEXITCODE. Trying again in 30 seconds."
+        Start-Sleep -Seconds 30
+    }
+    throw "$distro would not start. wsl --list --verbose says how things stand."
+}
+
 # Puts a file into the distribution, root's, with its bytes exact: LF line ends, nothing added.
 function Send-File([string] $source, [string] $target, [string] $mode) {
     $bytes = [Text.UTF8Encoding]::new($false).GetBytes([IO.File]::ReadAllText($source).Replace("`r`n", "`n"))
@@ -134,6 +147,7 @@ function Copy-Kit {
 }
 
 function Install-Inside {
+    Start-Distro
     Send-File (Join-Path $here 'isolated-linux-runner.sh') '/usr/local/sbin/qor-ci-provision' '0700'
     Send-File (Join-Path $here 'check_runner_boundary.sh') '/usr/local/libexec/qor-ci-check' '0755'
 }
@@ -147,6 +161,11 @@ function Restart-Distro {
 
 # What the other distribution's own boot registered, read from its files as its normal user, into the kernel's one table.
 function Restore-SharedTable {
+    try { Start-Distro }
+    catch {
+        Write-Warning "The kernel's binfmt_misc table was not checked: $_ In $KitDistro, try: cmd.exe /c ver"
+        return
+    }
     cmd.exe /c "wsl.exe -d $KitDistro --exec sh -c ""cat /usr/lib/binfmt.d/*.conf /etc/binfmt.d/*.conf 2>/dev/null"" | wsl.exe -d $distro -u root --exec /usr/local/sbin/qor-ci-provision restore-binfmt"
     if ($LASTEXITCODE) { Write-Warning "The kernel's binfmt_misc table may not be as it was. In $KitDistro, try: cmd.exe /c ver" }
 }
@@ -181,6 +200,7 @@ function Invoke-Register {
     $url = "https://github.com/$Org/$Repo"
     Write-Host "Serving $url as $RunnerName, one job at a time, each from an empty home. Ctrl+C stops it between jobs."
     while ($true) {
+        Start-Distro
         # One clock for every distribution, and it drifts after sleep. GitHub refuses a runner whose clock is wrong (docs/CI.md).
         Invoke-Root date -u -s ((Get-Date).ToUniversalTime().ToString('yyyy-MM-dd HH:mm:ss')) | Out-Null
         gh api -X POST "repos/$Org/$Repo/actions/runners/registration-token" --jq .token 2>$null |
