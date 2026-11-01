@@ -145,10 +145,11 @@ jobs:
       - name: Test
         run: ctest --preset ci-windows -LE gpu
 
+      # Nothing draws once this laptop's display has timed out, so what draws holds it on (docs/CI.md).
       - name: Test (GPU)
         id: gpu-tests
         if: vars.QOR_RUN_GPU_TESTS == 'true'
-        run: ctest --preset ci-windows -L gpu --timeout 120 --repeat until-pass:2
+        run: python tools/ci/with_display.py -- ctest --preset ci-windows -L gpu --timeout 120 --repeat until-pass:2
 
       - name: Upload golden-image differences
         if: failure() && steps.gpu-tests.outcome == 'failure'
@@ -183,7 +184,7 @@ jobs:
       - name: Products (QQ, ARQADE, QOR Media)
         if: steps.products.outputs.run == 'true'
         shell: pwsh
-        run: .\tools\dev\products.ps1 -Qt $env:QOR_QT_DIR -BuildRoot build\ci-products
+        run: python tools/ci/with_display.py -- pwsh -NoProfile -File tools\dev\products.ps1 -Qt $env:QOR_QT_DIR -BuildRoot build\ci-products
 
       - name: Exploit mitigations (the products)
         if: steps.products.outputs.run == 'true'

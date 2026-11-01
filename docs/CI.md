@@ -266,6 +266,20 @@ could be changed, and was. The Windows suites also have the machine to themselve
 A build that **stops partway with no failure in its log**, both jobs ending together, means the machine stopped. Look at
 the System log first: on 30 October a Build "failed" that way at Windows' critical-battery shutdown (Kernel-Power 524).
 
+**Windows barely draw once the display has timed out.** This laptop's only sleep is Modern Standby, which starts when the
+display times out: after two hours on mains, ten minutes on battery. The machine goes on working and the runner goes on taking
+jobs, but animations hold still, a game's clock stops and the clipboard cannot be opened. On 1 November 2026 a Build failed this
+way twice over: `tst_kit_qml` in one standby, then in the next 40 cases of ARQADE's `tst_games` and others in QOR Media, at each
+of a product's two attempts, for an hour. QQ's suites passed through it, so one product passing proves nothing. Failures across
+unrelated suites, with `it_draws_on_the_graphics_card` among them (fewer than 30 frames swapped), mean this; the System log says
+so, in Kernel-Power's events 506 and 507 and their reasons.
+
+So on Windows the steps that draw go through `tools/ci/with_display.py`. It holds the display on while they run, by a request
+that ends with its process and changes no setting. If the machine is already asleep it wakes it, and if it cannot, or the
+desktop is locked, it says so and runs nothing. If the machine sleeps anyway (a lid, the power button), the step says that too.
+Measured on this laptop: a request alone does not wake it, a mouse move of no distance does, and woken with nothing holding it
+it was asleep again in 32 seconds. Linux's suites draw in software out of sight, and passed through both standbys.
+
 **A stopped machine leaves damage behind.** The next Build on the Linux runner failed to link, with undefined references to
 code that had not changed: five objects written as the machine stopped were empty, dated a minute before it, so Ninja took
 them as built. A Build now deletes empty objects first. Anything stranger in a folder that used to build (a partly written

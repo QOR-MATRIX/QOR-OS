@@ -2229,6 +2229,9 @@ private slots:
     // closed before anyone joins, it says so, and the lobby is a button away.
     void a_rematchs_lobby_closed_before_anyone_joins()
     {
+        // The match the cases before it played. Without one they failed, and this one should say so and not crash, so that
+        // the suite goes on to what follows.
+        QVERIFY(arcade->latest("flux"));
         const QString finished = arcade->latest("flux")->id;
         // The finished match is asked after every 1.2 seconds: a poll's answer is kept back, and so is the rematch's.
         arcade->hold = [](const fakes::Request &r) { return r.url.path().startsWith(QLatin1String("/api/matches")); };
