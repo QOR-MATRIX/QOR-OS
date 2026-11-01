@@ -157,8 +157,8 @@ published before.
 - [ ] Each named game's rules, Node test and fixture in demiurge-chain, by a pull request there
 
   Ever Rift's and Darkveil's, with its ADR-129: demiurge-chain
-  [#117](https://github.com/QOR-MATRIX/demiurge-chain/pull/117), opened on the owner's word on 31 October, waits for
-  their merge.
+  [#117](https://github.com/QOR-MATRIX/demiurge-chain/pull/117), merged by the owner on 1 November (`74a1014`). Bellwick's
+  wait for its name.
 
 ## Phase 2 · Identity and keys
 

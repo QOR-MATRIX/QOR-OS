@@ -27,6 +27,8 @@ Demiurge's QQ engine, ARQADE and QOR Media, on Linux. Code:
    tests. `tools/ci/with_display.py` now keeps the screen on while tests draw,
    wakes the laptop first, and refuses to run if it is locked. It changes none
    of your settings.
+5. **You merged demiurge-chain #117** (*a request to merge*). Ever Rift's and
+   Darkveil's rules are the same there and here, and its checks passed.
 
 ## Checked
 
@@ -34,24 +36,23 @@ Demiurge's QQ engine, ARQADE and QOR Media, on Linux. Code:
 first time, Bellwick's tests included;** QOR Media passed on its automatic second
 attempt, after a test window did not get the keyboard once. **Two things to know.**
 That run first failed one test, because Windows' clipboard refused every program
-on this laptop for at least 1¾ hours. It let go by itself, and what held it is not
-known. I suspected `msrdc.exe`, the viewer for Linux windows, and tried to end it;
-the permission system refused, and it was still running when the clipboard let go.
-And nobody has played or heard Bellwick, Ever Rift or Darkveil.
-demiurge-chain #117 still passes and can merge.
+on this laptop for at least 1¾ hours. It let go in the minute a mouse woke the
+laptop, just before you merged #117, with no restart. What held it is not known. I
+suspected `msrdc.exe`, the viewer for Linux windows, and tried to end it; the
+permission system refused, and it was still running afterwards. And nobody has
+played or heard Bellwick, Ever Rift or Darkveil.
 
 ## Needs you
 
-1. **Merge demiurge-chain #117.** Nothing players see changes.
-2. **Name Bellwick.** Nothing of it goes public until then. Near it are *Bell
+1. **Name Bellwick.** Nothing of it goes public until then. Near it are *Bell
    Kingdom* and *Curse Crackers*. A search is not trademark clearance.
-3. **Play Bellwick, Ever Rift and Darkveil.**
-4. **Move the Store's signing keys off this PC.** A CI job here could read them.
-5. **During CI:** on AC, lid open, unlocked, mouse and keyboard left alone. One
+2. **Play Bellwick, Ever Rift and Darkveil.**
+3. **Move the Store's signing keys off this PC.** A CI job here could read them.
+4. **During CI:** on AC, lid open, unlocked, mouse and keyboard left alone. One
    test also clears what you had copied, on every Windows run.
-6. **The Linux machine:** a USB-C SSD of 500 GB or more and a USB stick of 8 GB
+5. **The Linux machine:** a USB-C SSD of 500 GB or more and a USB stick of 8 GB
    or more, then BUILDING.md's steps.
-7. **Legal, still open:** trademark advice, the legal entity, the Qt letter,
+6. **Legal, still open:** trademark advice, the legal entity, the Qt letter,
    replacing the 5 October key.
 
 ## Next

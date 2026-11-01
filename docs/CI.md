@@ -285,9 +285,9 @@ failed 40 cases, passed all of them first time. Linux's suites draw in software 
 clipboard, and it clears what was on it. On 1 November 2026 it failed on both attempts, with `OleSetClipboard` reporting
 `0x800401d0: OpenClipboard Failed` and Qt "Unable to obtain clipboard", in a step otherwise clean. Every program on the machine
 was refused (`OpenClipboard`, error 5) with no QOR program running and no window named as the holder, so a process held it
-without a window. It let go by itself after at least an hour and three quarters, with no restart and nothing ended, and the job
-then passed when run again. What held it is not known: WSLg's viewer `msrdc.exe` was suspected, and was still running when it let
-go. Check by opening the clipboard from another process, and run the job again once that succeeds.
+without a window. It let go after at least an hour and three quarters, in the minute a mouse woke the machine, with no restart,
+and the job then passed when run again. What held it is not known: WSLg's viewer `msrdc.exe` was suspected, and was still running
+when it let go. Check by opening the clipboard from another process, and run the job again once that succeeds.
 
 **A stopped machine leaves damage behind.** The next Build on the Linux runner failed to link, with undefined references to
 code that had not changed: five objects written as the machine stopped were empty, dated a minute before it, so Ninja took
