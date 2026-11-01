@@ -22,6 +22,11 @@ Qt's defined terms keep Qt's spelling here ("License Certificate",
   add: valid to 2027-09-27, includes Qt AI Assistant. The end date is not in
   the repository ([QT-MODULES.md](../QT-MODULES.md) lists Qt Creator "incl.
   Qt AI Assistant"), and neither was checked against the Qt account.
+- **The installer's own record**, `licenseInfo.txt` in the Qt folder, read with its identifiers masked on 1 November 2026, says:
+  license type Enterprise; schema Full Commercial; `qtframework` at edition enterprise, with Qt Creator, Qt Design Studio, Qt for
+  MCUs and Qt AI Assistant; and two sets of licences, one ending 2026-08-19 and one ending 2027-09-27. Qt's licence service
+  granted a licence on this machine that day. This shows what the account was granted. It is not the agreement, and it does not
+  name the product. `Licenses/QT-EDUCATIONAL-LICENSE-AGREEMENT` beside it is a component every install carries, not the licence held.
 - **Not recorded anywhere:** the product as Qt now names it (Qt for
   Application Development Professional or Enterprise, ADP or ADE; Qt for
   Device Creation Professional or Enterprise, DCP or DCE); the agreement and
@@ -198,6 +203,49 @@ on PCs they already own is an **Application** (royalty-free) or a **Device**
   §5.4.1(iv) and (ix).
 
 Only The Qt Company can answer. That is why QOR-0008 makes it a gate.
+
+## CI machines that hold no account
+
+The replacement for the workstation's runners ([CI.md](../CI.md#what-ci-trusts)) must hold no credential, since its jobs run other
+people's code. That is what the terms do not settle. Read on 1 November 2026, from the published **Appendix for Qt Development
+Framework 2026-01** and **Appendix for License Server Terms 2026-03**. The second is also in the kit's `Licenses` folder. The
+owner's agreement may be another version.
+
+| Clause | Words | Why it matters here |
+|--------|-------|---------------------|
+| Framework §5.1.1 | use "by Designated Users on the Development Platforms for the sole purposes of designing, developing, demonstrating and testing" | Testing is covered. Whether an unattended job is use "by Designated Users" is not said. A Designated User (§2.7) is a person: an employee or contractor |
+| Framework §5.1.2 | "install copies of the Licensed Software on five (5) computers per Designated User" | Does a VM or a distribution count as a computer? A fresh hosted machine each run? |
+| Framework §5.4.1 | "shall not transfer, publish, disclose, display or otherwise make available the Licensed Software" | Whether a third party's machines and cache, which would hold the kit on hosted runners, are outside it |
+| Licence server §4.1.2, §7.1 | the service is for "license validation by Designated Users" | The same question, for a machine |
+| Licence server §5.2, §5.3 | Customer must use and install Qt's "client-side features and required functionality" | A machine with no account makes `moc` say it cannot acquire a licence. It carries on, and exits 0 |
+| Licence server §6.3 | "ensuring user passwords and logins are not shared and restricting circumvention of license limitations" | A person's login held by a job, or as a secret on GitHub. And `QTFRAMEWORK_BYPASS_LICENSE_CHECK`, which `moc` itself names and Qt's published documents found so far do not explain |
+| Licence server §2.1 | an optional Connected On-Premises License Server, which "may vary depending on Licensed Software and purchased license editions" | Perhaps the intended route for machines. Whether this licence includes it is not recorded |
+
+None of these clauses, nor the Pool License exhibit, mentions a build machine, a build server or continuous integration. So this
+is a gap and not a prohibition, and only Qt can close it. Until it does, **the bypass variable is not set, and no Qt kit or Qt
+login goes onto a replacement.**
+
+**What can go ahead without Qt's answer:** making and proving the boundary itself with no Qt in it; everything hosted that needs no
+kit (Lint, Security, the Python tools' tests, and the QOR core, which is Rust); and a person's own builds on the machine they are
+licensed for, which is what evidence comes from today.
+
+**What waits for it:** a kit in `qor-ci` or a VM; registering a runner there; hosted Qt builds, which need the installer's login or
+token as a repository secret.
+
+**The two replacements, as assessed on 1 November 2026, with nothing bought and nothing changed:**
+
+- **GitHub's hosted runners.** Two processors, 8 GB and 14 GB of disk on a private repository, and no GPU. The Free plan includes
+  $12 of compute a month: at the $0.006 and $0.010 a minute GitHub publishes, about 2,000 minutes on Linux or 1,200 on Windows, and
+  with no payment method use stops there. They hold nothing of the owner's, so they are the strongest boundary. But each run starts
+  cold on a quarter of the compilers the jobs here use (8), and the products in software need far more: `tst_games` alone took 49 of the 71
+  minutes measured with ten threads. So at best they could carry the OS's own build and tests a few times a month. They cannot show
+  the suites that draw, and no repository secret exists to install Qt with.
+- **A clean Linux VM on this machine.** No purchase: Windows 11 Pro's hypervisor is already running under WSL, and X: has 186 GB free.
+  Its own kernel closes what `qor-ci` shares with `Ubuntu`: the kernel, the user and network namespaces, `/dev`, and the route to `C:\`.
+  It needs an administrator to turn Hyper-V on, and has to fit in 16 GB beside everything else. It takes Linux only: a Windows
+  guest needs a Windows licence, and this document does not assume one. **This is the recommended replacement for the Linux job.** The
+  Windows job has no replacement yet: a second account qualifies only once a job under it is shown unable to reach the owner's files
+  and privileges.
 
 ## Already distributed: worth checking now
 
@@ -437,7 +485,22 @@ CI runners at [location or locations] install Qt with our Qt Account.
     repository, given Section 5.1.1?
 15. Is our development setup within Section 5.1: one Designated User, AI
     coding assistants, and self-hosted CI runners that use our Qt Account? If
-    not, how many Development Licenses do we need?
+    not, how many Development Licenses do we need? We are moving CI to machines
+    that hold no credential, because their jobs run third-party code:
+    - Is an unattended build or test job, started by a Designated User's commit,
+      use "by Designated Users" under Section 5.1.1 and Sections 4.1.2 and 7.1
+      of the License Server Terms?
+    - Is a virtual machine or a WSL distribution one of the five computers in
+      Section 5.1.2? Is a hosted machine that is new each run?
+    - On a CI machine with no Qt Account, the kit's `moc` says "Cannot acquire
+      license to use qtframework", then works and exits 0. Are builds in that
+      state covered? If not, what is the approved way to license such a machine?
+      Does our licence include a Connected On-Premises License Server?
+    - May we set `QTFRAMEWORK_BYPASS_LICENSE_CHECK`, the variable that message
+      names, on such a machine?
+    - May the kit be installed on and cached by a third party's CI service,
+      GitHub Actions, with an installer token held there as a secret (Section
+      5.4.1, and Section 6.3 of the License Server Terms)?
 16. What must we keep active to keep shipping security updates to installed
     systems, given Section 5.3.2 and your FAQ on changes after a subscription
     ends? What happens to installed systems if our subscription ends?
