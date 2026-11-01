@@ -5,7 +5,7 @@ Workflows live in [`.github/workflows/`](../.github/workflows/).
 | Workflow | Runs on | Needs Qt | Checks |
 |----------|---------|----------|--------|
 | **Lint** (`lint.yml`) | `ubuntu-24.04` | No | Generated tokens are current, token generator tests, the Store's signed catalogue, SPDX headers, no secret in the tracked files, the rules of QOR OS's own ARQADE games in Node (`products/arqade/tests/*.test.mjs`, [QOR-0017](decisions/QOR-0017-arqades-new-games.md)), clang-format 20.1.8, JSON validity. The products keep their own form, so the format checks skip them; the header check skips only their files from demiurge-chain (`LICENSES/from-demiurge-chain.txt`, [UPSTREAM.md](UPSTREAM.md)) |
-| **Build** (`build.yml`) | Windows and Linux, self-hosted (or hosted with the online installer) | Yes (commercial) | Configure (`ci-windows`/`ci-linux`, warnings as errors, the QOR core required), build, every program's exploit mitigations read back (`tools/ci/check_hardening.py`), `all_qmllint`, `ctest -LE gpu` (plus `-L gpu` when enabled), and on Linux the same suites again under AddressSanitizer and UBSan (the `linux-asan` preset). On both, the carried products (QQ, ARQADE, QOR Media) when they changed. Tags and manual runs also upload an installable Windows artifact (kept 7 days) |
+| **Build** (`build.yml`) | Windows and Linux, self-hosted (or hosted with the online installer) | Yes (commercial) | Configure (`ci-windows`/`ci-linux`, warnings as errors, the QOR core required), build, every program's exploit mitigations read back (`tools/ci/check_hardening.py`), `all_qmllint`, `ctest -LE gpu` (plus `-L gpu` when enabled), and on Linux the same suites again under AddressSanitizer and UBSan (the `linux-asan` preset). On each where its variable says so, the carried products (QQ, ARQADE, QOR Media) when they changed. Tags and manual runs also upload an installable Windows artifact (kept 7 days) |
 | **Security** (`security.yml`) | `ubuntu-24.04`, never the workstation | No | `gitleaks` over the whole history, redacted, its download checked by SHA-256. Weekly and on demand, `cargo audit` of the QOR core's lock file at the pin ([QOR-0018](decisions/QOR-0018-the-security-and-quality-bar.md)) |
 
 All three run on pushes to `main`, on pull requests and on demand; Build also runs on `v*` tags and Security every
@@ -98,36 +98,19 @@ registering, or a job could land on either runner. The Windows job needs its own
 
 ### The carried products
 
-With `QOR_RUN_GPU_TESTS`, both jobs also build and test QQ, ARQADE and QOR
-Media: Windows through `tools/dev/products.ps1`, which calls each product's
-own script, and Linux through `tools/dev/products.sh`, QOR OS's Linux build of
-them. On Linux the suites run on a display of the script's own, a compositor
-on Qt's offscreen platform, so nothing reaches the runner's desktop
-([BUILDING.md](BUILDING.md#on-linux)); under WSL the script fences them from
-the GPU and draws in software. QOR Media needs PDFium, which both scripts
-fetch at a pinned release and check by SHA-256.
+Both jobs can also build and test QQ, ARQADE and QOR Media: Windows with
+`QOR_RUN_GPU_TESTS`, through `tools/dev/products.ps1`, which calls each
+product's own script, and Linux with `QOR_RUN_LINUX_PRODUCTS`, through
+`tools/dev/products.sh`, QOR OS's Linux build of them. QOR Media needs PDFium,
+which both scripts fetch at a pinned release and check by SHA-256.
 
-**Linux runs them only with `QOR_RUN_LINUX_PRODUCTS` as well**, which is not
-set. On 28 October, three runs under WSL that drew on the GPU through Mesa's
-Direct3D 12 driver hung the workstation the Linux runner shares, at 1:04, 3:08
-and 7:20 PM; each took the power button, and Windows logged no GPU reset and
-no crash. Each run's log stops where a QQ suite starts: tst_agent at 12:24,
-the Player's suite at 3:05, tst_world at 3:51. ctest stops a suite after 900
-seconds and says so, yet the first and third logs stayed silent for 40
-minutes and three and a half hours before Windows hung, which fits a suite
-stuck inside the GPU driver, where no signal reaches it. Before the second,
-QQ's play suite had crashed after Direct3D 12 removed its device and Mesa
-failed to make a context (`EGL_BAD_ALLOC`). The script now fences runs under
-WSL from the GPU ([BUILDING.md](BUILDING.md#on-linux)). The owner decides when
-to set the variable.
-
-The suites take about ten minutes, and on Windows they drive real windows on
-the runner's desktop, so they run only when:
+The suites drive real windows, on Windows on the runner's desktop, so they run
+only when:
 
 - the push or pull request changes `products/`, `tools/qor-media/`,
   `docs/design/tokens.json`, `tools/dev/products.ps1` (`products.sh`,
-  `products-display.qml` and `.github/qt-packages.json` on Linux) or
-  `build.yml`;
+  `products-display.qml`, `products-report.py`, `secret-service.py` and
+  `.github/qt-packages.json` on Linux) or `build.yml`;
 - the run is for a tag;
 - the run was started by hand.
 
@@ -136,6 +119,92 @@ On a Windows desktop someone is using, a test window can lose the keyboard to
 another application, or a synthetic click to the real pointer, wherever it rests,
 and a genuine failure fails both attempts. The step summary says whether the
 products ran.
+
+#### What Linux runs
+
+**`QOR_RUN_LINUX_PRODUCTS` is not set, so today it runs none of this.** With it
+set, the job runs every suite each product registers with CTest, **all of them
+in software**, hidden:
+
+- **Fenced from the GPU.** Under WSL the script hides `/dev/dxg` in a namespace of
+  its own, and Mesa draws with llvmpipe. A machine with no door to a GPU at all
+  draws in software the same way. ([Why the fence](#why-linux-is-fenced), and
+  [BUILDING.md](BUILDING.md#on-linux).)
+- **Out of sight.** A display of the script's own, a compositor on Qt's offscreen
+  platform; a session bus and an in-memory keyring of its own; no sound device.
+- **Within the machine's limits.** One job at a time and 8 compilers, as for the
+  rest of the job. The tests are held to half the processors and three quarters of
+  WSL's memory where systemd's user manager runs.
+
+**A pass there says nothing of a real GPU, real sound or a real controller.** It
+says what the games do, by their own clocks, and that their windows behave.
+Nothing here replaces playing them on the Linux machine.
+
+**The log and the step's summary name every case failed or skipped, with why**, in
+each product's `what its suites said` (`tools/dev/products-report.py`, from CTest's own
+log, the only place a passing suite's output is kept). A suite that stops before its
+end says `STOPPED`. Nothing is excluded. These are the cases that do not simply pass:
+
+| Case | In software, under WSL | Why |
+|------|------------------------|-----|
+| QQ's `tst_player`: `thePlaygroundPlaysAndItsStartIsMeasured` | **Fails, and so fails the step**, until the owner says otherwise | Its floor of 20 frames a second, a real performance check, reads 5 to 6 here. It stays a check on Windows. See below |
+| QQ's `tst_agent`: `theRealProviderIsReachedOverTls` | Skipped, as everywhere | Needs `QQ_LIVE_ENDPOINT=1`, to reach the real provider |
+| QOR Media's `playback`: `video_decodes_through_ffmpeg` | Skipped | Windows' sample video is not on this machine |
+| QOR Media's `playback`: `it_docks_inside_the_launchers_window_and_lifts_out_to_full_screen` | Skipped | Wayland has no window handles to dock by; Prism places the window ([QOR-0010](decisions/QOR-0010-on-wayland-prism-places-the-products-windows.md)) |
+
+**The QQ Player's floor** asks for 20 frames a second of the bundled playground. Software
+cannot give that, and it says nothing of the game, so the floor is neither lowered nor skipped:
+the case fails and says what it read. Whether Linux CI stays red on it or lets it stand is the
+owner's decision. `tools/dev/products.sh --accept-software-floor` is the second: in software only,
+with that check in that case the product's only failure, it reports the failure and lets it stand.
+`build.yml` does not pass it, so the step is red on this alone.
+
+**How long.** On this laptop, with the builds incremental, about 70 minutes: QQ 17, ARQADE 50
+(`games`, which is `tst_games`, 49), QOR Media under one. So a cold build and a second go at a
+failed `games` fit the step's limit of 180 minutes, and the job has 270 with the variable set.
+What the products built then has its exploit mitigations read back, as on Windows.
+
+**What is different in software, and why each is no loosening:**
+
+- **A case waits on the game's clock, not the wall's.** A game has three, which agree at
+  30 frames a second or more and part when frames are slower: a body moves by the physics
+  world's (at most 1/30 s a frame), the Player's turn, fall and jump speeds go by the frame
+  clock (at most 1/20 s), and logic by the scene's ticks (at most 8/60 s). QQ's play, Studio and
+  agent suites wait on the clock the thing goes by, on every machine, with a limit on the wall's
+  time that only stops a hung game. The checks are the same numbers, each shown by a planted
+  fault to catch what it should.
+- **ARQADE draws on Qt's basic render loop** (`QSG_RENDER_LOOP=basic`, set by the script in
+  software only). On the threaded loop, on Wayland, with frames this slow, each turn of the
+  event loop took one frame more than the last: at the 13th turn of Orbital's first lock, 13
+  frames and 15 seconds. ARQADE keeps one window through all its cases, so in time nothing else
+  ever ran. That was the stall at Orbital's ten locks. No frame was stuck, and the game was
+  not looping. Why Qt does this is not known. Whether it happens at a GPU's frame rates,
+  which would matter to a game in Prism, has not been looked at.
+- **Longer limits on the wall's time** (`QTEST_FUNCTION_TIMEOUT` 30 minutes, a suite 90), since
+  Rift Survivor's hull takes 13½ minutes to break. They stop a hung game, and check nothing else.
+- **Darkveil's pilot decides once a tick, as on a GPU.** Deciding once a frame, every eight ticks,
+  it played another game: it went home to the healer before it met the Elder. `tst_games` reads
+  the renderer's own name for this (`pilotTurn`), so a GPU never takes that path.
+
+**What the suites need of the machine.** Loopback: `tst_agent`, `tst_games` (its arenas and
+sign-in) and `tst_arqadeserver` talk to stand-ins for the provider and ARQADE's server on 127.0.0.1,
+so a job that closes it cannot pass them. `tst_lockdown` listens there too, but what it checks
+is the refusal, which stands either way. The rest use Unix sockets at a path. The keyring needs
+`dbus-daemon`, `python3-dbus` and `python3-gi`, and the display the kit's Qt Wayland Compositor.
+
+#### Why Linux is fenced
+
+On 28 October, three runs under WSL that drew on the GPU through Mesa's Direct3D
+12 driver hung the workstation the Linux runner shares, at 1:04, 3:08 and 7:20 PM; each
+took the power button, and Windows logged no GPU reset and no crash. Each run's
+log stops where a QQ suite starts: tst_agent at 12:24, the Player's suite at 3:05,
+tst_world at 3:51. ctest stops a suite after 900 seconds and says so, yet the first and
+third logs stayed silent for 40 minutes and three and a half hours before Windows
+hung, which fits a suite stuck inside the GPU driver, where no signal reaches it.
+Before the second, QQ's play suite had crashed after Direct3D 12 removed its device
+and Mesa failed to make a context (`EGL_BAD_ALLOC`). The script now fences runs under
+WSL from the GPU ([BUILDING.md](BUILDING.md#on-linux)). The owner decides when to set
+the variable.
 
 ## Providing Qt to CI
 
@@ -215,8 +284,8 @@ variables, so each repository sets its own:
 | `QOR_WINDOWS_QT_DIR` | `C:/Qt/6.12.0/msvc2022_64` | Use the installed kit; skip the installer |
 | `QOR_WINDOWS_RUNNER_ISOLATED` | `true` (unset) | Lets the job run on a kit's runner, once that runner cannot reach the owner's keys or credentials ([why](#what-ci-trusts)) |
 | `QOR_LINUX_RUNNER_ISOLATED` | `true` (unset) | The same for Linux |
-| `QOR_RUN_GPU_TESTS` | `true` (optional) | Also run GPU-labelled suites and the products (opens brief test windows on the runner's desktop) |
-| `QOR_RUN_LINUX_PRODUCTS` | `true` (optional, unset) | With `QOR_RUN_GPU_TESTS`, also run the products on Linux ([why it is off](#the-carried-products)) |
+| `QOR_RUN_GPU_TESTS` | `true` (optional) | Also run GPU-labelled suites, and the products on Windows (opens brief test windows on the runner's desktop) |
+| `QOR_RUN_LINUX_PRODUCTS` | `true` (optional, unset) | Also run the products on Linux, in software and out of sight ([what it runs](#what-linux-runs), [why it was off](#why-linux-is-fenced)), and lets the job take 270 minutes, its Products step 180 |
 | `QOR_LINUX_RUNNER` | `["self-hosted","linux","qt"]` | Linux job runs in WSL on the workstation |
 | `QOR_LINUX_QT_DIR` | `/home/<user>/Qt/6.12.0/gcc_64` | Use the installed kit |
 

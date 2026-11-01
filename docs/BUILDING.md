@@ -472,9 +472,10 @@ tools/dev/products.sh --gpu                           # under WSL, on the GPU, w
   user manager runs (`systemd=true` in `/etc/wsl.conf`), the run is also
   held to half the processors and three quarters of WSL's memory, so the PC
   stays usable. It needs unprivileged user namespaces, which WSL's kernel
-  allows. In software, QQ's walk and the QQ Player's floor of 20 frames a
-  second fail. `--gpu` draws on the GPU through Direct3D 12 as before, and
-  can freeze the PC.
+  allows. In software the QQ Player's floor of 20 frames a second fails, and
+  a pass says nothing of a real GPU, sound or controller
+  ([CI.md](CI.md#what-linux-runs)). `--gpu` draws on the GPU through
+  Direct3D 12 as before, and can freeze the PC.
 - **Sound:** with `--display session` and no PipeWire daemon (WSLg), it sets
   `QT_AUDIO_BACKEND=pulseaudio`, as the shell's audio engine does.
 - **Programs:** on Linux QQ's programs sit in their target folders

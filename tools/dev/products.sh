@@ -19,6 +19,10 @@
 #   tools/dev/products.sh --display prism          # inside Prism
 #   tools/dev/products.sh --gpu                    # under WSL, on the GPU, which has frozen the PC
 #   tools/dev/products.sh --build-only             # built, and no suite run
+#   tools/dev/products.sh --accept-software-floor  # in software, the QQ Player's frame-rate floor fails the run no more
+#
+# After each product it says what each suite did, by name: passed, failed and
+# skipped, and each case failed or skipped, with why (and in a CI job's summary).
 #
 # Under WSL the run is fenced from the GPU, unless --gpu is given. On 28
 # October three runs that drew on it through Direct3D 12 hung the PC: a suite
@@ -29,7 +33,8 @@
 # CUDA or video decoding) reaches the GPU. Where systemd's user manager runs,
 # the run is also held to half the processors and three quarters of WSL's
 # memory, so the PC stays usable and a runaway suite is stopped inside it.
-# In software QQ's walk and the QQ Player's floor of 20 frames a second fail.
+# In software the QQ Player's floor of 20 frames a second fails, and a pass says
+# nothing of a real GPU, real sound or a real controller (docs/CI.md).
 #
 # The suites open real windows and drive them with input. By default
 # (--display offscreen) they open them on a display of the run's own,
@@ -60,9 +65,12 @@ PRISM=${QOR_PRISM:-}
 GPU=no
 TESTS=
 BUILD_ONLY=no
+ACCEPT_FLOOR=no
+SUITE_TIMEOUT=900
+DRAWN=
 ARGS=("$@")
 
-usage() { sed -n '3,49p' "$0" | sed 's/^# \{0,1\}//'; }
+usage() { sed -n '3,/^set -euo/p' "$0" | sed -e '$d' -e 's/^# \{0,1\}//'; }
 
 while [ $# -gt 0 ]; do
     case $1 in
@@ -75,6 +83,7 @@ while [ $# -gt 0 ]; do
         --prism) PRISM=$2; shift 2 ;;
         --gpu) GPU=yes; shift ;;
         --build-only) BUILD_ONLY=yes; shift ;;
+        --accept-software-floor) ACCEPT_FLOOR=yes; shift ;;
         -h | --help) usage; exit 0 ;;
         *) echo "Unknown argument: $1" >&2; usage >&2; exit 2 ;;
     esac
@@ -167,6 +176,17 @@ if [ "$DXG" = fenced ]; then
 elif [ "$DXG" = gpu ] && [ -z "${GALLIUM_DRIVER:-}" ]; then
     export GALLIUM_DRIVER=d3d12
 fi
+# With no door to a GPU at all (a sandbox without devices, a hosted runner), software is all Mesa has too.
+if [ "$DXG" = fenced ] || { [ -z "$DXG" ] && ! compgen -G '/dev/dri/renderD*' > /dev/null; }; then
+    DRAWN="drawn in software"
+    export LP_NUM_THREADS=${LP_NUM_THREADS:-$((($(nproc) + 1) / 2))}
+    # Measured on 1 November 2026, with a frame of Orbital taking over a second: Rift Survivor's hull took 13½ minutes to
+    # break, over QtTest's limit of five on a case, and tst_games about 50 minutes, over the 15 CTest gets below. tst_games'
+    # limits on what a pilot may take follow the first of these (playingLimit).
+    export QTEST_FUNCTION_TIMEOUT=${QTEST_FUNCTION_TIMEOUT:-1800000}
+    SUITE_TIMEOUT=5400
+    echo "== Drawn in software: a pass here says nothing of a GPU, real sound or a real controller"
+fi
 export QT_FORCE_STDERR_LOGGING=1
 export PATH=$QT/bin:$PATH
 
@@ -243,6 +263,24 @@ start_display() {
 }
 [ "$SHOW" = session ] || [ "$BUILD_ONLY" = yes ] || start_display
 
+# What each suite of the attempt just made said: its counts, and every case that failed or skipped, by name, with why. In
+# a job, the step's summary says it too.
+report() { # name build
+    local said
+    said=$(python3 "$REPO/tools/dev/products-report.py" "$2") || return 0
+    echo "== $1: what its suites said"
+    printf '%s\n' "$said"
+    if [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then
+        { echo "### $1 on Linux${DRAWN:+, $DRAWN}"; echo '```'; printf '%s\n' "$said"; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+    fi
+}
+
+# The QQ Player's floor of 20 frames a second is the one failure --accept-software-floor lets stand, and only in software:
+# tst_player the only suite failed, having reached its end, with that check in that case its only failure.
+only_the_floor_failed() { # build
+    [ "$ACCEPT_FLOOR" = yes ] && [ -n "$DRAWN" ] && python3 "$REPO/tools/dev/products-report.py" --only-the-floor "$1"
+}
+
 build_and_test() { # name
     local name=$1 source=$REPO/${SOURCES[$1]} build=$BUILD_ROOT/$1
     local extra=()
@@ -256,17 +294,31 @@ build_and_test() { # name
     cmake --build "$build" || return 1
     [ "$BUILD_ONLY" = no ] || return 0
 
-    local attempt select=()
+    local attempt select=() drawing=()
     [ -z "$TESTS" ] || select=(-R "$TESTS")
+    # ARQADE keeps one window through all its cases. On Qt's threaded render loop, on Wayland, with frames as slow as these,
+    # each turn of the event loop then took one frame more than the last: 13 frames, 15 seconds, by the first lock of
+    # Orbital's ten, and in time nothing else ever ran (docs/CI.md). On the basic loop each takes one.
+    [ -z "$DRAWN" ] || [ "$name" != arqade ] || drawing=(QSG_RENDER_LOOP=basic)
     for attempt in $(seq "$ATTEMPTS"); do
         if [ "$attempt" -eq 1 ]; then
-            ctest --test-dir "$build" --output-on-failure --timeout 900 "${select[@]}" && return 0
+            if env "${drawing[@]}" ctest --test-dir "$build" --output-on-failure --timeout "$SUITE_TIMEOUT" "${select[@]}"; then
+                report "$name" "$build"
+                return 0
+            fi
         else
             echo "== $name: the failed suites again (attempt $attempt of $ATTEMPTS)"
-            ctest --test-dir "$build" --output-on-failure --timeout 900 --rerun-failed "${select[@]}" && {
+            if env "${drawing[@]}" ctest --test-dir "$build" --output-on-failure --timeout "$SUITE_TIMEOUT" --rerun-failed "${select[@]}"; then
+                report "$name" "$build"
                 RETRIED+=("$name")
                 return 0
-            }
+            fi
+        fi
+        report "$name" "$build"
+        if only_the_floor_failed "$build"; then
+            echo "== $name: failed only the QQ Player's floor of 20 frames a second, in software, which --accept-software-floor lets stand"
+            FLOOR_STOOD+=("$name")
+            return 0
         fi
     done
     return 1
@@ -274,6 +326,7 @@ build_and_test() { # name
 
 FAILED=()
 RETRIED=()
+FLOOR_STOOD=()
 IFS=, read -r -a WANTED <<< "$PRODUCTS"
 for name in "${WANTED[@]}"; do
     [ -n "${SOURCES[$name]:-}" ] || { echo "Unknown product: $name (qq, arqade, media)" >&2; exit 2; }
@@ -286,6 +339,7 @@ if [ -n "$DISPLAY_PID" ] && ! kill -0 "$DISPLAY_PID" 2>/dev/null; then
     FAILED+=(display)
 fi
 [ ${#RETRIED[@]} -eq 0 ] || echo "Passed on a later attempt: ${RETRIED[*]}"
+[ ${#FLOOR_STOOD[@]} -eq 0 ] || echo "Failed the QQ Player's floor, let stand in software: ${FLOOR_STOOD[*]}"
 if [ ${#FAILED[@]} -gt 0 ]; then
     echo "Failed: ${FAILED[*]}"
     exit 1
