@@ -8,6 +8,7 @@
 // colours tests/fixtures/make_2d.py paints.
 //
 // Changed for QOR OS: a controller comes from QOR OS's controller service, QOR.Input; here, only its virtual ones.
+// Changed for QOR OS: what is measured over the game's time is waited for on the game's clocks, not the wall's (Stage).
 
 #include <QDir>
 #include <QElapsedTimer>
@@ -61,12 +62,20 @@ QString fixture(const QString &name)
 }
 
 /// A window with a world in it, and a scene playing in the world.
+///
+/// A game has three clocks, which agree when frames come at 30 a second or faster, and part when they are slower, as they
+/// are drawn in software. A body moves by the physics world's, which steps at most 1/30 s a frame. The Player's turn and
+/// its fall and jump speeds go by the frame clock (Player.qml), at most 1/20 s a frame. Logic goes by the scene's ticks
+/// (Scene.advance), at most 8/60 s a frame. So a check of what happens over the game's time waits on the clock that thing
+/// goes by, never the wall's, and a limit on the wall's time only stops a game that has hung. A frame in software can take
+/// a fifth of a second, and a second of the physics world's time then takes six on the wall.
 struct Stage {
     QQmlEngine engine;
     std::unique_ptr<QQuickWindow> window;
     QObject *world = nullptr;
     QObject *holder = nullptr;
     QObject *scene = nullptr;
+    QObject *clocks = nullptr;
     qq::SceneIO *io = nullptr;
 
     bool open(const QString &sceneText, bool play = true, const QUrl &file = {})
@@ -87,6 +96,29 @@ struct Stage {
                     Node { objectName: "holder" }
                 }
                 TextInput { objectName: "typing"; width: 200; height: 24 }
+
+                // The clocks a case waits on, in milliseconds. In step, the scene's ticks are paid from the physics world's
+                // time, as they are whenever frames come fast enough (see stepped()).
+                QtObject {
+                    id: clocks
+                    objectName: "clocks"
+                    property QtObject scene: null
+                    property bool inStep: false
+                    property real physics: 0
+                    property real frames: 0
+                }
+                FrameAnimation {
+                    running: true
+                    onTriggered: clocks.frames += Math.min(frameTime, 0.05) * 1000
+                }
+                Connections {
+                    target: clocks.scene ? clocks.scene.physicsWorld : null
+                    function onFrameDone(timestep) {
+                        clocks.physics += timestep
+                        if (clocks.inStep)
+                            clocks.scene.advance(timestep / 1000)
+                    }
+                }
             }
         )", QUrl(QStringLiteral("qrc:/tst_play/stage.qml")));
         window.reset(qobject_cast<QQuickWindow *>(component.create()));
@@ -96,6 +128,7 @@ struct Stage {
         }
         world = window->findChild<QObject *>(QStringLiteral("world"));
         holder = world->findChild<QObject *>(QStringLiteral("holder"));
+        clocks = window->findChild<QObject *>(QStringLiteral("clocks"));
         if (!QTest::qWaitForWindowExposed(window.get()))
             return false;
         // Frames flowing before anything is timed: the first ones wait on shaders being compiled.
@@ -118,6 +151,7 @@ struct Stage {
             qWarning() << io->lastError();
             return false;
         }
+        clocks->setProperty("scene", QVariant::fromValue(scene));
         if (play)
             scene->setProperty("playing", true);
         return true;
@@ -184,6 +218,48 @@ struct Stage {
             steps.clear();
         }
         return done;
+    }
+
+    double physicsClock() const { return clocks->property("physics").toDouble(); }
+    double frameClock() const { return clocks->property("frames").toDouble(); }
+
+    /// Let frames pass until `done`, or until the physics world's clock has passed `until`: false if `done` never came.
+    /// A hung game fails too: a wall-clock limit far beyond any game's time here (thirty seconds for each second of it).
+    bool playUntil(const std::function<bool()> &done, double until)
+    {
+        QElapsedTimer guard;
+        guard.start();
+        const qint64 limit = 30000 + qint64(30 * (until - physicsClock()));
+        while (guard.elapsed() < limit && physicsClock() < until) {
+            if (done())
+                return true;
+            window->update();
+            QTest::qWait(4);
+        }
+        return done();
+    }
+
+    /// Let `ms` of the physics world's time pass: false if the game hung first.
+    bool play(int ms)
+    {
+        const double until = physicsClock() + ms;
+        return playUntil([&] { return physicsClock() >= until; }, until);
+    }
+
+    /// Let `ms` of the frame clock pass: false if the game hung first.
+    bool playFrames(int ms)
+    {
+        const double until = frameClock() + ms;
+        return runUntil([&] { return frameClock() >= until; }, 30000 + 30 * ms);
+    }
+
+    /// Before play: the scene's ticks paid from the physics world's time, so logic and bodies keep one time however slowly
+    /// frames come, as they do at 30 frames a second or more. For a case that checks what logic's timers did to bodies.
+    /// Only with the world running: a paused world has no steps, so no ticks.
+    void stepped()
+    {
+        scene->setProperty("autoAdvance", false);
+        clocks->setProperty("inStep", true);
     }
 
     /// Where an entity's body is in play (its physics node), or the entity itself.
@@ -428,16 +504,16 @@ private slots:
         QVERIFY(s.open(sceneText(QStringLiteral("    Player { name: \"Hero\"; position: Qt.vector3d(0, 0, 0) }\n"))));
         QObject *hero = s.entity(QStringLiteral("Hero"));
         QCOMPARE(s.scene->property("player").value<QObject *>(), hero);
-        s.run(400);  // settle on the ground
+        QVERIFY(s.play(400));  // settle on the ground
         auto feet = [hero] { return hero->property("feet").value<QVector3D>(); };
         QVERIFY2(qAbs(feet().y()) < 0.15f, qPrintable(QStringLiteral("standing at %1").arg(feet().y())));
 
-        // W, for a second: forward is -z, at 4.5 m a second.
+        // W, for a second of the world's time: forward is -z, at 4.5 m a second.
         QVector3D from = feet();
         QTest::keyPress(s.window.get(), Qt::Key_W);
-        s.run(1000);
+        QVERIFY(s.play(1000));
         QTest::keyRelease(s.window.get(), Qt::Key_W);
-        s.run(200);
+        QVERIFY(s.play(200));
         const float walked = from.z() - feet().z();
         QVERIFY2(walked > 3.0f && walked < 5.5f, qPrintable(QStringLiteral("walked %1").arg(walked)));
         QVERIFY(qAbs(feet().x() - from.x()) < 0.2f);
@@ -446,17 +522,17 @@ private slots:
         from = feet();
         QTest::keyPress(s.window.get(), Qt::Key_Shift);
         QTest::keyPress(s.window.get(), Qt::Key_W, Qt::ShiftModifier);
-        s.run(1000);
+        QVERIFY(s.play(1000));
         QTest::keyRelease(s.window.get(), Qt::Key_W, Qt::ShiftModifier);
         QTest::keyRelease(s.window.get(), Qt::Key_Shift);
-        s.run(200);
+        QVERIFY(s.play(200));
         const float ran = from.z() - feet().z();
         QVERIFY2(ran > walked * 1.4f, qPrintable(QStringLiteral("ran %1, walked %2").arg(ran).arg(walked)));
 
-        // Right arrow: turns right, which is a falling heading.
+        // Right arrow, for half a second of the frame clock, which the turn goes by: turns right, a falling heading.
         const double heading = hero->property("heading").toDouble();
         QTest::keyPress(s.window.get(), Qt::Key_Right);
-        s.run(500);
+        QVERIFY(s.playFrames(500));
         QTest::keyRelease(s.window.get(), Qt::Key_Right);
         QVERIFY2(hero->property("heading").toDouble() < heading - 40,
                  qPrintable(QStringLiteral("heading %1").arg(hero->property("heading").toDouble())));
@@ -464,16 +540,14 @@ private slots:
         // Space: up more than half a metre, and down again.
         float highest = feet().y();
         QTest::keyPress(s.window.get(), Qt::Key_Space);
-        QElapsedTimer t;
-        t.start();
-        while (t.elapsed() < 600) {
+        const double jumped = s.physicsClock();
+        QVERIFY(s.playUntil([&] {
             highest = qMax(highest, feet().y());
-            s.window->update();
-            QTest::qWait(8);
-        }
+            return s.physicsClock() >= jumped + 600;
+        }, jumped + 600));
         QTest::keyRelease(s.window.get(), Qt::Key_Space);
         QVERIFY2(highest > 0.6f, qPrintable(QStringLiteral("jumped to %1").arg(highest)));
-        s.run(1200);
+        QVERIFY(s.play(1200));
         QVERIFY2(qAbs(feet().y()) < 0.15f, qPrintable(QStringLiteral("landed at %1").arg(feet().y())));
 
         // The camera is behind, above and looking at the player.
@@ -492,7 +566,7 @@ private slots:
         QObject *hero = s.entity(QStringLiteral("Hero"));
         qq::Input *input = s.input();
         input->setReadsHardware(false);  // this case is the pad
-        s.run(600);
+        QVERIFY(s.play(600));
         auto feet = [hero] { return hero->property("feet").value<QVector3D>(); };
         auto across = [](QVector3D v) { return QVector2D(v.x(), v.z()).length(); };
 
@@ -501,23 +575,28 @@ private slots:
         input->gamepadState(QVector2D(0.12f, 0.15f), QVector2D(0.1f, 0), false, false);
         QCOMPARE(input->move(), QVector2D(0, 0));
         QCOMPARE(input->gamepad(), true);
-        s.run(500);
+        QVERIFY(s.play(500));
         QVERIFY2(across(feet() - from) < 0.02f, qPrintable(QStringLiteral("drifted %1").arg(across(feet() - from))));
 
-        // Full forward on the left stick, half right on the right.
+        // Full forward on the left stick, half right on the right: the turn read at 0.8 s of the frame clock, which it goes
+        // by, and the walk at 0.8 s of the physics world's.
         const double heading = hero->property("heading").toDouble();
         input->gamepadState(QVector2D(0, 1), QVector2D(0.6f, 0), false, false);
-        s.run(800);
+        const double pushed = s.physicsClock();
+        QVERIFY(s.playFrames(800));
+        const double turned = hero->property("heading").toDouble();
+        QVERIFY(s.playUntil([&] { return s.physicsClock() >= pushed + 800; }, pushed + 800));
         QVERIFY2((feet() - from).length() > 2.0f, qPrintable(QStringLiteral("moved %1").arg((feet() - from).length())));
-        QVERIFY(hero->property("heading").toDouble() < heading - 20);
+        QVERIFY(turned < heading - 20);
 
         // A: jump.
         input->gamepadState({}, {}, true, false);
         float highest = feet().y();
-        for (int i = 0; i < 50; ++i) {
+        const double jumped = s.physicsClock();
+        QVERIFY(s.playUntil([&] {
             highest = qMax(highest, feet().y());
-            s.run(10);
-        }
+            return s.physicsClock() >= jumped + 500;
+        }, jumped + 500));
         QVERIFY2(highest > 0.5f, qPrintable(QStringLiteral("jumped to %1").arg(highest)));
 
         // Unplugged: nothing held.
@@ -929,12 +1008,16 @@ private slots:
                   "    }\n}\n");
         Stage s;
         QVERIFY(s.open(sceneText(QStringLiteral("    Behaviour { name: \"Rain\"; source: \"../logic/rain.qml\" }\n")),
-                       true, QUrl::fromLocalFile(QDir(project.path()).filePath(QStringLiteral("scenes/play.qml")))));
+                       false, QUrl::fromLocalFile(QDir(project.path()).filePath(QStringLiteral("scenes/play.qml")))));
+        // What logic's timers made has had a second of the physics world's time to fall, by the time logic's clock says so.
+        s.stepped();
+        s.scene->setProperty("playing", true);
+        s.world->setProperty("hearing", true);
         QObject *rain = s.entity(QStringLiteral("Rain"));
         auto logic = [rain] { return rain->property("logic").value<QObject *>(); };
         auto elapsed = [&] { return logic() ? logic()->property("elapsed").toDouble() : 0.0; };
 
-        QVERIFY(s.runUntil([&] { return elapsed() >= 1.2; }, 8000));
+        QVERIFY(s.runUntil([&] { return elapsed() >= 1.2; }, 60000));
         QCOMPARE(logic()->property("made").toInt(), 3);
         QCOMPARE(logic()->property("once").toInt(), 1);
         QCOMPARE(logic()->property("refused").toBool(), true);
@@ -952,7 +1035,7 @@ private slots:
 
         // Removed with its body.
         QVERIFY(s.runUntil([&] { return logic()->property("removed").toBool() && !s.entity(QStringLiteral("Drop1")); },
-                           4000));
+                           30000));
         QTRY_VERIFY(body.isNull());
         QVERIFY(s.entity(QStringLiteral("Drop0")) && s.entity(QStringLiteral("Drop2")));
     }
@@ -1203,10 +1286,11 @@ private slots:
         QCOMPARE(track(current()), QStringLiteral("arena.wav"));
         QVERIFY(s.runUntil([&] { return track(1 - current()).isEmpty(); }, 4000));
 
-        // Walk straight ahead into the first orb: gathered, taken away with its glow, and another placed.
-        s.run(400);
+        // Walk straight ahead into the first orb, within six seconds of the world's time: gathered, taken away with its
+        // glow, and another placed.
+        QVERIFY(s.play(400));
         QTest::keyPress(s.window.get(), Qt::Key_W);
-        const bool gathered = s.runUntil([&] { return score() >= 1; }, 6000);
+        const bool gathered = s.playUntil([&] { return score() >= 1; }, s.physicsClock() + 6000);
         QTest::keyRelease(s.window.get(), Qt::Key_W);
         QVERIFY2(gathered, "the player walked through the first orb without gathering it");
         QCOMPARE(s.entity(QStringLiteral("Score"))->property("text").toString(), QStringLiteral("ORBS 1"));
