@@ -102,7 +102,7 @@ function Install-Distro {
         Write-Host "$distro is already here"
         return
     }
-    if ((wsl.exe --list --online | ForEach-Object { "$_" }) -notmatch '^\s*Ubuntu-24\.04\s') {
+    if (-not ((wsl.exe --list --online | ForEach-Object { "$_" }) -match '^\s*Ubuntu-24\.04\s')) {
         throw "Ubuntu-24.04 is not in Microsoft's catalogue on this machine: wsl --list --online"
     }
     Write-Host "Installing a fresh Ubuntu 24.04 from Microsoft's catalogue, as $distro"
