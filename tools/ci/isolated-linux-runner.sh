@@ -499,6 +499,8 @@ runner_install() {
         rm -rf "$work"
     fi
     # From a copy in the home, as runner_once runs it: it writes its diagnostics beside itself, and /opt is read-only to a job.
+    # From an empty home too: this runs as root, and a job could have left a link where the copy lands.
+    find /home/runner -mindepth 1 -delete
     cp -a /opt/actions-runner /home/runner/.actions-runner-check
     chown -R runner:runner /home/runner/.actions-runner-check
     /usr/local/sbin/qor-ci-job /home/runner/.actions-runner-check/bin/Runner.Listener --version
