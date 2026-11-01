@@ -1787,6 +1787,43 @@ private Q_SLOTS:
         QVERIFY2(again.error().contains(u"older"_s), qPrintable(again.error()));
     }
 
+    // Format 1 has no sequence, so once a store has taken format 2 an older format must not be the way round it.
+    void anOlderFormatCannotReplaceAFormatTwoCatalogue()
+    {
+        const Pack pack;
+        Shop shop;
+        shop.add(pack);
+        const QByteArray bytes = QJsonDocument(QJsonObject { { u"format"_s, 1 },
+                                                             { u"store"_s, u"An older store"_s },
+                                                             { u"developers"_s, QJsonObject {} },
+                                                             { u"items"_s, QJsonArray {} } })
+                                     .toJson();
+        QTemporaryDir older;
+        writeFile(older.path() + u"/catalog.json"_s, bytes);
+        writeFile(older.path() + u"/catalog.json.sig"_s, shop.store.sign(bytes));
+        const QUrl olderUrl = QUrl::fromLocalFile(older.path() + u"/catalog.json"_s);
+
+        // Before any format 2 catalogue it is taken, as it always was.
+        {
+            QTemporaryDir data;
+            StoreEngine store(data.path(), shop.store.publicKey());
+            QCOMPARE(refreshed(store, olderUrl), StoreEngine::State::Ready);
+        }
+
+        QTemporaryDir data;
+        const QByteArray key = shop.store.publicKey();
+        {
+            StoreEngine store(data.path(), key);
+            QCOMPARE(refreshed(store, shop.publish()), StoreEngine::State::Ready);
+            QCOMPARE(refreshed(store, olderUrl), StoreEngine::State::Failed);
+            QVERIFY2(store.error().contains(u"format 1 has no sequence"_s), qPrintable(store.error()));
+            QCOMPARE(store.catalog().format, 2); // what was held is still held
+        }
+        // And after a restart, since the sequence is remembered.
+        StoreEngine again(data.path(), key);
+        QCOMPARE(refreshed(again, olderUrl), StoreEngine::State::Failed);
+    }
+
     void formatOneKnowsNoSequenceAndKeepsWorking()
     {
         QTemporaryDir data;
@@ -2342,7 +2379,11 @@ private Q_SLOTS:
         pack.category = u"Tiles"_s;
         const Pack game = gamePack();
         Shop shop;
-        shop.add(pack).insert(u"featured"_s, true);
+        QJsonObject &packListing = shop.add(pack);
+        packListing.insert(u"featured"_s, true);
+        packListing.insert(u"previews"_s, QJsonArray { QJsonObject { { u"file"_s, u"previews/p.png"_s },
+                                                                     { u"sha256"_s, hexDigest(kPng) } } });
+        writeFile(shop.dir.path() + u"/previews/p.png"_s, kPng);
         shop.add(game);
         QTemporaryDir data;
         StoreEngine store(data.path(), shop.store.publicKey());
@@ -2362,6 +2403,7 @@ private Q_SLOTS:
         QVERIFY2(refused.error.contains(u"creator features are off"_s), qPrintable(refused.error));
         QVERIFY(store.installed().isEmpty());
         QVERIFY(!QFileInfo::exists(store.installDirectory(pack.id)));
+        QVERIFY(!store.fetchPreview(pack.id, 0)); // a preview is part of the store that carries it
 
         // A player's things are not touched by it.
         QCOMPARE(idsOf(store.listings(View::Player)), QStringList { game.id });
@@ -2374,6 +2416,31 @@ private Q_SLOTS:
         QCOMPARE(idsOf(store.listings(View::Player)), QStringList { game.id });
         const Outcome taken = installAndWait(store, pack.id);
         QVERIFY2(taken.ok, qPrintable(taken.error));
+        QSignalSpy fetched(&store, &StoreEngine::previewFetched);
+        QVERIFY(store.fetchPreview(pack.id, 0));
+        QTRY_COMPARE(fetched.count(), 1);
+        QVERIFY(fetched.at(0).at(2).toBool());
+    }
+
+    // The switch may go off while the package is on its way.
+    void anInstallUnderWayStopsWhenCreatorFeaturesGoOff()
+    {
+        const Pack pack;
+        Shop shop;
+        shop.add(pack);
+        QTemporaryDir data;
+        CreatorStore store(data.path(), shop.store.publicKey());
+        QCOMPARE(refreshed(store, shop.publish()), StoreEngine::State::Ready);
+        QSignalSpy finished(&store, &StoreEngine::finished);
+        QVERIFY(store.install(pack.id));
+        store.setCreatorFeatures(false);
+        QTRY_COMPARE(finished.count(), 1);
+        QVERIFY(!finished.at(0).at(1).toBool());
+        QVERIFY2(finished.at(0).at(2).toString().contains(u"creator features are off"_s),
+                 qPrintable(finished.at(0).at(2).toString()));
+        QVERIFY(store.installed().isEmpty());
+        QVERIFY(!QFileInfo::exists(store.installDirectory(pack.id)));
+        QVERIFY(!store.isBusy(pack.id));
     }
 
     // A game that depends on a pack must not carry it past the switch.

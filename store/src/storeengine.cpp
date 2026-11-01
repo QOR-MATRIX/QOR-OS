@@ -35,6 +35,9 @@ constexpr qint64 kMaximumCatalogSize = 4 * 1024 * 1024;
 constexpr qint64 kMaximumPreviewSize = 4 * 1024 * 1024;
 constexpr int kTransferTimeoutMs = 30000;
 constexpr int kLockTimeoutMs = 5000;
+// Longer than writing the largest package takes. QLockFile's own 30 seconds could call a slow install abandoned, and
+// clear it.
+constexpr int kLockStaleMs = 5 * 60 * 1000;
 
 QJsonArray rangesToJson(const QList<VersionRange> &ranges)
 {
@@ -185,11 +188,15 @@ void StoreEngine::adoptCatalog(Catalog catalog)
 }
 
 // Whether this store may take a catalogue that has passed its signature and its own checks, and remembers its sequence.
-// Returns why not, or an empty string. Format 1 knows no sequence, as it never did.
+// Returns why not, or an empty string. Format 1 knows no sequence, as it never did, so it is taken as it always was,
+// until this store has taken a format 2 catalogue: after that, an older format would be the way round the sequence.
 QString StoreEngine::admit(const Catalog &catalog, const QByteArray &json)
 {
     if (catalog.format != 2)
-        return {};
+        return m_lastSequence > 0
+                   ? u"This store has taken a format 2 catalogue, and format 1 has no sequence to show it is "
+                     "not an older one."_s
+                   : QString();
 
     // An older copy is still signed, so only remembering what has been seen tells it from a new one.
     const QByteArray digest = QCryptographicHash::hash(json, QCryptographicHash::Sha256);
@@ -313,6 +320,9 @@ void StoreEngine::complete(const QString &id, const QByteArray &data)
     const CatalogItem *item = m_catalog.item(id);
     if (!item)
         return fail(id, u"The item is no longer in the catalogue."_s);
+    // The switch may have been turned off, or the catalogue run out, while this was on its way.
+    if (const QString refusal = refusalToInstall(*item); !refusal.isEmpty())
+        return fail(id, refusal);
     if (QCryptographicHash::hash(data, QCryptographicHash::Sha256) != item->packageSha256)
         return fail(id, u"The download does not match the catalogue."_s);
     const Developer developer = m_catalog.developers.value(item->developer);
@@ -337,6 +347,7 @@ void StoreEngine::complete(const QString &id, const QByteArray &data)
     // Another process of this person's may share this folder. It clears what looks abandoned as it starts, so it must
     // not find this install half done.
     QLockFile lock(m_dataDir + u"/.lock"_s);
+    lock.setStaleLockTime(kLockStaleMs);
     if (!lock.tryLock(kLockTimeoutMs))
         return fail(id, u"The store is busy in another program."_s);
 
@@ -437,6 +448,8 @@ bool StoreEngine::fetchPreview(const QString &id, int index)
     const CatalogItem *item = m_catalog.item(id);
     if (!item || index < 0 || index >= item->previews.size())
         return false;
+    if (!item->isPlacedIn(View::Player) && !m_creatorFeatures)
+        return false;
     const Preview preview = item->previews.at(index);
     fetch({}, m_catalogUrl.resolved(QUrl(preview.file)), kMaximumPreviewSize,
           [this, id, index, preview](bool ok, const QByteArray &data, const QString &error) {
@@ -465,6 +478,7 @@ void StoreEngine::recoverInterrupted()
     if (std::none_of(names.cbegin(), names.cend(), isLeftOver))
         return;
     QLockFile lock(m_dataDir + u"/.lock"_s);
+    lock.setStaleLockTime(kLockStaleMs);
     if (!lock.tryLock(0))
         return;
     for (const QString &name : names) {

@@ -96,7 +96,8 @@ public:
     bool remove(const QString &id);
 
     // Fetches one of an item's previews, checks it against the catalogue's digest and that it is a picture, and ends
-    // with previewFetched(). False if the item has no such preview.
+    // with previewFetched(). False if the item has no such preview, or only the creator store carries it and creator
+    // features are off.
     bool fetchPreview(const QString &id, int index);
 
 Q_SIGNALS:

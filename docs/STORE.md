@@ -179,7 +179,8 @@ An older client refuses this cleanly: its check is that `format` is 1.
 **What a catalogue may be refused for, whole.** A bad signature, an unknown format, an `expires` that has passed or is not a
 date, or a `sequence` that is not a positive integer. Then a `sequence` lower than the highest this engine has taken, or the
 same one with different bytes: it remembers both in its folder (`catalog-state.json`), which is what tells an older copy,
-still signed, from a new one. Also anything malformed or hostile in a listing that says clearly what it is, since a store that
+still signed, from a new one. Once it has taken a format 2 catalogue it refuses format 1, which has no sequence to compare
+and would otherwise be the way round this. Also anything malformed or hostile in a listing that says clearly what it is, since a store that
 signed that is not to be half believed: a `price` anywhere, on any listing, under any field, even zero; a field this format
 does not know, so that a paid field cannot arrive under another name; an id that is missing, not valid or used twice; an unsafe
 package file; a licence, preview or range that does not hold what it should; a dependency cycle, or a chain deeper than 32.
@@ -221,7 +222,8 @@ format 1 catalogue is in neither view: `Store` lists its themes and widgets as i
 since that page knows no view.
 
 **Creator features are a state the engine is given, off until it is.** Off, the creator view answers nothing, and `install`
-refuses from C++ what only the creator store carries, including as another item's dependency, with no page involved. Turning
+refuses from C++ what only the creator store carries, including as another item's dependency or if they go off while it is on
+its way, with no page involved. Its previews are not handed over either. Turning
 them off removes nothing: what is installed stays installed, intact and usable, and only its updates wait. The preference itself
 is kept elsewhere, and the engine does not remember it.
 
