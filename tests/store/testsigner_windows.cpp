@@ -27,7 +27,8 @@ TestSigner::TestSigner()
     BCryptExportKey(key, nullptr, BCRYPT_ECCPUBLIC_BLOB, nullptr, 0, &size, 0);
     QByteArray blob(qsizetype(size), '\0');
     BCryptExportKey(key, nullptr, BCRYPT_ECCPUBLIC_BLOB, reinterpret_cast<PUCHAR>(blob.data()), size, &size, 0);
-    m_public = QByteArray(1, '\x04') + blob.mid(qsizetype(sizeof(BCRYPT_ECCKEY_BLOB)), 64);
+    m_public = QByteArray(1, '\x04');
+    m_public.append(blob.mid(qsizetype(sizeof(BCRYPT_ECCKEY_BLOB)), 64));
     BCryptCloseAlgorithmProvider(algorithm, 0);
 }
 
