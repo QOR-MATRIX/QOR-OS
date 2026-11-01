@@ -93,7 +93,10 @@ Say so if you find a way past one; these are the walls we know are low.
   jobs explain at most about 163 of them, and the gap is widest on 31 October, at 133 clones
   against 45 jobs. The history's secret scan passed at that commit, and no artifact was
   kept, so a copy should hold no secret, though that scan is not proof. A copy holds the code,
-  the plans and the Store's public key. **Nothing found shows that outside code ran on that
+  the plans and the Store's public key. CI's logs were readable as well. A scan of all 120 runs'
+  logs on 1 November, by the patterns `tools/ci/check_secrets.py` uses, found no key, token or
+  email address, and neither the signing folder's name nor the Qt account file's. They do show
+  the workstation's name and its Windows user folder. **Nothing found shows that outside code ran on that
   machine:** of 117 runs, all came from this repository, 110 triggered by the owner and 7 by
   Dependabot; there were no forks and no pull requests. The signing keys' last-access times, and
   their backup's, have not moved since 27 October, which is consistent with no later read and
