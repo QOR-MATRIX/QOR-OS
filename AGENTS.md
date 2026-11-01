@@ -71,7 +71,8 @@ in that list is not current.
   Nobody here downloads the engine until the owner has accepted that licence.
 - **Unity** is Unity's ([QOR-0021](docs/decisions/QOR-0021-projects-engines-and-two-stores.md)). Nothing of its editor enters this
   repository, the image or the Store's own content. Its terms name AI agents, so no assistant operates its editor or opens anything
-  under its install folders, and no code of ours touches its editor until Unity has answered in writing or counsel has read them.
+  under its install folders. No code of ours touches its editor until that operation has a grant, in Unity's terms, its documentation or
+  its written answer, or a legal reading says none is needed. An owner's approval cannot override a third party's terms.
 - **QTOS** (`QOR-MATRIX/QTOS`) is frozen: its code at `37b621e`, plus a note saying so (`3ecdded`). Do no new work there.
 - **Demiurge's old documentation does not exist.** Its pre-realignment
   documents were deleted on 13 September 2026. Never read, restore, quote or
