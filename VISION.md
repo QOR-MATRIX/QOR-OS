@@ -390,6 +390,9 @@ and no investment language appears anywhere
   confined engine; the game process also runs in the OS sandbox.
 - **ARQADE** plays its own games and arenas on QQ's runtime, against ARQADE's service.
 - **PC games** run through Steam and Proton inside gamescope (§4), from the Library like any other game.
+- **Unreal Engine games** are Epic's own Linux builds, in gamescope and in the sandbox, joining the ecosystem through a
+  plugin. The editor is the person's own download from Epic; QOR OS never carries it
+  ([QOR-0020](docs/decisions/QOR-0020-unreal-engine-on-qor-os.md)).
 - **Controllers** work everywhere: XInput, DualShock 4 and DualSense over HID (USB and Bluetooth), and evdev, with
   rumble, light bars and battery, through QOR.Input.
 
@@ -635,6 +638,7 @@ The detail, with every item, is [docs/ROADMAP.md](docs/ROADMAP.md).
 | Displays and the compositor's backend | Every display at its own rate on every GPU; Prism's own KMS backend; the gate deferred | [QOR-0005](docs/decisions/QOR-0005-every-display-at-its-own-refresh.md), [QTOS-0003](docs/decisions/qtos/QTOS-0003-compositor-strategy.md) |
 | Money | 1.0 moves no money; free items and test CGT | [QOR-0006](docs/decisions/QOR-0006-qor-os-1-0-moves-no-money.md) |
 | 1.0 scope | Shell, Home and Library, QQ, ARQADE, QOR Media, Social, the vault, Steam | [QOR-0007](docs/decisions/QOR-0007-what-1-0-ships.md) |
+| Unreal Engine | Epic's own Linux builds, unchanged, never carried by QOR OS; a plugin joins them to the ecosystem | [QOR-0020](docs/decisions/QOR-0020-unreal-engine-on-qor-os.md) |
 | Public release | Release gates the owner holds | [QOR-0008](docs/decisions/QOR-0008-before-a-public-release.md) |
 | The name | QOR OS in prose; `qor-os`, `qor`, `QOR.*`, `QOR_*` and `dev.qorsync.*` where a space cannot go | [QOR-0009](docs/decisions/QOR-0009-the-name-is-qor-os.md) |
 | License posture | Commercial Qt Enterprise; private, proprietary repository | [QTOS-0004](docs/decisions/qtos/QTOS-0004-commercial-qt-and-proprietary-repository.md) |

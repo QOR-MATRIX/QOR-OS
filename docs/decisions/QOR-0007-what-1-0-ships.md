@@ -1,6 +1,7 @@
 # QOR-0007: What QOR OS 1.0 ships
 
-- **Status:** Accepted
+- **Status:** Accepted; its Games row joined by native Linux games, installed by hand, by
+  [QOR-0020](QOR-0020-unreal-engine-on-qor-os.md)
 - **Date:** 2026-10-26
 - **Deciders:** the owner
 - **Relates to:** QOR-0002 to QOR-0006, [ROADMAP.md](../ROADMAP.md)

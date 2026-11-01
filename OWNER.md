@@ -11,51 +11,51 @@ Demiurge's QQ engine, ARQADE and QOR Media, on Linux. Code:
 
 ## This session
 
-1. **The platformer is built:** Bellwick, a working title, ARQADE's seventh
-   card, with eight levels in four regions. A search program finishes the whole
-   game by the real rules. It and its tests caught my errors: gaps too wide to
-   jump, a sealed floor, and the level's end bell ringing for a secret room.
-2. **Ever Rift and Darkveil now face the camera.** "Up" ran diagonally across
-   the screen. Their rules did not change.
-3. **A real bug, found by accident:** the labels on Lumen's accent buttons, check
-   marks and radio dots have been black since the first version, where the design
-   says near-white. And Prism never passed your colours to the products. Both are
-   fixed, and frames still take about 2.79 ms. Tests now catch this.
-4. **CI no longer fails because the screen went off.** CI (*the automatic build
-   and test run*) kept running in Modern Standby (*this laptop's sleep: working,
-   screen off, windows barely drawing*) and failed for an hour across unrelated
-   tests. `tools/ci/with_display.py` now keeps the screen on while tests draw,
-   wakes the laptop first, and refuses to run if it is locked. It changes none
-   of your settings.
-5. **You merged demiurge-chain #117** (*a request to merge*). Ever Rift's and
-   Darkveil's rules are the same there and here, and its checks passed.
+1. **How Unreal Engine comes to QOR OS is decided** (record QOR-0020), and nothing
+   of it is built yet. Epic's own Linux builds, unchanged. Games run in gamescope
+   (*Valve's game compositor*) in the sandbox; the editor is each person's own
+   download from Epic; a plugin joins games to the Library and the look. The
+   licence forbids the rest: no editor from us, no engine shared between games.
+2. **Bellwick is built,** a working title: the platformer, eight levels, ARQADE's
+   seventh card. A search program finishes the whole game by the real rules.
+3. **Ever Rift and Darkveil now face the camera.**
+4. **A real bug, found by accident:** labels on Lumen's accent buttons, check
+   marks and radio dots had been black since the first version, not near-white,
+   and Prism never passed your colours to the products. Both fixed.
+5. **CI no longer fails because the screen went off.** CI (*the automatic build
+   and test run*) now keeps the display on while tests draw.
+6. **You merged demiurge-chain #117** (*a request to merge*).
 
 ## Checked
 
-**CI passes at `3bf213a`** on both systems. On Windows, QQ and **ARQADE passed
-first time, Bellwick's tests included;** QOR Media passed on its automatic second
-attempt, after a test window did not get the keyboard once. **Two things to know.**
-That run first failed one test, because Windows' clipboard refused every program
-on this laptop for at least 1¾ hours. It let go in the minute a mouse woke the
-laptop, just before you merged #117, with no restart. What held it is not known. I
-suspected `msrdc.exe`, the viewer for Linux windows, and tried to end it; the
-permission system refused, and it was still running afterwards. And nobody has
-played or heard Bellwick, Ever Rift or Darkveil.
+**CI passes at `3bf213a` and `c59286e`,** on both systems. ARQADE passed first time on
+Windows, Bellwick's tests included. Windows' clipboard refused every program on
+this laptop for at least 1¾ hours; what held it is not known. For Unreal: Epic's
+5.8 documents, its licence of May 2023, and a running Prism. **Nobody here has read
+Epic's current licence:** its pages refuse automated reading. Nobody has run Unreal
+on QOR OS, or played or heard Bellwick, Ever Rift or Darkveil.
 
 ## Needs you
 
-1. **Name Bellwick.** Nothing of it goes public until then. Near it are *Bell
+1. **Epic's licence, before anyone downloads Unreal.** With counsel: read the
+   current text; choose who accepts it, since it does not transfer and the legal
+   entity is open; ask Epic about plugins, our Store, CGT, and AI. It limits using
+   an AI on engine code, so I keep away from the engine. Nothing is urgent: the
+   first stage needs no engine until its last step.
+2. **Name Bellwick.** Nothing of it goes public until then. Near it are *Bell
    Kingdom* and *Curse Crackers*. A search is not trademark clearance.
-2. **Play Bellwick, Ever Rift and Darkveil.**
-3. **Move the Store's signing keys off this PC.** A CI job here could read them.
-4. **During CI:** on AC, lid open, unlocked, mouse and keyboard left alone. One
+3. **Play Bellwick, Ever Rift and Darkveil.**
+4. **Move the Store's signing keys off this PC.** A CI job here could read them.
+5. **During CI:** on AC, lid open, unlocked, mouse and keyboard left alone. One
    test also clears what you had copied, on every Windows run.
-5. **The Linux machine:** a USB-C SSD of 500 GB or more and a USB stick of 8 GB
-   or more, then BUILDING.md's steps.
-6. **Legal, still open:** trademark advice, the legal entity, the Qt letter,
+6. **The Linux machine:** a USB-C SSD of 500 GB or more and a USB stick of 8 GB
+   or more, then BUILDING.md's steps. Epic recommends 32 GB of memory for its
+   editor, and this laptop has 16.
+7. **Legal, still open:** trademark advice, the legal entity, the Qt letter,
    replacing the 5 October key.
 
 ## Next
 
-The racer, then the pixel-art and arcade games; and Phase 1's goal on the Linux
-machine: Orb Run in Prism with a DualSense.
+Prism's pointer lock and relative motion, which gamescope needs before it will
+start: Unreal and Phase 3's Steam both wait on them. Then the racer, the pixel-art
+and arcade games, and Orb Run in Prism with a DualSense on the Linux machine.

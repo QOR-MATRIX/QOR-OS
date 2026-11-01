@@ -65,6 +65,10 @@ in that list is not current.
 - **The network** is the chain, QOR ID, Social, ARQADE's website and the
   homepage. It stays in demiurge-chain, public, under its rules. QOR OS talks
   to it as services.
+- **Unreal Engine** is Epic's ([QOR-0020](docs/decisions/QOR-0020-unreal-engine-on-qor-os.md)). Nothing of the engine, its
+  editor or its tools enters this repository, the image or the Store's own content. Until Epic or counsel says otherwise,
+  nothing under an engine's folders, nor a log quoting it, goes into an AI assistant's context: its licence limits that.
+  Nobody here downloads the engine until the owner has accepted that licence.
 - **QTOS** (`QOR-MATRIX/QTOS`) is frozen: its code at `37b621e`, plus a note saying so (`3ecdded`). Do no new work there.
 - **Demiurge's old documentation does not exist.** Its pre-realignment
   documents were deleted on 13 September 2026. Never read, restore, quote or

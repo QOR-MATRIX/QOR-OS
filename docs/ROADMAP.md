@@ -213,6 +213,31 @@ SDK.
 - [ ] Paid items, only once [QOR-0006](decisions/QOR-0006-qor-os-1-0-moves-no-money.md)'s conditions are met and a record chooses the model; QQ's side of Demiurge's P3.6 (collectibles and in-game purchases) with them
 - [ ] Later than 1.0 ([QOR-0007](decisions/QOR-0007-what-1-0-ships.md)): GNOSIS, Stream, Spatial mode (Qt Quick 3D Xr), on-device intelligence, Continuity
 
+## Alongside the phases · Unreal Engine
+
+[QOR-0020](decisions/QOR-0020-unreal-engine-on-qor-os.md): Epic's own Linux builds, unchanged. The OS meets them and the
+ecosystem joins from outside the engine. Each stage ends when its exit is shown working. Nothing of the engine enters this
+repository, the image or an assistant's context, and nobody here downloads it until the owner has accepted Epic's licence.
+
+- [ ] **The licence:** the owner, with counsel, reads the current text, chooses the licensee and records the version
+  accepted; Epic answers in writing on plugins, stores, QOR's chain and CGT, and AI
+- [ ] **Stage 1 · A game plays in Prism.** Exit: Epic's Third Person template, packaged for Linux from the Windows editor,
+  plays in gamescope in Prism on the owner's machine, with mouse look, a DualSense and sound, at the display's rate.
+  - [ ] `zwp_relative_pointer_manager_v1` and `zwp_pointer_constraints_v1` in Prism, tested from a hostile client's side
+    (Phase 3's Steam needs these too)
+  - [ ] `zwp_linux_dmabuf_v1` on a real graphics card
+  - [ ] gamescope running a Vulkan program in Prism on the RTX 4060: the first test of NVIDIA nested
+- [ ] **Stage 2 · A native game is in the Library, in a sandbox.** Exit: a game installed by hand appears from its manifest,
+  starts from the controller-first Home, and reaches only what it declared. Tested first with a stand-in, under `linux-asan`.
+- [ ] **Stage 3 · The plugin.** Exit: a packaged game takes the person's look, hands the controller over and pauses when
+  Prism asks, through the plugin alone. The Unreal-free client is tested in CI, against Prism's side of the host protocol.
+- [ ] **Stage 4 · The editor on QOR OS.** Exit: on QOR OS alone, a person downloads the engine from Epic with their own
+  account, opens a template, packages it and plays it from the Library. Through xwayland-satellite, in a container of a
+  distribution Epic names. Until this passes, the Windows editor with Epic's cross-compile toolchain is the supported way.
+- [ ] **Stage 5 · The Store.** Exit: a maker's packaged game installs from a signed catalogue, and a package holding Engine
+  Tools or source is refused. Waits for Store stage 2.
+- [ ] Rewarded Unreal games: not decided; a later record, if wanted
+
 ## Alongside the phases · The security bar
 
 [QOR-0018](decisions/QOR-0018-the-security-and-quality-bar.md), from two independent reviews of the trust boundaries on
