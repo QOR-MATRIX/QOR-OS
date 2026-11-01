@@ -10,6 +10,8 @@ name: Build
 #      - a Qt kit already installed on a self-hosted runner
 #   2. Secrets QT_INSTALLER_JWT_TOKEN, or QT_INSTALLER_EMAIL + QT_INSTALLER_PASSWORD
 #      - unattended Qt Online Installer on a hosted runner, cached
+# A kit means a runner on the workstation, whose job runs only with QOR_WINDOWS_RUNNER_ISOLATED /
+# QOR_LINUX_RUNNER_ISOLATED set to true. Without it this workflow succeeds having built and tested nothing.
 # Runner selection: repository variables QOR_WINDOWS_RUNNER / QOR_LINUX_RUNNER
 # take a JSON runner label, e.g. '["self-hosted","windows","qt"]'.
 # Set QOR_RUN_GPU_TESTS=true on a runner with a desktop session to also run
@@ -53,18 +55,34 @@ jobs:
           HAS_WINDOWS_KIT: ${{ vars.QOR_WINDOWS_QT_DIR != '' }}
           HAS_LINUX_KIT: ${{ vars.QOR_LINUX_QT_DIR != '' }}
           HAS_SECRETS: ${{ secrets.QT_INSTALLER_JWT_TOKEN != '' || (secrets.QT_INSTALLER_EMAIL != '' && secrets.QT_INSTALLER_PASSWORD != '') }}
+          # A kit means a runner on the workstation, which holds the Store's keys and the owner's credentials. Its job runs only
+          # once a person has said that runner cannot reach them, and its first step checks (docs/CI.md#what-ci-trusts).
+          WINDOWS_ISOLATED: ${{ vars.QOR_WINDOWS_RUNNER_ISOLATED == 'true' }}
+          LINUX_ISOLATED: ${{ vars.QOR_LINUX_RUNNER_ISOLATED == 'true' }}
         run: |
-          windows=false; linux=false
-          { [ "$HAS_WINDOWS_KIT" = "true" ] || [ "$HAS_SECRETS" = "true" ]; } && windows=true
-          { [ "$HAS_LINUX_KIT" = "true" ] || [ "$HAS_SECRETS" = "true" ]; } && linux=true
+          # has a kit, its runner is isolated, has secrets
+          runs() {
+            if [ "$1" = "true" ]; then echo "$2"; else echo "$3"; fi
+          }
+          source_of() {
+            if [ "$1" = "true" ]; then
+              if [ "$2" = "true" ]; then echo "self-hosted kit"; else echo "self-hosted kit, paused: not isolated"; fi
+            elif [ "$3" = "true" ]; then echo "online installer"
+            else echo "none"; fi
+          }
+          windows=$(runs "$HAS_WINDOWS_KIT" "$WINDOWS_ISOLATED" "$HAS_SECRETS")
+          linux=$(runs "$HAS_LINUX_KIT" "$LINUX_ISOLATED" "$HAS_SECRETS")
           echo "windows=$windows" >> "$GITHUB_OUTPUT"
           echo "linux=$linux" >> "$GITHUB_OUTPUT"
+          if [ "$windows" != "true" ] || [ "$linux" != "true" ]; then
+            echo "::warning title=Not built::Windows runs: $windows. Linux runs: $linux. A job that did not run proves nothing, whatever this run's result says. See docs/CI.md."
+          fi
           {
             echo "### Qt builds"
             echo "| Platform | Qt source | Runs |"
             echo "|----------|-----------|------|"
-            echo "| Windows | $([ "$HAS_WINDOWS_KIT" = "true" ] && echo "self-hosted kit" || ([ "$HAS_SECRETS" = "true" ] && echo "online installer" || echo "none")) | $windows |"
-            echo "| Linux | $([ "$HAS_LINUX_KIT" = "true" ] && echo "self-hosted kit" || ([ "$HAS_SECRETS" = "true" ] && echo "online installer" || echo "none")) | $linux |"
+            echo "| Windows | $(source_of "$HAS_WINDOWS_KIT" "$WINDOWS_ISOLATED" "$HAS_SECRETS") | $windows |"
+            echo "| Linux | $(source_of "$HAS_LINUX_KIT" "$LINUX_ISOLATED" "$HAS_SECRETS") | $linux |"
             echo
             echo "Configure a Qt source per platform to enable its job. See docs/CI.md."
           } >> "$GITHUB_STEP_SUMMARY"
@@ -77,6 +95,21 @@ jobs:
     runs-on: ${{ fromJSON(vars.QOR_WINDOWS_RUNNER || '"windows-2025"') }}
     timeout-minutes: 90
     steps:
+      # Before anything from the repository runs: a job that can reach the owner's keys or credentials goes no further, whatever
+      # a person said of this runner (docs/CI.md#what-ci-trusts).
+      - name: Runner boundary
+        if: vars.QOR_WINDOWS_QT_DIR != ''
+        shell: pwsh
+        run: |
+          $held = '.qor-os', '.ssh', '.aws', 'AppData\Roaming\GitHub CLI', 'AppData\Roaming\Qt\qtaccount.ini'
+          $reachable = foreach ($person in Get-ChildItem C:\Users -Directory -Force -ErrorAction SilentlyContinue) {
+            foreach ($thing in $held) { if (Test-Path -LiteralPath (Join-Path $person.FullName $thing)) { $thing } }
+          }
+          if ($reachable) {
+            "::error::This job can reach: $(@($reachable | Sort-Object -Unique) -join ', '). It stops here."
+            exit 1
+          }
+
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           # Self-hosted runners keep the build tree for incremental builds.
@@ -210,6 +243,26 @@ jobs:
     runs-on: ${{ fromJSON(vars.QOR_LINUX_RUNNER || '"ubuntu-24.04"') }}
     timeout-minutes: 90
     steps:
+      # Before anything from the repository runs: a job that can reach Windows, or the owner's credentials, goes no further,
+      # whatever a person said of this runner (docs/CI.md#what-ci-trusts).
+      - name: Runner boundary
+        if: vars.QOR_LINUX_QT_DIR != ''
+        run: |
+          reachable=""
+          for drive in /mnt/*; do
+            if [ -d "$drive/Windows" ] || [ -d "$drive/Users" ]; then reachable="$reachable a Windows drive at $drive;"; fi
+          done
+          if command -v cmd.exe >/dev/null 2>&1; then reachable="$reachable Windows programs on the PATH;"; fi
+          if [ -e /proc/sys/fs/binfmt_misc/WSLInterop ]; then reachable="$reachable Windows interop;"; fi
+          if id -nG | grep -qwE 'sudo|docker|adm'; then reachable="$reachable a privileged group;"; fi
+          for held in .ssh .aws .config/gh .npmrc .local/share/Qt/qtaccount.ini; do
+            if [ -e "$HOME/$held" ]; then reachable="$reachable ~/$held;"; fi
+          done
+          if [ -n "$reachable" ]; then
+            echo "::error::This job can reach:$reachable It stops here."
+            exit 1
+          fi
+
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           clean: ${{ vars.QOR_LINUX_QT_DIR == '' }}

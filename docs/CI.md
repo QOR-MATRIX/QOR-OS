@@ -13,8 +13,31 @@ Monday. Pull-request runs cancel superseded runs. Each OS job runs only when tha
 
 ## What CI trusts
 
-The workstation's runners run as its user, on the machine that holds the Store's signing keys and the Qt account, so a
-job there can read them. So ([QOR-0018](decisions/QOR-0018-the-security-and-quality-bar.md)):
+**Build's jobs on the workstation are paused, since 1 November 2026.** Lint and Security still run, on hosted runners.
+
+The workstation's Windows runner runs as the signed-in person. Its Linux runner runs in WSL in the `sudo` and `docker`
+groups, with the Windows drives mounted and Windows programs a call away. That machine holds the Store's signing keys and
+their backup, and SSH, cloud, GitHub CLI and Qt credentials, so a job there can reach them all, and these jobs run other
+people's code: pinned actions, and the Rust crates the QOR core builds, with their build scripts. Running a job hidden, one
+at a time or away from the GPU changes none of this. So:
+
+- **A workstation runner runs nothing until a person says it is isolated:** `QOR_WINDOWS_RUNNER_ISOLATED` or
+  `QOR_LINUX_RUNNER_ISOLATED`, set to `true`. Without it, Build **succeeds having built and tested nothing**. A warning and
+  its summary say so, and that result is not a pass.
+- **The job's first step checks that claim** before anything from the repository runs, and a job that can still reach Windows
+  or a credential stops there.
+- **What is still open:** the runners are online, and a workflow naming their labels would reach them, so whatever can write
+  workflows can run code there. That is the owner, and the GitHub Apps installed on the organisation with workflow access,
+  until the owner limits them. The check covers the places it names, not everything a job could do.
+
+What GitHub itself enforces on this private repository, on the Free plan: no forks, so no pull requests from them; a read-only
+default token; and no secrets for a job to take. It does **not** offer branch protection or rulesets (both refused by the API,
+which asks for a paid plan), or secret scanning. So the checks at commit time are local and can be skipped, and the secret
+scan in Security comes after the push; neither equals a control on the server. Hosted minutes come from the plan's allowance,
+2,000 a month per GitHub's published plans. Each job rounds up to a minute, and this repository used 129 from 27 October to
+1 November (billing API), at no charge. If they ran out, Qt availability could not run, and neither could any Build.
+
+As for the rest ([QOR-0018](decisions/QOR-0018-the-security-and-quality-bar.md)):
 
 - **Every action is pinned by its commit**, with its version in a comment for Dependabot, which proposes the moves. A
   tag can be moved by whoever owns it; a commit cannot. Downloads are checked by SHA-256, and Python's tooling is
@@ -155,6 +178,8 @@ variables, so each repository sets its own:
 |----------|-------|--------|
 | `QOR_WINDOWS_RUNNER` | `["self-hosted","windows","qt"]` | Windows job runs on the workstation |
 | `QOR_WINDOWS_QT_DIR` | `C:/Qt/6.12.0/msvc2022_64` | Use the installed kit; skip the installer |
+| `QOR_WINDOWS_RUNNER_ISOLATED` | `true` (unset) | Lets the job run on a kit's runner, once that runner cannot reach the owner's keys or credentials ([why](#what-ci-trusts)) |
+| `QOR_LINUX_RUNNER_ISOLATED` | `true` (unset) | The same for Linux |
 | `QOR_RUN_GPU_TESTS` | `true` (optional) | Also run GPU-labelled suites and the products (opens brief test windows on the runner's desktop) |
 | `QOR_RUN_LINUX_PRODUCTS` | `true` (optional, unset) | With `QOR_RUN_GPU_TESTS`, also run the products on Linux ([why it is off](#the-carried-products)) |
 | `QOR_LINUX_RUNNER` | `["self-hosted","linux","qt"]` | Linux job runs in WSL on the workstation |
