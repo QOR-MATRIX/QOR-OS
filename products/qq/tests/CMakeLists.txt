@@ -116,13 +116,17 @@ add_test(NAME tst_publish COMMAND tst_publish)
 
 qt_add_executable(tst_workspace tst_workspace.cpp)
 
-# Each project's workspace in the real Studio, from the hostile side too; the agent's run, against a stand-in provider.
-target_compile_definitions(tst_workspace PRIVATE QQ_FIXTURES="${CMAKE_CURRENT_SOURCE_DIR}/fixtures")
+# Each project's workspace in the real Studio, from the hostile side too; the agent's run, against a stand-in provider;
+# and the real program, for what its command line asks.
+target_compile_definitions(tst_workspace PRIVATE
+    QQ_FIXTURES="${CMAKE_CURRENT_SOURCE_DIR}/fixtures"
+    QQ_STUDIO="$<TARGET_FILE:qq-studio>")
 
 target_link_libraries(tst_workspace PRIVATE
     Qt6::Test Qt6::Gui Qt6::Qml Qt6::Quick Qt6::Quick3D Qt6::QuickControls2 Qt6::Network
     qqagent qqstudio qqstudioplugin qqruntime qqruntimeplugin
 )
+add_dependencies(tst_workspace qq-studio)
 
 add_test(NAME tst_workspace COMMAND tst_workspace)
 
