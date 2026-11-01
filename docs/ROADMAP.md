@@ -266,7 +266,9 @@ repository, the image or an assistant's context, and nobody here downloads it un
 gets the right tools and files back, imports an authorised asset, edits, saves, builds and tests, and reopens after a restart, with
 no mix-ups between them, on native Linux.
 
-- [ ] QQ Studio: a workspace for each project, one way to switch, unsaved work kept, a list of recent projects
+- [x] QQ Studio: a workspace for each project, one way to switch, unsaved work kept, a list of recent projects. Shown by `tst_workspace`
+  in software on Linux, on 1 November 2026, and not yet on native Linux, a GPU or Windows. A crash still loses unsaved work, and so does
+  the launcher closing the Studio
 - [ ] What is pinned to a project: its engine and version, and its asset dependencies, apart from the person's own library
 - [ ] Prism: a project as a place on the desktop, with its files, tools, window layout, build targets and test history
 - [ ] Budgets, proposed and not yet measured, on the reference laptop: back in a small project within 1 second at p95, no
