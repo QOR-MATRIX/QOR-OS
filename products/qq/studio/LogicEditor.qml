@@ -3,6 +3,9 @@
 // the file is (SceneIO.checkLogic), and what does not build is listed by line, a click going to that line. Saving
 // (its button, or Ctrl+S while it has the keys) writes the file whole, and a scene that is playing picks it up at once,
 // as it picks up any save of its logic.
+//
+// Changed for QOR OS: reset(), which leaves nothing of a file behind when it closes or its project is left; Close asks
+// about unsaved text first; and a file's name is text, never markup (AGENTS.md).
 
 import QtQuick
 import QtQuick.Controls
@@ -70,6 +73,16 @@ Pane {
         problems = name === "" ? [] : SceneIO.checkLogic(code.text, file)
     }
 
+    /// Nothing open and nothing left of what was: its text, its problems and the editor's own undo.
+    function reset() {
+        name = ""
+        saved = ""
+        problems = []
+        code.text = ""
+        // A check on its way would only find nothing, and setting the text just asked for one.
+        quiet.stop()
+    }
+
     /// Put the cursor at the start of line `n` (from 1).
     function goTo(n) {
         const lines = code.text.split("\n")
@@ -98,6 +111,7 @@ Pane {
             spacing: 10
             Label {
                 text: "logic/" + editor.name + ".qml"
+                textFormat: Text.PlainText
                 font.pixelSize: 13
                 font.weight: Font.DemiBold
             }
@@ -123,11 +137,12 @@ Pane {
                 onClicked: editor.save()
             }
             StudioButton {
+                objectName: "logicClose"
                 text: qsTr("Close")
-                onClicked: {
-                    editor.name = ""
+                onClicked: editor.studio.settleThen({ logic: true }, () => {
+                    editor.reset()
                     editor.closed()
-                }
+                })
             }
         }
 
