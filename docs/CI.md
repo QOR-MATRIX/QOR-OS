@@ -115,6 +115,13 @@ jobs within 15 seconds. The frozen QTOS needs none. The public demiurge-chain
 must never run on this workstation: a self-hosted runner on a public
 repository runs code from anyone's pull request.
 
+**This repository must stay private for the same reason.** It was public from its
+creation on 27 October until 1 November 2026, against its own documents, until an
+outside review noticed. No pull request was ever opened on it. Being public may also be
+why GitHub stopped giving it the organisation's runners, whose group refuses public
+repositories; nobody has tested that. If it is ever made public, the runners
+come off it first.
+
 `tools/ci/runners.ps1` moves both runners in one command:
 
 1. It leaves a runner already registered at the scope asked for as it is, so

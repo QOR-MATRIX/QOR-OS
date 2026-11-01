@@ -5,7 +5,8 @@
 Please **do not** open a public issue for security problems.
 
 Report privately through GitHub's
-[security advisory form](https://github.com/QOR-MATRIX/qor-os/security/advisories/new).
+[security advisory form](https://github.com/QOR-MATRIX/qor-os/security/advisories/new),
+which, while this repository is private, only people with access to it can reach.
 Include:
 
 - the affected component: the compositor, a service, an app, QQ, ARQADE, QOR
@@ -85,6 +86,12 @@ and through the whole history; the QOR core's dependencies audited weekly.
 
 Say so if you find a way past one; these are the walls we know are low.
 
+- **This repository was public from 27 October to 1 November 2026,** against its own
+  documents, while CI ran on the owner's machine. It is private now, but anyone may have
+  copied it up to `a3a2fd4`: GitHub counted 85 unique cloners and 25 unique visitors over
+  the last fortnight, its own CI perhaps among them, and no pull request was ever opened.
+  The history's secret scan passed at that commit, so a copy should hold no secret. It
+  does hold the code, the plans and the Store's public key.
 - **On Windows the Player has only QQ's own checks.** Windows is a development
   host, not the device. Qt Quick's `Canvas` (reads any picture) and `grabToImage`
   (writes over any picture) and Qt Multimedia's camera, microphone, screen capture

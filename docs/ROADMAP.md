@@ -6,8 +6,25 @@ What 1.0 contains is [QOR-0007](decisions/QOR-0007-what-1-0-ships.md). The
 phases are tracked as GitHub milestones.
 
 QOR OS began on 26 October 2026 from QTOS's Phase 0 and most of its Phase 1
-([history below](#history-qor-phases)) and from Demiurge's device-side
+([history below](#history-qtos-phases)) and from Demiurge's device-side
 products ([UPSTREAM.md](UPSTREAM.md)).
+
+## The order of work
+
+The owner's milestones ([QOR-0021](decisions/QOR-0021-projects-engines-and-two-stores.md)). The phases and sections below say
+what each holds. A step is done when it is integrated and its checks have evidence, kept to the configuration they ran on.
+
+1. **The real baseline.** Checked on 1 November against an outside review of `a3a2fd4`: the repository was public against its
+   documents, and is now private ([SECURITY.md](../SECURITY.md#known-limits)); Linux CI skipped the products; `image/` is a plan
+   with nothing that builds; Unreal is a decision, not code; and Epic changed its clause on AI, which QOR-0020 missed
+   ([QOR-0022](decisions/QOR-0022-assistants-and-unreal-engine-after-epics-change.md), proposed).
+2. **QQ creation and play on native Linux, with two project workspaces** that switch and survive a restart, with real input,
+   sound and a real graphics card. Needs the owner's Linux machine for the last of that.
+3. **One asset pack and one playable game in separate demonstration stores.** A simulated sale is no sale.
+4. **The shared graphics, input and display work, then selected Unreal and Unity workflows,** with the image, install, update and
+   rollback alongside.
+5. **The release gates below,** and then paid publishing in its phase, and console capture when its hardware can be tested.
+   Publishing remains the owner's act.
 
 ## Phase 0 · Clear the ground
 
@@ -152,7 +169,7 @@ published before.
   workflow and plays a run that a solver found through the whole game by the rules themselves, so every level is shown to be
   finishable; `tst_games` plays it through its first level and to its last life, and its recorded run replays to the same
   outcome in QQ and in Node.
-- [ ] A racer, a pixel-art game and an arcade game
+- [ ] A racer, a pixel-art game and an arcade game. These wait behind the second and third steps of the order of work.
 - [ ] The online world grown from the RPG, its server in demiurge-chain, after Phase 2's sign-in (its own record)
 - [ ] Each named game's rules, Node test and fixture in demiurge-chain, by a pull request there
 
@@ -200,7 +217,7 @@ controller-first Home.
 SDK.
 
 - [ ] The public SDK: QOR.Kit, Lumen, the service interfaces and QQ, with a Qt Creator wizard and the simulator
-- [ ] The Store and the Market as one catalogue in the shell: the Store's signature decides what installs; the chain records who made a work and who holds a licence
+- [ ] The Store and the Market as two stores on shared services ([QOR-0021](decisions/QOR-0021-projects-engines-and-two-stores.md)): the Store's signature decides what installs; whether the chain records who holds a licence is left to the record that chooses the paid model
 - [ ] Store stage 2: the developer program and portal, review, privacy-preserving analytics, with no payments ([STORE.md](STORE.md#roadmap))
 - [ ] QQ's agent proven: a scene built from a written description with no human edit, recorded with its frames, on
   the creator's own provider key (Demiurge's P3.3, otherwise built before the cut-over)
@@ -220,7 +237,9 @@ ecosystem joins from outside the engine. Each stage ends when its exit is shown 
 repository, the image or an assistant's context, and nobody here downloads it until the owner has accepted Epic's licence.
 
 - [ ] **The licence:** the owner, with counsel, reads the current text, chooses the licensee and records the version
-  accepted; Epic answers in writing on plugins, stores, QOR's chain and CGT, and AI
+  accepted; Epic answers in writing on plugins, stores, QOR's chain and CGT. Epic changed its clause on AI on 29 October, and
+  [QOR-0022](decisions/QOR-0022-assistants-and-unreal-engine-after-epics-change.md) proposes what follows; until it is accepted,
+  the rule above stands
 - [ ] **Stage 1 · A game plays in Prism.** Exit: Epic's Third Person template, packaged for Linux from the Windows editor,
   plays in gamescope in Prism on the owner's machine, with mouse look, a DualSense and sound, at the display's rate.
   - [ ] `zwp_relative_pointer_manager_v1` and `zwp_pointer_constraints_v1` in Prism, tested from a hostile client's side
@@ -238,6 +257,65 @@ repository, the image or an assistant's context, and nobody here downloads it un
   Tools or source is refused. Waits for Store stage 2.
 - [ ] Rewarded Unreal games: not decided; a later record, if wanted
 
+## Alongside the phases · Project workspaces
+
+[QOR-0021](decisions/QOR-0021-projects-engines-and-two-stores.md), decision 2. Exit: with two small QQ projects, a person switches,
+gets the right tools and files back, imports an authorised asset, edits, saves, builds and tests, and reopens after a restart, with
+no mix-ups between them, on native Linux.
+
+- [ ] QQ Studio: a workspace for each project, one way to switch, unsaved work kept, a list of recent projects
+- [ ] What is pinned to a project: its engine and version, and its asset dependencies, apart from the person's own library
+- [ ] Prism: a project as a place on the desktop, with its files, tools, window layout, build targets and test history
+- [ ] Budgets, proposed and not yet measured, on the reference laptop: back in a small project within 1 second at p95, no
+  frames or wakeups in an idle workspace, and no heavy editor started in the background
+
+## Alongside the phases · Engines
+
+[QOR-0021](decisions/QOR-0021-projects-engines-and-two-stores.md), decisions 3 and 4. Open, Build and Test through small adapters,
+each version on its own evidence. Unreal Engine 6 gets a validation stage when its requirements are known.
+
+- [ ] QQ's adapter
+- [ ] Unreal's adapter, after the owner's licence step and its stage 1 above: `.uproject` found, the person's own engine opened,
+  packaged with Epic's tool, played from the Library. Art comes to QQ through Unreal's own glTF export, the rest rewritten
+- [ ] Unity's adapter: waits for Unity's written answer or counsel's reading. A game built with Unity is an ordinary Linux
+  program and needs none of this
+
+**What has actually been run.** Blank means nobody has. What a vendor lists is not what QOR OS has tested.
+
+| Engine | Vendor lists (Linux) | Host | Graphics, display | Editor | Packaged game |
+|--------|----------------------|------|-------------------|--------|---------------|
+| QQ | ours | Windows 11, in CI | The laptop's own, on its desktop | Suites | Suites |
+| QQ | ours | Ubuntu in WSL2, by hand | Software, a hidden display | Suites, seven known failures | Suites |
+| QQ | ours | Native Linux | | | |
+| Unreal 5.8 | Rocky or RHEL 8 and newer; develops on Ubuntu 22.04, Rocky 8; NVIDIA 570+, RADV 24.2.8+ | | | | |
+| Unity 6.3 | Ubuntu 22.04, 24.04 on GNOME; NVIDIA and AMD; Wayland experimental | | | | |
+
+## Alongside the phases · Two stores
+
+[QOR-0021](decisions/QOR-0021-projects-engines-and-two-stores.md), decisions 5 to 8. No money ([QOR-0006](decisions/QOR-0006-qor-os-1-0-moves-no-money.md)).
+Exit of the first stage: on a demonstration catalogue, a redistributable pack is found, installed, used, updated and reopened in a
+real QQ project; one playable game appears for players; the creator store is absent with creator features off, and refused as well
+as hidden; private source and unpublished builds stay out of reach.
+
+- [ ] Catalogue format 2: audience, licence, provenance, compatible engines, dependencies, previews, sequence and expiry; `price`
+  refused, and format 1's unchecked `price` closed. Hostile cases under `linux-asan`: archive bombs, duplicate and device names,
+  executable files in a pack, climbing glTF paths, an older signed copy swapped in, dependency cycles, markup in a licence
+- [ ] A separate demonstration catalogue with a throwaway key, never in a release; today's fixtures not re-signed
+- [ ] The player store's Games page, with Play; Store games in the Library, checked rather than scanned
+- [ ] The creator-features switch, and the creator store's engine and folder
+- [ ] QQ Studio's asset library: browse, preview, copy into the project with a lock file, update safely
+- [ ] Publishing in stages: private draft, preview, package checks, a declaration of rights, submission, review, publication
+- [ ] Editable projects in the creator store, with their engine, files, outside dependencies and permitted reuse; sealed packaging
+  for QQ games, if a record wants it; playable mods, per game, only where that game allows them
+
+## Alongside the phases · Console capture
+
+Proposed ([QOR-0021](decisions/QOR-0021-projects-engines-and-two-stores.md), decision 9), not in 1.0, and after native-Linux
+reliability. A PS4's HDMI goes to one USB capture device that works on Linux, aiming for 1080p60. Exit, on real hardware: device choice,
+fullscreen preview, sound, hot-plug, loss of signal, suspend and resume, a protected source named as such, frame drops and resource
+use measured, and the laptop's actual preview delay measured. A latency budget is proposed from that measurement, not from a
+vendor's claim. No firmware turns an output-only HDMI port into an input, so this needs the capture device.
+
 ## Alongside the phases · The security bar
 
 [QOR-0018](decisions/QOR-0018-the-security-and-quality-bar.md), from two independent reviews of the trust boundaries on
@@ -245,6 +323,8 @@ repository, the image or an assistant's context, and nobody here downloads it un
 
 - [x] Exploit mitigations on every program, read back in CI; the suites under sanitizers; CI pinned by content; secrets
   and advisories looked for
+- [x] The repository private, as its documents always said (1 November; it had been public since 27 October, while CI ran on
+  the owner's machine)
 - [x] Prism: the bus, the keyboard, the lock screen, what a client's name and title can do, the Store's widgets
 - [x] QQ and QOR Media: what a package can reach, the Studio's trust in a project, the agent's logic; the QQ Player
   walled in by the kernel on Linux

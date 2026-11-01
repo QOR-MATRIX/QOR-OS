@@ -6,6 +6,9 @@ verifying client with QOR OS's own themes and widgets. There are no payments
 yet. Third-party publishing arrives with the developer program in stages 2
 and 3 ([Roadmap](#roadmap)).
 
+[QOR-0021](decisions/QOR-0021-projects-engines-and-two-stores.md) makes this two stores on shared services, a player store
+and a creator store, starting free and curated. This document describes what is built, which is still the one store.
+
 ## What people see
 
 - **Store app** (`apps/StoreApp.qml`): Discover, Themes, Widgets, Apps, Games,
