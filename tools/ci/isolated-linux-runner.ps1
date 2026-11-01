@@ -37,8 +37,10 @@
 
     Starting a second distribution is not free of effects, though. The kernel keeps one binfmt_misc table, which is how the
     other distribution starts Windows programs, and a distribution's first start flushes it before anything can be done
-    about that. So Create repairs it at the end, whatever happened, and says what is in it. While it runs, Windows programs
-    started from the other distribution may fail with "Exec format error" for a minute or so.
+    about that. So Create repairs it at the end, whatever happened, and says what is in it. Measured on 1 November 2026,
+    one sample a second through a removal and a Create from nothing: WSLInterop was never seen gone, and the other
+    distribution's entry for Python's compiled files was gone for three minutes. If Windows programs started from the other
+    distribution ever answer "Exec format error", this table is the first place to look.
 
 .EXAMPLE
     .\tools\ci\isolated-linux-runner.ps1
@@ -178,6 +180,8 @@ function Invoke-Register {
     $url = "https://github.com/$Org/$Repo"
     Write-Host "Serving $url as $RunnerName, one job at a time, each from an empty home. Ctrl+C stops it between jobs."
     while ($true) {
+        # One clock for every distribution, and it drifts after sleep. GitHub refuses a runner whose clock is wrong (docs/CI.md).
+        Invoke-Root date -u -s ((Get-Date).ToUniversalTime().ToString('yyyy-MM-dd HH:mm:ss')) | Out-Null
         gh api -X POST "repos/$Org/$Repo/actions/runners/registration-token" --jq .token 2>$null |
             wsl.exe -d $distro -u root --exec /usr/local/sbin/qor-ci-provision runner-once $url $RunnerName $RunnerLabels
         if ($LASTEXITCODE) {
