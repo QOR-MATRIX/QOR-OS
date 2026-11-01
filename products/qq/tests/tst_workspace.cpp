@@ -1528,14 +1528,21 @@ private slots:
         QFETCH(QByteArray, bytes);
         QVERIFY(writeFile(qq::ProjectWorkspace::recentFile(), bytes));
         QCOMPARE(qq::ProjectWorkspace().recentProjects().size(), 0);
-        Studio s;
-        QVERIFY(s.open(QUrl(), {{QStringLiteral("reopenLast"), true}}));
-        QCOMPARE(s.get("project").toUrl(), QUrl());
-        QCOMPARE(s.sceneName(), QStringLiteral("untitled"));
         // It is replaced the next time a project is noted, whole.
         Project p;
         qq::ProjectWorkspace().noteRecent(p.url());
         QCOMPARE(qq::ProjectWorkspace().recentProjects().size(), 1);
+    }
+
+    // A bare start with such a list is an ordinary start.
+    void aBareStartWithABrokenRecentListStartsClean()
+    {
+        QVERIFY(writeFile(qq::ProjectWorkspace::recentFile(), QByteArray("{ \"version\": 1, \"proj")));
+        Studio s;
+        QVERIFY(s.open(QUrl(), {{QStringLiteral("reopenLast"), true}}));
+        QCOMPARE(s.get("project").toUrl(), QUrl());
+        QCOMPARE(s.sceneName(), QStringLiteral("untitled"));
+        QVERIFY(!s.get("noticeIsProblem").toBool());
     }
 
     void aRecentListWithSomeGoodEntriesKeepsThem()
