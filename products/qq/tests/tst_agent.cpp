@@ -28,6 +28,7 @@
 #include <QRegularExpression>
 #include <QSet>
 #include <QSignalSpy>
+#include <QStandardPaths>
 #include <QTcpServer>
 #include <QTcpSocket>
 #include <QHostAddress>
@@ -298,6 +299,8 @@ private slots:
     {
         QQuickStyle::setStyle(QStringLiteral("Material"));
         qq::StudioLog::install();
+        // Everything kept goes to the test's own folders, never a person's: their recent projects gain no temporary folder.
+        QStandardPaths::setTestModeEnabled(true);
     }
 
     // QQ's own QML says nothing is wrong with it.
@@ -987,6 +990,9 @@ private slots:
         const QString pipe = QStringLiteral("qq-test-%1").arg(QRandomGenerator::global()->generate());
         QProcessEnvironment env = QProcessEnvironment::systemEnvironment();
         env.insert(QStringLiteral("QQ_MCP_PIPE"), pipe);
+        // The real programs keep what they keep in a folder of the test's too.
+        QTemporaryDir kept;
+        env.insert(QStringLiteral("XDG_DATA_HOME"), kept.path());
 
         QProcess bridge;
         bridge.setProcessEnvironment(env);

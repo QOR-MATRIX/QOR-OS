@@ -130,6 +130,33 @@ add_dependencies(tst_workspace qq-studio)
 
 add_test(NAME tst_workspace COMMAND tst_workspace)
 
+qt_add_executable(tst_gamebuild tst_gamebuild.cpp)
+
+# Changed for QOR OS: making a game of a project, the real Studio and the real Player on what it made.
+target_compile_definitions(tst_gamebuild PRIVATE
+    QQ_FIXTURES="${CMAKE_CURRENT_SOURCE_DIR}/fixtures"
+    QQ_SAMPLES="${CMAKE_CURRENT_SOURCE_DIR}/../samples"
+    QQ_PLAYER="$<TARGET_FILE:qq-player>"
+    QQ_STUDIO="$<TARGET_FILE:qq-studio>")
+
+target_link_libraries(tst_gamebuild PRIVATE
+    Qt6::Test Qt6::Gui Qt6::Qml Qt6::Quick Qt6::Quick3D Qt6::QuickControls2 Qt6::Network
+    qqstudio qqstudioplugin qqruntime qqruntimeplugin
+)
+add_dependencies(tst_gamebuild qq-player qq-studio)
+
+add_test(NAME tst_gamebuild COMMAND tst_gamebuild)
+
+# Changed for QOR OS: from the build, through Prism's Library where QOR_PRISM_BUILD names a build of it, to the Player.
+find_package(Python3 COMPONENTS Interpreter QUIET)
+if(Python3_Interpreter_FOUND AND CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    add_test(NAME first_journey
+        COMMAND Python3::Interpreter "${CMAKE_CURRENT_SOURCE_DIR}/../../../tools/dev/first-journey.py"
+            --qq-studio $<TARGET_FILE:qq-studio> --qq-player $<TARGET_FILE:qq-player>
+            --model "${CMAKE_CURRENT_SOURCE_DIR}/fixtures/orb.gltf")
+    set_tests_properties(first_journey PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 300)
+endif()
+
 # Changed for QOR OS: these ask the renderer for its name (drawnin.h), which only Qt's private headers can do.
 set(QT_NO_PRIVATE_MODULE_WARNING ON)
 find_package(Qt6 6.12 REQUIRED COMPONENTS GuiPrivate)

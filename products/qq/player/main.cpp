@@ -27,7 +27,9 @@
 //
 // Changed for QOR OS: on Linux the process's creation is read from /proc, so the start is measured there too; the wall
 // (sandbox.h), the refusal of too wide a package, and the watchdog for logic that never returns (QOR-0018). The report
-// also says what drew the frames, and how long before the end of the measured time the last one came.
+// also says what drew the frames, and how long before the end of the measured time the last one came. Qt's disk cache is off:
+// it would map a compiled unit lying beside a game's file straight in as code, past every check on source, and past the
+// wall's interceptor, since that is no URL. The report says so.
 
 #include <QCommandLineParser>
 #include <QDateTime>
@@ -122,6 +124,10 @@ int main(int argc, char *argv[])
 {
     Measure measure;
     measure.mainMs = sinceStart();
+
+    // Before any engine exists: read once, as the first one starts.
+    qputenv("QML_DISABLE_DISK_CACHE", "1");
+    qunsetenv("QML_FORCE_DISK_CACHE");
 
     QCommandLineParser parser;
     parser.setApplicationDescription(QStringLiteral("QQ Player: plays a QQ scene as a game"));
@@ -296,6 +302,7 @@ int main(int argc, char *argv[])
                                  {QStringLiteral("lastFrameAgoMs"), elapsed - measure.lastFrameMs},
                                  {QStringLiteral("renderer"), rhi ? QString::fromUtf8(rhi->driverInfo().deviceName) : QString()},
                                  {QStringLiteral("problem"), window->property("problem").toString()},
+                                 {QStringLiteral("qmlDiskCache"), !qEnvironmentVariableIsSet("QML_DISABLE_DISK_CACHE")},
                                  {QStringLiteral("unloaded"),
                                   QJsonArray::fromStringList(window->property("unloaded").toStringList())}};
         const QByteArray line = QJsonDocument(result).toJson(QJsonDocument::Compact);

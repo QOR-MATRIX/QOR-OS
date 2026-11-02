@@ -28,7 +28,11 @@ namespace qor {
 // is kept in the shell's data folder (library-history.json): when, and where
 // a film or song stopped, which QOR Media reports (reported()).
 //
-// An item: { id, kind ("game", "media"), source ("qq", "mine", "arqade",
+// A folder there that QQ Studio built holds game.json, which says its title and
+// first scene and is read as a stranger's file. Its source is "built", and
+// what plays is the copy. "mine" is a project itself, as it is now.
+//
+// An item: { id, kind ("game", "media"), source ("qq", "built", "mine", "arqade",
 // "media"), title, subtitle, glyph, hue, path (a scene or a file), game
 // (ARQADE's, by kind), mediaKind ("video", "audio", "picture"), modified,
 // lastUsed (ms since the epoch, 0 if never), position and duration
