@@ -1201,6 +1201,11 @@ QVariantMap SceneIO::brokenCode(const QUrl &project)
             // What a game would not carry is no part of whether it builds.
             if (!file.isSymLink() && !relative.startsWith(QLatin1Char('.')) && !relative.contains(QStringLiteral("/.")))
                 files << relative;
+            // Counted before anything is read: this runs on the window's thread, and a project could hold any number.
+            if (files.size() > mostCodeChecked)
+                return {{QStringLiteral("file"), QString()}, {QStringLiteral("line"), 0},
+                        {QStringLiteral("message"), QStringLiteral("This project has more than %1 QML files, more than are checked before a build.")
+                                                        .arg(mostCodeChecked)}};
         }
     }
     files.sort();
@@ -1208,7 +1213,10 @@ QVariantMap SceneIO::brokenCode(const QUrl &project)
         QFile f(root.filePath(relative));
         if (!f.open(QIODevice::ReadOnly))
             continue;
-        const QVariantList problems = checkLogic(QString::fromUtf8(f.readAll()), QUrl::fromLocalFile(f.fileName()));
+        if (f.size() > largestCodeChecked)
+            return {{QStringLiteral("file"), relative}, {QStringLiteral("line"), 0},
+                    {QStringLiteral("message"), QStringLiteral("it is more than %1 MB, more than is checked before a build").arg(largestCodeChecked / (1024 * 1024))}};
+        const QVariantList problems = checkLogic(QString::fromUtf8(f.read(largestCodeChecked)), QUrl::fromLocalFile(f.fileName()));
         if (!problems.isEmpty()) {
             const QVariantMap first = problems.first().toMap();
             return {{QStringLiteral("file"), relative},

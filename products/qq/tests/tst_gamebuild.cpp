@@ -333,29 +333,32 @@ struct Studio {
         QTRY_VERIFY(!building());
     }
 
-    /// The middle of the world, as the window shows it now: a tenth of it each way.
-    QImage middleShown()
+    /// A part of the world, as the window shows it now, by its share of the viewport across and down.
+    QImage shown(const QRectF &part)
     {
         auto *view = window->findChild<QQuickItem *>(QStringLiteral("viewport"));
         if (!view)
             return {};
         window->update();
         QTest::qWait(200);
-        const QRectF middle = view->mapRectToScene(QRectF(view->width() * 0.45, view->height() * 0.45, view->width() / 10, view->height() / 10));
-        return window->grabWindow().copy(middle.toRect());
+        const QRectF there = view->mapRectToScene(QRectF(view->width() * part.x(), view->height() * part.y(),
+                                                         view->width() * part.width(), view->height() * part.height()));
+        return window->grabWindow().copy(there.toRect());
     }
+    static QRectF middle() { return {0.45, 0.45, 0.1, 0.1}; }
+    static QRectF top() { return {0, 0, 1, 1.0 / 6}; }
 
-    /// Whether the middle of the world comes to be mostly of this channel (shareOf) within half a minute. If not, the last look
+    /// Whether that part of the world comes to be mostly of this channel (shareOf) within half a minute. If not, the last look
     /// is kept in the temporary folder and named, with its shares, so a failure can be looked at.
-    void waitForMiddleShown(int channel)
+    void waitForShown(const QRectF &part, int channel)
     {
         QImage last;
         for (int tries = 0; tries < 60; ++tries) {
-            last = middleShown();
+            last = shown(part);
             if (shareOf(last, channel) > 0.5)
                 return;
         }
-        const QString kept = QDir::temp().filePath(QStringLiteral("tst_gamebuild-middle-shown.png"));
+        const QString kept = QDir::temp().filePath(QStringLiteral("tst_gamebuild-shown.png"));
         last.save(kept);
         QFAIL(qPrintable(QStringLiteral("The world does not show it: red %1, green %2, blue %3, as kept in %4")
                              .arg(shareOf(last, 0)).arg(shareOf(last, 1)).arg(shareOf(last, 2)).arg(kept)));
@@ -1370,10 +1373,7 @@ private slots:
             QCOMPARE(skyOf(QDir(firstFolder).filePath(relative)), 0);
 
             // Edit, and do not build. Play is pressed: it runs the project as it stands, edit and all, and the world on the
-            // screen shows it, while what was built plays as it was built. What shows it is a glowing wall where the eye
-            // looks: the Studio's world, unlike the Player's, keeps the sky it was first drawn with in software (W9 saw
-            // it stay so through three changes of colour, on the code before and after this change), so the sky is
-            // checked by what the play holds and the pixels by the wall.
+            // screen shows it, its sky and a glowing wall where the eye looks, while what was built plays as it was built.
             studio.paintSky(QStringLiteral("#00ff00"));
             QVERIFY(studio.call("add", QStringLiteral("Shape"),
                                 QVariantMap{{QStringLiteral("name"), QStringLiteral("Wall")},
@@ -1388,7 +1388,10 @@ private slots:
             QObject *playing = studio.get("playScene").value<QObject *>();
             QVERIFY(playing);
             QCOMPARE(playing->property("skyTop").value<QColor>(), QColor(QStringLiteral("#00ff00")));
-            studio.waitForMiddleShown(1);
+            studio.waitForShown(Studio::middle(), 1);
+            if (QTest::currentTestFailed())
+                return;
+            studio.waitForShown(Studio::top(), 1);
             if (QTest::currentTestFailed())
                 return;
             QCOMPARE(skyOf(QDir(firstFolder).filePath(relative)), 0);
@@ -1427,6 +1430,34 @@ private slots:
             QVERIFY2(studio.notice().contains(QStringLiteral("build 2")), qPrintable(studio.notice()));
             QCOMPARE(skyOf(QDir(firstFolder).filePath(QStringLiteral("scenes/untitled.qml"))), 1);
         }
+    }
+
+    /// The world in the Studio shows each sky it is given, as it is given, and draws nothing while nothing changes. Qt keeps
+    /// a light probe by its data and lights by it only the first time, so a world that lives on kept its first sky.
+    void theStudiosWorldShowsEachSkyItIsGiven()
+    {
+        Project project;
+        QVERIFY(QDir().mkpath(project.path()));
+        qq::SceneIO().trustProject(project.url());
+        Studio studio;
+        QVERIFY(studio.open(project.url()));
+        const QStringList skies{QStringLiteral("#ff0000"), QStringLiteral("#00ff00"), QStringLiteral("#0000ff"), QStringLiteral("#00ff00")};
+        const int channels[] = {0, 1, 2, 1};
+        for (qsizetype i = 0; i < skies.size(); ++i) {
+            studio.paintSky(skies.at(i));
+            studio.waitForShown(Studio::top(), channels[i]);
+            if (QTest::currentTestFailed())
+                return;
+        }
+
+        // Left alone, it draws nothing: render on demand.
+        int frames = 0;
+        const QMetaObject::Connection counting = connect(studio.window, &QQuickWindow::frameSwapped, this, [&frames] { ++frames; });
+        QTest::qWait(1500);
+        frames = 0;
+        QTest::qWait(1500);
+        disconnect(counting);
+        QCOMPARE(frames, 0);
     }
 
     /// The owner's "edit, save, build": a scene that was saved, edited, and Build pressed. The game has the edit.

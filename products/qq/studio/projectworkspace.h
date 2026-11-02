@@ -17,17 +17,25 @@
 // is only ever opened through it. This class holds no scene and runs nothing, and knows no engine: `scene` and `logic` are
 // two remembered paths to it, and what they mean is the Studio's.
 //
-// A recovery copy is <AppDataLocation>/workspaces/<SHA-256 of the project's real path>.recovery.json, beside its workspace and
-// never in the project: the unsaved scene's text and name and the unsaved logic file's text and file, written whole or not at
-// all, for this person's eyes, by the Studio after a short pause in editing, and gone once the work is saved or discarded. It
-// is read back as a stranger's too: too large, not JSON, of another version, written for another folder, or naming a file that
-// is not plainly in the project, and that much of it goes unused and is said. Scene text runs when it is loaded, so this
-// only hands it over, and the Studio shows it only past the trust check and a person's Restore. Each part says whether the
-// saved file has changed since the copy was made, for the Studio's question.
+// A recovery copy is <AppDataLocation>/workspaces/<SHA-256 of the project's real path>.recovery-<session>.json, beside its
+// workspace and never in the project: the unsaved scene's text and name and the unsaved logic file's text and file, written
+// whole or not at all, for this person's eyes, by the Studio after a short pause in editing, and gone once the work is saved
+// or discarded. Each Studio writes only its own session's copy, and holds a lock beside it (.lock) for as long as it has one,
+// so two Studios on one project never share a copy, and a copy is offered to another Studio only once the Studio that wrote it
+// has gone: crashed, killed, or closed by its launcher. A copy nobody has answered for stays as it is while new work goes to
+// the new session's own copy, so nothing typed meanwhile goes unkept.
+//
+// A copy is read back as a stranger's too: too large, not JSON, of another version, written for another path, or for
+// another folder that was at that path (the folder's identity: its device and inode on POSIX, its creation time on Windows),
+// or naming a file that is not plainly in the project, and that much of it goes unused and is said. A project moved keeps
+// its copy under its old path: it is offered again if the project is opened there, and a different folder there is refused
+// it. Scene text runs when it is loaded, so this only hands it over, and the Studio shows it only past the trust check and a
+// person's Restore. Each part says whether the saved file has changed since the copy was made, for the Studio's question.
 
 #pragma once
 
 #include <QList>
+#include <QLockFile>
 #include <QObject>
 #include <QRect>
 #include <QString>
@@ -36,12 +44,16 @@
 #include <QVariantMap>
 #include <QtQml/qqmlregistration.h>
 
+#include <memory>
+
 namespace qq {
 
 class ProjectWorkspace : public QObject
 {
     Q_OBJECT
     QML_ELEMENT
+    /// This Studio's session: what its own recovery copies are named by.
+    Q_PROPERTY(QString session READ session CONSTANT)
 
 public:
     /// The format of what is kept. A file of any other is not read.
@@ -56,7 +68,13 @@ public:
     static constexpr int smallestWidth = 640;
     static constexpr int smallestHeight = 400;
 
+    /// The most copies of one project looked at: more is more Studios gone than anyone has.
+    static constexpr int mostCopies = 16;
+
     explicit ProjectWorkspace(QObject *parent = nullptr);
+    ~ProjectWorkspace() override;
+
+    QString session() const { return m_session; }
 
     /// What is kept for `project`, each part checked: { "found": whether a usable file is there, "problem": what a person
     /// should be told, or "", "scene" and "logic": paths relative to the project of files that are in it, or "", "panels":
@@ -66,17 +84,20 @@ public:
     /// Keep `state` for `project`, in the form load() gives it: true if kept. A path that load() would refuse is not.
     Q_INVOKABLE bool save(const QUrl &project, const QVariantMap &state);
 
-    /// Keep what is unsaved in `project`, whole or not at all: `work` is { "scene": { "name", "file": relative to the project,
-    /// or "" for a scene never saved, "text" }, "logic": { "file", "text" } }, either or both, and with neither there is nothing
-    /// to keep and the copy goes. False if it could not be kept.
+    /// Keep what is unsaved in `project` in this session's own copy, whole or not at all: `work` is { "scene": { "name", "file":
+    /// relative to the project, or "" for a scene never saved, "text" }, "logic": { "file", "text" } }, either or both, and with
+    /// neither there is nothing to keep and the copy goes. False if it could not be kept.
     Q_INVOKABLE bool keepRecovery(const QUrl &project, const QVariantMap &work);
-    /// What was kept for `project`, each part checked: { "found": whether any of it is to be offered, "stale": whether it is
-    /// there and none of it is unsaved work any more, so it can go, "problem": what a person should be told, or "", "scene" and
-    /// "logic": { "name", "file", "text", "changed": whether the saved file differs from when the copy was made, "gone": whether
-    /// it has gone }, each only if it is usable and differs from the file }.
-    Q_INVOKABLE QVariantMap loadRecovery(const QUrl &project) const;
-    /// The work has been saved or discarded: no copy of it stays.
+    /// What another session kept for `project`, of a Studio that has gone, the newest first, each part checked: { "found":
+    /// whether one is to be offered, "problem": what a person should be told, or "", "more": how many other copies there are
+    /// to offer after it, "copy": { "session", "scene" and "logic": { "name", "file", "text", "changed": whether the saved file
+    /// differs from when the copy was made, "gone": whether it has gone }, each only if it is usable and differs from the file
+    /// } }. A copy none of which is unsaved work any more goes, unsaid.
+    Q_INVOKABLE QVariantMap loadRecovery(const QUrl &project);
+    /// This session's work has been saved or discarded: no copy of it stays, and its lock goes with it.
     Q_INVOKABLE void dropRecovery(const QUrl &project);
+    /// The person has answered for another session's copy: it goes, if that Studio has gone. A live one's is never touched.
+    Q_INVOKABLE void dropRecoveryOf(const QUrl &project, const QString &session);
 
     /// Whether `folder` is a folder on this computer that is there.
     Q_INVOKABLE bool isFolder(const QUrl &folder) const;
@@ -94,8 +115,11 @@ public:
     static QString storeFolder();
     /// A project's file there, by the project's real path.
     static QString fileFor(const QString &realProject);
-    /// A project's recovery copy there, by the project's real path.
-    static QString recoveryFileFor(const QString &realProject);
+    /// A session's recovery copy of a project there, by the project's real path.
+    static QString recoveryFileFor(const QString &realProject, const QString &session);
+    /// What a folder is, wherever it is: its device and inode on POSIX, its creation time on Windows; "" where that cannot be
+    /// told.
+    static QString folderIdentity(const QString &realFolder);
     /// The list of recent projects there.
     static QString recentFile();
     /// Whether a path could be one the Studio wrote: relative, each part a plain name, nothing that climbs or that a URL or
@@ -110,6 +134,12 @@ public:
     /// A remembered camera, or nothing: only finite numbers of a sensible size count, and any that does not loses all of it. Its
     /// tilt and distance are brought within what the Studio's own handles can reach.
     static QVariantMap fitCamera(const QVariantMap &stored);
+
+private:
+    QString m_session;
+    /// Held for as long as this session has a copy, of the project it is of.
+    std::unique_ptr<QLockFile> m_lock;
+    QString m_lockedFor;
 };
 
 }  // namespace qq

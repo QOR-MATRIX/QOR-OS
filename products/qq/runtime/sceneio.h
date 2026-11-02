@@ -167,8 +167,12 @@ public:
     /// { "line", "column", "message" }, in order; none if it builds. Nothing is made and nothing is run.
     Q_INVOKABLE QVariantList checkLogic(const QString &text, const QUrl &file);
     /// The first QML in a project's scenes, logic or prefabs that does not build, by checkLogic: { "file": relative to the
-    /// project, "line", "message" }, or nothing if all of it builds. Builds, and runs nothing.
+    /// project, "line", "message" }, or nothing if all of it builds. Builds, and runs nothing. It runs on the caller's thread,
+    /// so it checks at most `mostCodeChecked` files of `largestCodeChecked` bytes each, and says so past that rather than
+    /// going on.
     Q_INVOKABLE QVariantMap brokenCode(const QUrl &project);
+    static constexpr int mostCodeChecked = 2000;
+    static constexpr qint64 largestCodeChecked = 16 * 1024 * 1024;
 
     /// The store of the game `entity` plays in (P3.16, store.h): the game's own, kept from one play to the next, or,
     /// while its scene replays, a copy in memory of the store as the run found it, which the replay leaves behind. Null
