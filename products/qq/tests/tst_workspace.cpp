@@ -1838,6 +1838,28 @@ private slots:
         s.answer("unsavedDiscard");
     }
 
+    /// A copy whose Studio still runs is not another's to throw away, whatever session it is asked for by: its lock says so.
+    void aRunningStudiosCopyIsNotDiscardedByAnother()
+    {
+        TwoProjects two;
+        auto running = std::make_unique<qq::ProjectWorkspace>();
+        qq::ProjectWorkspace other;
+        QVERIFY(running->keepRecovery(two.a.url(), {{QStringLiteral("logic"), QVariantMap{{QStringLiteral("file"), QStringLiteral("logic/spin.qml")},
+                                                                                         {QStringLiteral("text"), QStringLiteral("still being typed")}}}}));
+        const QString session = running->session();
+        const QString copy = qq::ProjectWorkspace::recoveryFileFor(two.a.real(), session);
+        QVERIFY(QFileInfo::exists(copy));
+        other.dropRecoveryOf(two.a.url(), session);
+        QVERIFY2(QFileInfo::exists(copy), "a running Studio's copy was thrown away");
+        QVERIFY(!other.loadRecovery(two.a.url()).value(QStringLiteral("found")).toBool());
+        // Once that Studio has gone, its copy is offered, and may be thrown away.
+        running.reset();
+        QVERIFY(QFileInfo::exists(copy));
+        QVERIFY(other.loadRecovery(two.a.url()).value(QStringLiteral("found")).toBool());
+        other.dropRecoveryOf(two.a.url(), session);
+        QVERIFY(!QFileInfo::exists(copy));
+    }
+
     /// Too large to keep is refused, whole: not half a copy.
     void aCopyTooLargeIsNotHalfWritten()
     {
