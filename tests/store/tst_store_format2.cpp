@@ -1339,11 +1339,18 @@ private Q_SLOTS:
     {
         QFETCH(QByteArray, text);
         const TestSigner developer;
-        Pack pack;
-        pack.files.insert(u"LICENSE.txt"_s, text);
-        const PackageResult opened = openPackage(pack.package(developer), developer.publicKey());
-        QVERIFY(!opened.ok);
-        QVERIFY2(opened.error.contains(u"markup"_s), qPrintable(opened.error));
+        // Where it stands, and on a later line, where Qt::mightBeRichText does not look and the scan has to find it.
+        // Only what is about the first line is not markup further down.
+        const bool firstLineOnly = QByteArray(QTest::currentDataTag()).contains("on the first line");
+        for (const QByteArray &prefix : { QByteArray(), QByteArray("A line of text.\n") }) {
+            if (firstLineOnly && !prefix.isEmpty())
+                continue;
+            Pack pack;
+            pack.files.insert(u"LICENSE.txt"_s, QByteArray(prefix + text));
+            const PackageResult opened = openPackage(pack.package(developer), developer.publicKey());
+            QVERIFY2(!opened.ok, prefix.constData());
+            QVERIFY2(opened.error.contains(u"markup"_s), qPrintable(opened.error));
+        }
     }
 
     void aLicenceMayHoldAngleBracketsAsWords()
@@ -4082,6 +4089,35 @@ private Q_SLOTS:
         CreatorStore after(data.path(), key);
         QVERIFY(after.installed().contains(pack.id));
         QVERIFY(after.installed().contains(other.id));
+    }
+
+    void aRemovalLeavesAnotherProgramsRecords()
+    {
+        const Pack pack;
+        Pack other;
+        other.id = u"org.example.pack.other"_s;
+        Shop shop;
+        shop.add(pack);
+        shop.add(other);
+        const QUrl catalogue = shop.publish();
+        QTemporaryDir data;
+        const QByteArray key = shop.store.publicKey();
+        CreatorStore stale(data.path(), key);
+        QCOMPARE(refreshed(stale, catalogue), StoreEngine::State::Ready);
+        QVERIFY(installAndWait(stale, pack.id).ok);
+        {
+            CreatorStore second(data.path(), key);
+            QCOMPARE(refreshed(second, catalogue), StoreEngine::State::Ready);
+            QVERIFY(installAndWait(second, other.id).ok);
+        }
+        QVERIFY(!stale.installed().contains(other.id));
+        QVERIFY(stale.remove(pack.id));
+        QVERIFY(stale.installed().contains(other.id));
+
+        CreatorStore after(data.path(), key);
+        QVERIFY(!after.installed().contains(pack.id));
+        QVERIFY(after.installed().contains(other.id));
+        QVERIFY(QFileInfo::exists(after.installDirectory(other.id) + u"/manifest.json"_s));
     }
 
     void anotherProgramsNewerVersionIsNotMovedBack()
