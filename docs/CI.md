@@ -98,6 +98,88 @@ registering, or a job could land on either runner. The Windows job needs its own
 **Second stage, not run.** `-Action Register` serves one `--ephemeral` job at a time from an empty home, with the token piped from
 `gh` and never printed. It holds no credential between jobs, and nothing starts it at sign-in.
 
+### A clean VM for Linux jobs, not yet made
+
+`tools/ci/isolated-vm.ps1` makes `qor-ci-vm`, a generation 2 Hyper-V VM with its own kernel, and `-Action Prove` attacks it from
+inside with `tools/ci/isolated-vm-guest.py`. This is the replacement [release/QT.md](release/QT.md#ci-machines-that-hold-no-account)
+recommends for the Linux job. **Nothing in it has run against Hyper-V, and no such VM exists:** this account cannot call Hyper-V,
+so `-Action Create` first runs when the owner runs it once, as administrator, after reading it. Until `-Action Prove` has run there, it
+says nothing about any boundary. It holds no Qt, no kit, no Qt login, no runner, no GitHub token and no repository variable. Those wait
+for Qt's answer and for the proof.
+
+**What it makes,** and `-Action Remove` takes away, by these exact names and each only if it carries the script's mark: the VM and an
+internal virtual switch `qor-ci-vm`, that switch's adapter with one address, a NAT `qor-ci-vm`, the firewall rules
+`qor-ci-vm-block-by-adapter` and `qor-ci-vm-block-by-address`, a folder (`X:\qor-ci-vm` unless told otherwise) and
+`%LOCALAPPDATA%\qor-ci-vm`, which holds the SSH key that opens this guest and nothing else. It changes no other VM, switch, rule or
+setting, and it stops rather than touch one of those names that it did not make. Windows supports one NAT per host, so another NAT
+stops it too.
+
+**The VM.** Generation 2, Secure Boot with the UEFI CA template, no checkpoints, no shared folders, no GPU or device passthrough, no
+nested virtualisation, and every integration service off. Enhanced Session has no per-VM off switch, and the host's is left alone: this
+VM keeps the VMBus transport and has no xrdp, which by Microsoft's archived `linux-vm-tools` and the guides is what a Linux guest would
+need changed. 8 processors. 6 GB of static memory on this 15.7 GB
+laptop, with under 1 GB free during a build: it stays stopped when idle, one heavy job runs at a time, and a start that will not fit is
+refused. Each choice has its reason beside the line that makes it.
+
+**The image** is Ubuntu 24.04's generic cloud image, pinned to `release-20261017` by URL and SHA-256. The digest comes from Ubuntu's
+`SHA256SUMS`, whose signature was checked against Ubuntu's image key, and the script checks it before each use. It takes its first-boot
+settings from a NoCloud seed, an ISO labelled `cidata` on a DVD drive, holding one public key and the network settings, which is taken
+out after the first boot. Canonical's Multipass does the same on generation 2 Hyper-V (read in its source), with Secure Boot off, so
+Secure Boot on is unproven. It is QCOW2 and Hyper-V wants VHDX, so the script reads it itself: not with `qemu-img` from WSL, where the
+jobs ran, nor with a tool downloaded and run as administrator. That reader has only read files written from the format's description.
+Not the Azure VHD (its manifest carries `walinuxagent`), Quick Create's desktop image (used with Enhanced Session), or the server ISO
+(unattended, it stops at "Continue with autoinstall? (yes|no)" on the console).
+
+**What blocks what,** read on 1 November 2026, none of it yet seen working on this machine:
+
+| Layer | What it covers | What it does not |
+|-------|----------------|------------------|
+| **Hyper-V firewall** | "Containers hosted by Windows, including WSL", by VM creator. `Get-NetFirewallHyperVVMCreator` here lists WSL alone | A classic VM. The script makes no such rule |
+| **Windows Firewall** | A packet that arrives for this machine. Block rules beat allow rules, so two rules stop anything starting a connection in from the VM's adapter or range | Its rules are inbound and outbound, with none for forwarded traffic, and Microsoft's documents do not say they stop what WinNAT sends on. So the LAN does not rest on them |
+| **Port ACL on the VM's adapter** (`Add-VMNetworkAdapterAcl`) | Below the guest's kernel and before NAT, so root in the guest cannot change it. Denies private, carrier NAT, link-local, loopback, multicast and reserved ranges and all of IPv6; longest match decides | It has no state, so the one address SSH's replies go to must be allowed, and only the firewall rules stand in front of that address. Microsoft's page is written for Windows Server: whether the switch enforces it on Windows 11 Pro is for Prove to show |
+| **The adapter's bindings** | SMB, IPv6 and link-layer protocols, which an IP ACL never sees, are off on this one adapter | NetBIOS over TCP/IP stays with IPv4, behind the firewall rules |
+
+Also unknown until it runs: whether WinNAT agrees to a NAT beside WSL's and the Default Switch's, and whether it still forwards with the
+rule on the adapter in place. Create would stop at the first, with Windows' reason, and Prove's outbound control would show the second.
+
+**Starting and stopping.** Stopping needs no privilege while the guest cooperates: `-Action Stop` powers it off from inside, over SSH.
+A guest that will not go takes an administrator. **Starting has no way round.** Hyper-V has no per-VM right to start one
+(`Grant-VMConnectAccess` gives the console and nothing more), and this account is neither an elevated administrator nor in Hyper-V
+Administrators. None of these is made by the script. The choices:
+
+1. The owner elevates for each start: `-Action Start`. Changes nothing, and a person sees each one. **Recommended while nothing uses
+   this VM.**
+2. A task the owner makes once, as administrator, running `Start-VM -Name qor-ci-vm` and nothing else, which this account may run and
+   not edit. **Recommended when a job needs it, as a decision of its own.**
+3. This account in Hyper-V Administrators: "complete and unrestricted access to all the features in Hyper-V", for everything that runs
+   as this account, and a VM can be pointed at any disk. Not recommended.
+4. Leave it running, holding its memory all the time. Not recommended.
+
+**`-Action Prove`** runs from an ordinary terminal and refuses to run elevated. It attacks as `runner`, with no privilege, and then as
+root. Each attempt prints what it tried and what happened:
+
+- `AF_VSOCK`, which is how a Linux guest reaches Hyper-V sockets, to the 9P port that reached `C:\` from WSL, to every service registered
+  for Hyper-V sockets on this machine, and to a list of well-known ports.
+- This machine's addresses on SMB, RDP, WinRM and every port found listening, and every TCP port on its address on this switch.
+- The LAN (the router, DNS and whatever this machine has seen nearby), WSL's addresses, and Windows' `127.0.0.1` by a raw frame.
+- As root: SYNs from source ports 22 and 53, ping, IPv6 on the link, and mounts of the host's filesystems.
+- What shows on the guest's mounts and devices, and every VMBus device the host offers, against a list of what should be there.
+
+A failed attack is a pass. A TCP refusal is a failure, because it means a packet got there and something answered. A check that could
+not run is a failure, never a pass. Outbound DNS and HTTPS must work, before and after the attacks, so that "everything refused" cannot
+mean "the network is down". Its exit status is 0 only if every line of both levels passed, the two levels' lines are all there, and the
+firewall rules read back as they should. **All of these mean something only in a real VM.** The check that this is one fails anywhere
+else, including under WSL, and the script on Windows refuses a run on stand-ins.
+
+**What Prove does not try.** A public address that leads back to this machine or its router, which is not a private range. Root in the
+guest speaking VMBus directly with code in its own kernel. Bugs in the hypervisor, or in `ssh.exe`, which talks to the guest. A guest
+that is already compromised can also lie: Prove's lines come from inside it, so it shows something about a fresh VM and nothing about
+one that has run jobs. A job here would have the internet, on any port, so it could send out whatever it was given.
+
+**Before Build can move here,** beyond the proof: Qt's answer and a kit, a way to start the VM, a runner, and a clean disk for each job,
+which this does not do. 6 GB will not carry 8 compilers without swap, and the suites that draw need a display it lacks. The Windows job
+needs its own answer.
+
 ## What the Build job needs on a runner
 
 - **The commercial Qt 6.12 kit** (below).
