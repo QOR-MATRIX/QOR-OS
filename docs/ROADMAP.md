@@ -417,6 +417,10 @@ the owner's advisers.
 - [ ] An external security review of the QOR core and the vault service ([release/SECURITY-REVIEW.md](release/SECURITY-REVIEW.md))
 - [ ] QOR ID in a second region with offline login; the key exposed on 5 October 2026 replaced ([release/SIGN-IN.md](release/SIGN-IN.md))
 - [ ] A public way to report a security problem: this repository's form reaches only its members, and demiurge-chain's private vulnerability reporting is off
+- [ ] Every required build and test run and passed on the commit released, as Build's Release readiness says
+  (`tools/ci/release_readiness.py`). That includes the products' suites on a graphics card with nothing eased, on Windows and on
+  a Linux machine, since what software eases ([CI.md](CI.md#what-linux-runs)) proves nothing of what it leaves out. Not yet: Build
+  is paused, and no job runs the products on a Linux graphics card
 
 ## Release deliverable · The image
 
