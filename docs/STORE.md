@@ -6,8 +6,9 @@ verifying client with QOR OS's own themes and widgets. There are no payments
 yet. Third-party publishing arrives with the developer program in stages 2
 and 3 ([Roadmap](#roadmap)).
 
-[QOR-0021](decisions/QOR-0021-projects-engines-and-two-stores.md) makes this two stores on shared services, a player store
-and a creator store, starting free and curated. This document describes what is built, which is still the one store.
+[QOR-0021](decisions/QOR-0021-projects-engines-and-two-stores.md) makes this two storefronts on shared services, a player
+store and a creator store, starting free and curated. The engine under them exists ([Format 2](#format-2-the-two-storefronts)),
+with a demonstration catalogue and no pages yet: what people see below is still the one store of themes and widgets.
 
 ## What people see
 
@@ -70,14 +71,23 @@ Nothing installs unless all of these hold:
    the key the signed catalogue lists for that developer.
 4. Every file matches the **manifest's SHA-256**, and the package holds
    exactly the listed files: no extra or missing files, no symbolic links, no
-   paths that climb out of the install folder, and at most 32 MB.
-5. The manifest's id, version, kind and developer match the catalogue's.
+   paths that climb out of the install folder, and at most 32 MB unpacked,
+   counted from the bytes themselves.
+5. The manifest's id, version, kind and developer match the catalogue's. In format 2 so do the stores it is placed in, its
+   edition, its licence, its dependencies, its platforms and engines, and what it unpacks to.
+6. The catalogue lists it free. Format 1 refuses a `price` that is not zero, and format 2 refuses any at all
+   ([QOR-0006](decisions/QOR-0006-qor-os-1-0-moves-no-money.md)).
 
 Signatures are ECDSA P-256 over SHA-256 (r ‖ s, 64 bytes), checked by the
-platform's own crypto: CNG on Windows, OpenSSL's libcrypto elsewhere. Files
-are written to a staging folder that replaces the installed version only
-once every file is in place, so a failed install leaves nothing behind and an
-update never leaves a half-written widget.
+platform's own crypto: CNG on Windows, OpenSSL's libcrypto elsewhere.
+
+**An install is all or nothing, as seen from outside,** with whatever it depends on. Every package it needs is downloaded and
+verified first, and held in memory, up to 128 MB for one install. Only then does anything move, under a lock in the store's folder
+and against what is on disk at that moment, since another program of this person's may share the folder: what is recorded is
+read again, and the plan is checked again against it. A journal is written, then each new version is swapped in beside the old
+one, then `installed.json` is written. That last write is the moment it happens, and it is atomic. A failure before it puts
+everything back. So does a crash, the next time an engine starts. A crash after it finishes clearing up. A removal goes the same
+way. An engine that goes away while installs are on their way ends each of them, and says so for each.
 
 **Widgets are code.** A widget is QML that runs in the shell, so stage 1
 installs only QOR-MATRIX widgets. Third-party widgets and apps wait for the
@@ -104,10 +114,23 @@ to third parties sooner.
 }
 ```
 
+`price`, if a format 1 listing has one, must be the number zero, and nothing keeps it after that: a price of anything else
+refuses the whole catalogue. `package.file` must be a plain relative path: no drive, scheme, absolute path or climbing.
+
 **Package** (`.qorpkg`): a zip archive of `manifest.json` (`format`, `id`,
 `kind`, `version`, `name`, `developer`, and `files`: path → SHA-256),
 `manifest.sig` (the developer's signature over `manifest.json`) and the
 files.
+
+The archive is read by a reader of its own (`store/src/archive.cpp`), which takes the plainest kind of zip, the kind
+`build_store.py` writes, and has no way to inflate anything, so nothing can grow past the archive that holds it:
+
+- entries stored, never compressed or encrypted, with both of an entry's headers agreeing on its name and size;
+- one after another from the first byte, then the central directory and nothing after it: no overlap, no gap, no comment;
+- 4096 entries at most, and 32 MB in all, counted from where the bytes lie and not from what a header says;
+- names that are plain relative paths on every system a package may reach: no climbing, drive, backslash or line break, no name
+  Windows keeps for a device (`CON`, `NUL`, `COM1`..., with or without an extension), no trailing dot or space, and no two
+  names, or a name and a folder, that a system ignoring case would land on one file.
 
 **Theme** (`theme.json`):
 
@@ -131,6 +154,150 @@ The entry's root `Item` fills a glass card the desktop draws. It may import
 through `Services` and asks for actions through `Intents`. It never needs
 input while the desktop is being edited: the card disables it then.
 
+### Format 2: the two storefronts
+
+One catalogue feeds both storefronts, and each listing says where it goes. Only the engine exists so far, with no pages.
+
+```json
+{
+  "format": 2, "store": "…", "sequence": 2, "expires": "2099-12-31",
+  "developers": { "org.example.demo": { "name": "…", "verified": false, "key": "<base64 P-256 point>" } },
+  "items": [{
+    "id": "org.example.demo.game.ember-climb", "kind": "game",
+    "placements": [{ "store": "player", "category": "Platformers" }],
+    "entitlement": { "type": "free" }, "platforms": ["linux-x86_64"],
+    "edition": { "group": "org.example.demo.ember-climb", "role": "game" },
+    "executable": false, "name": "…", "developer": "org.example.demo", "version": "1.0.0", "summary": "…",
+    "description": "…", "whatsNew": "…", "released": "2026-11-01", "tags": ["platformer"], "featured": false,
+    "licence": { "spdx": "Apache-2.0", "file": "LICENSE.txt" },
+    "provenance": { "origin": "…", "author": "…", "source": "…", "permission": "…" },
+    "engines": [{ "id": "qq", "min": "0.1.0", "below": "1.0.0" }],
+    "dependencies": [],
+    "previews": [{ "file": "previews/hero.png", "sha256": "…" }],
+    "package": { "file": "packages/….qorpkg", "size": 18000, "sha256": "…", "unpacked": 26000 }
+  }]
+}
+```
+
+An older client refuses this cleanly: its check is that `format` is 1.
+
+**What a catalogue may be refused for, whole.** A bad signature, an unknown format, an `expires` that has passed or is not a
+date, or a `sequence` that is not a positive integer. Then a `sequence` lower than the highest this engine has taken, or the
+same one with different bytes: it remembers both in its folder (`catalog-state.json`) for each store key, which is what tells
+an older copy, still signed, from a new one. It rereads that under the store's lock, so another program's progress counts, and
+another store key starts its own memory, so a demonstration build cannot lock out a store that works. Once an engine has taken a
+format 2 catalogue under a key it refuses format 1 under that key, which has no sequence to compare and would otherwise be the
+way round this. A catalogue with `items` or `developers` missing or of the wrong type is refused in both formats: it is not an
+empty catalogue, and would drop the keys what is installed is checked against. Also anything malformed or hostile in a listing
+that says clearly what it is, since a store that signed that is not to be half believed: a `price` anywhere, on any listing,
+under any field, even zero; a field this format does not know, at the top of the catalogue, a developer or a listing, or inside
+a listing that is not a draft, so that a paid field cannot arrive under another name; an id that is missing, not valid or used
+twice; an unsafe package file; a licence, preview or range that does not hold what it should; a list past its limit; a dependency
+cycle, or a chain deeper than 32, in whatever order the catalogue lists it.
+
+**What makes a listing a draft.** A listing that is unclassified or contradictory stays out of every view and `install`
+refuses it, and the rest of the catalogue loads. `Catalog::drafts` holds its id, its kind, a `code` for a tool to read and a
+`reason` for a person. Three things are asked of a draft before it is one, since they refuse the whole catalogue: that its id is
+good, that no price is anywhere in it, and that its top level holds no field this format does not know. Its edition group, if it
+gives one, is kept for one use: nothing may depend on another edition of itself through it. Nothing else of a draft is read.
+
+| `code` | The listing |
+|--------|-------------|
+| `unknown-kind` | names no kind, or one no store knows (`theme` and `widget` are format 1's) |
+| `no-placements` | is placed nowhere |
+| `bad-placement` | has a placement that is not a store and a category, or more than 16 of them |
+| `unknown-store` | is placed in a store other than `player` or `creator` |
+| `empty-category` | has a placement with no category |
+| `placement-contradicts-kind` | is in a store its kind does not belong in |
+| `duplicate-placement` | is placed in one category twice |
+| `entitlement-not-free` | has an entitlement other than exactly `{"type": "free"}`, which replaces any notion of price |
+| `no-platforms` | names no platform, or something that is not the name of one |
+| `executable-not-said`, `executable-not-taken` | does not say whether it is executable, or says it is |
+| `edition-contradicts-kind` | has an edition with no group, or a role that does not fit its kind |
+| `edition-dependency` | reaches another edition of itself through what it depends on, however indirectly |
+| `kind-not-taken-yet` | is of a known kind this stage does not take |
+
+**Kinds and where they go.** This stage installs `game` and `asset-pack`. Every other kind parses and stays a draft until it
+has a stage of its own, with rules for what its packages may hold.
+
+| | Player store | Creator store |
+|---|---|---|
+| For the player store alone | `game`, `demo`, `expansion`, `soundtrack`, `mod` | |
+| For the creator store alone | | `asset-pack`, `template`, `project`, `plugin`, `tool` |
+| Either or both, as its placements say | `utility`, `creator-app` | `utility`, `creator-app` |
+
+**One engine, one install, two views.** `id` is the package's identity: one id, one install, in one folder, whichever store it
+was found in, so a utility placed in both is listed in each and installed once. Every query names its view, and there is no
+default and no fallback: `listings(View)`, `featured(View)`, `search(View, query)` and `categoryCounts(View)` answer from that
+view alone, and an empty answer stays empty. A catalogue that has expired since it arrived answers nothing. A person with creator
+features on still uses the player view as players do. A format 1 catalogue is in neither view: `Store` lists its themes and widgets
+as it always has, and shows no format 2 listing, in its list or by id, since that page knows no view.
+
+**Creator features are a state the engine is given, off until it is.** Off, the creator view answers nothing, and `install`
+refuses from C++ what only the creator store carries, including as another item's dependency or if they go off while it is on
+its way, with no page involved. Its previews are not handed over either. Turning
+them off removes nothing: what is installed stays installed, intact and usable, and only its updates wait. The preference itself
+is kept elsewhere, and the engine does not remember it.
+
+**A game and its editable project are separate.** They may share an `edition` group, and are separate packages with separate
+entitlements. Holding one gives nothing of the other. A listing that reaches another edition of its group, directly or through
+something else, is a draft, and the resolver refuses it as well.
+
+**An id is one thing, and only moves forward.** A listing older than what is installed is refused, as is one from another developer
+or of another kind. Remove it first if that is what is meant.
+
+**Where it runs.** `install` refuses a listing whose `platforms` do not name this system (`linux-x86_64`, `windows-x86_64`).
+`StoreEngine::setEngines` tells the engine which engines this system has and at what versions, and then a listing that works with
+none of them is refused. Told nothing, it cannot make that check and does not guess. The views list by placement alone, so a page
+may show what will not install here, and say why. Both are mirrored in the manifest, because they are the developer's claims about
+what the package works with, and a store may not list a package for a system its developer never named.
+
+**Dependencies** are `{id, min, below}`, where `min <= version < below`, and carry an expansion's or a mod's base game. They are
+fetched first, in order, and one that fails stops all of it. The resolver refuses rather than guesses: a dependency this catalogue
+does not list and that is not installed in range, a version outside its range, moving a dependency back, and an update that would
+take something installed out of a range that holds now. This is asked as a plan is made and again when it lands, so a dependency
+removed or moved while it was on its way stops it, and so does a catalogue that changes under it, though not one that is the same
+bytes again. What is already out of range and is not touched stops nothing else: a block is about what it affects. A pack something
+needs cannot be removed, while the range it is needed by holds. Updating a pack touches only its own folder.
+
+**`executable`** says whether a package holds what the system would start by itself: native code or a script. It must be false
+at this stage, on every kind. A QQ game's QML is not that, and is not passive either: it runs inside QQ's runtime
+([QOR-0021](decisions/QOR-0021-projects-engines-and-two-stores.md), decision 7), which is why a game has rules of its own.
+
+**What a package may hold** (`store/src/filerules.cpp`) is an allowlist of extension and first bytes, so a program named as a
+picture is refused, and anything not on the list is too.
+
+- An `asset-pack`, and any kind without rules of its own yet, holds only passive files, because a QML file copied into a
+  project's `logic/` runs: `png`, `jpg`, `jpeg`, `webp`, `hdr`, `ktx`, `ktx2`, `wav`, `ogg`, `flac`, `mp3`, `glb`, `gltf`, a `bin`
+  that a model names, and `txt`. No QML, JavaScript, shader, SVG, level, JSON, native code or script.
+- A `game` may also hold `qml`, `mjs`, `js`, `json`, `tmj` and `tsj`. It holds no native code, no script for the system to
+  start, and no `qmldir`, which could name a plugin.
+- A `gltf` or `glb` may name only files beside it in the package, or carry pictures and buffers as `data:` in base64 (PNG, JPEG,
+  WebP, KTX2, or octet-stream and glTF buffers). No climbing, scheme, missing file or other kind of data, under any field called
+  `uri`, however deep, and no such field twice in one object, because two readers would not agree on which counts.
+- A `txt` is UTF-8 with no control characters but tab, line and page breaks, and no markup, since a Qt `Text` guesses at rich text
+  and rich text can fetch a picture. What counts as markup is asked of Qt: `Qt::mightBeRichText`, for whether a `Text` would go rich
+  at all, and a tag anywhere whose name is in Qt's own table of elements, read as Qt's parser reads one, or one a browser acts on. It
+  is one pass over the text, whatever the text is, and cannot fail open. Angle brackets as plain words, as the GPL has them, are
+  fine. The page that shows it still sets `textFormat: Text.PlainText`: this is the second wall, not the first.
+
+A passive file still reaches a decoder when it is used, so these rules do not make a hostile picture safe to decode.
+
+**The manifest** of a format 2 package has `format: 2` and mirrors what identifies it in the catalogue: `id`, `kind`, `version`,
+`developer`, `stores` (the stores it is placed in, sorted), `edition`, `licence`, `dependencies`, `platforms` and `engines`. It knows
+those fields and refuses any other, a price among them. A placement's category is the store's to change, and is not mirrored. Themes
+and widgets keep format 1 manifests, so their packages are never signed again.
+
+**Previews** are files beside the catalogue. `StoreEngine::fetchPreview` hands one over only after checking it against the
+catalogue's digest and that its name and first bytes are a picture's. That is no promise about the rest of it.
+
+**The demonstration** is `tests/store/fixtures-demo/`, signed with a throwaway key that is used once and dropped, so no private
+key exists to keep out of the repository. It is in tests and development builds, never in a release: nothing of it is in any
+binary, and its key opens nothing else. It has two catalogues in turn, `v1` and `v2` (sequences 1 and 2). Each holds Ember
+Climb as a `game`, its art as an `asset-pack` (1.0.0, then 1.1.0), and Ember Climb's editable project as a draft. Everything in
+it is the Apache-2.0 sample in `products/qq/samples/ember-climb/`, with its licence and notice in each package. It expires in
+2099, because tests read it for years.
+
 ## Building the catalogue
 
 The sources are in `store/content/`: `developers.json`, then one folder per
@@ -141,9 +308,11 @@ catalogue text) and the files its package carries.
 python tools/store/build_store.py build      # sign changed packages and the catalogue
 python tools/store/build_store.py check      # verify store/catalog against store/content (CI runs this)
 python tools/store/build_store.py fixtures   # regenerate tests/store/fixtures (throwaway keys)
+python tools/store/build_store.py demo       # regenerate tests/store/fixtures-demo (a throwaway key, format 2)
 ```
 
-Unchanged items keep their signed packages, so rebuilding changes nothing.
+Unchanged items keep their signed packages, so rebuilding changes nothing. `fixtures` and `demo` are not like that: each
+re-signs everything in its own folder every time, so run one only when that folder must change.
 `git` treats packages and signatures as binary and leaves the catalogue's
 bytes alone (`.gitattributes`).
 
@@ -161,17 +330,24 @@ that holds nothing else, and ship its public key in a release. Rotating the
 store key needs a QOR OS update.
 
 Tests: `tst_store` (signatures, the first-party catalogue, refused tampering,
-forgery and unsigned catalogues, install, update and remove), a qmllint pass
-over every widget (`store_widgets_qmllint`) and the Store section of
-`shell_e2e`.
+forgery and unsigned catalogues, install, update and remove), `tst_store_format2`
+(format 2, every package check and the engine behind the two storefronts, from the hostile side, signing what it needs with
+keys it makes and drops), a qmllint pass over every widget (`store_widgets_qmllint`), the Store section of `shell_e2e`, and
+`tests/tools/test_build_store.py` for the builder.
 
 ## What runs, and when it is checked
 
 A package is verified as it is installed (the catalogue's digest, the developer's signature, every file). Its manifest
 and signature are kept beside its files, and `Store` verifies them again each time it loads what is installed: every
-listed file against the manifest and nothing added, since anything running as the person can write there. What fails is
+listed file against the manifest and nothing added, not a file, a folder or a link, since anything running as the person can
+write there. What fails is
 not loaded. A widget's QML runs inside the shell with all it can do, so only QOR OS's own (`dev.qorsync`) are loaded,
-whoever a catalogue lists. A version older than the one installed is refused ([QOR-0018](decisions/QOR-0018-the-security-and-quality-bar.md)).
+whoever a catalogue lists. A version older than the one installed is refused ([QOR-0018](decisions/QOR-0018-the-security-and-quality-bar.md)). What is
+installed must also be the very package recorded as installed: an older copy, signed in its day and put back by hand, is not
+intact. A crash during an install or a removal is put right the next time an engine starts, from the journal, unless another
+program holds the store's lock. What was left with no journal to say otherwise, by an older version of this code, is cleared too: an
+old version set aside goes back if nothing replaced it, and the rest of it goes. A record that cannot be read is set aside and not
+believed, and a reinstall replaces what it listed.
 
 ## Roadmap
 

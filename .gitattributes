@@ -23,6 +23,7 @@
 *.sig             binary
 store/catalog/catalog.json            -text
 tests/store/fixtures/**/catalog.json  -text
+tests/store/fixtures-demo/**/catalog.json  -text
 
 # Generated files: collapse in diffs, exclude from language stats
 kit/Tokens.qml                  linguist-generated=true
