@@ -909,7 +909,9 @@ private Q_SLOTS:
     {
         QTest::addColumn<QString>("name");
         QTest::addColumn<QString>("expected");
-        QTest::newRow("altered after signing") << u"altered"_s << u"does not match"_s;
+        QTest::newRow("altered after signing") << u"altered"_s << u"download does not match the catalogue"_s;
+        QTest::newRow("another of its developer's packages in its place")
+            << u"swapped"_s << u"download does not match the catalogue"_s;
         QTest::newRow("signed by someone else") << u"forged"_s << u"signature"_s;
         QTest::newRow("markup in the text") << u"markup"_s << u"LICENSE.txt"_s;
         QTest::newRow("too long to lay out") << u"long"_s << u"too long"_s;
@@ -937,6 +939,12 @@ private Q_SLOTS:
         }
         if (name == u"missing"_s)
             QVERIFY(QFile::remove(path));
+        if (name == u"swapped"_s) {
+            // Signed by the right developer and whole, with a licence that says something else.
+            Pack other = game;
+            other.files.insert(u"LICENSE.txt"_s, QByteArrayLiteral("Do as you like.\n"));
+            writeFile(path, other.package(shop.developer));
+        }
         Q_UNUSED(listing)
 
         Fronts all(shop.store.publicKey(), { shop.publish() });
