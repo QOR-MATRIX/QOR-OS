@@ -42,7 +42,7 @@ RENDERER = re.compile(r'^QINFO  : TstPlayer::\S+ \{.*"renderer":"([^"]*)"')
 FLOOR_SUITE = "tst_player"
 FLOOR = "TstPlayer::thePlaygroundPlaysAndItsStartIsMeasured() 'm.value(QStringLiteral(\"fps\")).toDouble() >= 20' returned FALSE."
 FLOOR_READ = re.compile(re.escape(FLOOR) + r" \((\d+(?:\.\d+)?)\)\s*$")
-# Software is slow, and a Player below this has stopped drawing, which is a fault wherever it happens. Software reads 5 to 6.
+# Software is slow, and a Player below this has stopped drawing, which is a fault wherever it happens. Software reads about 6.
 # It stops only a Player that hardly draws at all: tst_player's own check, on every machine, is what shows it did not stop.
 STILL_DRAWING_FPS = 1.0
 # What must have drawn the Player for its floor to be let stand: "in software" is the renderer's own word, not the machine's.

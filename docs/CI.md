@@ -173,7 +173,7 @@ checked that the retry ran it. Nothing is excluded. These are the cases that do 
 
 | Case | In software, under WSL | Why |
 |------|------------------------|-----|
-| QQ's `tst_player`: `thePlaygroundPlaysAndItsStartIsMeasured` | **Fails, and so fails the step**, until the owner says otherwise | Its floor of 20 frames a second, a real performance check, reads 5 to 6 here. It stays a check on Windows. See below |
+| QQ's `tst_player`: `thePlaygroundPlaysAndItsStartIsMeasured` | **Fails, and so fails the step**, until the owner says otherwise | Its floor of 20 frames a second, a real performance check, reads about 6 here. It stays a check on Windows. See below |
 | QQ's `tst_agent`: `theRealProviderIsReachedOverTls` | Skipped, as everywhere | Needs `QQ_LIVE_ENDPOINT=1`, to reach the real provider |
 | QOR Media's `playback`: `video_decodes_through_ffmpeg` | Skipped | Windows' sample video is not on this machine |
 | QOR Media's `playback`: `it_docks_inside_the_launchers_window_and_lifts_out_to_full_screen` | Skipped | Wayland has no window handles to dock by; Prism places the window ([QOR-0010](decisions/QOR-0010-on-wayland-prism-places-the-products-windows.md)) |
@@ -192,9 +192,10 @@ suite that failed, stopped or could not start refuses it, Qt Test or not. One th
 cannot say it: a Player that draws four frames and stops reads 1.3 over its three measured seconds. So `tst_player` fails if the last
 frame came more than a second before those three seconds ended (`lastFrameAgoMs` in `--measure`'s report).
 
-**How long.** On this laptop, with the builds incremental, about 70 minutes: QQ 17, ARQADE 50
-(`games`, which is `tst_games`, 49), QOR Media under one. So a cold build and a second go at a
-failed `games` fit the step's limit of 180 minutes, and the job has 270 with the variable set.
+**How long.** On this laptop, with the builds incremental, about 77 minutes, QQ and ARQADE measured on 1 November 2026 with
+nothing else holding the machine's one heavy job: QQ 22 (`tst_play` 7, `tst_workspace` 4), ARQADE 55 (`games`, which is
+`tst_games`, 52), and QOR Media under one, from an earlier run. So a cold build and a second go at a failed `games` fit
+the step's limit of 180 minutes, and the job has 270 with the variable set.
 What the products built then has its exploit mitigations read back, as on Windows.
 
 **On a GPU these suites check what they did at `a3a2fd4`, with these differences.** Added, on every machine: `tst_agent`'s
