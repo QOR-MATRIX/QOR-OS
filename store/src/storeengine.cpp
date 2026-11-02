@@ -2,7 +2,6 @@
 #include "storeengine.h"
 
 #include "filerules.h"
-#include "package.h"
 
 #include <QtCore/QCryptographicHash>
 #include <QtCore/QDateTime>
@@ -16,6 +15,7 @@
 #include <QtCore/QLoggingCategory>
 #include <QtCore/QRegularExpression>
 #include <QtCore/QSaveFile>
+#include <QtCore/QSet>
 #include <QtCore/QTimer>
 #include <QtCore/QUuid>
 #include <QtNetwork/QNetworkAccessManager>
@@ -35,11 +35,10 @@ constexpr qint64 kMaximumCatalogSize = 4 * 1024 * 1024;
 constexpr qint64 kMaximumPreviewSize = 4 * 1024 * 1024;
 // More than any licence is, and few enough that a person's page can lay it out.
 constexpr qint64 kMaximumLicenceSize = 256 * 1024;
+// A plan's packages are held in memory until all of them are verified, so what one plan may come to is bounded.
+constexpr qint64 kMaximumPlanBytes = 128 * 1024 * 1024;
 constexpr int kTransferTimeoutMs = 30000;
 constexpr int kLockTimeoutMs = 5000;
-// Longer than writing the largest package takes. QLockFile's own 30 seconds could call a slow install abandoned, and
-// clear it.
-constexpr int kLockStaleMs = 5 * 60 * 1000;
 
 QJsonArray rangesToJson(const QList<VersionRange> &ranges)
 {
@@ -49,22 +48,44 @@ QJsonArray rangesToJson(const QList<VersionRange> &ranges)
     return array;
 }
 
+// The same set of ranges, whichever order each lists them in.
+bool sameRanges(QList<VersionRange> a, QList<VersionRange> b)
+{
+    const auto byId = [](const VersionRange &x, const VersionRange &y) { return x.id < y.id; };
+    std::sort(a.begin(), a.end(), byId);
+    std::sort(b.begin(), b.end(), byId);
+    return a == b;
+}
+
+bool samePlatforms(QStringList a, QStringList b)
+{
+    a.sort();
+    b.sort();
+    return a == b;
+}
+
+QString journalPath(const QString &dataDir) { return dataDir + u"/plan-journal.json"_s; }
+
 } // namespace
 
 StoreEngine::StoreEngine(const QString &dataDir, const QByteArray &storeKey, QObject *parent)
-    : QObject(parent), m_dataDir(dataDir), m_storeKey(storeKey), m_network(new QNetworkAccessManager(this))
+    : QObject(parent), m_dataDir(dataDir), m_storeKey(storeKey),
+      m_keyId(QString::fromLatin1(QCryptographicHash::hash(storeKey, QCryptographicHash::Sha256).toHex())),
+      m_network(new QNetworkAccessManager(this))
 {
     m_network->setRedirectPolicy(QNetworkRequest::NoLessSafeRedirectPolicy);
     m_network->setTransferTimeout(kTransferTimeoutMs);
     QDir().mkpath(m_dataDir + u"/items"_s);
     recoverInterrupted();
-    loadInstalled();
+    m_installed = readInstalled();
     loadSequence();
 }
 
 StoreEngine::~StoreEngine()
 {
-    for (const QPointer<QNetworkReply> &reply : std::as_const(m_jobs))
+    // A copy: aborting a reply finishes it at once, which ends its plan, which takes jobs out of m_jobs.
+    const QHash<QString, QPointer<QNetworkReply>> jobs = m_jobs;
+    for (const QPointer<QNetworkReply> &reply : jobs)
         if (reply)
             reply->abort();
 }
@@ -79,24 +100,36 @@ void StoreEngine::setCreatorFeatures(bool on)
     Q_EMIT creatorFeaturesChanged();
 }
 
+void StoreEngine::setEngines(const QMap<QString, QString> &engines) { m_engines = engines; }
+
+bool StoreEngine::catalogueHasExpired() const
+{
+    return m_catalog.format == 2 && QDateTime::currentDateTimeUtc().date() > m_catalog.expires;
+}
+
+bool StoreEngine::viewIsClosed(View view) const
+{
+    return (view == View::Creator && !m_creatorFeatures) || catalogueHasExpired();
+}
+
 QList<CatalogItem> StoreEngine::listings(View view) const
 {
-    return view == View::Creator && !m_creatorFeatures ? QList<CatalogItem>() : m_catalog.listings(view);
+    return viewIsClosed(view) ? QList<CatalogItem>() : m_catalog.listings(view);
 }
 
 QList<CatalogItem> StoreEngine::featured(View view) const
 {
-    return view == View::Creator && !m_creatorFeatures ? QList<CatalogItem>() : m_catalog.featured(view);
+    return viewIsClosed(view) ? QList<CatalogItem>() : m_catalog.featured(view);
 }
 
 QList<CatalogItem> StoreEngine::search(View view, const QString &query) const
 {
-    return view == View::Creator && !m_creatorFeatures ? QList<CatalogItem>() : m_catalog.search(view, query);
+    return viewIsClosed(view) ? QList<CatalogItem>() : m_catalog.search(view, query);
 }
 
 QMap<QString, int> StoreEngine::categoryCounts(View view) const
 {
-    return view == View::Creator && !m_creatorFeatures ? QMap<QString, int>() : m_catalog.categoryCounts(view);
+    return viewIsClosed(view) ? QMap<QString, int>() : m_catalog.categoryCounts(view);
 }
 
 QString StoreEngine::installDirectory(const QString &id) const { return m_dataDir + u"/items/"_s + id; }
@@ -176,12 +209,24 @@ void StoreEngine::refresh()
                             qCWarning(lcStore) << "Catalogue refused:" << result.error;
                             return setState(State::Failed, result.error);
                         }
+                        // The same bytes again changes nothing, so a plan under way carries on through "Check for
+                        // Updates".
+                        const QByteArray digest = QCryptographicHash::hash(json, QCryptographicHash::Sha256);
+                        if (digest == m_catalogDigest)
+                            return takeCatalog(std::move(result.catalog));
+                        m_catalogDigest = digest;
                         adoptCatalog(std::move(result.catalog));
                     });
           });
 }
 
 void StoreEngine::adoptCatalog(Catalog catalog)
+{
+    ++m_catalogEpoch;
+    takeCatalog(std::move(catalog));
+}
+
+void StoreEngine::takeCatalog(Catalog catalog)
 {
     m_catalog = std::move(catalog);
     qCInfo(lcStore) << "Catalogue" << m_catalog.name << "with" << m_catalog.items.size() << "items";
@@ -191,9 +236,16 @@ void StoreEngine::adoptCatalog(Catalog catalog)
 
 // Whether this store may take a catalogue that has passed its signature and its own checks, and remembers its sequence.
 // Returns why not, or an empty string. Format 1 knows no sequence, as it never did, so it is taken as it always was,
-// until this store has taken a format 2 catalogue: after that, an older format would be the way round the sequence.
+// until this store has taken a format 2 catalogue under the same key: after that, an older format would be the way
+// round the sequence. What is remembered is reread under the lock, since another program may have moved on, and it is
+// kept for each store key, so another store's catalogue starts its own memory and cannot lock out one that works.
 QString StoreEngine::admit(const Catalog &catalog, const QByteArray &json)
 {
+    QLockFile lock(m_dataDir + u"/.lock"_s);
+    if (!lock.tryLock(kLockTimeoutMs))
+        return u"The store is busy in another program."_s;
+    loadSequence();
+
     if (catalog.format != 2)
         return m_lastSequence > 0
                    ? u"This store has taken a format 2 catalogue, and format 1 has no sequence to show it is "
@@ -212,30 +264,49 @@ QString StoreEngine::admit(const Catalog &catalog, const QByteArray &json)
         return {};
     }
 
-    QSaveFile file(m_dataDir + u"/catalog-state.json"_s);
-    const QJsonObject state { { u"format"_s, 1 },
-                              { u"sequence"_s, catalog.sequence },
-                              { u"sha256"_s, QString::fromLatin1(digest.toHex()) } };
-    if (!file.open(QIODevice::WriteOnly) || file.write(QJsonDocument(state).toJson()) < 0 || !file.commit())
+    const QString path = m_dataDir + u"/catalog-state.json"_s;
+    QJsonObject stores;
+    {
+        QFile existing(path);
+        if (existing.open(QIODevice::ReadOnly))
+            stores = QJsonDocument::fromJson(existing.readAll()).object().value(u"stores"_s).toObject();
+    }
+    stores.insert(m_keyId, QJsonObject { { u"sequence"_s, catalog.sequence },
+                                         { u"sha256"_s, QString::fromLatin1(digest.toHex()) } });
+    QSaveFile file(path);
+    if (!file.open(QIODevice::WriteOnly)
+        || file.write(QJsonDocument(QJsonObject { { u"format"_s, 2 }, { u"stores"_s, stores } }).toJson()) < 0
+        || !file.commit())
         return u"The store could not remember this catalogue's sequence, so it is not taken."_s;
     m_lastSequence = catalog.sequence;
     m_lastDigest = digest;
     return {};
 }
 
+// A file that cannot be read is treated as one that is not there, with a warning. It cannot be told from one deleted,
+// and deleting it is open to anything running as this person, so refusing here would be an outage with no security in
+// it.
 void StoreEngine::loadSequence()
 {
+    m_lastSequence = 0;
+    m_lastDigest.clear();
     QFile file(m_dataDir + u"/catalog-state.json"_s);
     if (!file.open(QIODevice::ReadOnly))
         return;
-    const QJsonObject state = QJsonDocument::fromJson(file.read(4096)).object();
+    const QJsonDocument document = QJsonDocument::fromJson(file.readAll());
+    if (!document.isObject()) {
+        qCWarning(lcStore) << "The store's memory of its catalogues cannot be read, and starts again.";
+        return;
+    }
+    const QJsonObject state = document.object().value(u"stores"_s).toObject().value(m_keyId).toObject();
     m_lastSequence = std::max<qint64>(state.value(u"sequence"_s).toInteger(0), 0);
     m_lastDigest = QByteArray::fromHex(state.value(u"sha256"_s).toString().toLatin1());
 }
 
 // What stops an item in the catalogue from being installed. Every catalogue was checked as it arrived, and this is
-// asked again here, of each thing an install would fetch: the catalogue may have expired since, a dependency must not
-// carry past the switch what the switch keeps out, and what keeps the stores apart is not left to a single wall.
+// asked again here, of each thing an install would fetch and again when it arrives: the catalogue may have expired
+// since, a dependency must not carry past the switch what the switch keeps out, and what keeps the stores apart is not
+// left to a single wall.
 QString StoreEngine::refusalToInstall(const CatalogItem &item) const
 {
     if (item.format != 2)
@@ -252,7 +323,50 @@ QString StoreEngine::refusalToInstall(const CatalogItem &item) const
         return item.isPlacedIn(View::Creator)
                    ? u"%1 is in the creator store, and creator features are off."_s.arg(item.id)
                    : u"%1 is placed in no store."_s.arg(item.id);
+    if (!item.platforms.contains(currentPlatform()))
+        return u"%1 is not for this system, %2."_s.arg(item.id, currentPlatform());
+    if (!m_engines.isEmpty()) {
+        const bool works = std::any_of(item.engines.cbegin(), item.engines.cend(), [this](const VersionRange &range) {
+            const auto engine = m_engines.constFind(range.id);
+            return engine != m_engines.cend() && isVersionInRange(*engine, range.min, range.below);
+        });
+        if (!works)
+            return u"%1 needs an engine this system does not have."_s.arg(item.id);
+    }
     return {};
+}
+
+// What stops a listing from replacing what is installed under its id: an id is one thing, and it only moves forward.
+QString StoreEngine::refusalAgainstInstalled(const CatalogItem &item) const
+{
+    const auto installed = m_installed.constFind(item.id);
+    if (installed == m_installed.cend())
+        return {};
+    // An old catalogue, replayed, could otherwise put back a version with a known fault.
+    if (compareVersions(item.version, installed->version) < 0)
+        return u"A newer version of this is already installed."_s;
+    if (item.developer != installed->developer)
+        return u"%1 is installed from %2, and this listing is from %3. Remove it first if that is what is meant."_s.arg(
+            item.id, printable(installed->developer), printable(item.developer));
+    if (item.kind != installed->kind)
+        return u"%1 is installed as a %2, and this listing is a %3. Remove it first if that is what is meant."_s.arg(
+            item.id, printable(installed->kind), printable(item.kind));
+    return {};
+}
+
+// Whether a verified package is the one its listing names. Returns why not, or an empty string.
+QString StoreEngine::mismatch(const CatalogItem &item, const PackageResult &package) const
+{
+    const PackageManifest &manifest = package.manifest;
+    const bool same =
+        manifest.id == item.id && manifest.version == item.version && manifest.kind == item.kind
+        && manifest.developer == item.developer && manifest.format == item.format
+        && (item.format != 2
+            || (manifest.stores == item.storeNames() && manifest.edition == item.edition
+                && manifest.licence == item.licence && samePlatforms(manifest.platforms, item.platforms)
+                && sameRanges(manifest.engines, item.engines) && sameRanges(manifest.dependencies, item.dependencies)
+                && package.unpacked == item.packageUnpacked));
+    return same ? QString() : u"The package is not the one the catalogue lists."_s;
 }
 
 QMap<QString, InstalledVersion> StoreEngine::installedVersions() const
@@ -277,12 +391,12 @@ bool StoreEngine::install(const QString &id)
         fail(id, refusal);
         return false;
     }
-    const InstallPlan plan = resolveDependencies(m_catalog, id, installedVersions());
-    if (!plan.ok) {
-        fail(id, plan.error);
+    const InstallPlan resolved = resolveDependencies(m_catalog, id, installedVersions());
+    if (!resolved.ok) {
+        fail(id, resolved.error);
         return false;
     }
-    for (const QString &step : plan.order) {
+    for (const QString &step : resolved.order) {
         if (isBusy(step))
             return false;
         if (const QString refusal = refusalToInstall(*m_catalog.item(step)); !refusal.isEmpty()) {
@@ -291,33 +405,41 @@ bool StoreEngine::install(const QString &id)
         }
     }
     // Every step holds a job from here, so none of them starts twice.
-    for (const QString &step : plan.order) {
+    for (const QString &step : resolved.order) {
         m_jobs.insert(step, nullptr);
         m_progress.insert(step, 0);
         Q_EMIT progressChanged(step);
     }
-    runSteps(plan.order);
+    auto plan = std::make_shared<Plan>();
+    plan->root = id;
+    plan->steps = resolved.order;
+    plan->epoch = m_catalogEpoch;
+    runNextStep(plan);
     return true;
 }
 
-void StoreEngine::runSteps(const QStringList &steps)
+void StoreEngine::runNextStep(const PlanPtr &plan)
 {
-    const QString id = steps.constFirst();
-    m_waiting.insert(id, steps.mid(1));
+    const QString id = plan->steps.at(plan->next);
+    if (plan->epoch != m_catalogEpoch)
+        return failPlan(plan, id, u"The catalogue changed while this was on its way, so nothing was installed."_s);
     const CatalogItem *item = m_catalog.item(id);
     if (!item)
-        return fail(id, u"The item is no longer in the catalogue."_s);
+        return failPlan(plan, id, u"The item is no longer in the catalogue."_s);
     const QUrl url = m_catalogUrl.resolved(QUrl(item->packageFile));
     // A format 2 catalogue says exactly how large the download is.
     const qint64 limit = item->format == 2 ? item->packageSize : item->packageSize + 1024;
-    fetch(id, url, limit, [this, id](bool ok, const QByteArray &data, const QString &error) {
+    fetch(id, url, limit, [this, plan, id](bool ok, const QByteArray &data, const QString &error) {
+        if (plan->over)
+            return;
         if (!ok)
-            return fail(id, error);
-        complete(id, data);
+            return failPlan(plan, id, error);
+        stepArrived(plan, id, data);
     });
 }
 
-// Whether a download is the package a listing says it is. Returns why not, or an empty string.
+// Whether a download is the package a listing says it is: an install's checks, and a licence's. Returns why not, or an
+// empty string.
 QString StoreEngine::refusePackage(const CatalogItem &item, const QByteArray &data, PackageResult *package) const
 {
     if (QCryptographicHash::hash(data, QCryptographicHash::Sha256) != item.packageSha256)
@@ -328,81 +450,152 @@ QString StoreEngine::refusePackage(const CatalogItem &item, const QByteArray &da
         item.format == 2 ? openPackage(data, developer.key, item.packageUnpacked) : openPackage(data, developer.key);
     if (!package->ok)
         return package->error;
-    const PackageManifest &manifest = package->manifest;
-    if (manifest.id != item.id || manifest.version != item.version || manifest.kind != item.kind
-        || manifest.developer != item.developer || manifest.format != item.format
-        || (item.format == 2
-            && (manifest.stores != item.storeNames() || manifest.edition != item.edition
-                || manifest.licence != item.licence || manifest.dependencies != item.dependencies
-                || package->unpacked != item.packageUnpacked)))
-        return u"The package is not the one the catalogue lists."_s;
-    return {};
+    return mismatch(item, *package);
 }
 
-void StoreEngine::complete(const QString &id, const QByteArray &data)
+// One package has arrived. It is verified and kept in memory, and nothing moves until they all have.
+void StoreEngine::stepArrived(const PlanPtr &plan, const QString &id, const QByteArray &data)
 {
+    if (plan->epoch != m_catalogEpoch)
+        return failPlan(plan, id, u"The catalogue changed while this was on its way, so nothing was installed."_s);
     const CatalogItem *item = m_catalog.item(id);
     if (!item)
-        return fail(id, u"The item is no longer in the catalogue."_s);
+        return failPlan(plan, id, u"The item is no longer in the catalogue."_s);
     // The switch may have been turned off, or the catalogue run out, while this was on its way.
     if (const QString refusal = refusalToInstall(*item); !refusal.isEmpty())
-        return fail(id, refusal);
+        return failPlan(plan, id, refusal);
     PackageResult package;
-    if (const QString refusal = refusePackage(*item, data, &package); !refusal.isEmpty())
-        return fail(id, refusal);
-    // An old catalogue, replayed, could otherwise put back a version with a known fault.
-    if (const auto installed = m_installed.constFind(id);
-        installed != m_installed.cend() && compareVersions(item->version, installed->version) < 0)
-        return fail(id, u"A newer version of this is already installed."_s);
+    if (const QString why = refusePackage(*item, data, &package); !why.isEmpty())
+        return failPlan(plan, id, why);
+    if (const QString refusal = refusalAgainstInstalled(*item); !refusal.isEmpty())
+        return failPlan(plan, id, refusal);
+    plan->bytes += package.unpacked;
+    if (plan->bytes > kMaximumPlanBytes)
+        return failPlan(plan, id, u"This install would take too much at once."_s);
 
-    // Another process of this person's may share this folder. It clears what looks abandoned as it starts, so it must
-    // not find this install half done.
+    plan->verified.append(Step { id, std::move(package) });
+    ++plan->next;
+    if (plan->next < plan->steps.size())
+        return runNextStep(plan);
+    commitPlan(plan);
+}
+
+// Everything is here and verified. Under the lock, and against what is on disk now rather than what was when this
+// began, everything moves or nothing does.
+void StoreEngine::commitPlan(const PlanPtr &plan)
+{
+    const QString &root = plan->root;
     QLockFile lock(m_dataDir + u"/.lock"_s);
-    lock.setStaleLockTime(kLockStaleMs);
+    // What a person's handler does on hearing of it may need this lock, so it is let go before anyone hears.
+    const auto refuse = [&](const QString &id, const QString &error) {
+        lock.unlock();
+        failPlan(plan, id, error);
+    };
     if (!lock.tryLock(kLockTimeoutMs))
-        return fail(id, u"The store is busy in another program."_s);
+        return refuse(root, u"The store is busy in another program."_s);
+    recoverLocked();
+    m_installed = readInstalled();
 
-    // Write everything beside the old version, then swap.
-    const QString target = installDirectory(id);
-    const QString staging = m_dataDir + u"/items/.staging-"_s + QUuid::createUuid().toString(QUuid::Id128);
-    QMap<QString, QByteArray> files = package.contents;
-    // Kept beside them, so what runs can be checked each time it is loaded.
-    files.insert(u"manifest.json"_s, package.manifestBytes);
-    files.insert(u"manifest.sig"_s, package.signature);
-    for (auto it = files.cbegin(); it != files.cend(); ++it) {
-        const QString path = staging + u'/' + it.key();
-        QDir().mkpath(QFileInfo(path).absolutePath());
-        QSaveFile file(path);
-        if (!file.open(QIODevice::WriteOnly) || file.write(it.value()) != it.value().size() || !file.commit()) {
-            QDir(staging).removeRecursively();
-            return fail(id, u"%1 could not be written."_s.arg(it.key()));
+    QMap<QString, InstalledVersion> incoming;
+    for (const Step &step : std::as_const(plan->verified)) {
+        const CatalogItem *item = m_catalog.item(step.id);
+        if (!item)
+            return refuse(step.id, u"The item is no longer in the catalogue."_s);
+        if (const QString refusal = refusalToInstall(*item); !refusal.isEmpty())
+            return refuse(step.id, refusal);
+        if (const QString refusal = refusalAgainstInstalled(*item); !refusal.isEmpty())
+            return refuse(step.id, refusal);
+        incoming.insert(step.id, { item->version, item->dependencies });
+    }
+    // Something may have been removed, or moved, while this was on its way: by this program or another.
+    if (const QString why = refusalOfOutcome(installedVersions(), incoming); !why.isEmpty())
+        return refuse(root, why);
+
+    // Write everything beside what it replaces.
+    const QString items = m_dataDir + u"/items/"_s;
+    const QString transaction = QUuid::createUuid().toString(QUuid::Id128);
+    QList<Move> moves;
+    const auto clearStaging = [&items, &moves] {
+        for (const Move &move : std::as_const(moves))
+            QDir(items + move.staging).removeRecursively();
+    };
+    for (const Step &step : std::as_const(plan->verified)) {
+        const QString tag = QUuid::createUuid().toString(QUuid::Id128);
+        const QString target = items + step.id;
+        moves.append(
+            Move { step.id, u".staging-"_s + tag, QFileInfo::exists(target) ? step.id + u".old-"_s + tag : QString() });
+        QMap<QString, QByteArray> files = step.package.contents;
+        // Kept beside them, so what runs can be checked each time it is loaded.
+        files.insert(u"manifest.json"_s, step.package.manifestBytes);
+        files.insert(u"manifest.sig"_s, step.package.signature);
+        for (auto it = files.cbegin(); it != files.cend(); ++it) {
+            const QString path = items + moves.constLast().staging + u'/' + it.key();
+            QDir().mkpath(QFileInfo(path).absolutePath());
+            QSaveFile file(path);
+            if (!file.open(QIODevice::WriteOnly) || file.write(it.value()) != it.value().size() || !file.commit()) {
+                clearStaging();
+                return refuse(step.id, u"%1 could not be written."_s.arg(it.key()));
+            }
         }
     }
-    const QString previous = target + u".old-"_s + QUuid::createUuid().toString(QUuid::Id128);
-    if (QFileInfo::exists(target) && !QDir().rename(target, previous)) {
-        QDir(staging).removeRecursively();
-        return fail(id, u"The installed version is in use."_s);
+    if (!writeJournal(transaction, moves)) {
+        clearStaging();
+        return refuse(root, u"The store could not write down what it was about to do."_s);
     }
-    if (!QDir().rename(staging, target)) {
-        QDir().rename(previous, target);
-        QDir(staging).removeRecursively();
-        return fail(id, u"The package could not be installed."_s);
+    const auto giveUp = [&](const QString &id, const QString &error) {
+        undoMoves(moves);
+        removeJournal();
+        refuse(id, error);
+    };
+    if (!reachedStage(CommitStage::JournalWritten))
+        return giveUp(root, u"The package could not be installed."_s);
+
+    for (const Move &move : std::as_const(moves)) {
+        const QString target = items + move.id;
+        if (!move.previous.isEmpty() && !QDir().rename(target, items + move.previous))
+            return giveUp(move.id, u"The installed version is in use."_s);
+        if (!reachedStage(CommitStage::ItemSetAside))
+            return giveUp(move.id, u"The package could not be installed."_s);
+        if (!QDir().rename(items + move.staging, target))
+            return giveUp(move.id, u"The package could not be installed."_s);
+        if (!reachedStage(CommitStage::ItemSwapped))
+            return giveUp(move.id, u"The package could not be installed."_s);
     }
-    QDir(previous).removeRecursively();
+
+    QMap<QString, Installed> records = m_installed;
+    const QString now = QDateTime::currentDateTimeUtc().toString(Qt::ISODate);
+    for (const Step &step : std::as_const(plan->verified)) {
+        const CatalogItem *item = m_catalog.item(step.id);
+        records.insert(step.id,
+                       { step.id, item->kind, item->name, item->version, item->developer, now, item->dependencies });
+    }
+    // This write is the moment it happens. A crash before it puts everything back, and one after it finishes the job.
+    if (!saveInstalled(records, transaction))
+        return giveUp(root, u"The store could not write down what is installed."_s);
+    if (!reachedStage(CommitStage::RecordWritten))
+        qCWarning(lcStore) << "An install went ahead past a stage asked to stop it, since it had already happened.";
+
+    for (const Move &move : std::as_const(moves)) {
+        if (!move.previous.isEmpty())
+            QDir(items + move.previous).removeRecursively();
+        reachedStage(CommitStage::OldRemoved);
+    }
+    removeJournal();
     lock.unlock();
 
-    m_installed.insert(id, { id, item->kind, item->name, item->version, item->developer,
-                             QDateTime::currentDateTimeUtc().toString(Qt::ISODate), item->dependencies });
-    saveInstalled();
-    m_jobs.remove(id);
-    m_progress.remove(id);
-    const QStringList next = m_waiting.take(id);
-    qCInfo(lcStore) << "Installed" << id << item->version;
+    m_installed = records;
+    plan->over = true;
+    for (const QString &step : std::as_const(plan->steps)) {
+        m_jobs.remove(step);
+        m_progress.remove(step);
+    }
+    for (const Step &step : std::as_const(plan->verified))
+        qCInfo(lcStore) << "Installed" << step.id << step.package.manifest.version;
     Q_EMIT installedChanged();
-    Q_EMIT progressChanged(id);
-    Q_EMIT finished(id, true, {});
-    if (!next.isEmpty())
-        runSteps(next);
+    for (const QString &step : std::as_const(plan->steps)) {
+        Q_EMIT progressChanged(step);
+        Q_EMIT finished(step, true, {});
+    }
 }
 
 bool StoreEngine::isIntact(const QString &id) const
@@ -424,7 +617,7 @@ bool StoreEngine::hasUpdate(const QString &id) const
     const auto installed = m_installed.constFind(id);
     const CatalogItem *item = m_catalog.item(id);
     return installed != m_installed.cend() && item && compareVersions(installed->version, item->version) < 0
-           && (item->format != 2 || item->isPlacedIn(View::Player) || m_creatorFeatures);
+           && refusalToInstall(*item).isEmpty() && refusalAgainstInstalled(*item).isEmpty();
 }
 
 int StoreEngine::updateCount() const
@@ -438,33 +631,70 @@ int StoreEngine::updateCount() const
 void StoreEngine::fail(const QString &id, const QString &error)
 {
     qCWarning(lcStore) << "Install of" << id << "failed:" << error;
-    const QStringList next = m_waiting.take(id);
     m_jobs.remove(id);
     m_progress.remove(id);
     Q_EMIT progressChanged(id);
     Q_EMIT finished(id, false, error);
-    // What was waiting on it needs it, so it stops here too.
-    for (const QString &step : next) {
+}
+
+// Nothing has moved, or what moved has gone back: an end for every step of it, the step that failed first.
+void StoreEngine::failPlan(const PlanPtr &plan, const QString &id, const QString &error)
+{
+    plan->over = true;
+    plan->verified.clear();
+    for (const QString &step : std::as_const(plan->steps))
         m_jobs.remove(step);
-        m_progress.remove(step);
-        Q_EMIT progressChanged(step);
-        Q_EMIT finished(step, false, u"%1 could not be installed: %2"_s.arg(id, error));
-    }
+    fail(id, error);
+    for (const QString &step : std::as_const(plan->steps))
+        if (step != id)
+            fail(step, u"%1 could not be installed: %2"_s.arg(id, error));
 }
 
 bool StoreEngine::remove(const QString &id)
 {
-    if (!m_installed.contains(id) || isBusy(id))
+    if (isBusy(id))
+        return false;
+    QLockFile lock(m_dataDir + u"/.lock"_s);
+    // What a person's handler does on hearing of it may need this lock, so it is let go before anyone hears.
+    const auto refuse = [&](const QString &error) {
+        lock.unlock();
+        fail(id, error);
+        return false;
+    };
+    if (!lock.tryLock(kLockTimeoutMs))
+        return refuse(u"The store is busy in another program."_s);
+    recoverLocked();
+    m_installed = readInstalled();
+    const auto present = m_installed.constFind(id);
+    if (present == m_installed.cend())
         return false;
     for (const Installed &other : std::as_const(m_installed))
         for (const VersionRange &range : other.dependencies)
-            if (range.id == id) {
-                fail(id, u"%1 needs this, so it stays."_s.arg(other.id));
-                return false;
-            }
-    QDir(installDirectory(id)).removeRecursively();
-    m_installed.remove(id);
-    saveInstalled();
+            // A range that does not hold now is not kept holding by leaving this where it is.
+            if (range.id == id && isVersionInRange(present->version, range.min, range.below))
+                return refuse(u"%1 needs this, so it stays."_s.arg(other.id));
+
+    const QString transaction = QUuid::createUuid().toString(QUuid::Id128);
+    const QString items = m_dataDir + u"/items/"_s;
+    const QList<Move> moves { Move { id, QString(), id + u".old-"_s + transaction } };
+    QMap<QString, Installed> records = m_installed;
+    records.remove(id);
+    if (!writeJournal(transaction, moves))
+        return refuse(u"The store could not write down what it was about to do."_s);
+    if (!QDir().rename(items + id, items + moves.constFirst().previous)) {
+        removeJournal();
+        return refuse(u"It is in use."_s);
+    }
+    if (!saveInstalled(records, transaction)) {
+        undoMoves(moves);
+        removeJournal();
+        return refuse(u"The store could not write down what is installed."_s);
+    }
+    QDir(items + moves.constFirst().previous).removeRecursively();
+    removeJournal();
+    lock.unlock();
+
+    m_installed = records;
     qCInfo(lcStore) << "Removed" << id;
     Q_EMIT installedChanged();
     return true;
@@ -473,7 +703,7 @@ bool StoreEngine::remove(const QString &id)
 bool StoreEngine::fetchPreview(const QString &id, int index)
 {
     const CatalogItem *item = m_catalog.item(id);
-    if (!item || index < 0 || index >= item->previews.size())
+    if (!item || index < 0 || index >= item->previews.size() || catalogueHasExpired())
         return false;
     if (!item->isPlacedIn(View::Player) && !m_creatorFeatures)
         return false;
@@ -493,7 +723,7 @@ bool StoreEngine::fetchPreview(const QString &id, int index)
 bool StoreEngine::fetchLicence(const QString &id)
 {
     const CatalogItem *item = m_catalog.item(id);
-    if (!item || item->format != 2 || (!item->isPlacedIn(View::Player) && !m_creatorFeatures))
+    if (!item || item->format != 2 || catalogueHasExpired() || (!item->isPlacedIn(View::Player) && !m_creatorFeatures))
         return false;
     fetch({}, m_catalogUrl.resolved(QUrl(item->packageFile)), item->packageSize,
           [this, id](bool ok, const QByteArray &data, const QString &error) {
@@ -526,24 +756,83 @@ QString StoreEngine::licenceIn(const QString &id, const QByteArray &data, QStrin
     return {};
 }
 
-// A crash during an install can leave a staging folder, or an item's old version beside it or instead of it. What was
-// mid-swap goes back where it was, and the rest goes. If another process holds the store's lock, this leaves it alone:
-// that is an install under way, not an abandoned one.
-void StoreEngine::recoverInterrupted()
+// ── The journal, and what a crash leaves ───────────────────────────────────
+
+bool StoreEngine::writeJournal(const QString &transaction, const QList<Move> &moves) const
 {
-    const QString items = m_dataDir + u"/items"_s;
+    QJsonArray steps;
+    for (const Move &move : moves)
+        steps.append(
+            QJsonObject { { u"id"_s, move.id }, { u"staging"_s, move.staging }, { u"previous"_s, move.previous } });
+    QSaveFile file(journalPath(m_dataDir));
+    return file.open(QIODevice::WriteOnly)
+           && file.write(
+                  QJsonDocument(QJsonObject { { u"transaction"_s, transaction }, { u"moves"_s, steps } }).toJson())
+                  >= 0
+           && file.commit();
+}
+
+void StoreEngine::removeJournal() const { QFile::remove(journalPath(m_dataDir)); }
+
+// Puts back whatever of `moves` happened, last first, from what is on disk. A move has two renames: what was installed
+// goes aside, then what is new takes its place. A staging folder that is still there tells which of those had happened.
+void StoreEngine::undoMoves(const QList<Move> &moves) const
+{
+    const QString items = m_dataDir + u"/items/"_s;
+    for (auto move = moves.crbegin(); move != moves.crend(); ++move) {
+        const QString target = items + move->id;
+        const bool newLanded = move->staging.isEmpty() || !QFileInfo::exists(items + move->staging);
+        const bool setAside = !move->previous.isEmpty() && QFileInfo::exists(items + move->previous);
+        if (!move->staging.isEmpty())
+            QDir(items + move->staging).removeRecursively();
+        if (newLanded && !move->staging.isEmpty() && QFileInfo::exists(target))
+            QDir(target).removeRecursively();
+        if (setAside)
+            QDir().rename(items + move->previous, target);
+    }
+}
+
+// A crash during an install or a removal. The journal says what was being done and installed.json says whether it
+// happened, because that is the last thing written. If it did, this finishes clearing up. If not, everything goes back.
+// After that, anything of the older kind of leftover is cleared: a staging folder goes, and an old version set aside
+// goes back if nothing replaced it. The caller holds the store's lock, so none of this is another program's install
+// under way.
+void StoreEngine::recoverLocked() const
+{
+    const QString items = m_dataDir + u"/items/"_s;
+    QFile journal(journalPath(m_dataDir));
+    if (journal.open(QIODevice::ReadOnly)) {
+        const QJsonObject object = QJsonDocument::fromJson(journal.readAll()).object();
+        journal.close();
+        QList<Move> moves;
+        static const QRegularExpression staging(u"^\\.staging-[0-9a-f]{32}\\z"_s);
+        static const QRegularExpression previous(u"\\.old-[0-9a-f]{32}\\z"_s);
+        for (const QJsonValue &value : object.value(u"moves"_s).toArray()) {
+            const QJsonObject entry = value.toObject();
+            const Move move { entry.value(u"id"_s).toString(), entry.value(u"staging"_s).toString(),
+                              entry.value(u"previous"_s).toString() };
+            // Names only ever inside items/, whatever the file says.
+            if (isValidItemId(move.id) && (move.staging.isEmpty() || staging.match(move.staging).hasMatch())
+                && (move.previous.isEmpty()
+                    || (move.previous.startsWith(move.id) && previous.match(move.previous).hasMatch())))
+                moves.append(move);
+        }
+        QString transaction;
+        const QMap<QString, Installed> records = readInstalled(&transaction);
+        Q_UNUSED(records);
+        if (!transaction.isEmpty() && transaction == object.value(u"transaction"_s).toString()) {
+            for (const Move &move : std::as_const(moves))
+                if (!move.previous.isEmpty())
+                    QDir(items + move.previous).removeRecursively();
+        } else {
+            undoMoves(moves);
+        }
+        removeJournal();
+    }
+
     const QDir folder(items);
+    static const QRegularExpression old(u"^(.+)\\.old-[0-9a-f]{32}\\z"_s);
     const QStringList names = folder.entryList(QDir::Dirs | QDir::Hidden | QDir::NoDotAndDotDot);
-    static const QRegularExpression old(u"^(.+)\\.old-[0-9a-f]{32}$"_s);
-    const auto isLeftOver = [](const QString &name) {
-        return name.startsWith(u".staging-"_s) || old.match(name).hasMatch();
-    };
-    if (std::none_of(names.cbegin(), names.cend(), isLeftOver))
-        return;
-    QLockFile lock(m_dataDir + u"/.lock"_s);
-    lock.setStaleLockTime(kLockStaleMs);
-    if (!lock.tryLock(0))
-        return;
     for (const QString &name : names) {
         if (name.startsWith(u".staging-"_s)) {
             QDir(folder.filePath(name)).removeRecursively();
@@ -560,12 +849,44 @@ void StoreEngine::recoverInterrupted()
     }
 }
 
-void StoreEngine::loadInstalled()
+// If another program holds the store's lock, this leaves everything alone: that is an install under way, not an
+// abandoned one.
+void StoreEngine::recoverInterrupted() const
 {
-    QFile file(m_dataDir + u"/installed.json"_s);
-    if (!file.open(QIODevice::ReadOnly))
+    const QDir folder(m_dataDir + u"/items"_s);
+    static const QRegularExpression old(u"\\.old-[0-9a-f]{32}\\z"_s);
+    const QStringList names = folder.entryList(QDir::Dirs | QDir::Hidden | QDir::NoDotAndDotDot);
+    const auto isLeftOver = [](const QString &name) {
+        return name.startsWith(u".staging-"_s) || old.match(name).hasMatch();
+    };
+    if (!QFileInfo::exists(journalPath(m_dataDir)) && std::none_of(names.cbegin(), names.cend(), isLeftOver))
         return;
-    const QJsonObject items = QJsonDocument::fromJson(file.readAll()).object().value(u"items"_s).toObject();
+    QLockFile lock(m_dataDir + u"/.lock"_s);
+    if (lock.tryLock(0))
+        recoverLocked();
+}
+
+// The records on disk now. What cannot be read is set aside and not believed: nothing it listed is lost, since a
+// reinstall replaces its folder, and nothing else is kept from working by it.
+QMap<QString, StoreEngine::Installed> StoreEngine::readInstalled(QString *transaction) const
+{
+    QMap<QString, Installed> records;
+    const QString path = m_dataDir + u"/installed.json"_s;
+    QFile file(path);
+    if (!file.open(QIODevice::ReadOnly))
+        return records;
+    const QJsonDocument document = QJsonDocument::fromJson(file.readAll());
+    file.close();
+    if (!document.isObject()) {
+        qCWarning(lcStore) << "The store's record of what is installed cannot be read, and is set aside.";
+        const QString aside = path + u".unreadable"_s;
+        QFile::remove(aside);
+        QFile::rename(path, aside);
+        return records;
+    }
+    if (transaction)
+        *transaction = document.object().value(u"transaction"_s).toString();
+    const QJsonObject items = document.object().value(u"items"_s).toObject();
     for (auto it = items.begin(); it != items.end(); ++it) {
         const QJsonObject entry = it.value().toObject();
         Installed installed { it.key(),
@@ -580,14 +901,15 @@ void StoreEngine::loadInstalled()
             continue;
         // Only what is actually on disk.
         if (isValidItemId(installed.id) && QFileInfo(installDirectory(installed.id)).isDir())
-            m_installed.insert(installed.id, installed);
+            records.insert(installed.id, installed);
     }
+    return records;
 }
 
-bool StoreEngine::saveInstalled() const
+bool StoreEngine::saveInstalled(const QMap<QString, Installed> &records, const QString &transaction) const
 {
     QJsonObject items;
-    for (const Installed &installed : m_installed) {
+    for (const Installed &installed : records) {
         QJsonObject entry { { u"kind"_s, installed.kind },
                             { u"name"_s, installed.name },
                             { u"version"_s, installed.version },
@@ -600,9 +922,8 @@ bool StoreEngine::saveInstalled() const
     QSaveFile file(m_dataDir + u"/installed.json"_s);
     if (!file.open(QIODevice::WriteOnly))
         return false;
-    file.write(
-        QJsonDocument(QJsonObject { { u"format"_s, 1 }, { u"items"_s, items } }).toJson(QJsonDocument::Indented));
-    return file.commit();
+    const QJsonObject root { { u"format"_s, 1 }, { u"transaction"_s, transaction }, { u"items"_s, items } };
+    return file.write(QJsonDocument(root).toJson(QJsonDocument::Indented)) >= 0 && file.commit();
 }
 
 } // namespace qor::store

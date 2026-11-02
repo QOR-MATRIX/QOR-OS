@@ -154,13 +154,14 @@ def validate(item: Item, developers: dict) -> None:
     for field in ("id", "name", "version", "developer", "summary", "description", "released"):
         if not item.listing.get(field):
             raise SystemExit(f"{where}: listing.json needs '{field}'")
-    if not ID_PATTERN.match(item.id):
+    if not ID_PATTERN.fullmatch(item.id):
         raise SystemExit(f"{where}: invalid id")
-    if not VERSION_PATTERN.match(item.version):
+    if not VERSION_PATTERN.fullmatch(item.version):
         raise SystemExit(f"{where}: version must be major.minor.patch")
     if item.listing["developer"] not in developers:
         raise SystemExit(f"{where}: unknown developer {item.listing['developer']}")
-    if item.listing.get("price", 0) != 0:
+    # `is False`: False == 0 in Python, and the client refuses anything that is not the number zero.
+    if item.listing.get("price", 0) != 0 or item.listing.get("price", 0) is False:
         raise SystemExit(f"{where}: the Store carries only free items (QOR-0006)")
     if item.kind == "theme" and "theme.json" not in item.files:
         raise SystemExit(f"{where}: a theme needs theme.json")
@@ -412,6 +413,8 @@ def fixtures() -> None:
 # ── The demonstration catalogue (format 2, QOR-0021) ────────────────────────
 
 DEMO_DEVELOPER = "org.example.demo"
+# Where QOR OS and QQ run, the device and the development host, so tests install them on either.
+DEMO_PLATFORMS = ["linux-x86_64", "windows-x86_64"]
 # Tests read this catalogue for years, and an expired one is refused.
 DEMO_EXPIRES = "2099-12-31"
 # Keep these as store/src/filerules.cpp has them: the engine is what enforces this, and this only stops a mistake sooner.
@@ -453,6 +456,8 @@ class Format2Item(Item):
             "developer": self.listing["developer"],
             "licence": self.listing["licence"],
             "dependencies": self.listing.get("dependencies", []),
+            "platforms": self.listing["platforms"],
+            "engines": self.listing["engines"],
             "files": {path: hashlib.sha256(data).hexdigest() for path, data in sorted(self.files.items())},
         }
         if "edition" in self.listing:
@@ -532,7 +537,7 @@ def demo(out: Path = DEMO) -> None:
                        "source": "products/qq/samples/ember-climb in QOR OS",
                        "permission": "Apache-2.0, with its licence and notice kept in this package"},
         "engines": [{"id": "qq", "min": "0.1.0", "below": "1.0.0"}],
-        "platforms": ["linux-x86_64"],
+        "platforms": DEMO_PLATFORMS,
     }
     pack = {**common, "id": "org.example.demo.pack.ember-climb-art", "name": "Ember Climb's art",
             "placements": [{"store": "creator", "category": "2D art"}],
@@ -559,7 +564,7 @@ def demo(out: Path = DEMO) -> None:
     # projects. It has no package to carry, and is here so the demonstration shows a draft staying out of every view.
     project = {"id": "org.example.demo.project.ember-climb", "kind": "project",
                "placements": [{"store": "creator", "category": "Projects"}], "entitlement": {"type": "free"},
-               "platforms": ["linux-x86_64"], "executable": False,
+               "platforms": DEMO_PLATFORMS, "executable": False,
                "edition": {"group": edition_group, "role": "editable-project"}}
 
     # Throwaway keys, as the fixtures' are: never written down, so there is nothing to keep out of the repository.

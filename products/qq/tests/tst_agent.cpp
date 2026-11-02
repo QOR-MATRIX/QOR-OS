@@ -8,7 +8,7 @@
 //
 // Changed for QOR OS: a warning from QQ's own QML (an undefined name, a failed binding) fails the case it happens in.
 // Changed for QOR OS: what an agent writes runs only when allowed (QOR-0018).
-// Changed for QOR OS: what play does to bodies is waited for on the physics world's clock, not the wall's.
+// Changed for QOR OS: drawn in software alone, what play does to bodies is waited for on the physics world's clock.
 
 #include <QColor>
 #include <QDir>
@@ -37,6 +37,7 @@
 #include <QtQml/qqmlextensionplugin.h>
 
 #include "designloop.h"
+#include "drawnin.h"
 #include "gpu.h"
 #include "keychain.h"
 #include "mcpserver.h"
@@ -581,12 +582,16 @@ private slots:
                                                              {QStringLiteral("fields"), QJsonObject{{QStringLiteral("mass"), 2}}}})
                     .value(QStringLiteral("isError")).toBool());
 
-        // The tool waits by the wall's clock, and bodies move by the physics world's, which frames drawn in software leave
-        // behind: the agent's waits, short ones, until `ms` of the world's time has passed. Its last answer is where things
-        // stand then. A limit on the wall's time stops a game that has hung.
+        // On a GPU, one wait of `ms`, so what follows checks too that the world keeps up with real time. The tool waits by the
+        // wall's clock, and bodies move by the physics world's, which frames drawn in software leave behind: there alone, the
+        // agent's waits, short ones, until `ms` of the world's time has passed. Its last answer is where things stand then. A
+        // limit on the wall's time stops a game that has hung (docs/CI.md#what-linux-runs).
+        const bool software = qq::drawnInSoftware(s.window);
         QSignalSpy steps(s.window->property("playScene").value<QObject *>()->property("physicsWorld").value<QObject *>(),
                          SIGNAL(frameDone(float)));
         const auto waitForPlay = [&](int ms) {
+            if (!software)
+                return s.client.tool(QStringLiteral("wait"), {{QStringLiteral("ms"), ms}});
             double done = 0;
             QJsonObject answer;
             QElapsedTimer guard;
@@ -606,7 +611,7 @@ private slots:
                                      .value(QStringLiteral("Crate")).toArray();
         QVERIFY2(crate.size() == 3 && qAbs(crate[1].toDouble() - 0.5) < 0.1, qPrintable(r.value(QStringLiteral("text")).toString()));
 
-        // The agent's hands: forward, for a second of the world's time, moves the player toward -z.
+        // The agent's hands: forward, for a second, moves the player toward -z.
         const QJsonArray startFeet = r.value(QStringLiteral("json")).toObject().value(QStringLiteral("player")).toObject()
                                          .value(QStringLiteral("feet")).toArray();
         QVERIFY(!s.client.tool(QStringLiteral("input_set"), {{QStringLiteral("move"), QJsonArray{0, 1}}})
@@ -636,6 +641,19 @@ private slots:
         QCOMPARE(s.sceneText(), before);
         QVERIFY(s.client.tool(QStringLiteral("input_set"), {{QStringLiteral("move"), QJsonArray{0, 1}}})
                     .value(QStringLiteral("isError")).toBool());
+    }
+
+    // A wait lasts what it was asked for, by the wall's clock, however frames come: an agent reads the game by it. A lower
+    // bound, so slow frames cannot make it fail. Under two seconds, which is what a timer keeps to exactly.
+    void aLongWaitLastsWhatItWasAskedFor()
+    {
+        Studio s;
+        QVERIFY(s.open());
+        QElapsedTimer waited;
+        waited.start();
+        const QJsonObject r = s.client.tool(QStringLiteral("wait"), {{QStringLiteral("ms"), 1500}});
+        QVERIFY2(!r.value(QStringLiteral("isError")).toBool(), qPrintable(r.value(QStringLiteral("text")).toString()));
+        QVERIFY2(waited.elapsed() >= 1500, qPrintable(QStringLiteral("it lasted %1 ms").arg(waited.elapsed())));
     }
 
     void logicThatThrowsInPlayIsInTheLog()

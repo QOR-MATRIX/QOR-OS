@@ -7,7 +7,7 @@
     "org.example.demo": {
       "name": "A demonstration, not a publisher",
       "verified": false,
-      "key": "BB9HRAnUsUkhv65CwYsBX0tV6A/mCNnum3zrhuMUH/gVcOs9OKp2CN4YfbdLorWZdNO3mD7sHXfziKbAc+dXSPk="
+      "key": "BG5Vw1VukuEhzF8ShRciqdal1jtuZ/UfY0mtVFbHXobnzHQ9yOjVUag/VOzec2hEXo1oph3odsMXzRRgesHV4ds="
     }
   },
   "items": [
@@ -24,7 +24,8 @@
         "type": "free"
       },
       "platforms": [
-        "linux-x86_64"
+        "linux-x86_64",
+        "windows-x86_64"
       ],
       "name": "Ember Climb's art",
       "developer": "org.example.demo",
@@ -64,9 +65,9 @@
       ],
       "package": {
         "file": "packages/org.example.demo.pack.ember-climb-art-1.1.0.qorpkg",
-        "size": 15071,
-        "sha256": "12c097579df455a580b4444273a9f62ce0f3f55730c9ecd617efac5ebd6b6508",
-        "unpacked": 14247
+        "size": 15229,
+        "sha256": "888ab7b74dbdc0f63232a5cae9db53268079c071dc0f59443847eea4650e2274",
+        "unpacked": 14405
       }
     },
     {
@@ -82,7 +83,8 @@
         "type": "free"
       },
       "platforms": [
-        "linux-x86_64"
+        "linux-x86_64",
+        "windows-x86_64"
       ],
       "edition": {
         "group": "org.example.demo.ember-climb",
@@ -126,9 +128,9 @@
       ],
       "package": {
         "file": "packages/org.example.demo.game.ember-climb-1.0.0.qorpkg",
-        "size": 33052,
-        "sha256": "bbbaad18c9dd6724227d36ee11e6abc51813b21af70d9a99766396bbf9df45c9",
-        "unpacked": 31762
+        "size": 33210,
+        "sha256": "68d49aee327d437e0f5ba9386be4ffe321a5569f39a4491868b7756a6a12a733",
+        "unpacked": 31920
       }
     },
     {
@@ -144,7 +146,8 @@
         "type": "free"
       },
       "platforms": [
-        "linux-x86_64"
+        "linux-x86_64",
+        "windows-x86_64"
       ],
       "executable": false,
       "edition": {

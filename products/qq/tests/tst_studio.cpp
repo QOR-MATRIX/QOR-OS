@@ -6,8 +6,8 @@
 //
 // Changed for QOR OS: a warning from QQ's own QML (an undefined name, a failed binding) fails the case it happens in;
 // a Studio is open once its window has the keyboard too, so that a shortcut is not pressed before it can answer; no
-// controller on the machine joins in (virtualpads.cpp); and what play does to bodies is waited for on the physics
-// world's clock, not the wall's.
+// controller on the machine joins in (virtualpads.cpp); and drawn in software alone, what play does to bodies is waited
+// for on the physics world's clock.
 
 #include <QDir>
 #include <QElapsedTimer>
@@ -32,6 +32,7 @@
 #include <cmath>
 #include <QtQml/qqmlextensionplugin.h>
 
+#include "drawnin.h"
 #include "gamepadmanager.h"
 #include "gpu.h"
 #include "mixer.h"
@@ -528,10 +529,16 @@ private slots:
         QVERIFY(s.playScene() && s.playScene() != s.scene());
         QVERIFY(!s.call("saveScene").toBool());  // nothing is saved from play
 
-        // Bodies move by the physics world's clock, which frames drawn in software leave behind the wall's: `ms` of it,
-        // waited for, with a limit on the wall's time that only stops a game that has hung.
+        // On a GPU, `ms` on the wall's clock, so what follows checks too that the world keeps up with real time. Bodies move by
+        // the physics world's clock, which frames drawn in software leave behind the wall's: there alone, `ms` of that, with a
+        // limit on the wall's time that only stops a game that has hung (docs/CI.md#what-linux-runs).
+        const bool software = qq::drawnInSoftware(s.window);
         QSignalSpy steps(s.playScene()->property("physicsWorld").value<QObject *>(), SIGNAL(frameDone(float)));
         const auto play = [&](int ms) {
+            if (!software) {
+                s.run(ms);
+                return true;
+            }
             double done = 0;
             QElapsedTimer guard;
             guard.start();

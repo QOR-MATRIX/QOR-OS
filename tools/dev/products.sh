@@ -276,7 +276,8 @@ report() { # name build
 }
 
 # The QQ Player's floor of 20 frames a second is the one failure --accept-software-floor lets stand, and only in software:
-# tst_player the only suite failed, having reached its end, with that check in that case its only failure.
+# tst_player the only suite failed, ended normally with the one failure as its exit status, that check in that case its only
+# failure, and the Player still drawing at least a frame a second (products-report.py).
 only_the_floor_failed() { # build
     [ "$ACCEPT_FLOOR" = yes ] && [ -n "$DRAWN" ] && python3 "$REPO/tools/dev/products-report.py" --only-the-floor "$1"
 }
@@ -302,13 +303,13 @@ build_and_test() { # name
     [ -z "$DRAWN" ] || [ "$name" != arqade ] || drawing=(QSG_RENDER_LOOP=basic)
     for attempt in $(seq "$ATTEMPTS"); do
         if [ "$attempt" -eq 1 ]; then
-            if env "${drawing[@]}" ctest --test-dir "$build" --output-on-failure --timeout "$SUITE_TIMEOUT" "${select[@]}"; then
+            if env "${drawing[@]}" ctest --test-dir "$build" -T Test --output-on-failure --timeout "$SUITE_TIMEOUT" "${select[@]}"; then
                 report "$name" "$build"
                 return 0
             fi
         else
             echo "== $name: the failed suites again (attempt $attempt of $ATTEMPTS)"
-            if env "${drawing[@]}" ctest --test-dir "$build" --output-on-failure --timeout "$SUITE_TIMEOUT" --rerun-failed "${select[@]}"; then
+            if env "${drawing[@]}" ctest --test-dir "$build" -T Test --output-on-failure --timeout "$SUITE_TIMEOUT" --rerun-failed "${select[@]}"; then
                 report "$name" "$build"
                 RETRIED+=("$name")
                 return 0

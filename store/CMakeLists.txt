@@ -52,6 +52,17 @@ if(QOR_STORE_DEMONSTRATION)
     string(STRIP "${QOR_STORE_DEMONSTRATION_KEY}" QOR_STORE_DEMONSTRATION_KEY)
     set_property(SOURCE qml/storefronts.cpp APPEND PROPERTY
         COMPILE_DEFINITIONS "QOR_STORE_DEMONSTRATION_KEY=\"${QOR_STORE_DEMONSTRATION_KEY}\"")
+    # The engines this system has, for a listing's `engines` to be checked against: QQ, at the version in this tree. QQ keeps
+    # its own build, so this says which QQ this is, and not that it has been built.
+    set(QOR_STORE_QQ_PROJECT "${CMAKE_SOURCE_DIR}/products/qq/CMakeLists.txt")
+    set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${QOR_STORE_QQ_PROJECT}")
+    file(STRINGS "${QOR_STORE_QQ_PROJECT}" QOR_STORE_QQ_LINE REGEX "^project\\(QQ VERSION [0-9]+\\.[0-9]+\\.[0-9]+")
+    string(REGEX MATCH "[0-9]+\\.[0-9]+\\.[0-9]+" QOR_STORE_QQ_VERSION "${QOR_STORE_QQ_LINE}")
+    if(NOT QOR_STORE_QQ_VERSION)
+        message(FATAL_ERROR "QQ's version was not found in ${QOR_STORE_QQ_PROJECT}")
+    endif()
+    set_property(SOURCE qml/storefronts.cpp APPEND PROPERTY
+        COMPILE_DEFINITIONS "QOR_STORE_QQ_VERSION=\"${QOR_STORE_QQ_VERSION}\"")
 endif()
 
 if(WIN32)

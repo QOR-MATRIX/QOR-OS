@@ -63,8 +63,14 @@ Store::Store(QObject *parent) : QObject(parent)
     connect(store, &StoreEngine::finished, this, &Store::finished);
 }
 
+static StoreEngine *s_engineForTests = nullptr;
+
+void Store::setEngineForTests(StoreEngine *engine) { s_engineForTests = engine; }
+
 StoreEngine *Store::engine()
 {
+    if (s_engineForTests)
+        return s_engineForTests;
     static StoreEngine *shared = [] {
         auto *store = new StoreEngine(dataLocation(), storeKey(), QCoreApplication::instance());
         const QString url = qEnvironmentVariable("QOR_STORE_URL");
@@ -160,7 +166,16 @@ int Store::updateCount() const { return engine()->updateCount(); }
 void Store::refresh() { engine()->refresh(); }
 bool Store::install(const QString &id) { return engine()->install(id); }
 bool Store::remove(const QString &id) { return engine()->remove(id); }
-QVariantMap Store::item(const QString &id) const { return describe(id); }
+// Themes and widgets. A format 2 listing belongs to a view, which this page does not have, so it is not handed out by
+// id.
+QVariantMap Store::item(const QString &id) const
+{
+    const CatalogItem *listed = engine()->catalog().item(id);
+    const auto installed = engine()->installed().constFind(id);
+    const bool isFormatTwo = (listed && listed->format == 2)
+                             || (!listed && installed != engine()->installed().cend() && isKnownKind(installed->kind));
+    return isFormatTwo ? QVariantMap() : describe(id);
+}
 
 QVariantList Store::search(const QString &query, const QString &kind) const
 {

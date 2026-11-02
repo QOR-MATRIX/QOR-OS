@@ -15,10 +15,12 @@
 #include "testshop.h"
 
 #include <QtCore/QBuffer>
+#include <QtCore/QDateTime>
 #include <QtCore/QDirIterator>
 #include <QtCore/QFile>
 #include <QtCore/QHash>
 #include <QtCore/QRegularExpression>
+#include <QtCore/QScopeGuard>
 #include <QtCore/QSettings>
 #include <QtCore/QTemporaryDir>
 #include <QtGui/QImage>
@@ -630,14 +632,29 @@ private Q_SLOTS:
         QVERIFY(engine.hasUpdate(pack.id));
         QCOMPARE(engine.updateCount(), 2);
 
+        // The count Store gives its pages is this one, whatever the engine under it holds.
+        Store::setEngineForTests(&engine);
+        const auto restore = qScopeGuard([] { Store::setEngineForTests(nullptr); });
+        const Store store;
+        QCOMPARE(store.updateCount(), 2);
+
         engine.setCreatorFeatures(false);
         QVERIFY(engine.hasUpdate(game.id));
         QVERIFY(!engine.hasUpdate(pack.id));
         QCOMPARE(engine.updateCount(), 1);
+        QCOMPARE(store.updateCount(), 1);
         QVERIFY(!engine.hasUpdate(u"org.example.pack.none"_s));
 
         engine.setCreatorFeatures(true);
         QCOMPARE(engine.updateCount(), 2);
+        QCOMPARE(store.updateCount(), 2);
+
+        // Nor is an update offered that install would refuse for another reason.
+        engine.setEngines({ { u"qq"_s, u"9.0.0"_s } });
+        QVERIFY(!engine.hasUpdate(game.id));
+        QCOMPARE(store.updateCount(), 0);
+        engine.setEngines({ { u"qq"_s, u"0.5.0"_s } });
+        QCOMPARE(store.updateCount(), 2);
     }
 
     // Every catalogue moved past is still signed, so it is shown refused rather than taken, in plain words.
@@ -916,6 +933,32 @@ private Q_SLOTS:
         const QString error = fronts.licence(game.id).value(u"error"_s).toString();
         QVERIFY2(error.contains(expected), qPrintable(error));
         QVERIFY(all.engine.installed().isEmpty());
+    }
+
+    void aCatalogueThatHasExpiredHandsOverNothing()
+    {
+        Shop shop;
+        Pack game = gamePack();
+        shop.add(game);
+        const QDate today = QDateTime::currentDateTimeUtc().date();
+        shop.expires = today.toString(Qt::ISODate);
+        // In date as it arrives, to be run out from under it below: an engine that can be handed another.
+        class Expiring : public StoreEngine
+        {
+        public:
+            using StoreEngine::adoptCatalog;
+            using StoreEngine::StoreEngine;
+        };
+        QTemporaryDir data;
+        Expiring engine(data.path(), shop.store.publicKey());
+        QCOMPARE(refreshed(engine, shop.publish()), StoreEngine::State::Ready);
+        QVERIFY(engine.fetchLicence(game.id));
+        Catalog expired = engine.catalog();
+        expired.expires = today.addDays(-1);
+        engine.adoptCatalog(expired);
+        QVERIFY(!engine.fetchLicence(game.id));
+        QVERIFY(!engine.fetchPreview(game.id, 0));
+        QVERIFY(engine.listings(View::Player).isEmpty());
     }
 
     void aFormatOneListingHasNoLicenceToFetch()

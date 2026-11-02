@@ -6,10 +6,13 @@
 #include <QtCore/QJsonArray>
 #include <QtCore/QJsonDocument>
 #include <QtCore/QJsonObject>
-#include <QtCore/QRegularExpression>
 #include <QtCore/QSet>
 #include <QtCore/QStringDecoder>
+#include <QtCore/QVarLengthArray>
 #include <QtCore/QtEndian>
+#include <QtGui/QTextDocument>
+
+#include <algorithm>
 
 using namespace Qt::StringLiterals;
 
@@ -78,86 +81,215 @@ bool looksLikeAProgram(const QByteArray &data)
     return false;
 }
 
-// UTF-8, and no control characters but the ones text has. Refuses the start of a program as well.
-bool isPlainText(const QByteArray &data)
+// UTF-8, and no control characters but the tab and the line and page breaks text has. Refuses the start of a program as
+// well. Fills `text` with what it read, so that a file is decoded once.
+bool isPlainText(const QByteArray &data, QString *text)
 {
     if (data.startsWith("#!"))
         return false;
-    for (const char c : data) {
-        const auto byte = quint8(c);
-        if ((byte < 0x20 && byte != '\t' && byte != '\n' && byte != '\r' && byte != '\f') || byte == 0x7f)
+    // Stateless: a stateful decoder takes a character cut off at the end for one still to come, and calls that no
+    // error.
+    QStringDecoder decoder(QStringDecoder::Utf8, QStringDecoder::Flag::Stateless);
+    *text = QString(decoder.decode(data));
+    if (decoder.hasError())
+        return false;
+    for (const QChar c : std::as_const(*text)) {
+        const char16_t unit = c.unicode();
+        if ((unit < 0x20 && unit != u'\t' && unit != u'\n' && unit != u'\r' && unit != u'\f')
+            || (unit >= 0x7f && unit <= 0x9f))
             return false;
     }
-    QStringDecoder decoder(QStringDecoder::Utf8);
-    const QString decoded = decoder.decode(data);
-    return !decoder.hasError();
+    return true;
 }
 
-// A tag a browser or Qt's rich text would act on. Licences do hold angle brackets as plain words (the GPL's
-// <one line to give the program's name>, or <https://www.gnu.org/licenses/>), so these are the names that count.
-bool hasMarkup(const QByteArray &data)
+// A name a browser acts on and Qt does not. Qt's own are asked of Qt, in isElementName.
+bool isBrowserElementName(QStringView name)
 {
-    static const QRegularExpression tag(
-        u"<\\s*/?\\s*(a|abbr|address|audio|b|base|big|blockquote|body|br|button|center|cite|code|dd|del|dfn|div|dl|dt|"
-        "em|embed|font|form|h[1-6]|head|hr|html|i|iframe|img|input|ins|kbd|li|link|meta|nobr|object|ol|p|pre|q|qt|s|"
-        "samp|"
-        "script|small|span|strike|strong|style|sub|sup|svg|table|tbody|td|tfoot|th|thead|title|tr|tt|u|ul|var|video)"
-        "(\\s[^<>]*)?/?>|<!--|<!doctype|<\\?xml"_s,
-        QRegularExpression::CaseInsensitiveOption);
-    return tag.match(QString::fromUtf8(data)).hasMatch();
+    static const QSet<QString> names { u"abbr"_s,     u"applet"_s,    u"audio"_s,   u"base"_s,     u"bgsound"_s,
+                                       u"button"_s,   u"canvas"_s,    u"del"_s,     u"details"_s,  u"dialog"_s,
+                                       u"embed"_s,    u"form"_s,      u"frame"_s,   u"frameset"_s, u"iframe"_s,
+                                       u"input"_s,    u"ins"_s,       u"isindex"_s, u"keygen"_s,   u"link"_s,
+                                       u"listing"_s,  u"marquee"_s,   u"math"_s,    u"noscript"_s, u"object"_s,
+                                       u"picture"_s,  u"plaintext"_s, u"q"_s,       u"script"_s,   u"select"_s,
+                                       u"source"_s,   u"strike"_s,    u"summary"_s, u"svg"_s,      u"template"_s,
+                                       u"textarea"_s, u"track"_s,     u"video"_s,   u"xmp"_s };
+    return names.contains(name.toString());
 }
 
-void collectUris(const QJsonValue &value, QStringList *uris)
+// Whether a tag's name, in lower case, means something to Qt's rich text or to a browser. Qt is asked, so its table is
+// the one in the kit and not a copy that drifts: <name> at the start of a text is rich exactly when it names an
+// element.
+bool isElementName(QStringView name)
+{
+    QVarLengthArray<char16_t, 32> tag;
+    tag.append(u'<');
+    tag.append(name.utf16(), name.size());
+    tag.append(u'>');
+    return Qt::mightBeRichText(QStringView(tag.constData(), tag.size())) || isBrowserElementName(name);
+}
+
+// Whether a text holds markup that a Qt Text, or a browser it reached, would act on. One pass over the text, with no
+// pattern to backtrack and nothing that can fail open: it either finds a tag or reaches the end.
+//
+// Qt::mightBeRichText says whether a Text set to guess would treat the whole of it as rich. It looks only at the first
+// line, so a tag further down is inert until that line turns rich on. Those are refused as well, because what a text is
+// shown by is not known here, and one later change to the first line would wake them all.
+//
+// This reads a tag as Qt's parser does (QTextHtmlParser::parseTag and parseWord): spaces of any kind may come after the
+// `<` and after a `/`, a name may be quoted, and a name holding an entity is decoded. A closing `>` is not required,
+// since Qt's parser takes the tag either way. It stops a name at a `/` as well, as browsers do, for <img/src=x>. A word
+// in angle brackets that names no element, such as the GPL's <year> or <name of author>, is left alone.
+bool hasMarkup(QStringView text)
+{
+    if (Qt::mightBeRichText(text))
+        return true;
+
+    // Longer than any element's name: "blockquote" for Qt, "frameset" and "plaintext" for browsers.
+    constexpr qsizetype kLongestName = 16;
+    const qsizetype size = text.size();
+    for (qsizetype open = text.indexOf(u'<'); open >= 0; open = text.indexOf(u'<', open + 1)) {
+        qsizetype at = open + 1;
+        while (at < size && text[at].isSpace())
+            ++at;
+        if (at == size)
+            return false;
+        if (text[at] == u'!' || text[at] == u'?') // a comment, a doctype, an XML declaration
+            return true;
+        if (text[at] == u'/') {
+            ++at;
+            while (at < size && text[at].isSpace())
+                ++at;
+            if (at == size)
+                return false;
+        }
+        QChar quote;
+        if (text[at] == u'"' || text[at] == u'\'')
+            quote = text[at++];
+
+        QVarLengthArray<char16_t, kLongestName + 1> name;
+        for (; at < size && name.size() <= kLongestName; ++at) {
+            const QChar c = text[at];
+            if (quote.isNull() ? (c.isSpace() || c == u'>' || c == u'/' || c == u'<' || c == u'=') : c == quote)
+                break;
+            if (c == u'&') // Qt decodes an entity in a name, so <&#105;mg> is <img>
+                return true;
+            name.append(c.toLower().unicode());
+        }
+        if (!name.isEmpty() && name.size() <= kLongestName && isElementName(QStringView(name.constData(), name.size())))
+            return true;
+    }
+    return false;
+}
+
+// What a model may carry inside itself. Pictures and buffers: no SVG, script or page, which a model has no use for.
+bool isPassiveData(const QString &uri)
+{
+    static const QStringList kinds { u"data:application/octet-stream;base64,"_s,
+                                     u"data:application/gltf-buffer;base64,"_s,
+                                     u"data:image/png;base64,"_s,
+                                     u"data:image/jpeg;base64,"_s,
+                                     u"data:image/webp;base64,"_s,
+                                     u"data:image/ktx2;base64,"_s };
+    return std::any_of(kinds.cbegin(), kinds.cend(), [&uri](const QString &kind) { return uri.startsWith(kind); });
+}
+
+// Every value under a key called uri, and how many such keys there are of any type.
+void collectUris(const QJsonValue &value, QStringList *uris, qsizetype *keys)
 {
     if (value.isObject()) {
         const QJsonObject object = value.toObject();
         for (auto it = object.begin(); it != object.end(); ++it) {
-            if (it.key() == u"uri"_s && it.value().isString())
-                uris->append(it.value().toString());
-            else
-                collectUris(it.value(), uris);
+            if (it.key() == u"uri"_s) {
+                ++*keys;
+                if (it.value().isString())
+                    uris->append(it.value().toString());
+            }
+            collectUris(it.value(), uris, keys);
         }
     } else if (value.isArray()) {
         for (const QJsonValue &element : value.toArray())
-            collectUris(element, uris);
+            collectUris(element, uris, keys);
     }
 }
 
-// The JSON at the head of a model: all of a .gltf, the first chunk of a .glb. Null if it is not one.
-QJsonObject modelJson(const QString &extension, const QByteArray &data)
+// How many keys called uri a JSON text has, however they are written. Qt's parser keeps only the last of duplicate keys
+// and another reader may take the first, so the parsed count falling short of this means one is hidden. The text has
+// already parsed, so this need not check its shape: one pass over the strings.
+qsizetype countUriKeys(QByteArrayView json)
 {
-    QByteArray json = data;
-    if (extension == u"glb"_s) {
-        constexpr qsizetype kHeader = 12;
-        constexpr qsizetype kChunkHeader = 8;
-        if (data.size() < kHeader + kChunkHeader || !data.startsWith("glTF"))
-            return {};
-        const char *bytes = data.constData();
-        const quint32 version = qFromLittleEndian<quint32>(bytes + 4);
-        const quint32 length = qFromLittleEndian<quint32>(bytes + 8);
-        const quint32 chunk = qFromLittleEndian<quint32>(bytes + kHeader);
-        if (version != 2 || length != quint64(data.size()) || chunk > quint64(data.size() - kHeader - kChunkHeader)
-            || QByteArrayView(bytes + kHeader + 4, 4) != QByteArrayView("JSON"))
-            return {};
-        json = data.mid(kHeader + kChunkHeader, chunk);
+    qsizetype count = 0;
+    const qsizetype size = json.size();
+    for (qsizetype at = 0; at < size; ++at) {
+        if (json[at] != '"')
+            continue;
+        // Only the first few characters are kept, enough to tell "uri", with its letters perhaps escaped.
+        QVarLengthArray<char, 4> word;
+        for (++at; at < size && json[at] != '"'; ++at) {
+            char c = json[at];
+            if (c == '\\' && at + 1 < size) {
+                ++at;
+                c = json[at];
+                if (c == 'u' && at + 4 < size) {
+                    const QByteArray hex = json.sliced(at + 1, 4).toByteArray();
+                    bool ok = false;
+                    const uint unit = hex.toUInt(&ok, 16);
+                    at += 4;
+                    c = ok && unit < 0x80 ? char(unit) : '\0';
+                }
+            }
+            if (word.size() < 4)
+                word.append(c);
+        }
+        qsizetype next = at + 1;
+        while (next < size && (json[next] == ' ' || json[next] == '\t' || json[next] == '\n' || json[next] == '\r'))
+            ++next;
+        if (next < size && json[next] == ':' && QByteArrayView(word.constData(), word.size()) == QByteArrayView("uri"))
+            ++count;
     }
-    const QJsonDocument document = QJsonDocument::fromJson(json);
-    return document.isObject() && document.object().contains(u"asset"_s) ? document.object() : QJsonObject();
+    return count;
+}
+
+// The JSON at the head of a model: all of a .gltf, the first chunk of a .glb. Empty if it is not one.
+QByteArray modelJsonText(const QString &extension, const QByteArray &data)
+{
+    if (extension != u"glb"_s)
+        return data;
+    constexpr qsizetype kHeader = 12;
+    constexpr qsizetype kChunkHeader = 8;
+    if (data.size() < kHeader + kChunkHeader || !data.startsWith("glTF"))
+        return {};
+    const char *bytes = data.constData();
+    const quint32 version = qFromLittleEndian<quint32>(bytes + 4);
+    const quint32 length = qFromLittleEndian<quint32>(bytes + 8);
+    const quint32 chunk = qFromLittleEndian<quint32>(bytes + kHeader);
+    if (version != 2 || length != quint64(data.size()) || chunk > quint64(data.size() - kHeader - kChunkHeader)
+        || QByteArrayView(bytes + kHeader + 4, 4) != QByteArrayView("JSON"))
+        return {};
+    return data.mid(kHeader + kChunkHeader, chunk);
 }
 
 // Every file a model names must be beside it in the package. Adds them to `named`.
 QString refuseModel(const QString &path, const QString &extension, const QMap<QString, QByteArray> &files,
                     QSet<QString> *named)
 {
-    const QJsonObject model = modelJson(extension, files.value(path));
-    if (model.isEmpty())
+    const QByteArray json = modelJsonText(extension, files.value(path));
+    const QJsonDocument document = QJsonDocument::fromJson(json);
+    if (!document.isObject() || !document.object().contains(u"asset"_s))
         return u"%1 is not a model it can read."_s.arg(path);
     QStringList uris;
-    collectUris(model, &uris);
+    qsizetype keys = 0;
+    collectUris(document.object(), &uris, &keys);
+    if (keys != countUriKeys(json))
+        return u"%1 names one thing twice, and two readers would not agree on which."_s.arg(path);
+    if (qsizetype(uris.size()) != keys)
+        return u"%1 names a file by something other than text."_s.arg(path);
     const QString folder = path.left(path.lastIndexOf(u'/') + 1);
     for (const QString &uri : std::as_const(uris)) {
-        if (uri.startsWith(u"data:application/"_s) || uri.startsWith(u"data:image/"_s))
+        if (uri.startsWith(u"data:"_s)) {
+            if (!isPassiveData(uri))
+                return u"%1 carries data of a kind a model may not."_s.arg(path);
             continue;
+        }
         // isSafePackagePath takes no scheme, no percent sign and no climbing, so there is no second reading of this.
         if (!isSafePackagePath(uri) || !files.contains(folder + uri))
             return u"%1 names a file outside the package."_s.arg(path);
@@ -216,14 +348,16 @@ QString refusePackageFiles(const QString &kind, const QMap<QString, QByteArray> 
             continue;
         }
         if (extension == u"txt"_s) {
-            if (!isPlainText(data))
+            QString text;
+            if (!isPlainText(data, &text))
                 return u"%1 is not plain text."_s.arg(path);
-            if (hasMarkup(data))
+            if (hasMarkup(text))
                 return u"%1 holds markup."_s.arg(path);
             continue;
         }
         if (isGame && (extension == u"qml"_s || extension == u"mjs"_s || extension == u"js"_s)) {
-            if (!isPlainText(data))
+            QString text;
+            if (!isPlainText(data, &text))
                 return u"%1 is not plain text."_s.arg(path);
             continue;
         }

@@ -18,9 +18,11 @@ namespace qor::store {
 // js) and the JSON its levels are written in. It holds no native code, no script for the system to start, and no
 // qmldir, which could name a plugin.
 //
-// A .gltf or .glb must name only files beside it in the package, or carry them as data: no climbing, no scheme, no
-// file that is not there. A .txt must be UTF-8 text with no markup, since a Qt Text guesses at rich text and rich text
-// can fetch a picture. (That Text sets textFormat: Text.PlainText too: this is the second wall, not the first.)
+// A .gltf or .glb must name only files beside it in the package, or carry pictures and buffers as data: no climbing, no
+// scheme, no file that is not there, no key named twice. A .txt must be UTF-8 text with no control characters but tab,
+// line and page breaks, and no markup, since a Qt Text guesses at rich text and rich text can fetch a picture. (That
+// Text sets textFormat: Text.PlainText too: this is the second wall, not the first.) Its cost is one pass over the
+// text, whatever the text is.
 QString refusePackageFiles(const QString &kind, const QMap<QString, QByteArray> &files);
 
 // Whether a preview's name and bytes are a picture of a kind previews may be.

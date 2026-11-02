@@ -41,6 +41,17 @@ ArchiveResult failure(const QString &error)
     return result;
 }
 
+ArchiveResult notReadable(const QString &reason)
+{
+    return failure(u"The package is not a readable archive: %1."_s.arg(reason));
+}
+
+ArchiveResult disagrees(const QString &path, const QString &what)
+{
+    return failure(
+        u"The package's entry %1 says a different %2 in its own header and in the directory."_s.arg(path, what));
+}
+
 } // namespace
 
 QString findPathCollision(const QStringList &paths)
@@ -68,35 +79,40 @@ QString findPathCollision(const QStringList &paths)
 
 ArchiveResult readStoredArchive(const QByteArray &archive, qint64 maximumUnpacked)
 {
-    const auto notReadable = [] { return failure(u"The package is not a readable archive."_s); };
     const qint64 size = archive.size();
     if (size < kEndSize)
-        return notReadable();
+        return notReadable(u"it is too short to be one"_s);
     const char *bytes = archive.constData();
     const auto u16 = [bytes](qint64 at) { return qFromLittleEndian<quint16>(bytes + at); };
     const auto u32 = [bytes](qint64 at) { return qFromLittleEndian<quint32>(bytes + at); };
 
     // The end record is the last thing in the file, with no comment after it, so there is one place to find it.
     const qint64 end = size - kEndSize;
-    if (u32(end) != kEndSignature || u16(end + 20) != 0 || u16(end + 4) != 0 || u16(end + 6) != 0)
-        return notReadable();
+    if (u32(end) != kEndSignature)
+        return notReadable(u"it does not finish with an end record"_s);
+    if (u16(end + 20) != 0)
+        return notReadable(u"it says it has a comment"_s);
+    if (u16(end + 4) != 0 || u16(end + 6) != 0)
+        return notReadable(u"it says it spans disks"_s);
     const int count = u16(end + 10);
     if (u16(end + 8) != count)
-        return notReadable();
+        return notReadable(u"its two counts of entries disagree"_s);
     if (count > kMaximumEntries)
         return failure(u"The package holds too many entries."_s);
     const qint64 centralSize = u32(end + 12);
     const qint64 centralStart = u32(end + 16);
     if (centralStart + centralSize != end)
-        return notReadable();
+        return notReadable(u"its directory does not finish where the end record starts"_s);
 
     ArchiveResult result;
     QStringList paths;
     qint64 at = centralStart;
     qint64 nextLocal = 0;
     for (int i = 0; i < count; ++i) {
-        if (at + kCentralSize > end || u32(at) != kCentralSignature)
-            return notReadable();
+        if (at + kCentralSize > end)
+            return notReadable(u"its directory finishes before its count of entries does"_s);
+        if (u32(at) != kCentralSignature)
+            return notReadable(u"a directory entry has the wrong signature"_s);
         const int host = u16(at + 4) >> 8;
         const quint16 flags = u16(at + 8);
         const quint16 method = u16(at + 10);
@@ -110,7 +126,7 @@ ArchiveResult readStoredArchive(const QByteArray &archive, qint64 maximumUnpacke
         const quint32 attributes = u32(at + 38);
         const qint64 local = u32(at + 42);
         if (at + kCentralSize + nameLength + extraLength + commentLength > end)
-            return notReadable();
+            return notReadable(u"a directory entry runs past the directory"_s);
         const QByteArrayView name(bytes + at + kCentralSize, nameLength);
         at += kCentralSize + nameLength + extraLength + commentLength;
 
@@ -119,32 +135,56 @@ ArchiveResult readStoredArchive(const QByteArray &archive, qint64 maximumUnpacke
         if (!isSafePackagePath(path))
             return failure(u"The package contains an unsafe entry: %1"_s.arg(printable(path)));
         if (host != kHostFat && host != kHostUnix && host != kHostNtfs)
-            return failure(u"The package contains an unsafe entry: %1"_s.arg(path));
+            return failure(u"The package contains an unsafe entry, from a system it does not know: %1"_s.arg(path));
         const quint32 unixType = (attributes >> 16) & kUnixTypeMask;
-        if ((unixType != 0 && unixType != kUnixRegular) || (attributes & kDosDirectory) != 0)
-            return failure(u"The package contains an unsafe entry: %1"_s.arg(path));
+        if (unixType != 0 && unixType != kUnixRegular)
+            return failure(u"The package contains an unsafe entry, a link or a folder: %1"_s.arg(path));
+        if ((attributes & kDosDirectory) != 0)
+            return failure(u"The package contains an unsafe entry, marked as a folder: %1"_s.arg(path));
         paths.append(path);
 
         if (method != kStored)
             return failure(u"The package holds a compressed entry, and only stored ones are read: %1"_s.arg(path));
-        if ((flags & ~kUtf8Names) != 0 || extraLength != 0 || commentLength != 0 || diskStart != 0)
-            return failure(u"The package's entry %1 uses what a package may not."_s.arg(path));
+        if ((flags & ~kUtf8Names) != 0)
+            return failure(u"The package's entry %1 has a flag a package may not."_s.arg(path));
+        if (extraLength != 0)
+            return failure(u"The package's entry %1 has an extra field in the directory."_s.arg(path));
+        if (commentLength != 0)
+            return failure(u"The package's entry %1 has a comment."_s.arg(path));
+        if (diskStart != 0)
+            return failure(u"The package's entry %1 says it starts on another disk."_s.arg(path));
         if (packed != unpacked)
             return failure(u"The package's entry %1 claims a size it does not hold."_s.arg(path));
 
         // What the entry's own header says must be what the directory says: two readers of one file get one answer.
         if (local != nextLocal)
             return failure(u"The package's entries overlap or leave a gap, at %1."_s.arg(path));
-        if (local + kLocalSize + nameLength > centralStart || u32(local) != kLocalSignature)
-            return notReadable();
-        if (u16(local + 6) != flags || u16(local + 8) != method || u32(local + 14) != crc || u32(local + 18) != packed
-            || u32(local + 22) != unpacked || u16(local + 26) != nameLength || u16(local + 28) != 0
-            || QByteArrayView(bytes + local + kLocalSize, nameLength) != name)
-            return failure(u"The package's entry %1 claims a size it does not hold."_s.arg(path));
+        if (local + kLocalSize > centralStart)
+            return notReadable(u"an entry's header runs past the entries"_s);
+        if (u32(local) != kLocalSignature)
+            return notReadable(u"an entry's header has the wrong signature"_s);
+        if (u16(local + 6) != flags)
+            return disagrees(path, u"flags"_s);
+        if (u16(local + 8) != method)
+            return disagrees(path, u"method"_s);
+        if (u32(local + 14) != crc)
+            return disagrees(path, u"CRC"_s);
+        if (u32(local + 18) != packed)
+            return disagrees(path, u"stored size"_s);
+        if (u32(local + 22) != unpacked)
+            return disagrees(path, u"unpacked size"_s);
+        if (u16(local + 26) != nameLength)
+            return disagrees(path, u"name length"_s);
+        if (u16(local + 28) != 0)
+            return failure(u"The package's entry %1 has an extra field in its own header."_s.arg(path));
+        if (local + kLocalSize + nameLength > centralStart)
+            return notReadable(u"an entry's name runs past the entries"_s);
+        if (QByteArrayView(bytes + local + kLocalSize, nameLength) != name)
+            return disagrees(path, u"name"_s);
 
         const qint64 data = local + kLocalSize + nameLength;
         if (data + packed > centralStart)
-            return notReadable();
+            return notReadable(u"an entry's bytes run past the entries"_s);
         // Counted from where the bytes lie. No two entries share a byte, so nothing is counted but what is here.
         result.unpacked += packed;
         if (result.unpacked > maximumUnpacked)
@@ -153,7 +193,7 @@ ArchiveResult readStoredArchive(const QByteArray &archive, qint64 maximumUnpacke
         nextLocal = data + packed;
     }
     if (at != end)
-        return notReadable();
+        return notReadable(u"its directory holds more than its count of entries"_s);
     if (nextLocal != centralStart)
         return failure(u"The package's entries overlap or leave a gap, after the last."_s);
     // Asked once, of all the names: asked for each entry, it would cost a hostile archive's many entries squared.

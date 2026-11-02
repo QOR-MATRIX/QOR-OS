@@ -10,6 +10,7 @@
 #include <QtCore/QDir>
 #include <QtCore/QDirIterator>
 #include <QtCore/QFile>
+#include <QtCore/QFileInfo>
 #include <QtCore/QJsonArray>
 #include <QtCore/QJsonDocument>
 #include <QtCore/QJsonObject>
@@ -35,7 +36,7 @@ PackageResult failure(const QString &error)
 
 bool isDeviceName(const QString &part)
 {
-    static const QRegularExpression pattern(u"^(con|prn|aux|nul|com[0-9]|lpt[0-9])(\\.|$)"_s,
+    static const QRegularExpression pattern(u"^(con|prn|aux|nul|com[0-9]|lpt[0-9])(\\.|\\z)"_s,
                                             QRegularExpression::CaseInsensitiveOption);
     return pattern.match(part).hasMatch();
 }
@@ -56,9 +57,9 @@ bool readManifest(const QJsonObject &manifest, PackageManifest *m)
     if (m->format != 2 || !isKnownKind(m->kind))
         return false;
 
-    static const QSet<QString> known { u"format"_s,  u"id"_s,           u"kind"_s,   u"version"_s,
-                                       u"name"_s,    u"developer"_s,    u"stores"_s, u"edition"_s,
-                                       u"licence"_s, u"dependencies"_s, u"files"_s };
+    static const QSet<QString> known { u"format"_s,    u"id"_s,      u"kind"_s,    u"version"_s, u"name"_s,
+                                       u"developer"_s, u"stores"_s,  u"edition"_s, u"licence"_s, u"dependencies"_s,
+                                       u"platforms"_s, u"engines"_s, u"files"_s };
     for (auto it = manifest.begin(); it != manifest.end(); ++it)
         if (!known.contains(it.key()))
             return false;
@@ -80,14 +81,16 @@ bool readManifest(const QJsonObject &manifest, PackageManifest *m)
     if (manifest.contains(u"edition"_s) && !parseEdition(manifest.value(u"edition"_s), m->kind, &m->edition).isEmpty())
         return false;
     return parseLicence(manifest.value(u"licence"_s), &m->licence).isEmpty()
-           && parseDependencies(manifest.value(u"dependencies"_s), &m->dependencies).isEmpty();
+           && parseDependencies(manifest.value(u"dependencies"_s), &m->dependencies).isEmpty()
+           && parsePlatforms(manifest.value(u"platforms"_s), &m->platforms).isEmpty()
+           && parseEngines(manifest.value(u"engines"_s), &m->engines).isEmpty();
 }
 
 } // namespace
 
 bool isSafePackagePath(const QString &path)
 {
-    static const QRegularExpression pattern(u"^[A-Za-z0-9_][A-Za-z0-9._-]*(/[A-Za-z0-9_][A-Za-z0-9._-]*)*$"_s);
+    static const QRegularExpression pattern(u"^[A-Za-z0-9_][A-Za-z0-9._-]*(/[A-Za-z0-9_][A-Za-z0-9._-]*)*\\z"_s);
     if (path.size() > 200 || !pattern.match(path).hasMatch() || path.contains(u".."_s))
         return false;
     for (const QStringView part : QStringView(path).split(u'/')) {
@@ -175,13 +178,26 @@ bool verifyInstalled(const QString &folder, const QByteArray &developerKey, Pack
             return false;
         expected.insert(it.key());
     }
-    // Nothing added: not a qmldir, nor a plugin for one to name.
+    // Nothing added: not a qmldir, nor a plugin for one to name, nor a folder for a loader to look in, nor a link to
+    // one.
+    QSet<QString> folders;
+    for (const QString &path : std::as_const(expected))
+        for (qsizetype slash = path.indexOf(u'/'); slash >= 0; slash = path.indexOf(u'/', slash + 1))
+            folders.insert(path.left(slash));
     QSet<QString> found;
     const QDir root(folder);
-    QDirIterator walk(folder, QDir::Files | QDir::Hidden | QDir::System | QDir::NoDotAndDotDot,
+    QDirIterator walk(folder, QDir::AllEntries | QDir::Hidden | QDir::System | QDir::NoDotAndDotDot,
                       QDirIterator::Subdirectories);
-    while (walk.hasNext())
-        found.insert(root.relativeFilePath(walk.next()));
+    while (walk.hasNext()) {
+        const QFileInfo info = walk.nextFileInfo();
+        const QString path = root.relativeFilePath(info.filePath());
+        if (info.isSymLink() || info.isJunction() || info.isShortcut())
+            return false;
+        if (!info.isDir())
+            found.insert(path);
+        else if (!folders.contains(path))
+            return false;
+    }
     if (found != expected)
         return false;
     if (manifest && !readManifest(object, manifest))

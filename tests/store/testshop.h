@@ -68,9 +68,41 @@ struct RawEntry
     qint64 centralUnpacked = -1; // the same in the directory alone
     int host = 3;
     quint32 mode = 0100644;
+    quint32 dosAttributes = 0;
     QByteArray extra;
     qint64 centralOffset = -1; // where the directory says it starts, when not where it does
     QByteArray centralName;    // what the directory calls it, when not what its own header does
+
+    // One header differing from the other, each field alone.
+    int localFlags = -1;
+    int localMethod = -1;
+    qint64 localCrc = -1;
+    qint64 localPacked = -1;
+    qint64 localUnpacked = -1;
+    int localNameLength = -1;
+    QByteArray localExtra;
+    QByteArray centralExtra;
+    QByteArray centralComment;
+    int centralNameLength = -1;
+    int diskStart = 0;
+    quint32 localSignature = 0x04034b50;
+    quint32 centralSignature = 0x02014b50;
+    bool centralOnly = false; // in the directory, with nothing in the entries
+};
+
+// What the end record says, when not what is so.
+struct ArchiveShape
+{
+    QByteArray leader;
+    QByteArray trailer;
+    int count = -1;
+    int thisDiskCount = -1;
+    int disk = 0;
+    int centralDisk = 0;
+    int commentLength = 0;
+    qint64 centralSize = -1;
+    qint64 centralStart = -1;
+    quint32 endSignature = 0x06054b50;
 };
 
 inline void put16(QByteArray &out, quint16 value)
@@ -85,32 +117,35 @@ inline void put32(QByteArray &out, quint32 value)
     put16(out, quint16(value >> 16));
 }
 
-inline QByteArray forgeArchive(const QList<RawEntry> &entries, const QByteArray &leader = {},
-                               const QByteArray &trailer = {}, int claimedCount = -1)
+inline QByteArray forgeArchive(const QList<RawEntry> &entries, const ArchiveShape &shape = {})
 {
-    QByteArray archive = leader;
+    QByteArray archive = shape.leader;
     QByteArray central;
     for (const RawEntry &entry : entries) {
         const auto offset = quint32(archive.size());
         const auto packed = quint32(entry.packed >= 0 ? entry.packed : entry.data.size());
         const auto unpacked = quint32(entry.unpacked >= 0 ? entry.unpacked : entry.data.size());
-        put32(archive, 0x04034b50);
-        put16(archive, 20);
-        put16(archive, entry.flags);
-        put16(archive, entry.method);
-        put16(archive, 0);
-        put16(archive, 0x21);
-        put32(archive, 0);
-        put32(archive, packed);
-        put32(archive, unpacked);
-        put16(archive, quint16(entry.name.size()));
-        put16(archive, quint16(entry.extra.size()));
-        archive.append(entry.name);
-        archive.append(entry.extra);
-        archive.append(entry.data);
+        if (!entry.centralOnly) {
+            const QByteArray extra = entry.extra + entry.localExtra;
+            put32(archive, entry.localSignature);
+            put16(archive, 20);
+            put16(archive, entry.localFlags >= 0 ? quint16(entry.localFlags) : entry.flags);
+            put16(archive, entry.localMethod >= 0 ? quint16(entry.localMethod) : entry.method);
+            put16(archive, 0);
+            put16(archive, 0x21);
+            put32(archive, entry.localCrc >= 0 ? quint32(entry.localCrc) : 0);
+            put32(archive, entry.localPacked >= 0 ? quint32(entry.localPacked) : packed);
+            put32(archive, entry.localUnpacked >= 0 ? quint32(entry.localUnpacked) : unpacked);
+            put16(archive, entry.localNameLength >= 0 ? quint16(entry.localNameLength) : quint16(entry.name.size()));
+            put16(archive, quint16(extra.size()));
+            archive.append(entry.name);
+            archive.append(extra);
+            archive.append(entry.data);
+        }
 
         const QByteArray name = entry.centralName.isNull() ? entry.name : entry.centralName;
-        put32(central, 0x02014b50);
+        const QByteArray extra = entry.extra + entry.centralExtra;
+        put32(central, entry.centralSignature);
         put16(central, quint16((entry.host << 8) | 20));
         put16(central, 20);
         put16(central, entry.flags);
@@ -120,28 +155,29 @@ inline QByteArray forgeArchive(const QList<RawEntry> &entries, const QByteArray 
         put32(central, 0);
         put32(central, packed);
         put32(central, entry.centralUnpacked >= 0 ? quint32(entry.centralUnpacked) : unpacked);
-        put16(central, quint16(name.size()));
-        put16(central, quint16(entry.extra.size()));
+        put16(central, entry.centralNameLength >= 0 ? quint16(entry.centralNameLength) : quint16(name.size()));
+        put16(central, quint16(extra.size()));
+        put16(central, quint16(entry.centralComment.size()));
+        put16(central, quint16(entry.diskStart));
         put16(central, 0);
-        put16(central, 0);
-        put16(central, 0);
-        put32(central, entry.mode << 16);
+        put32(central, (entry.mode << 16) | entry.dosAttributes);
         put32(central, entry.centralOffset >= 0 ? quint32(entry.centralOffset) : offset);
         central.append(name);
-        central.append(entry.extra);
+        central.append(extra);
+        central.append(entry.centralComment);
     }
     const auto centralStart = quint32(archive.size());
     archive.append(central);
-    const quint16 count = claimedCount >= 0 ? quint16(claimedCount) : quint16(entries.size());
-    put32(archive, 0x06054b50);
-    put16(archive, 0);
-    put16(archive, 0);
+    const quint16 count = shape.count >= 0 ? quint16(shape.count) : quint16(entries.size());
+    put32(archive, shape.endSignature);
+    put16(archive, quint16(shape.disk));
+    put16(archive, quint16(shape.centralDisk));
+    put16(archive, shape.thisDiskCount >= 0 ? quint16(shape.thisDiskCount) : count);
     put16(archive, count);
-    put16(archive, count);
-    put32(archive, quint32(central.size()));
-    put32(archive, centralStart);
-    put16(archive, 0);
-    archive.append(trailer);
+    put32(archive, shape.centralSize >= 0 ? quint32(shape.centralSize) : quint32(central.size()));
+    put32(archive, shape.centralStart >= 0 ? quint32(shape.centralStart) : centralStart);
+    put16(archive, quint16(shape.commentLength));
+    archive.append(shape.trailer);
     return archive;
 }
 
@@ -164,6 +200,8 @@ struct Pack
     QString spdx = u"Apache-2.0"_s;
     QString licenceFile = u"LICENSE.txt"_s;
     QJsonArray dependencies;
+    QJsonArray platforms { currentPlatform() };
+    QJsonArray engines { rangeOf(u"qq"_s, u"0.1.0"_s, u"1.0.0"_s) };
     QMap<QString, QByteArray> files { { u"LICENSE.txt"_s, kLicence }, { u"art/hero.png"_s, kPng } };
     int format = 2;
 
@@ -182,6 +220,8 @@ struct Pack
             object.insert(u"stores"_s, QJsonArray::fromStringList(stores));
             object.insert(u"licence"_s, licence());
             object.insert(u"dependencies"_s, dependencies);
+            object.insert(u"platforms"_s, platforms);
+            object.insert(u"engines"_s, engines);
             if (!edition.isEmpty())
                 object.insert(u"edition"_s, edition);
         }
@@ -233,7 +273,7 @@ inline QJsonObject classifiedListing(const QString &id, const QString &kind, con
              { u"kind"_s, kind },
              { u"placements"_s, placements },
              { u"entitlement"_s, QJsonObject { { u"type"_s, u"free"_s } } },
-             { u"platforms"_s, QJsonArray { u"linux-x86_64"_s } },
+             { u"platforms"_s, QJsonArray { currentPlatform() } },
              { u"executable"_s, false } };
 }
 
@@ -259,6 +299,7 @@ public:
         for (const QString &where : pack.stores)
             placements.append(placementOf(where, pack.category));
         QJsonObject result = classifiedListing(pack.id, pack.kind, placements);
+        result.insert(u"platforms"_s, pack.platforms);
         if (!pack.edition.isEmpty())
             result.insert(u"edition"_s, pack.edition);
         const QJsonObject rest { { u"name"_s, u"A pack"_s },
@@ -272,7 +313,7 @@ public:
                                                                   { u"author"_s, u"someone"_s },
                                                                   { u"source"_s, u"somewhere"_s },
                                                                   { u"permission"_s, u"their own"_s } } },
-                                 { u"engines"_s, QJsonArray { rangeOf(u"qq"_s, u"0.1.0"_s, u"1.0.0"_s) } },
+                                 { u"engines"_s, pack.engines },
                                  { u"dependencies"_s, pack.dependencies },
                                  { u"previews"_s, QJsonArray {} },
                                  { u"package"_s, QJsonObject { { u"file"_s, file },

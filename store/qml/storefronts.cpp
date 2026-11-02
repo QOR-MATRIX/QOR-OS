@@ -126,6 +126,7 @@ StoreEngine *Storefronts::engine()
         state.engine =
             new StoreEngine(Store::dataLocation() + u"/demonstration"_s,
                             QByteArray::fromBase64(QOR_STORE_DEMONSTRATION_KEY), QCoreApplication::instance());
+        state.engine->setEngines({ { u"qq"_s, QStringLiteral(QOR_STORE_QQ_VERSION) } });
         if (!state.catalogues.isEmpty())
             state.engine->setCatalogUrl(state.catalogues.constFirst());
         state.engine->refresh();
@@ -320,7 +321,6 @@ QVariantMap Storefronts::status(const QString &id) const
     const auto installed = store->installed().constFind(id);
     const bool isInstalled = installed != store->installed().cend();
     const bool newer = isInstalled && item && compareVersions(installed->version, item->version) < 0;
-    const bool open = store->hasUpdate(id);
     return {
         { u"name"_s, item          ? item->name
                      : isInstalled ? installed->name
@@ -328,8 +328,8 @@ QVariantMap Storefronts::status(const QString &id) const
         { u"installed"_s, isInstalled },
         { u"installedVersion"_s, isInstalled ? installed->version : QString() },
         { u"version"_s, item ? item->version : QString() },
-        { u"updateAvailable"_s, open },
-        { u"updateWaits"_s, newer && !open },
+        { u"updateAvailable"_s, store->hasUpdate(id) },
+        { u"updateWaits"_s, newer && !isWithinReach(store, *item) },
         { u"busy"_s, store->isBusy(id) },
         { u"progress"_s, store->progress(id) },
     };
@@ -369,9 +369,8 @@ int Storefronts::waitingUpdateCount() const
     if (store) {
         for (const StoreEngine::Installed &installed : store->installed()) {
             const CatalogItem *item = store->catalog().item(installed.id);
-            count += item && compareVersions(installed.version, item->version) < 0 && !store->hasUpdate(installed.id)
-                         ? 1
-                         : 0;
+            count +=
+                item && compareVersions(installed.version, item->version) < 0 && !isWithinReach(store, *item) ? 1 : 0;
         }
     }
     return count;
