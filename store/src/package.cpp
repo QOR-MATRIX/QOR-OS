@@ -157,6 +157,18 @@ PackageResult openPackage(const QByteArray &archive, const QByteArray &developer
     return result;
 }
 
+bool readInstalledManifest(const QString &folder, PackageManifest *manifest)
+{
+    const QFileInfo info(folder + u'/' + kManifest);
+    if (info.isSymLink() || info.isJunction() || !info.isFile() || info.size() > kMaximumManifest)
+        return false;
+    QFile file(info.filePath());
+    if (!file.open(QIODevice::ReadOnly))
+        return false;
+    const QJsonDocument document = QJsonDocument::fromJson(file.read(kMaximumManifest));
+    return document.isObject() && readManifest(document.object(), manifest);
+}
+
 bool verifyInstalled(const QString &folder, const QByteArray &developerKey, PackageManifest *manifest)
 {
     const auto read = [&folder](const QString &name) {

@@ -6,6 +6,7 @@
 #include <QtCore/QCryptographicHash>
 #include <QtCore/QDateTime>
 #include <QtCore/QDir>
+#include <QtCore/QDirIterator>
 #include <QtCore/QFile>
 #include <QtCore/QFileInfo>
 #include <QtCore/QJsonArray>
@@ -16,12 +17,18 @@
 #include <QtCore/QRegularExpression>
 #include <QtCore/QSaveFile>
 #include <QtCore/QSet>
+#include <QtCore/QTimeZone>
 #include <QtCore/QTimer>
 #include <QtCore/QUuid>
 #include <QtNetwork/QNetworkAccessManager>
 #include <QtNetwork/QNetworkReply>
 
 #include <algorithm>
+
+#ifdef Q_OS_UNIX
+#include <fcntl.h>
+#include <unistd.h>
+#endif
 
 using namespace Qt::StringLiterals;
 
@@ -33,8 +40,9 @@ namespace {
 
 constexpr qint64 kMaximumCatalogSize = 4 * 1024 * 1024;
 constexpr qint64 kMaximumPreviewSize = 4 * 1024 * 1024;
-// A plan's packages are held in memory until all of them are verified, so what one plan may come to is bounded.
-constexpr qint64 kMaximumPlanBytes = 128 * 1024 * 1024;
+// A plan's packages are held in memory until all of them are verified, so what every plan under way may come to,
+// together, is bounded.
+constexpr qint64 kMaximumHeldBytes = 128 * 1024 * 1024;
 constexpr int kTransferTimeoutMs = 30000;
 constexpr int kLockTimeoutMs = 5000;
 
@@ -63,6 +71,45 @@ bool samePlatforms(QStringList a, QStringList b)
 }
 
 QString journalPath(const QString &dataDir) { return dataDir + u"/plan-journal.json"_s; }
+
+// The store's lock is never taken from a holder that is alive, however long it has held it. Qt would otherwise take a
+// lock older than 30 seconds wherever the file system has no locks of its own to show the holder is there, as a
+// network or FUSE one may not. A holder that has died is still found out, by its process.
+bool takeLock(QLockFile &lock, int timeoutMs)
+{
+    lock.setStaleLockTime(0);
+    return lock.tryLock(timeoutMs);
+}
+
+bool isLink(const QFileInfo &info) { return info.isSymLink() || info.isJunction(); }
+
+// Whether anything stands at a path, a link to nothing included.
+bool present(const QString &path)
+{
+    const QFileInfo info(path);
+    return info.exists() || isLink(info);
+}
+
+// Deletes what stands at a path, and never through a link: a link, at the top or anywhere inside, goes itself, and
+// what it points to stays where it is. QDir::removeRecursively follows a link it is given.
+bool removeTree(const QString &path)
+{
+    const QFileInfo info(path);
+    if (isLink(info))
+        return QFile::remove(path) || QDir().rmdir(path); // a link to a folder on Windows is removed as a folder
+    if (!info.exists())
+        return true;
+    if (!info.isDir())
+        return QFile::remove(path);
+    QStringList entries;
+    QDirIterator walk(path, QDir::AllEntries | QDir::Hidden | QDir::System | QDir::NoDotAndDotDot);
+    while (walk.hasNext())
+        entries.append(walk.next());
+    bool removed = true;
+    for (const QString &entry : std::as_const(entries))
+        removed = removeTree(entry) && removed;
+    return QDir().rmdir(path) && removed;
+}
 
 } // namespace
 
@@ -240,7 +287,7 @@ void StoreEngine::takeCatalog(Catalog catalog)
 QString StoreEngine::admit(const Catalog &catalog, const QByteArray &json)
 {
     QLockFile lock(m_dataDir + u"/.lock"_s);
-    if (!lock.tryLock(kLockTimeoutMs))
+    if (!takeLock(lock, kLockTimeoutMs))
         return u"The store is busy in another program."_s;
     loadSequence();
 
@@ -276,6 +323,7 @@ QString StoreEngine::admit(const Catalog &catalog, const QByteArray &json)
         || file.write(QJsonDocument(QJsonObject { { u"format"_s, 2 }, { u"stores"_s, stores } }).toJson()) < 0
         || !file.commit())
         return u"The store could not remember this catalogue's sequence, so it is not taken."_s;
+    syncFolder(m_dataDir);
     m_lastSequence = catalog.sequence;
     m_lastDigest = digest;
     return {};
@@ -456,9 +504,13 @@ void StoreEngine::stepArrived(const PlanPtr &plan, const QString &id, const QByt
         return failPlan(plan, id, why);
     if (const QString refusal = refusalAgainstInstalled(*item); !refusal.isEmpty())
         return failPlan(plan, id, refusal);
-    plan->bytes += package.unpacked;
-    if (plan->bytes > kMaximumPlanBytes)
+    // Plans started together wait together, so what they hold is bounded together.
+    if (plan->bytes + package.unpacked > heldBytesLimit())
         return failPlan(plan, id, u"This install would take too much at once."_s);
+    if (m_heldBytes + package.unpacked > heldBytesLimit())
+        return failPlan(plan, id, u"Too much is on its way at once. Try this again when the rest has finished."_s);
+    plan->bytes += package.unpacked;
+    m_heldBytes += package.unpacked;
 
     plan->verified.append(Step { id, std::move(package) });
     ++plan->next;
@@ -478,9 +530,10 @@ void StoreEngine::commitPlan(const PlanPtr &plan)
         lock.unlock();
         failPlan(plan, id, error);
     };
-    if (!lock.tryLock(kLockTimeoutMs))
+    if (!takeLock(lock, kLockTimeoutMs))
         return refuse(root, u"The store is busy in another program."_s);
-    recoverLocked();
+    if (!recoverLocked())
+        return refuse(root, u"The store could not finish clearing up after an earlier install."_s);
     m_installed = readInstalled();
 
     QMap<QString, InstalledVersion> incoming;
@@ -505,7 +558,7 @@ void StoreEngine::commitPlan(const PlanPtr &plan)
     QList<Move> moves;
     const auto clearStaging = [&items, &moves] {
         for (const Move &move : std::as_const(moves))
-            QDir(items + move.staging).removeRecursively();
+            removeTree(items + move.staging);
     };
     for (const Step &step : std::as_const(plan->verified)) {
         const QString tag = QUuid::createUuid().toString(QUuid::Id128);
@@ -526,13 +579,26 @@ void StoreEngine::commitPlan(const PlanPtr &plan)
             }
         }
     }
+    // What was written is on the disk before the journal says it is there, and the journal before anything moves.
+    for (const Move &move : std::as_const(moves)) {
+        QDirIterator folders(items + move.staging, QDir::Dirs | QDir::Hidden | QDir::NoDotAndDotDot,
+                             QDirIterator::Subdirectories);
+        while (folders.hasNext())
+            syncFolder(folders.next());
+        syncFolder(items + move.staging);
+    }
+    syncFolder(items);
     if (!writeJournal(transaction, moves)) {
         clearStaging();
         return refuse(root, u"The store could not write down what it was about to do."_s);
     }
+    syncFolder(m_dataDir);
+    // Put back what moved, as recovery would. Cut short, it leaves the journal for the next engine to finish with.
     const auto giveUp = [&](const QString &id, const QString &error) {
-        undoMoves(moves);
-        removeJournal();
+        if (undoMoves(moves)) {
+            syncFolder(items);
+            removeJournal();
+        }
         refuse(id, error);
     };
     if (!reachedStage(CommitStage::JournalWritten))
@@ -550,6 +616,8 @@ void StoreEngine::commitPlan(const PlanPtr &plan)
             return giveUp(move.id, u"The package could not be installed."_s);
     }
 
+    syncFolder(items);
+
     QMap<QString, Installed> records = m_installed;
     const QString now = QDateTime::currentDateTimeUtc().toString(Qt::ISODate);
     for (const Step &step : std::as_const(plan->verified)) {
@@ -560,18 +628,20 @@ void StoreEngine::commitPlan(const PlanPtr &plan)
     // This write is the moment it happens. A crash before it puts everything back, and one after it finishes the job.
     if (!saveInstalled(records, transaction))
         return giveUp(root, u"The store could not write down what is installed."_s);
+    syncFolder(m_dataDir);
     if (!reachedStage(CommitStage::RecordWritten))
         qCWarning(lcStore) << "An install went ahead past a stage asked to stop it, since it had already happened.";
 
     for (const Move &move : std::as_const(moves)) {
         if (!move.previous.isEmpty())
-            QDir(items + move.previous).removeRecursively();
+            removeTree(items + move.previous);
         reachedStage(CommitStage::OldRemoved);
     }
     removeJournal();
     lock.unlock();
 
     m_installed = records;
+    releaseHeld(plan);
     plan->over = true;
     for (const QString &step : std::as_const(plan->steps)) {
         m_jobs.remove(step);
@@ -614,12 +684,19 @@ void StoreEngine::failPlan(const PlanPtr &plan, const QString &id, const QString
 {
     plan->over = true;
     plan->verified.clear();
+    releaseHeld(plan);
     for (const QString &step : std::as_const(plan->steps))
         m_jobs.remove(step);
     fail(id, error);
     for (const QString &step : std::as_const(plan->steps))
         if (step != id)
             fail(step, u"%1 could not be installed: %2"_s.arg(id, error));
+}
+
+void StoreEngine::releaseHeld(const PlanPtr &plan)
+{
+    m_heldBytes -= plan->bytes;
+    plan->bytes = 0;
 }
 
 bool StoreEngine::remove(const QString &id)
@@ -633,17 +710,18 @@ bool StoreEngine::remove(const QString &id)
         fail(id, error);
         return false;
     };
-    if (!lock.tryLock(kLockTimeoutMs))
+    if (!takeLock(lock, kLockTimeoutMs))
         return refuse(u"The store is busy in another program."_s);
-    recoverLocked();
+    if (!recoverLocked())
+        return refuse(u"The store could not finish clearing up after an earlier install."_s);
     m_installed = readInstalled();
-    const auto present = m_installed.constFind(id);
-    if (present == m_installed.cend())
+    const auto record = m_installed.constFind(id);
+    if (record == m_installed.cend())
         return false;
     for (const Installed &other : std::as_const(m_installed))
         for (const VersionRange &range : other.dependencies)
             // A range that does not hold now is not kept holding by leaving this where it is.
-            if (range.id == id && isVersionInRange(present->version, range.min, range.below))
+            if (range.id == id && isVersionInRange(record->version, range.min, range.below))
                 return refuse(u"%1 needs this, so it stays."_s.arg(other.id));
 
     const QString transaction = QUuid::createUuid().toString(QUuid::Id128);
@@ -653,16 +731,21 @@ bool StoreEngine::remove(const QString &id)
     records.remove(id);
     if (!writeJournal(transaction, moves))
         return refuse(u"The store could not write down what it was about to do."_s);
+    syncFolder(m_dataDir);
     if (!QDir().rename(items + id, items + moves.constFirst().previous)) {
         removeJournal();
         return refuse(u"It is in use."_s);
     }
+    syncFolder(items);
     if (!saveInstalled(records, transaction)) {
-        undoMoves(moves);
-        removeJournal();
+        if (undoMoves(moves)) {
+            syncFolder(items);
+            removeJournal();
+        }
         return refuse(u"The store could not write down what is installed."_s);
     }
-    QDir(items + moves.constFirst().previous).removeRecursively();
+    syncFolder(m_dataDir);
+    removeTree(items + moves.constFirst().previous);
     removeJournal();
     lock.unlock();
 
@@ -710,30 +793,50 @@ bool StoreEngine::writeJournal(const QString &transaction, const QList<Move> &mo
 
 void StoreEngine::removeJournal() const { QFile::remove(journalPath(m_dataDir)); }
 
-// Puts back whatever of `moves` happened, last first, from what is on disk. A move has two renames: what was installed
-// goes aside, then what is new takes its place. A staging folder that is still there tells which of those had happened.
-void StoreEngine::undoMoves(const QList<Move> &moves) const
+// Puts back whatever of `moves` happened, last first. A move has two renames: what was installed goes aside, then
+// what is new takes its place. This may be cut short at any point and run again over the same journal, by a crash or
+// a journal that could not be removed, so it decides from what is on disk and never from an absence it may have made
+// itself. The old version set aside is what it looks for: while that is there, whatever stands under the id came in
+// with this transaction and goes, then the old version goes back. Once it is back, the id is not touched again. Where
+// nothing stood under the id before, whatever stands there now came in with this transaction. False if it was cut
+// short, which only a test does.
+bool StoreEngine::undoMoves(const QList<Move> &moves)
 {
     const QString items = m_dataDir + u"/items/"_s;
     for (auto move = moves.crbegin(); move != moves.crend(); ++move) {
         const QString target = items + move->id;
-        const bool newLanded = move->staging.isEmpty() || !QFileInfo::exists(items + move->staging);
-        const bool setAside = !move->previous.isEmpty() && QFileInfo::exists(items + move->previous);
-        if (!move->staging.isEmpty())
-            QDir(items + move->staging).removeRecursively();
-        if (newLanded && !move->staging.isEmpty() && QFileInfo::exists(target))
-            QDir(target).removeRecursively();
-        if (setAside)
+        if (!move->staging.isEmpty() && present(items + move->staging)) {
+            removeTree(items + move->staging);
+            if (!reachedStage(CommitStage::RecoveryStep))
+                return false;
+        }
+        if (!move->previous.isEmpty()) {
+            if (!present(items + move->previous))
+                continue; // never set aside, or already back
+            if (present(target)) {
+                removeTree(target);
+                if (!reachedStage(CommitStage::RecoveryStep))
+                    return false;
+            }
             QDir().rename(items + move->previous, target);
+            if (!reachedStage(CommitStage::RecoveryStep))
+                return false;
+        } else if (!move->staging.isEmpty() && present(target)) {
+            removeTree(target);
+            if (!reachedStage(CommitStage::RecoveryStep))
+                return false;
+        }
     }
+    return true;
 }
 
 // A crash during an install or a removal. The journal says what was being done and installed.json says whether it
 // happened, because that is the last thing written. If it did, this finishes clearing up. If not, everything goes back.
-// After that, anything of the older kind of leftover is cleared: a staging folder goes, and an old version set aside
-// goes back if nothing replaced it. The caller holds the store's lock, so none of this is another program's install
-// under way.
-void StoreEngine::recoverLocked() const
+// Either may run again over the same journal and comes to the same end. After that, anything of the older kind of
+// leftover is cleared: a staging folder goes, and an old version set aside goes back if nothing replaced it. The caller
+// holds the store's lock, so none of this is another program's install under way. False if it was cut short, which only
+// a test does, and then the journal stays for the next engine.
+bool StoreEngine::recoverLocked()
 {
     const QString items = m_dataDir + u"/items/"_s;
     QFile journal(journalPath(m_dataDir));
@@ -742,83 +845,111 @@ void StoreEngine::recoverLocked() const
         journal.close();
         QList<Move> moves;
         static const QRegularExpression staging(u"^\\.staging-[0-9a-f]{32}\\z"_s);
-        static const QRegularExpression previous(u"\\.old-[0-9a-f]{32}\\z"_s);
+        static const QRegularExpression aside(u"^\\.old-[0-9a-f]{32}\\z"_s);
         for (const QJsonValue &value : object.value(u"moves"_s).toArray()) {
             const QJsonObject entry = value.toObject();
             const Move move { entry.value(u"id"_s).toString(), entry.value(u"staging"_s).toString(),
                               entry.value(u"previous"_s).toString() };
-            // Names only ever inside items/, whatever the file says.
+            // Names only ever inside items/, whatever the file says: an id, and the id set aside, exactly.
             if (isValidItemId(move.id) && (move.staging.isEmpty() || staging.match(move.staging).hasMatch())
                 && (move.previous.isEmpty()
-                    || (move.previous.startsWith(move.id) && previous.match(move.previous).hasMatch())))
+                    || (move.previous.startsWith(move.id)
+                        && aside.match(move.previous.mid(move.id.size())).hasMatch())))
                 moves.append(move);
         }
         QString transaction;
         const QMap<QString, Installed> records = readInstalled(&transaction);
         Q_UNUSED(records);
         if (!transaction.isEmpty() && transaction == object.value(u"transaction"_s).toString()) {
-            for (const Move &move : std::as_const(moves))
-                if (!move.previous.isEmpty())
-                    QDir(items + move.previous).removeRecursively();
-        } else {
-            undoMoves(moves);
+            for (const Move &move : std::as_const(moves)) {
+                if (move.previous.isEmpty() || !present(items + move.previous))
+                    continue;
+                removeTree(items + move.previous);
+                if (!reachedStage(CommitStage::RecoveryStep))
+                    return false;
+            }
+        } else if (!undoMoves(moves)) {
+            return false;
         }
+        syncFolder(items);
         removeJournal();
     }
 
     const QDir folder(items);
     static const QRegularExpression old(u"^(.+)\\.old-[0-9a-f]{32}\\z"_s);
-    const QStringList names = folder.entryList(QDir::Dirs | QDir::Hidden | QDir::NoDotAndDotDot);
+    const QStringList names = folder.entryList(QDir::Dirs | QDir::Hidden | QDir::System | QDir::NoDotAndDotDot);
     for (const QString &name : names) {
         if (name.startsWith(u".staging-"_s)) {
-            QDir(folder.filePath(name)).removeRecursively();
+            removeTree(folder.filePath(name));
             continue;
         }
         const QRegularExpressionMatch match = old.match(name);
         if (!match.hasMatch())
             continue;
         const QString id = match.captured(1);
-        if (isValidItemId(id) && !QFileInfo::exists(folder.filePath(id)))
+        if (isValidItemId(id) && !present(folder.filePath(id)))
             QDir().rename(folder.filePath(name), folder.filePath(id));
         else
-            QDir(folder.filePath(name)).removeRecursively();
+            removeTree(folder.filePath(name));
     }
+    return true;
 }
 
 // If another program holds the store's lock, this leaves everything alone: that is an install under way, not an
 // abandoned one.
-void StoreEngine::recoverInterrupted() const
+void StoreEngine::recoverInterrupted()
 {
     const QDir folder(m_dataDir + u"/items"_s);
     static const QRegularExpression old(u"\\.old-[0-9a-f]{32}\\z"_s);
-    const QStringList names = folder.entryList(QDir::Dirs | QDir::Hidden | QDir::NoDotAndDotDot);
+    const QStringList names = folder.entryList(QDir::Dirs | QDir::Hidden | QDir::System | QDir::NoDotAndDotDot);
     const auto isLeftOver = [](const QString &name) {
         return name.startsWith(u".staging-"_s) || old.match(name).hasMatch();
     };
     if (!QFileInfo::exists(journalPath(m_dataDir)) && std::none_of(names.cbegin(), names.cend(), isLeftOver))
         return;
     QLockFile lock(m_dataDir + u"/.lock"_s);
-    if (lock.tryLock(0))
+    if (takeLock(lock, 0))
         recoverLocked();
 }
 
-// The records on disk now. What cannot be read is set aside and not believed: nothing it listed is lost, since a
-// reinstall replaces its folder, and nothing else is kept from working by it.
+// What is installed, read from the folders themselves: each manifest's claims, unchecked. Only for when the record
+// cannot be read or is gone, so that an id still keeps its version, developer and kind against a catalogue that would
+// move it back or hand it to someone else. A same-user process could write a manifest here, as it could the record.
+QMap<QString, StoreEngine::Installed> StoreEngine::installedFromFolders() const
+{
+    QMap<QString, Installed> records;
+    const QDir folder(m_dataDir + u"/items"_s);
+    const QStringList names = folder.entryList(QDir::Dirs | QDir::NoDotAndDotDot);
+    for (const QString &name : names) {
+        PackageManifest manifest;
+        if (!isValidItemId(name) || !readInstalledManifest(folder.filePath(name), &manifest) || manifest.id != name)
+            continue;
+        records.insert(name, { name, manifest.kind, manifest.name, manifest.version, manifest.developer,
+                               QFileInfo(folder.filePath(name)).lastModified(QTimeZone::UTC).toString(Qt::ISODate),
+                               manifest.dependencies });
+    }
+    return records;
+}
+
+// The records on disk now. What cannot be read is set aside and not believed. What the folders hold stands in for it,
+// as it does when there is no record at all: nothing it listed is lost, since a reinstall replaces its folder, and
+// nothing else is kept from working by it.
 QMap<QString, StoreEngine::Installed> StoreEngine::readInstalled(QString *transaction) const
 {
     QMap<QString, Installed> records;
     const QString path = m_dataDir + u"/installed.json"_s;
     QFile file(path);
     if (!file.open(QIODevice::ReadOnly))
-        return records;
+        return installedFromFolders();
     const QJsonDocument document = QJsonDocument::fromJson(file.readAll());
     file.close();
     if (!document.isObject()) {
-        qCWarning(lcStore) << "The store's record of what is installed cannot be read, and is set aside.";
+        qCWarning(lcStore) << "The store's record of what is installed cannot be read. It is set aside, and what the "
+                              "folders hold stands in for it.";
         const QString aside = path + u".unreadable"_s;
         QFile::remove(aside);
         QFile::rename(path, aside);
-        return records;
+        return installedFromFolders();
     }
     if (transaction)
         *transaction = document.object().value(u"transaction"_s).toString();
@@ -861,5 +992,21 @@ bool StoreEngine::saveInstalled(const QMap<QString, Installed> &records, const Q
     const QJsonObject root { { u"format"_s, 1 }, { u"transaction"_s, transaction }, { u"items"_s, items } };
     return file.write(QJsonDocument(root).toJson(QJsonDocument::Indented)) >= 0 && file.commit();
 }
+
+void StoreEngine::syncFolder(const QString &path) const
+{
+#ifdef Q_OS_UNIX
+    const int folder = ::open(QFile::encodeName(path).constData(), O_RDONLY | O_DIRECTORY | O_CLOEXEC);
+    if (folder < 0)
+        return;
+    if (::fsync(folder) != 0)
+        qCWarning(lcStore) << "A folder of the store's could not be made durable:" << path;
+    ::close(folder);
+#else
+    Q_UNUSED(path);
+#endif
+}
+
+qint64 StoreEngine::heldBytesLimit() const { return kMaximumHeldBytes; }
 
 } // namespace qor::store

@@ -137,8 +137,12 @@ bool isElementName(QStringView name)
 //
 // This reads a tag as Qt's parser does (QTextHtmlParser::parseTag and parseWord): spaces of any kind may come after the
 // `<` and after a `/`, a name may be quoted, and a name holding an entity is decoded. A closing `>` is not required,
-// since Qt's parser takes the tag either way. It stops a name at a `/` as well, as browsers do, for <img/src=x>. A word
-// in angle brackets that names no element, such as the GPL's <year> or <name of author>, is left alone.
+// since Qt's parser takes the tag either way. It stops a name at a `/` as well, as browsers do, for <img/src=x>.
+//
+// A tag is markup if Qt or a browser knows its name, and whatever its name if it carries a value: an `=` before the `>`
+// that ends it, or before the end of the text when nothing does. Qt applies `style` to a tag it does not know, and a
+// style can fetch a picture; a browser runs an event handler on any tag. What is left is what licences hold: plain
+// words in angle brackets, such as the GPL's <year> or <one line to give the program's name...>, an address or a link.
 bool hasMarkup(QStringView text)
 {
     if (Qt::mightBeRichText(text))
@@ -147,7 +151,17 @@ bool hasMarkup(QStringView text)
     // Longer than any element's name: "blockquote" for Qt, "frameset" and "plaintext" for browsers.
     constexpr qsizetype kLongestName = 16;
     const qsizetype size = text.size();
+    // Every `<` before the same `>` opens a tag that ends there, so each stretch up to a `>` is read once, for that `>`
+    // and the last `=` before it, and a text of nothing but `<` stays one pass.
+    qsizetype tagEnd = -1;
+    qsizetype lastValue = -1;
     for (qsizetype open = text.indexOf(u'<'); open >= 0; open = text.indexOf(u'<', open + 1)) {
+        if (open > tagEnd) {
+            lastValue = -1;
+            for (tagEnd = open; tagEnd < size && text[tagEnd] != u'>'; ++tagEnd)
+                if (text[tagEnd] == u'=')
+                    lastValue = tagEnd;
+        }
         qsizetype at = open + 1;
         while (at < size && text[at].isSpace())
             ++at;
@@ -175,7 +189,11 @@ bool hasMarkup(QStringView text)
                 return true;
             name.append(c.toLower().unicode());
         }
-        if (!name.isEmpty() && name.size() <= kLongestName && isElementName(QStringView(name.constData(), name.size())))
+        if (name.isEmpty())
+            continue;
+        if (name.size() <= kLongestName && isElementName(QStringView(name.constData(), name.size())))
+            return true;
+        if (lastValue >= at) // a value after the name, whatever the name
             return true;
     }
     return false;
