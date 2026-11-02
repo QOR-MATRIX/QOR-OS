@@ -7,6 +7,41 @@
 # unknown instead of finding the real one, even for someone running the tests as an administrator.
 #
 # A new VM has Hyper-V's own unsafe defaults, on purpose: a setting the script forgets to make reads back wrong.
+#
+# Nor does anything here reach this machine's folders. Every path the script would make, lock, read the permissions of or delete
+# must be under the test's own temporary folder, QOR_TEST_TEMP, or the stand-ins stop the run before it does. So a test that goes
+# wrong cannot write X:\qor-ci-vm, C:\ProgramData\qor-ci-vm or the real %LOCALAPPDATA%\qor-ci-vm (AGENTS.md section 7).
+
+$global:StandInTemp = "$env:QOR_TEST_TEMP"
+if (-not $global:StandInTemp -or -not [IO.Path]::IsPathRooted($global:StandInTemp) -or -not (Test-Path -LiteralPath $global:StandInTemp -PathType Container)) {
+    throw "The stand-ins need QOR_TEST_TEMP to name the test's own temporary folder, and it is '$($env:QOR_TEST_TEMP)'. Nothing was run."
+}
+$global:StandInTemp = [IO.Path]::GetFullPath($global:StandInTemp).TrimEnd('\')
+
+function ConvertTo-StandInKey([string] $Path) {
+    $full = [IO.Path]::GetFullPath($Path)
+    return ($full.Length -gt 3) ? $full.TrimEnd('\') : $full
+}
+function Test-UnderStandInTemp([string] $Path) {
+    if (-not $Path -or -not [IO.Path]::IsPathRooted($Path)) { return $false }
+    $key = ConvertTo-StandInKey $Path
+    return $key.StartsWith($global:StandInTemp + '\', [StringComparison]::OrdinalIgnoreCase)
+}
+function Assert-UnderStandInTemp([string] $Path, [string] $What) {
+    if (-not (Test-UnderStandInTemp $Path)) {
+        throw "The stand-ins refuse $What at '$Path': it is not under the test's own temporary folder, $global:StandInTemp."
+    }
+}
+foreach ($name in 'StateDir', 'KeyDir', 'KeyFile', 'KnownHosts', 'AdminStateDir', 'RecordFile') {
+    Assert-UnderStandInTemp (Get-Variable -Name $name -Scope Script -ValueOnly) "the script's $name"
+}
+# Every -Root, from an argument, the record or the default, goes through Assert-SafeRoot, and so through this.
+$global:RealAssertSafeRoot = ${function:Assert-SafeRoot}
+function Assert-SafeRoot([string] $Path) {
+    $full = & $global:RealAssertSafeRoot $Path
+    Assert-UnderStandInTemp $full 'a -Root'
+    return $full
+}
 
 $global:World = @{
     Calls       = [System.Collections.Generic.List[string]]::new()
@@ -30,6 +65,10 @@ $global:World = @{
         [pscustomobject] @{ Name = 'Public'; Enabled = 'True' }
     )
     Routes      = @([pscustomobject] @{ DestinationPrefix = '192.168.1.0/24'; InterfaceAlias = 'Wi-Fi'; NextHop = '0.0.0.0' })
+    # What an administrator made, or gave to Administrators, in this run. Everything else under the test's folder is what an
+    # ordinary process made: the test's own planting included, which is the point.
+    AdminOwned  = [System.Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
+    OwnerReads  = [System.Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
 }
 
 function Get-StandInArguments([object[]] $Given) {
@@ -75,9 +114,17 @@ function Save-Image([string] $Url, [string] $Path) {
     Copy-Item -LiteralPath $global:World.ImageSource -Destination $Path
 }
 function Invoke-Quiet([string] $Program, [string[]] $Arguments) {
-    # For icacls, the path it acts on is recorded too, so a test can see which folder was locked.
+    # For icacls, the path it acts on is recorded too, so a test can see which folder was locked or given to Administrators.
     $leaf = Split-Path -Leaf $Program
-    $global:World.Calls.Add($leaf -eq 'icacls.exe' ? "Invoke-Quiet icacls.exe $($Arguments[0])" : "Invoke-Quiet $leaf")
+    $global:World.Calls.Add($leaf -eq 'icacls.exe' ? "Invoke-Quiet icacls.exe $($Arguments[0])$(('/setowner' -in $Arguments) ? ' /setowner' : '')" : "Invoke-Quiet $leaf")
+    if ($leaf -eq 'icacls.exe') {
+        Assert-UnderStandInTemp $Arguments[0] 'icacls'
+        if ('/setowner' -in $Arguments) {
+            # Only an elevated process can give a file to Administrators.
+            if (-not $global:World.Admin) { throw 'icacls.exe failed: exit 5' }
+            $null = $global:World.AdminOwned.Add((ConvertTo-StandInKey $Arguments[0]))
+        }
+    }
     if ($Program -like '*ssh-keygen*') {
         $key = $Arguments[$Arguments.IndexOf('-f') + 1]
         Set-Content -LiteralPath $key -Value 'stand-in for a private key, which no test ever prints' -NoNewline
@@ -107,6 +154,58 @@ function Invoke-Ssh {
         return [pscustomobject] @{ ExitCode = 0; Lines = $lines; Error = '' }
     }
     return [pscustomobject] @{ ExitCode = 0; Lines = @(); Error = '' }
+}
+
+# ---- Who owns what. The script's own Get-PathTrustProblem and Get-SecurityTrustProblem run; only what Windows would say is
+# stood in for, and New-ProtectedFolder, which unelevated Windows refuses (a test of the real one shows it).
+function New-ProtectedFolder([string] $Path, [switch] $OwnerMayRead) {
+    $key = ConvertTo-StandInKey $Path
+    Assert-UnderStandInTemp $key 'a protected folder'
+    $global:World.Calls.Add("New-ProtectedFolder $key")
+    if (-not $global:World.Admin) { throw 'This security ID may not be assigned as the owner of this object.' }
+    Assert-NoReparsePoint $key
+    # As the real one: a folder that is here first is not made over, and keeps whoever made it.
+    if (Test-Path -LiteralPath $key) { return }
+    $null = New-Item -ItemType Directory -Path $key
+    $null = $global:World.AdminOwned.Add($key)
+    if ($OwnerMayRead) { $null = $global:World.OwnerReads.Add($key) }
+}
+function New-StandInRule([string] $Sid, [long] $Rights, [bool] $InheritOnly = $false) {
+    return [pscustomobject] @{ Sid = $Sid; Allow = $true; Rights = $Rights; InheritOnly = $InheritOnly }
+}
+function Read-PathSecurity([string] $Path) {
+    $key = ConvertTo-StandInKey $Path
+    $me = Get-OwnSid
+    $full = 0x1f01ffL
+    $read = 0x1200a9L
+    if ($global:World.AdminOwned.Contains($key)) {
+        $rules = @((New-StandInRule 'S-1-5-32-544' $full), (New-StandInRule 'S-1-5-18' $full), (New-StandInRule 'S-1-3-4' $read))
+        $walk = $key
+        while ($walk) {
+            if ($global:World.OwnerReads.Contains($walk)) { $rules += New-StandInRule $me $read; break }
+            $parent = Split-Path -Parent $walk
+            $walk = ($parent -and $parent -ne $walk) ? $parent : ''
+        }
+        return [pscustomobject] @{ Owner = 'S-1-5-32-544'; Rules = $rules }
+    }
+    # The test's stand-in for C:\ProgramData, as this machine's is: SYSTEM's, and any user may make a folder in it.
+    if ($env:ProgramData -and $key -eq (ConvertTo-StandInKey $env:ProgramData)) {
+        return [pscustomobject] @{ Owner = 'S-1-5-18'; Rules = @(
+                (New-StandInRule 'S-1-3-0' 0x10000000L $true), (New-StandInRule 'S-1-5-18' $full), (New-StandInRule 'S-1-5-32-544' $full),
+                (New-StandInRule 'S-1-5-32-545' $read), (New-StandInRule 'S-1-5-32-545' 0x116L))
+        }
+    }
+    # The test's folder and those above it stand for X:\, as this machine's is: TrustedInstaller's, and Authenticated Users may make
+    # a folder in it, with an entry that passes down to what they make.
+    if ($key -eq $global:StandInTemp -or $global:StandInTemp.StartsWith($key.TrimEnd('\') + '\', [StringComparison]::OrdinalIgnoreCase)) {
+        return [pscustomobject] @{ Owner = 'S-1-5-80-956008885-3418522649-1831038044-1853292631-2271478464'; Rules = @(
+                (New-StandInRule 'S-1-5-11' 0x4L), (New-StandInRule 'S-1-5-11' 0xe0010000L $true), (New-StandInRule 'S-1-5-18' $full),
+                (New-StandInRule 'S-1-5-32-544' $full), (New-StandInRule 'S-1-5-32-545' $read))
+        }
+    }
+    # Anything else under the test's folder was made by an ordinary process: this account's, with this account in full.
+    Assert-UnderStandInTemp $key 'reading permissions'
+    return [pscustomobject] @{ Owner = $me; Rules = @((New-StandInRule $me $full), (New-StandInRule 'S-1-5-18' $full), (New-StandInRule 'S-1-5-32-544' $full)) }
 }
 
 # ---- Disks.
@@ -224,6 +323,11 @@ function Get-VMNetworkAdapterExtendedAcl { return $global:World.VMs[(Get-StandIn
 function Add-VMNetworkAdapterExtendedAcl {
     $a = Write-Call 'Add-VMNetworkAdapterExtendedAcl' $args
     $global:World.VMs[$a.VMName].ExtAcls.Add([pscustomobject] @{ Direction = $a.Direction; Action = $a.Action; LocalPort = $a.LocalPort; Protocol = $a.Protocol; RemoteIPAddress = $a.RemoteIPAddress; Stateful = $a.Stateful; Weight = $a.Weight })
+}
+function Remove-VMNetworkAdapterExtendedAcl {
+    $a = Write-Call 'Remove-VMNetworkAdapterExtendedAcl' $args
+    $list = $global:World.VMs[$a.VMName].ExtAcls
+    @($list | Where-Object { "$($_.Direction)" -eq "$($a.Direction)" -and "$($_.Weight)" -eq "$($a.Weight)" }) | ForEach-Object { $null = $list.Remove($_) }
 }
 function Get-VMComPort { return $global:World.VMs[(Get-StandInArguments $args).VMName].ComPorts }
 

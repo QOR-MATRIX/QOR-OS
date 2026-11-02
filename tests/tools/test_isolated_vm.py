@@ -46,8 +46,26 @@ sys.modules["isolated_vm_guest"] = guest
 spec.loader.exec_module(guest)
 
 
+def assert_inside_the_tests_folder(environment: dict | None) -> None:
+    """Every folder the script would write, lock or delete is the test's own, or nothing runs. AGENTS.md section 7: a suite hears
+    nothing of the machine it runs on, and the script's defaults are this machine's real X:\\qor-ci-vm, %ProgramData%\\qor-ci-vm and
+    %LOCALAPPDATA%\\qor-ci-vm. The stand-ins refuse the same again, from inside."""
+    environment = environment or {}
+    temp = environment.get("QOR_TEST_TEMP")
+    if not temp:
+        raise AssertionError("QOR_TEST_TEMP is not set, so the script's real folders could be used. Nothing was run.")
+    base = Path(temp).resolve()
+    if not base.is_relative_to(Path(tempfile.gettempdir()).resolve()):
+        raise AssertionError(f"QOR_TEST_TEMP, {base}, is not a temporary folder. Nothing was run.")
+    for name in ("LOCALAPPDATA", "ProgramData", "QOR_TEST_ROOT"):
+        value = environment.get(name)
+        if not value or not Path(value).resolve().is_relative_to(base):
+            raise AssertionError(f"{name} is {value!r}, which is not under the test's own folder {base}. Nothing was run.")
+
+
 def run_pwsh(body: str, environment: dict | None = None, timeout: int = 300) -> subprocess.CompletedProcess:
     """Runs body with the script's definitions and the stand-ins loaded, and with no way to reach a real Hyper-V command."""
+    assert_inside_the_tests_folder(environment)
     with tempfile.TemporaryDirectory() as folder:
         driver = Path(folder) / "driver.ps1"
         driver.write_text(
@@ -239,10 +257,20 @@ class WithPwsh(unittest.TestCase):
         self.addCleanup(folder.cleanup)
         self.folder = Path(folder.name)
         self.env = {
+            "QOR_TEST_TEMP": str(self.folder),
             "LOCALAPPDATA": str(self.folder / "local"),
             "ProgramData": str(self.folder / "programdata"),
             "QOR_TEST_ROOT": str(self.folder / "root"),
         }
+        assert_inside_the_tests_folder(self.env)
+
+    def run_real(self, body: str) -> subprocess.CompletedProcess:
+        """The script's real functions, with no stand-ins, on folders of the test's own. Nothing here calls Hyper-V."""
+        assert_inside_the_tests_folder(self.env)
+        with tempfile.TemporaryDirectory() as folder:
+            driver = Path(folder) / "driver.ps1"
+            driver.write_text(f". '{TOOL}' -Root $env:QOR_TEST_ROOT\n{body}\n", encoding="utf-8")
+            return subprocess.run([PWSH, "-NoProfile", "-NonInteractive", "-File", str(driver)], capture_output=True, text=True, timeout=120, env={**os.environ, **self.env}, check=False, **HIDDEN)
 
 
 @unittest.skipUnless(PWSH, "needs PowerShell 7")
@@ -365,6 +393,8 @@ class WhatTheScriptCalls(unittest.TestCase):
                 self.assertIn("$script:SwitchName", line)
             if "Remove-NetNat " in line:
                 self.assertIn("$script:NatName", line)
+            if "Remove-VMNetworkAdapterExtendedAcl " in line:
+                self.assertIn("-VMName $script:VmName", line)
 
 
 @unittest.skipUnless(PWSH and os.name == "nt", "needs Windows' Hyper-V module, though never its service")
@@ -696,7 +726,7 @@ class TheDigest(WithPwsh):
         env = dict(self.env, QOR_TEST_IMAGE=str(wrong))
         done = run_pwsh(
             "$null = Initialize-Settings\n"
-            "$null = New-Item -ItemType Directory -Force -Path $script:Settings.Root\n"
+            "New-ProtectedFolder $script:Settings.Root\n"
             "try { Get-PinnedImage; 'TOOK IT' } catch { \"REFUSED: $($_.Exception.Message)\" }\n"
             "\"image there: $(Test-Path -LiteralPath $script:ImageFile)\"\n"
             "\"part there: $(Test-Path -LiteralPath \"$script:ImageFile.part\")\"\n",
@@ -715,7 +745,7 @@ class TheDigest(WithPwsh):
         digest = hashlib.sha256(b"this stands in for Ubuntu").hexdigest()
         done = run_pwsh(
             f"$script:ImageSha256 = '{digest}'\n$null = Initialize-Settings\n"
-            "$null = New-Item -ItemType Directory -Force -Path $script:Settings.Root\n"
+            "New-ProtectedFolder $script:Settings.Root\n"
             "Get-PinnedImage\n\"image there: $(Test-Path -LiteralPath $script:ImageFile)\"\n",
             env,
         )
@@ -728,7 +758,7 @@ class TheDigest(WithPwsh):
         digest = hashlib.sha256(b"this stands in for Ubuntu").hexdigest()
         done = run_pwsh(
             f"$script:ImageSha256 = '{digest}'\n$null = Initialize-Settings\n"
-            "$null = New-Item -ItemType Directory -Force -Path $script:Settings.Root\n"
+            "New-ProtectedFolder $script:Settings.Root\n"
             "Get-PinnedImage\n"
             "Set-Content -LiteralPath $script:ImageFile -Value 'changed since'\n"
             "try { Get-PinnedImage; 'TOOK IT' } catch { \"REFUSED: $($_.Exception.Message)\" }\n",
@@ -838,6 +868,241 @@ class TheReparseGuard(WithPwsh):
         self.assertIn("reparse point", done.stdout)
         self.assertIn("real ok", done.stdout)
         self.assertNotIn("TOOK IT", done.stdout)
+
+
+ADMINS, SYSTEM, ME, USERS, AUTH, OWNER_RIGHTS, CREATOR_OWNER = "S-1-5-32-544", "S-1-5-18", "S-1-5-21-1-2-3-1000", "S-1-5-32-545", "S-1-5-11", "S-1-3-4", "S-1-3-0"
+TRUSTED_INSTALLER = "S-1-5-80-956008885-3418522649-1831038044-1853292631-2271478464"
+FULL, READ = 0x1F01FF, 0x1200A9
+# Each right that changes a thing or who may, by name, as Get-SecurityTrustProblem's mask lists them.
+WRITE_BITS = {"WriteData": 0x2, "AppendData": 0x4, "WriteExtendedAttributes": 0x10, "DeleteSubdirectoriesAndFiles": 0x40, "WriteAttributes": 0x100, "Delete": 0x10000, "ChangePermissions": 0x40000, "TakeOwnership": 0x80000, "GENERIC_ALL": 0x10000000, "GENERIC_WRITE": 0x40000000}
+
+
+def rule(sid: str, rights: int, allow: bool = True, inherit_only: bool = False) -> str:
+    return f"[pscustomobject] @{{ Sid = '{sid}'; Allow = ${str(allow).lower()}; Rights = [long] {rights}; InheritOnly = ${str(inherit_only).lower()} }}"
+
+
+class TheTrustCheck(WithPwsh):
+    """Get-SecurityTrustProblem decides from an owner and a list of entries, so each case is one line here, with no filesystem."""
+
+    def decide(self, cases: list[tuple[str, str, list[str], bool]]) -> dict[str, str]:
+        body = []
+        for name, owner, rules, above in cases:
+            body.append(
+                f"$s = [pscustomobject] @{{ Owner = '{owner}'; Rules = @({', '.join(rules)}) }}\n"
+                f"$p = Get-SecurityTrustProblem 'X' $s{' -Above' if above else ''}\n"
+                f"\"CASE {name}: $($p ? $p : 'trusted')\"\n"
+            )
+        done = run_pwsh("".join(body), self.env)
+        self.assertEqual(done.returncode, 0, done.stdout + done.stderr)
+        return {line.split(":", 1)[0][5:]: line.split(": ", 1)[1] for line in done.stdout.splitlines() if line.startswith("CASE ")}
+
+    def test_who_may_own_and_write_what_an_elevated_run_trusts(self):
+        mine = [rule(ADMINS, FULL), rule(SYSTEM, FULL), rule(OWNER_RIGHTS, READ)]
+        cases = [
+            ("as made", ADMINS, mine + [rule(ME, READ)], False),
+            ("system's", SYSTEM, mine, False),
+            ("owned by this account", ME, mine, False),
+            ("owned by nobody", "", mine, False),
+            ("owned by trustedinstaller", TRUSTED_INSTALLER, mine, False),
+            ("a vm's own account may write", ADMINS, mine + [rule("S-1-5-83-1-111-222-333-444", FULL)], False),
+            ("a deny is not a grant", ADMINS, mine + [rule(USERS, FULL, allow=False)], False),
+            ("passed down to what is made inside", ADMINS, mine + [rule(USERS, 0x40000000, inherit_only=True)], False),
+            ("creator owner", ADMINS, mine + [rule(CREATOR_OWNER, 0x10000000, inherit_only=True)], False),
+            ("owner rights that write", ADMINS, [rule(ADMINS, FULL), rule(OWNER_RIGHTS, FULL)], False),
+        ]
+        cases += [(f"users {bit}", ADMINS, mine + [rule(USERS, value)], False) for bit, value in WRITE_BITS.items()]
+        # Above: the tops of drives as this machine's are, then each thing that would let a process move what is below.
+        x_drive = [rule(AUTH, 0x4), rule(AUTH, 0xE0010000, inherit_only=True), rule(SYSTEM, FULL), rule(ADMINS, FULL), rule(USERS, READ)]
+        program_data = [rule(CREATOR_OWNER, 0x10000000, inherit_only=True), rule(SYSTEM, FULL), rule(ADMINS, FULL), rule(USERS, READ), rule(USERS, 0x116)]
+        cases += [
+            ("above x", TRUSTED_INSTALLER, x_drive, True),
+            ("above programdata", SYSTEM, program_data, True),
+            ("above, owned by this account", ME, x_drive, True),
+            ("above, users delete what is in it", ADMINS, x_drive + [rule(USERS, 0x40)], True),
+            ("above, users rename it", ADMINS, x_drive + [rule(USERS, 0x10000)], True),
+            ("above, users change its permissions", ADMINS, x_drive + [rule(USERS, 0x40000)], True),
+            ("above, users take it", ADMINS, x_drive + [rule(USERS, 0x80000)], True),
+        ]
+        got = self.decide(cases)
+        self.assertEqual(len(got), len(cases), got)
+        trusted = {"as made", "system's", "a vm's own account may write", "a deny is not a grant", "above x", "above programdata"}
+        for name, *_ in cases:
+            with self.subTest(name):
+                if name in trusted:
+                    self.assertEqual(got[name], "trusted")
+                else:
+                    self.assertNotEqual(got[name], "trusted")
+        self.assertIn("not to Administrators or SYSTEM", got["owned by this account"])
+        self.assertIn("rename or remove", got["above, users delete what is in it"])
+
+    def test_the_folder_it_makes_is_one_it_trusts_and_no_more(self):
+        done = run_pwsh(
+            "foreach ($read in $false, $true) {\n"
+            "  $sd = New-ProtectedFolderSecurity -OwnerMayRead:$read\n"
+            "  \"OWNER $read $($sd.GetOwner([Security.Principal.SecurityIdentifier]).Value)\"\n"
+            "  \"PROTECTED $read $($sd.AreAccessRulesProtected)\"\n"
+            "  foreach ($r in $sd.GetAccessRules($true, $true, [Security.Principal.SecurityIdentifier])) { \"RULE $read $($r.IdentityReference.Value) $([int] $r.FileSystemRights) $($r.AccessControlType) $($r.InheritanceFlags) $($r.PropagationFlags)\" }\n"
+            "  $p = Get-SecurityTrustProblem 'X' (ConvertFrom-FileSecurity $sd)\n"
+            "  \"DECIDED $read $($p ? $p : 'trusted')\"\n"
+            "}\n",
+            self.env,
+        )
+        self.assertEqual(done.returncode, 0, done.stdout + done.stderr)
+        for read in ("False", "True"):
+            with self.subTest(owner_may_read=read):
+                self.assertIn(f"OWNER {read} {ADMINS}", done.stdout)
+                self.assertIn(f"PROTECTED {read} True", done.stdout)
+                self.assertIn(f"DECIDED {read} trusted", done.stdout)
+                rules = sorted(line.split(" ", 2)[2] for line in done.stdout.splitlines() if line.startswith(f"RULE {read} "))
+                expected = [f"{ADMINS} {FULL} Allow ContainerInherit, ObjectInherit None", f"{SYSTEM} {FULL} Allow ContainerInherit, ObjectInherit None", f"{OWNER_RIGHTS} {READ} Allow ContainerInherit, ObjectInherit None"]
+                if read == "True":
+                    expected.append(f"{ME} {READ} Allow ContainerInherit, ObjectInherit None")
+                self.assertEqual(rules, sorted(expected))
+
+    def test_folders_above_are_checked_as_well(self):
+        # With the stand-ins' model of who owns what: a folder made locked under a folder an ordinary process made is not trusted,
+        # because that process could rename it away and put its own in its place.
+        done = run_pwsh(
+            "$mine = Join-Path $env:QOR_TEST_TEMP 'ordinary'\n"
+            "$null = New-Item -ItemType Directory -Path $mine\n"
+            "New-ProtectedFolder (Join-Path $mine 'locked'); New-ProtectedFolder (Join-Path $env:QOR_TEST_TEMP 'locked')\n"
+            "\"UNDER ORDINARY: $(Get-PathTrustProblem (Join-Path $mine 'locked'))\"\n"
+            "$p = Get-PathTrustProblem (Join-Path $env:QOR_TEST_TEMP 'locked'); \"UNDER TOP: $($p ? $p : 'trusted')\"\n"
+            "\"MISSING: $(Get-PathTrustProblem (Join-Path $env:QOR_TEST_TEMP 'nothing'))\"\n",
+            self.env,
+        )
+        self.assertEqual(done.returncode, 0, done.stdout + done.stderr)
+        self.assertRegex(done.stdout, r"UNDER ORDINARY: .*ordinary belongs to")
+        self.assertIn("UNDER TOP: trusted", done.stdout)
+        self.assertIn("MISSING: ", done.stdout)
+        self.assertIn("is not there", done.stdout)
+
+
+@unittest.skipUnless(PWSH and os.name == "nt", "needs Windows' permissions")
+class TheRealPermissions(WithPwsh):
+    """What the design leans on, seen on this machine's own NTFS, in the test's own folder, as the unelevated account the suite
+    runs as. Nothing here is made outside that folder."""
+
+    def setUp(self):
+        super().setUp()
+        import ctypes
+
+        if ctypes.windll.shell32.IsUserAnAdmin():
+            self.skipTest("run as an administrator, where Windows would let a folder be made for Administrators")
+
+    def test_an_ordinary_account_cannot_make_a_folder_for_administrators_and_nothing_is_left(self):
+        target = self.folder / "locked"
+        done = self.run_real(f"try {{ New-ProtectedFolder '{target}'; 'MADE IT' }} catch {{ \"refused: $($_.Exception.Message)\" }}\n")
+        self.assertIn("refused:", done.stdout, done.stdout + done.stderr)
+        self.assertNotIn("MADE IT", done.stdout)
+        self.assertFalse(target.exists())
+
+    def test_a_folder_that_is_there_first_is_not_made_over_and_is_not_trusted(self):
+        target = self.folder / "first"
+        target.mkdir()
+        done = self.run_real(
+            f"try {{ New-ProtectedFolder '{target}' }} catch {{ }}\n"
+            f"\"OWNER: $((Read-PathSecurity '{target}').Owner)\"\n"
+            "\"ME: $(Get-OwnSid)\"\n"
+            f"\"PROBLEM: $(Get-PathTrustProblem '{target}')\"\n"
+        )
+        self.assertEqual(done.returncode, 0, done.stdout + done.stderr)
+        owner = done.stdout.split("OWNER: ", 1)[1].splitlines()[0]
+        me = done.stdout.split("ME: ", 1)[1].splitlines()[0]
+        self.assertEqual(owner, me, "it is still the account's that made it")
+        self.assertIn("not to Administrators or SYSTEM", done.stdout)
+
+    def test_an_owner_rights_entry_takes_away_an_owners_right_to_open_a_file_up(self):
+        # The reason for the entry: without it, an owner may rewrite a file's permissions whatever they say.
+        done = self.run_real(
+            "$me = [Security.Principal.SecurityIdentifier]::new((Get-OwnSid))\n"
+            "foreach ($case in 'with', 'without') {\n"
+            "  $file = Join-Path $env:QOR_TEST_TEMP \"$case.txt\"; [IO.File]::WriteAllText($file, 'x')\n"
+            "  $sec = [Security.AccessControl.FileSecurity]::new(); $sec.SetAccessRuleProtection($true, $false)\n"
+            "  $sec.AddAccessRule([Security.AccessControl.FileSystemAccessRule]::new([Security.Principal.SecurityIdentifier]::new('S-1-5-18'), 'FullControl', 'Allow'))\n"
+            "  if ($case -eq 'with') { $sec.AddAccessRule([Security.AccessControl.FileSystemAccessRule]::new([Security.Principal.SecurityIdentifier]::new($script:OwnerRightsSid), 'ReadAndExecute', 'Allow')) }\n"
+            "  [IO.FileSystemAclExtensions]::SetAccessControl([IO.FileInfo]::new($file), $sec)\n"
+            "  try { $again = [IO.FileSystemAclExtensions]::GetAccessControl([IO.FileInfo]::new($file)); $again.AddAccessRule([Security.AccessControl.FileSystemAccessRule]::new($me, 'FullControl', 'Allow')); [IO.FileSystemAclExtensions]::SetAccessControl([IO.FileInfo]::new($file), $again); \"$case REWROTE\" } catch { \"$case refused\" }\n"
+            "}\n"
+        )
+        self.assertEqual(done.returncode, 0, done.stdout + done.stderr)
+        self.assertIn("with refused", done.stdout)
+        self.assertIn("without REWROTE", done.stdout, "the control: an owner with no entry at all could, so the entry is what stops it")
+
+    def test_what_an_ordinary_account_makes_is_not_trusted(self):
+        (self.folder / "plain").mkdir()
+        (self.folder / "plain" / "file.txt").write_text("x")
+        done = self.run_real(
+            f"\"FOLDER: $(Get-PathTrustProblem '{self.folder / 'plain'}')\"\n"
+            f"\"FILE: $(Get-PathTrustProblem '{self.folder / 'plain' / 'file.txt'}')\"\n"
+        )
+        self.assertEqual(done.returncode, 0, done.stdout + done.stderr)
+        self.assertRegex(done.stdout, r"FOLDER: .*not to Administrators or SYSTEM")
+        self.assertRegex(done.stdout, r"FILE: .*not to Administrators or SYSTEM")
+
+
+class TheStandInsStayInTheirFolder(WithPwsh):
+    """AGENTS.md section 7: a suite hears nothing of the machine it runs on. The script's defaults are this machine's real folders,
+    so a run with stand-ins is refused anything outside the test's own."""
+
+    def nested(self) -> tuple[dict, Path]:
+        # The test's own folder is one level down, so that "outside" is still a folder this test made and removes.
+        inner = self.folder / "inner"
+        inner.mkdir()
+        env = {"QOR_TEST_TEMP": str(inner), "LOCALAPPDATA": str(inner / "local"), "ProgramData": str(inner / "programdata"), "QOR_TEST_ROOT": str(inner / "root")}
+        return env, self.folder / "outside"
+
+    def test_python_refuses_to_run_without_the_tests_own_folders(self):
+        env, outside = self.nested()
+        for name, value in (("QOR_TEST_TEMP", None), ("QOR_TEST_ROOT", str(outside)), ("ProgramData", None), ("LOCALAPPDATA", str(outside))):
+            with self.subTest(name):
+                changed = dict(env)
+                if value is None:
+                    changed.pop(name)
+                else:
+                    changed[name] = value
+                with self.assertRaises(AssertionError):
+                    run_pwsh("'RAN'\n", changed)
+
+    def test_the_stand_ins_refuse_to_load_without_it(self):
+        env, outside = self.nested()
+        for name, value in (("QOR_TEST_TEMP", None), ("LOCALAPPDATA", str(outside)), ("ProgramData", str(outside))):
+            with self.subTest(name):
+                changed = {**os.environ, **env, name: value or ""}
+                if value is None:
+                    changed.pop(name)
+                with tempfile.TemporaryDirectory() as folder:
+                    driver = Path(folder) / "driver.ps1"
+                    driver.write_text(
+                        "$global:PSModuleAutoLoadingPreference = 'None'\n"
+                        "Import-Module Microsoft.PowerShell.Management, Microsoft.PowerShell.Utility\n"
+                        "$ErrorActionPreference = 'Stop'\n"
+                        f". '{TOOL}' -Root $env:QOR_TEST_ROOT\n'TOOL LOADED'\n"
+                        f"try {{ . '{STAND_INS}'; 'LOADED' }} catch {{ \"REFUSED: $($_.Exception.Message)\" }}\n",
+                        encoding="utf-8",
+                    )
+                    done = subprocess.run([PWSH, "-NoProfile", "-NonInteractive", "-File", str(driver)], capture_output=True, text=True, timeout=120, env=changed, check=False, **HIDDEN)
+                self.assertIn("TOOL LOADED", done.stdout, "the script itself loads, so what refuses is the stand-ins: " + done.stderr)
+                self.assertNotIn("\nLOADED", "\n" + done.stdout, done.stdout + done.stderr)
+                self.assertRegex(done.stdout, r"REFUSED: .*(QOR_TEST_TEMP|not under the test's own temporary folder)")
+        self.assertFalse(outside.exists())
+
+    def test_a_root_outside_it_is_refused_whatever_says_so(self):
+        # As the record can say where the root is, a record an administrator made (in the stand-ins' model) that names a folder
+        # outside the test's own: Create stops before anything is made there.
+        env, outside = self.nested()
+        done = run_pwsh(
+            "New-ProtectedFolder $script:AdminStateDir -OwnerMayRead\n"
+            f"@{{ Root = '{outside}'; Network = '10.213.57.0'; MemoryGB = 6 }} | ConvertTo-Json | Set-Content -LiteralPath $script:RecordFile\n"
+            "Set-AdminOwner $script:RecordFile\n"
+            "$code = Invoke-Main 'Create'; \"CODE=$code\"\n"
+            f"try {{ $null = Assert-SafeRoot '{outside}'; 'TOOK IT' }} catch {{ \"refused: $($_.Exception.Message)\" }}\n",
+            env,
+        )
+        self.assertIn("CODE=1", done.stdout, done.stdout + done.stderr)
+        self.assertIn("not under the test's own temporary folder", done.stdout)
+        self.assertNotIn("TOOK IT", done.stdout)
+        self.assertFalse(outside.exists(), "nothing was made outside the test's own folder")
 
 
 # What Create should have set, each as Hyper-V would read it back. A planted fault for each, which Check must name.
@@ -1049,15 +1314,47 @@ class Create(WithAWorld):
                 self.assertNotIn("Remove-", joined)
                 self.assertNotIn("Start-VM", joined)
 
-    def test_a_folder_that_holds_someone_elses_files_is_refused(self):
-        root = self.folder / "root"
-        root.mkdir()
-        (root / "theirs.txt").write_text("not this script's")
-        done = self.world(self.create())
+    def test_a_root_it_did_not_make_is_refused_before_it_is_touched(self):
+        # Empty, someone else's, or carrying this script's mark but made by an ordinary process (as the stand-in leftovers at the real
+        # X:\qor-ci-vm are): each is refused in the first step, and nothing in it changes.
+        for what, files, says in (
+            ("empty", {}, "this script did not make it"),
+            ("someone else's", {"theirs.txt": "not this script's"}, "this script did not make it"),
+            ("marked, but an ordinary process's", {".made-by-qor-ci-vm": "Made by tools/ci/isolated-vm.ps1", "disk/qor-ci-vm.vhdx": "planted"}, "has this script's mark but cannot be trusted"),
+        ):
+            with self.subTest(what):
+                self.fresh()
+                root = self.folder / "root"
+                root.mkdir()
+                for name, text in files.items():
+                    (root / name).parent.mkdir(parents=True, exist_ok=True)
+                    (root / name).write_text(text)
+                done = self.world(self.create())
+                self.assertIn("CODE=1", done.stdout, done.stdout + done.stderr)
+                self.assertIn("STOPPED at step 1,", done.stdout)
+                self.assertIn(says, done.stdout)
+                record_folder = str(self.folder / "programdata" / "qor-ci-vm")
+                self.assertEqual(self.calls(done), [f"New-ProtectedFolder {record_folder}"], "nothing but the record's own locked folder")
+                self.assertEqual(sorted(str(p.relative_to(root)).replace("\\", "/") for p in root.rglob("*") if p.is_file()), sorted(files))
+                for name, text in files.items():
+                    self.assertEqual((root / name).read_text(), text)
+
+    def test_a_root_put_there_after_the_check_is_caught_before_anything_is_put_in_it(self):
+        # Between the first step's look and the second's making, an ordinary process makes the folder, mark and all.
+        plant = (
+            "$script:RealPreflight = ${function:Assert-Preflight}\n"
+            "function Assert-Preflight { & $script:RealPreflight; $null = New-Item -ItemType Directory -Path $script:Settings.Root; "
+            "Set-Content -LiteralPath (Join-Path $script:Settings.Root '.made-by-qor-ci-vm') -Value 'planted' }\n"
+        )
+        done = self.world(plant + self.create())
         self.assertIn("CODE=1", done.stdout, done.stdout + done.stderr)
-        self.assertIn("already holds files", done.stdout)
-        self.assertEqual(self.calls(done), [])
-        self.assertTrue((root / "theirs.txt").exists())
+        self.assertIn("STOPPED at step 2,", done.stdout)
+        self.assertIn("cannot be trusted", done.stdout)
+        joined = "\n".join(self.calls(done))
+        self.assertNotIn("Set-AdminOwner", joined)
+        self.assertNotIn("/setowner", joined, "nothing in it was given to Administrators, as if it were this script's")
+        self.assertEqual((self.folder / "root" / ".made-by-qor-ci-vm").read_text().strip(), "planted")
+        self.assertEqual(sorted(p.name for p in (self.folder / "root").iterdir()), [".made-by-qor-ci-vm"])
 
     def test_a_drive_top_is_refused(self):
         done = self.world("try { $null = Assert-SafeRoot 'C:\\'; 'TOOK IT' } catch { \"refused: $($_.Exception.Message)\" }\n")
@@ -1077,15 +1374,21 @@ class Create(WithAWorld):
         joined = "\n".join(self.calls(done))
         self.assertNotIn("EnableSecureBoot Off", joined)
 
-    def test_the_root_folder_is_locked_and_the_record_is_written(self):
+    def test_its_folders_are_made_locked_and_what_it_writes_is_given_to_administrators(self):
         done = self.world(self.create() + "\"RECORD: $(Test-Path -LiteralPath $script:RecordFile)\"\n")
         self.assertIn("CODE=0", done.stdout, done.stdout + done.stderr)
         calls = self.calls(done)
-        root = str(self.folder / "root")
-        programdata = str(self.folder / "programdata" / "qor-ci-vm")
-        # The root is locked, by its own path, and so is the record folder.
-        self.assertTrue(any(c.startswith("Invoke-Quiet icacls.exe") and root in c for c in calls), f"root not locked: {calls}")
-        self.assertTrue(any(c.startswith("Invoke-Quiet icacls.exe") and programdata in c for c in calls), f"record folder not locked: {calls}")
+        root = self.folder / "root"
+        programdata = self.folder / "programdata" / "qor-ci-vm"
+        # Each folder is made already locked, never made and locked after; the record's first of all, before it is read.
+        self.assertEqual(calls[0], f"New-ProtectedFolder {programdata}")
+        for folder in (root, root / "image", root / "disk", root / "seed"):
+            with self.subTest(folder=folder.name):
+                self.assertIn(f"New-ProtectedFolder {folder}", calls)
+        for written in (root / ".made-by-qor-ci-vm", programdata / "record.json", root / "image" / "ubuntu-24.04-server-cloudimg-amd64-20261017.img", root / "disk" / "qor-ci-vm.vhdx", root / "seed" / "seed.iso"):
+            with self.subTest(written=written.name):
+                self.assertIn(f"Invoke-Quiet icacls.exe {written} /setowner", calls)
+        self.assertLess(calls.index(f"New-ProtectedFolder {root}"), calls.index(f"Invoke-Quiet icacls.exe {root / '.made-by-qor-ci-vm'} /setowner"))
         self.assertIn("RECORD: True", done.stdout)
         # The record landed in the admin folder, not a user-writable state.json beside the key.
         self.assertFalse((self.folder / "local" / "qor-ci-vm" / "state.json").exists())
@@ -1117,6 +1420,146 @@ class Create(WithAWorld):
         self.assertIn("AGAIN=0", done.stdout, done.stdout + done.stderr)
         self.assertIn("does not account for", done.stdout)
         self.assertIn("Convert-VHD", "\n".join(self.calls(done)), "it rebuilt the disk")
+
+    def test_a_disk_the_record_accounts_for_but_an_ordinary_process_could_change_is_remade(self):
+        done = self.world(
+            self.create()
+            + "$global:World.Calls.Clear()\n"
+            + "$null = $global:World.AdminOwned.Remove((ConvertTo-StandInKey $script:DiskFile))\n"
+            + "$global:World.VMs.Remove('qor-ci-vm')\n"
+            + "$again = Invoke-Main 'Create'; \"AGAIN=$again\"\n"
+        )
+        self.assertIn("AGAIN=0", done.stdout, done.stdout + done.stderr)
+        self.assertIn("a disk is here that cannot be trusted", done.stdout)
+        self.assertIn("Convert-VHD", "\n".join(self.calls(done)), "it rebuilt the disk")
+
+    def test_a_seed_an_ordinary_process_could_change_is_never_attached(self):
+        swap = "$script:RealNewSeed = ${function:New-Seed}\nfunction New-Seed { & $script:RealNewSeed; $null = $global:World.AdminOwned.Remove((ConvertTo-StandInKey $script:SeedFile)) }\n"
+        done = self.world(swap + self.create())
+        self.assertIn("CODE=1", done.stdout, done.stdout + done.stderr)
+        self.assertIn("the seed cannot be trusted", done.stdout)
+        joined = "\n".join(self.calls(done))
+        self.assertNotIn("Add-VMDvdDrive", joined)
+        self.assertNotIn("Start-VM", joined)
+
+
+def plant_record(folder: Path, root: Path, **values) -> Path:
+    """A record.json an ordinary process wrote, in a folder it made, in the test's stand-in for C:\\ProgramData."""
+    record = {"Root": str(root), "Network": "10.213.57.0", "MemoryGB": 6, "FirstBootDone": True, "DiskMade": True, "StatefulSshAcl": False}
+    record.update(values)
+    path = folder / "programdata" / "qor-ci-vm" / "record.json"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(record), encoding="utf-8")
+    return path
+
+
+class TheRecordIsCheckedBeforeItIsRead(WithAWorld):
+    """%ProgramData% lets any process make a folder, so a record of the right name there proves nothing until its owner and
+    permissions are seen to be an administrators' alone. The planted ones here are this account's, as they would be in life."""
+
+    def test_a_planted_record_is_refused_by_create_and_nothing_is_built_from_it(self):
+        for what, with_root in (("the record alone", False), ("a record, and a root with the mark and a disk", True)):
+            with self.subTest(what):
+                self.fresh()
+                root = self.folder / "root"
+                planted = plant_record(self.folder, root)
+                if with_root:
+                    (root / "disk").mkdir(parents=True)
+                    (root / ".made-by-qor-ci-vm").write_text("Made by tools/ci/isolated-vm.ps1")
+                    (root / "disk" / "qor-ci-vm.vhdx").write_bytes(b"a disk an ordinary process made")
+                before = planted.read_bytes()
+                done = self.world(self.create())
+                self.assertIn("CODE=1", done.stdout, done.stdout + done.stderr)
+                self.assertIn("cannot be trusted", done.stdout)
+                self.assertIn("It was not read", done.stdout)
+                self.assertEqual(self.calls(done), [], "nothing at all was made or changed")
+                self.assertEqual(planted.read_bytes(), before)
+                if with_root:
+                    self.assertEqual((root / "disk" / "qor-ci-vm.vhdx").read_bytes(), b"a disk an ordinary process made")
+
+    def test_a_record_file_that_is_not_an_administrators_is_refused_even_in_their_folder(self):
+        done = self.world(
+            "New-ProtectedFolder $script:AdminStateDir -OwnerMayRead\n"
+            f"@{{ Root = $env:QOR_TEST_ROOT; Network = '10.213.57.0'; MemoryGB = 6; FirstBootDone = $true; DiskMade = $true }} | ConvertTo-Json | Set-Content -LiteralPath $script:RecordFile\n"
+            "$global:World.Calls.Clear()\n" + self.create()
+        )
+        self.assertIn("CODE=1", done.stdout, done.stdout + done.stderr)
+        self.assertIn("record.json belongs to", done.stdout)
+        self.assertEqual(self.calls(done), [])
+
+    def test_check_and_start_refuse_it_too(self):
+        plant_record(self.folder, self.folder / "root")
+        done = self.world("$c = Invoke-Main 'Check'; \"CHECK=$c\"\n$s = Invoke-Main 'Start'; \"START=$s\"\n")
+        self.assertIn("CHECK=1", done.stdout, done.stdout + done.stderr)
+        self.assertIn("START=1", done.stdout)
+        self.assertEqual(done.stdout.count("It was not read"), 2)
+        self.assertNotIn("Start-VM", "\n".join(self.calls(done)))
+
+    def test_unelevated_prove_does_not_read_it_and_aims_at_the_default(self):
+        plant_record(self.folder, self.folder / "root", Network="10.99.0.0")
+        key = self.folder / "local" / "qor-ci-vm" / "ssh" / "id_ed25519"
+        key.parent.mkdir(parents=True)
+        key.write_text("stand-in")
+        done = self.world("$global:World.Admin = $false\n$global:World.GuestUp = $true\n$code = Invoke-Main 'Prove'; \"PROVE=$code\"\n")
+        self.assertIn("cannot be trusted", done.stdout, done.stdout + done.stderr)
+        self.assertIn("so it is not read, and the defaults are used", done.stdout)
+        self.assertIn("Guest 10.213.57.2, through 10.213.57.1", done.stdout)
+        self.assertNotIn("10.99.0.2", done.stdout)
+
+    def test_unelevated_prove_reads_one_an_administrator_made(self):
+        done = self.world(
+            "$Network = '10.213.64.0'\n" + self.create() + "$global:World.Admin = $false\n$code = Invoke-Main 'Prove'; \"PROVE=$code\"\n"
+        )
+        self.assertIn("CODE=0", done.stdout, done.stdout + done.stderr)
+        self.assertIn("Guest 10.213.64.2, through 10.213.64.1", done.stdout)
+        self.assertNotIn("cannot be trusted", done.stdout)
+
+    def test_remove_neither_reads_it_nor_deletes_it(self):
+        planted = plant_record(self.folder, self.folder / "root")
+        done = self.world("$code = Invoke-Main 'Remove'; \"REMOVE=$code\"\n")
+        self.assertIn("REMOVE=1", done.stdout, done.stdout + done.stderr)
+        self.assertIn("so it is not read, and the defaults are used", done.stdout)
+        self.assertIn("is not this script's to remove", done.stdout)
+        self.assertTrue(planted.exists())
+
+    def test_remove_does_not_empty_a_root_it_cannot_trust(self):
+        root = self.folder / "root"
+        (root / "disk").mkdir(parents=True)
+        (root / ".made-by-qor-ci-vm").write_text("Made by tools/ci/isolated-vm.ps1")
+        (root / "disk" / "theirs.vhdx").write_text("not this script's")
+        done = self.world("$code = Invoke-Main 'Remove'; \"REMOVE=$code\"\n")
+        self.assertIn("REMOVE=1", done.stdout, done.stdout + done.stderr)
+        self.assertIn("is not emptied", done.stdout)
+        self.assertTrue((root / "disk" / "theirs.vhdx").exists())
+        self.assertTrue((root / ".made-by-qor-ci-vm").exists())
+
+
+class TheExtendedAcl(WithAWorld):
+    def test_a_create_without_the_switch_takes_away_one_an_earlier_create_added(self):
+        for state in ("Running", "Off"):
+            with self.subTest(state):
+                self.fresh()
+                done = self.world(
+                    "$script:UseStatefulSshAcl = $true\n" + self.create()
+                    + f"$global:World.VMs['qor-ci-vm'].State = '{state}'\n"
+                    + "$global:World.Calls.Clear()\n$script:UseStatefulSshAcl = $false\n"
+                    + "$again = Invoke-Main 'Create'; \"AGAIN=$again\"\n"
+                    + "\"EXT: $(@($global:World.VMs['qor-ci-vm'].ExtAcls).Count)\"\n"
+                    + "$check = Invoke-Main 'Check'; \"CHECK=$check\"\n"
+                )
+                self.assertIn("AGAIN=0", done.stdout, done.stdout + done.stderr)
+                self.assertIn("Remove-VMNetworkAdapterExtendedAcl -VMName qor-ci-vm -Direction Inbound -Weight 100", self.calls(done))
+                self.assertIn("took away the stateful extended ACL", done.stdout)
+                self.assertIn("EXT: 0", done.stdout)
+                self.assertIn("CHECK=0", done.stdout, "Check expects what the last Create left")
+
+    def test_remove_takes_it_before_the_vm(self):
+        done = self.world("$script:UseStatefulSshAcl = $true\n" + self.create() + "$global:World.Calls.Clear()\n$code = Invoke-Main 'Remove'; \"REMOVE=$code\"\n")
+        self.assertIn("REMOVE=0", done.stdout, done.stdout + done.stderr)
+        calls = self.calls(done)
+        taken = "Remove-VMNetworkAdapterExtendedAcl -VMName qor-ci-vm -Direction Inbound -Weight 100"
+        self.assertIn(taken, calls)
+        self.assertLess(calls.index(taken), calls.index("Remove-VM -Name qor-ci-vm -Force"))
 
     def test_cloud_init_warnings_pass_only_once_sshd_is_confirmed(self):
         warn = "$global:World.SshAnswers['*cloud-init status*'] = [pscustomobject] @{ ExitCode = 2; Lines = @('status: done'); Error = '' }\n"
@@ -1228,6 +1671,18 @@ class Remove(WithAWorld):
         self.assertIn("AGAIN=0", done.stdout, done.stdout + done.stderr)
         self.assertTrue((self.folder / "root" / "owners-note.txt").exists())
         self.assertFalse((self.folder / "root" / "disk").exists())
+
+    def test_in_the_owners_own_folder_it_deletes_only_the_files_it_made(self):
+        state = self.folder / "local" / "qor-ci-vm"
+        done = self.world(
+            self.create()
+            + "Set-Content -LiteralPath (Join-Path $script:StateDir 'owners-note.txt') -Value 'mine'\n"
+            + "$code = Invoke-Main 'Remove'; \"REMOVE=$code\"\n"
+        )
+        self.assertIn("REMOVE=0", done.stdout, done.stdout + done.stderr)
+        self.assertTrue((state / "owners-note.txt").exists())
+        self.assertFalse((state / "ssh" / "id_ed25519").exists(), "the key went")
+        self.assertFalse((state / "ssh").exists(), "and its folder, once empty")
 
     def test_what_has_its_name_and_not_its_mark_stays(self):
         for what, plant in (
@@ -1494,13 +1949,6 @@ class ProveVerdict(WithAWorld):
 
 @unittest.skipUnless(PWSH and os.name == "nt", "needs Windows' ssh-keygen and icacls")
 class TheRealKey(WithPwsh):
-    def run_real(self, body: str) -> subprocess.CompletedProcess:
-        # The real New-GuestKey: with no stand-ins, in a folder of the test's. It touches nothing of Hyper-V.
-        with tempfile.TemporaryDirectory() as folder:
-            driver = Path(folder) / "driver.ps1"
-            driver.write_text(f". '{TOOL}' -Root $env:QOR_TEST_ROOT\n{body}\n", encoding="utf-8")
-            return subprocess.run([PWSH, "-NoProfile", "-NonInteractive", "-File", str(driver)], capture_output=True, text=True, timeout=120, env={**os.environ, **self.env}, check=False, **HIDDEN)
-
     def test_it_is_made_for_this_account_alone_and_never_printed(self):
         done = self.run_real(
             "$null = Initialize-Settings\nNew-GuestKey\n\"PUBLIC: $(Get-GuestPublicKey)\"\n"
@@ -1527,14 +1975,14 @@ class TheRealKey(WithPwsh):
         done = self.run_real(
             "$null = Initialize-Settings\n"
             "$a = Get-SshArguments\n"
-            "& $script:SshExe @a -G | Select-String -Pattern '^(stricthostkeychecking|userknownhostsfile|globalknownhostsfile|forwardagent|forwardx11|batchmode|identitiesonly|permitlocalcommand|updatehostkeys|hostname|user|requesttty) ' | ForEach-Object { $_.Line }\n"
+            "& $script:SshExe @a -G | Select-String -Pattern '^(stricthostkeychecking|userknownhostsfile|globalknownhostsfile|forwardagent|forwardx11|batchmode|identitiesonly|identityagent|escapechar|permitlocalcommand|updatehostkeys|hostname|user|requesttty) ' | ForEach-Object { $_.Line }\n"
             "'---'\n"
             "$a = Get-SshArguments -FirstContact\n"
             "& $script:SshExe @a -G | Select-String -Pattern '^stricthostkeychecking ' | ForEach-Object { $_.Line }\n"
         )
         self.assertEqual(done.returncode, 0, done.stdout + done.stderr)
         later, first = done.stdout.split("---")
-        for expected in ("stricthostkeychecking true", "forwardagent no", "forwardx11 no", "batchmode yes", "identitiesonly yes", "permitlocalcommand no", "updatehostkeys false", "hostname 10.213.57.2", "user qor", "requesttty false"):
+        for expected in ("stricthostkeychecking true", "forwardagent no", "forwardx11 no", "batchmode yes", "identitiesonly yes", "identityagent none", "escapechar none", "permitlocalcommand no", "updatehostkeys false", "hostname 10.213.57.2", "user qor", "requesttty false"):
             with self.subTest(expected):
                 self.assertIn(expected, later)
         self.assertIn("known_hosts", later.replace("\\", "/"))

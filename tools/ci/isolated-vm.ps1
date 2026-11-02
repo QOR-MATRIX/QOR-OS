@@ -34,11 +34,17 @@
         Firewall rules  qor-ci-vm-block-by-adapter, qor-ci-vm-block-by-address
         Folders         -Root (default X:\qor-ci-vm): image, disk, seed, VM files, locked to Administrators and SYSTEM
                         %LOCALAPPDATA%\qor-ci-vm: the SSH key that opens this guest and nothing else, and Prove's reports
-                        %ProgramData%\qor-ci-vm: the record of what was made, which decides what Remove deletes; readable by
-                        the owner, writable only by an elevated run, so no ordinary process can steer Remove
+                        %ProgramData%\qor-ci-vm: the record of what was made; readable by the owner, writable only by an
+                        elevated run
 
+    The two locked folders are made already owned by Administrators and locked, in one step, never made and locked after. A folder
+    of either name that is here already, or one that appears in between, is used only if it is owned by Administrators or SYSTEM,
+    writable by nobody else, and no folder above it lets an ordinary process move it away; otherwise the run stops and changes
+    nothing. The record is read only after that check, so nothing an ordinary process can make decides what is built, trusted or
+    deleted. What this script writes in them is given to Administrators, and an OWNER RIGHTS entry keeps an owner from opening one up.
     No path is written, re-permissioned or deleted along a reparse point (a link or junction). The image's digest is checked on the
-    same open handle the conversion reads. An existing disk is trusted only if the record says this script built it.
+    same open handle the conversion reads. An existing disk is trusted only if the record says this script built it and the disk
+    passes the same check.
 
     The image. Ubuntu 24.04's generic cloud image, ubuntu-24.04-server-cloudimg-amd64.img, by dated URL and SHA-256, the digest
     read from SHA256SUMS, whose signature by Ubuntu's image key was checked. Why this one, of what Ubuntu publishes:
@@ -65,7 +71,9 @@
     that Linux's own ISO reader takes the seed, which only blkid and libarchive have read; that WinNAT agrees to a NAT beside WSL's
     and the Default Switch's, and that the rule on the adapter leaves it working; that locking -Root to Administrators and SYSTEM
     leaves Hyper-V's own access to the VM's files working (its service, as SYSTEM, should add the VM's account when New-VM runs);
-    that Hyper-V spells ACL addresses back the way the read-back expects (if not, Create stops before booting and names the
+    that the account it adds is the VM's own, in NT VIRTUAL MACHINE, which is all a later Create's check of the disk and seed lets
+    write them (if it adds another, that Create stops and names it); that icacls can give a file to Administrators; that Hyper-V
+    spells ACL addresses back the way the read-back expects (if not, Create stops before booting and names the
     difference); everything about the network and the firewall below.
 
     What blocks what, for a classic VM. From Microsoft's documents and this machine, 1 November 2026:
@@ -257,18 +265,140 @@ function Assert-NoReparsePoint([string] $Path) {
     }
 }
 
-# Administrators and SYSTEM only, inheritance off. Hyper-V's own service runs as SYSTEM and adds the per-VM account's access to
-# the VM's files when New-VM runs, so this does not lock Hyper-V out. Unproven until Create runs; a failure there would stop it,
-# not open anything.
-function Protect-RootFolder([string] $Path) {
-    Invoke-Quiet $script:IcaclsExe @($Path, '/inheritance:r', '/grant:r', '*S-1-5-32-544:(OI)(CI)F', '*S-1-5-18:(OI)(CI)F', '/Q')
+# ---------------------------------------------------------------------------------------------------------------------
+# Trust. An elevated run reads, uses or deletes a folder or file only if an ordinary process cannot have made or changed it:
+#   - owned by Administrators or SYSTEM, because an owner may rewrite a file's permissions whatever they say, unelevated too;
+#   - writable by nobody else;
+#   - no link anywhere on its path;
+#   - and no folder above it that an ordinary process could rename it out of, or give itself the right to.
+# C:\ProgramData and X:\ both let any process make a folder in them, so a folder of the right name proves nothing by being there.
+
+$script:AdminsSid = 'S-1-5-32-544'
+$script:SystemSid = 'S-1-5-18'
+$script:TrustedInstallerSid = 'S-1-5-80-956008885-3418522649-1831038044-1853292631-2271478464'
+# OWNER RIGHTS. An entry for it replaces what the owner may do by being the owner, so with it the owner has no unwritten right to
+# rewrite permissions: a file inside that an administrator's own account came to own still cannot be opened up unelevated.
+$script:OwnerRightsSid = 'S-1-3-4'
+# What changes a folder or file, or who may: WriteData (or add a file) 0x2, AppendData (or add a folder) 0x4, WriteExtendedAttributes
+# 0x10, DeleteSubdirectoriesAndFiles 0x40, WriteAttributes 0x100, Delete 0x10000, ChangePermissions 0x40000, TakeOwnership 0x80000,
+# and GENERIC_ALL 0x10000000 and GENERIC_WRITE 0x40000000, which an entry that only passes down to what is made inside can carry.
+$script:WriteMask = 0x2L -bor 0x4L -bor 0x10L -bor 0x40L -bor 0x100L -bor 0x10000L -bor 0x40000L -bor 0x80000L -bor 0x10000000L -bor 0x40000000L
+# What, in a folder above, would let a process move what is below out of the way, or give itself that right: delete what is in it,
+# delete or rename the folder itself, change its permissions or owner. Making a new folder beside it is not among them.
+$script:AboveMask = 0x40L -bor 0x10000L -bor 0x40000L -bor 0x80000L -bor 0x10000000L
+
+function Get-SidName([string] $Sid) {
+    if (-not $Sid) { return 'no owner that Windows can name' }
+    try { return ([Security.Principal.SecurityIdentifier]::new($Sid)).Translate([Security.Principal.NTAccount]).Value } catch { return $Sid }
 }
 
-# The owner may read it (so unelevated Prove and Stop can read the network), administrators and SYSTEM may write it, nobody else
-# may do either. The owner's unelevated token holds Administrators as deny-only, so the owner writes it only when elevated.
-function Protect-RecordFolder([string] $Path) {
-    $me = Get-OwnSid
-    Invoke-Quiet $script:IcaclsExe @($Path, '/inheritance:r', '/grant:r', "*${me}:(OI)(CI)RX", '*S-1-5-32-544:(OI)(CI)F', '*S-1-5-18:(OI)(CI)F', '/Q')
+# Administrators, SYSTEM, TrustedInstaller, and Hyper-V's accounts for VMs (NT VIRTUAL MACHINE, S-1-5-83-...), which Hyper-V gives
+# a VM's own disk and files and which only its own processes hold. Nobody else may change what an elevated run trusts.
+function Test-TrustedWriter([string] $Sid) {
+    return ($Sid -in @($script:AdminsSid, $script:SystemSid, $script:TrustedInstallerSid)) -or $Sid -like 'S-1-5-83-*'
+}
+
+# What Windows says of a path: its owner, and each entry with its rights and whether it applies to the path itself.
+function Read-PathSecurity([string] $Path) {
+    $acl = if ([IO.Directory]::Exists($Path)) { [IO.FileSystemAclExtensions]::GetAccessControl([IO.DirectoryInfo]::new($Path)) }
+    else { [IO.FileSystemAclExtensions]::GetAccessControl([IO.FileInfo]::new($Path)) }
+    return ConvertFrom-FileSecurity $acl
+}
+
+function ConvertFrom-FileSecurity([Security.AccessControl.FileSystemSecurity] $Acl) {
+    $owner = $Acl.GetOwner([Security.Principal.SecurityIdentifier])
+    return [pscustomobject] @{
+        Owner = $owner ? $owner.Value : ''
+        Rules = @($Acl.GetAccessRules($true, $true, [Security.Principal.SecurityIdentifier]) | ForEach-Object {
+                [pscustomobject] @{
+                    Sid         = $_.IdentityReference.Value
+                    Allow       = "$($_.AccessControlType)" -eq 'Allow'
+                    Rights      = [long] [int] $_.FileSystemRights
+                    InheritOnly = [bool] ($_.PropagationFlags -band [Security.AccessControl.PropagationFlags]::InheritOnly)
+                }
+            })
+    }
+}
+
+# The decision alone, from what Read-PathSecurity says, so that it can be tested without a filesystem. -Above for a folder on the way
+# to it, where only renaming, deleting and permissions matter, and where TrustedInstaller owns the tops of drives.
+function Get-SecurityTrustProblem([string] $Path, $Security, [switch] $Above) {
+    $owners = $Above ? @($script:AdminsSid, $script:SystemSid, $script:TrustedInstallerSid) : @($script:AdminsSid, $script:SystemSid)
+    if ($Security.Owner -notin $owners) {
+        return "$Path belongs to $(Get-SidName $Security.Owner), not to Administrators or SYSTEM, and its owner could change it unelevated"
+    }
+    foreach ($rule in @($Security.Rules)) {
+        if (-not $rule.Allow -or (Test-TrustedWriter $rule.Sid)) { continue }
+        if ($Above) {
+            if (-not $rule.InheritOnly -and ($rule.Rights -band $script:AboveMask)) { return "$Path, above it, lets $(Get-SidName $rule.Sid) rename or remove what is in it" }
+        }
+        elseif ($rule.Rights -band $script:WriteMask) { return "$Path lets $(Get-SidName $rule.Sid) change it" }
+    }
+    return $null
+}
+
+# $null if the path can be trusted, or why not. Fails closed: a path whose permissions cannot be read is not trusted.
+function Get-PathTrustProblem([string] $Path) {
+    if (-not (Test-Path -LiteralPath $Path)) { return "$Path is not there" }
+    try { Assert-NoReparsePoint $Path } catch { return $_.Exception.Message }
+    $full = [IO.Path]::GetFullPath($Path)
+    try {
+        $problem = Get-SecurityTrustProblem $full (Read-PathSecurity $full)
+        $walk = Split-Path -Parent $full
+        while (-not $problem -and $walk) {
+            $problem = Get-SecurityTrustProblem $walk (Read-PathSecurity $walk) -Above
+            $parent = Split-Path -Parent $walk
+            $walk = ($parent -and $parent -ne $walk) ? $parent : ''
+        }
+        return $problem
+    }
+    catch { return "the permissions of $Path, or of a folder above it, cannot be read: $($_.Exception.Message)" }
+}
+
+function Assert-Trusted([string] $Path, [string] $What) {
+    $problem = Get-PathTrustProblem $Path
+    if ($problem) { throw "$What cannot be trusted: $problem. It was not used, and nothing more was done. docs/CI.md says how to look at it and remove it." }
+}
+
+# Made in one step with its owner and permissions already set, so there is no moment when an ordinary process could own it or write
+# in it: Administrators and SYSTEM in full, inheritance off, OWNER RIGHTS read, and with -OwnerMayRead the owner's account may read
+# (so that unelevated Prove and Stop can read the record). All of it passes down to what is made inside. Only an administrator can
+# make a folder owned by Administrators; unelevated, Windows refuses and nothing is made (a test shows it). Hyper-V's service runs
+# as SYSTEM and adds the VM's own account to its files when New-VM runs, so this does not lock Hyper-V out (unproven until Create
+# runs; if it does, Create stops rather than opening anything). A folder that appears at this path first is not made over: the
+# caller verifies whatever is there with Assert-Trusted.
+function New-ProtectedFolderSecurity([switch] $OwnerMayRead) {
+    $security = [Security.AccessControl.DirectorySecurity]::new()
+    $inherit = [Security.AccessControl.InheritanceFlags] 'ContainerInherit, ObjectInherit'
+    $flow = [Security.AccessControl.PropagationFlags]::None
+    $security.SetOwner([Security.Principal.SecurityIdentifier]::new($script:AdminsSid))
+    $security.SetAccessRuleProtection($true, $false)
+    $grants = [ordered] @{ $script:AdminsSid = 'FullControl'; $script:SystemSid = 'FullControl'; $script:OwnerRightsSid = 'ReadAndExecute' }
+    if ($OwnerMayRead) { $grants[(Get-OwnSid)] = 'ReadAndExecute' }
+    foreach ($sid in $grants.Keys) {
+        $who = [Security.Principal.SecurityIdentifier]::new($sid)
+        $security.AddAccessRule([Security.AccessControl.FileSystemAccessRule]::new($who, $grants[$sid], $inherit, $flow, 'Allow'))
+    }
+    return , $security
+}
+
+function New-ProtectedFolder([string] $Path, [switch] $OwnerMayRead) {
+    Assert-NoReparsePoint $Path
+    [IO.FileSystemAclExtensions]::Create([IO.DirectoryInfo]::new($Path), (New-ProtectedFolderSecurity -OwnerMayRead:$OwnerMayRead))
+}
+
+# Made if it is missing, and verified either way, before anything is put in it or read from it.
+function Initialize-ProtectedFolder([string] $Path, [string] $What, [switch] $OwnerMayRead) {
+    if (-not (Test-Path -LiteralPath $Path)) { New-ProtectedFolder $Path -OwnerMayRead:$OwnerMayRead }
+    Assert-Trusted $Path $What
+}
+
+# A file this script writes can belong to the administrator's own account, depending on a policy of this machine's. The folder's
+# OWNER RIGHTS entry already keeps that account from opening it up; this also gives it to Administrators, so that the check
+# before it is used passes on the owner alone.
+function Set-AdminOwner([string] $Path) {
+    Assert-NoReparsePoint $Path
+    Invoke-Quiet $script:IcaclsExe @($Path, '/setowner', "*$script:AdminsSid", '/Q')
 }
 
 function Test-PathUnder([string] $Child, [string] $Parent) {
@@ -333,6 +463,8 @@ function Get-NetworkPlan([string] $Base) {
     }
 }
 
+# The shape of a path alone: it reads nothing in the folder, so an unelevated Prove or Stop can use it on a root it cannot open.
+# Whether a root that is there is this script's is Assert-OurRoot's question, asked only by an elevated run.
 function Assert-SafeRoot([string] $Path) {
     if (-not [IO.Path]::IsPathRooted($Path)) { throw "-Root must be a full path, and is '$Path'." }
     $full = [IO.Path]::GetFullPath($Path).TrimEnd('\', '/')
@@ -340,35 +472,65 @@ function Assert-SafeRoot([string] $Path) {
     foreach ($place in $env:SystemRoot, $env:ProgramFiles, ${env:ProgramFiles(x86)}, $env:ProgramData, $env:USERPROFILE) {
         if ($place -and $full -eq $place.TrimEnd('\', '/')) { throw "-Root must not be $place." }
     }
-    # The real guard: a folder that holds anything, and that this script did not make, is never used or emptied.
-    if ((Test-Path -LiteralPath $full) -and -not (Test-Path -LiteralPath (Join-Path $full $script:RootMarker))) {
-        if (Get-ChildItem -LiteralPath $full -Force | Select-Object -First 1) {
-            throw "$full already holds files, and this script did not make it. Choose another -Root. Nothing was changed."
-        }
-    }
     return $full
 }
 
-# What Create chose, so that every later action means the same place. The record is in the admin-only folder, so only an elevated
-# run wrote it; an ordinary process cannot change what a later Remove erases. An argument that disagrees with the record stops it.
-function Initialize-Settings {
-    $saved = $null
-    if (Test-Path -LiteralPath $script:RecordFile) {
-        $saved = Get-Content -LiteralPath $script:RecordFile -Raw | ConvertFrom-Json
+# A root that is here already is used only if this script made it: its mark, owned by Administrators or SYSTEM, writable by nobody
+# else, and no link on its path. A folder left by an ordinary process, or by a run with stand-ins, is refused and never adopted.
+function Assert-OurRoot([string] $Path) {
+    if (-not (Test-Path -LiteralPath $Path)) { return }
+    if (-not (Test-Path -LiteralPath (Join-Path $Path $script:RootMarker))) {
+        throw "$Path is here already, and this script did not make it. Choose another -Root, or remove it if it is not wanted (docs/CI.md). Nothing was changed."
+    }
+    $problem = Get-PathTrustProblem $Path
+    if ($problem) {
+        throw "$Path has this script's mark but cannot be trusted: $problem. An ordinary process, or a run with stand-ins, may have left it. If no VM uses it, remove it as docs/CI.md says, and run again. Nothing was changed."
+    }
+}
+
+# The record, read only once its folder and it are shown to be an administrators' alone (Get-PathTrustProblem). -Make, for Create:
+# a missing folder is made, already locked and owned by Administrators, and then checked like any other, so one that appeared
+# first is caught. Throw, for an elevated run that would act on it: it stops. Ignore, for an unelevated Prove or Stop, and for
+# Remove, whose every deletion is guarded on its own: it goes on with the defaults, and says so.
+function Read-Record([ValidateSet('Throw', 'Ignore')] [string] $IfUntrusted = 'Throw', [switch] $Make) {
+    if (-not (Test-Path -LiteralPath $script:AdminStateDir)) {
+        if (-not $Make) { return $null }
+        New-ProtectedFolder $script:AdminStateDir -OwnerMayRead
+    }
+    $problem = Get-PathTrustProblem $script:AdminStateDir
+    if (-not $problem -and (Test-Path -LiteralPath $script:RecordFile)) { $problem = Get-PathTrustProblem $script:RecordFile }
+    if ($problem) {
+        if ($IfUntrusted -eq 'Throw') {
+            throw "The record of what was made, in $script:AdminStateDir, cannot be trusted: $problem. Something other than this script run as administrator may have made it, to steer what this run builds or deletes. It was not read, and nothing was changed. docs/CI.md says how to look at it and remove it."
+        }
+        Say "the record in $script:AdminStateDir cannot be trusted ($problem), so it is not read, and the defaults are used"
+        return $null
+    }
+    if (-not (Test-Path -LiteralPath $script:RecordFile)) { return $null }
+    return Get-Content -LiteralPath $script:RecordFile -Raw | ConvertFrom-Json
+}
+
+# What Create chose, so that every later action means the same place. An argument that disagrees with the record stops it. The
+# extended ACL is the exception: each Create makes it match its own -StatefulSshAcl, on or off, and the other actions expect what
+# the last Create left.
+function Initialize-Settings([ValidateSet('Throw', 'Ignore')] [string] $IfUntrusted = 'Throw', [switch] $ForCreate) {
+    $saved = Read-Record $IfUntrusted -Make:$ForCreate
+    if ($saved) {
         foreach ($name in 'Root', 'Network', 'MemoryGB') {
             if ($script:Asked.ContainsKey($name) -and "$($script:Asked[$name])" -ne "$($saved.$name)") {
                 throw "Create chose -$name $($saved.$name) already, and this asks for $($script:Asked[$name]). -Action Remove first to change it."
             }
         }
     }
+    $stateful = if ($ForCreate -or -not $saved -or $null -eq $saved.StatefulSshAcl) { [bool] $script:UseStatefulSshAcl } else { [bool] $saved.StatefulSshAcl }
     $script:Settings = [pscustomobject] @{
-        Root          = Assert-SafeRoot ($saved ? $saved.Root : $Root)
-        Network       = $saved ? $saved.Network : $Network
-        MemoryGB      = $saved ? [int] $saved.MemoryGB : $MemoryGB
-        FirstBootDone = $saved ? [bool] $saved.FirstBootDone : $false
-        DiskMade      = $saved ? [bool] $saved.DiskMade : $false
-        # What was built, so a later Check in another session expects the extended ACL exactly when Create added it.
-        StatefulSshAcl = [bool] (($saved -and $null -ne $saved.StatefulSshAcl) ? $saved.StatefulSshAcl : $script:UseStatefulSshAcl)
+        Root           = Assert-SafeRoot ($saved ? $saved.Root : $Root)
+        Network        = $saved ? $saved.Network : $Network
+        MemoryGB       = $saved ? [int] $saved.MemoryGB : $MemoryGB
+        FirstBootDone  = $saved ? [bool] $saved.FirstBootDone : $false
+        DiskMade       = $saved ? [bool] $saved.DiskMade : $false
+        # What the last Create left, so a later Check in another session expects the extended ACL exactly when it is there.
+        StatefulSshAcl = $stateful
     }
     $script:Plan = Get-NetworkPlan $script:Settings.Network
     $script:DiskFile = Join-Path $script:Settings.Root 'disk\qor-ci-vm.vhdx'
@@ -377,12 +539,13 @@ function Initialize-Settings {
     return ($null -ne $saved)
 }
 
-# Written only from an elevated run, into the admin-only folder. Never from Prove or Stop.
+# Written only from an elevated run, into a folder made by administrators alone and checked first, and given to Administrators.
+# Never from Prove or Stop.
 function Save-Record {
-    Assert-NoReparsePoint $script:AdminStateDir
-    $null = New-Item -ItemType Directory -Force -Path $script:AdminStateDir
-    Protect-RecordFolder $script:AdminStateDir
+    Initialize-ProtectedFolder $script:AdminStateDir 'the record folder' -OwnerMayRead
     $script:Settings | ConvertTo-Json | Set-Content -LiteralPath $script:RecordFile -Encoding utf8
+    Set-AdminOwner $script:RecordFile
+    Assert-Trusted $script:RecordFile 'the record'
 }
 
 function Get-FreeMemoryGB { return [math]::Round((Get-CimInstance Win32_OperatingSystem).FreePhysicalMemory / 1MB, 1) }
@@ -437,6 +600,8 @@ function Assert-Preflight {
         if ("$($firewall.Enabled)" -ne 'True') { throw "Windows Firewall's $($firewall.Name) profile is off, so this script's rules would do nothing. Turn it on, or say why not." }
     }
     Say 'Windows Firewall is on, in all three profiles'
+    Assert-OurRoot $script:Settings.Root
+    Say ((Test-Path -LiteralPath $script:Settings.Root) ? "$($script:Settings.Root) is this script's, and only administrators can change it" : "$($script:Settings.Root) is not here yet")
     $free = Get-FreeDiskGB $script:Settings.Root
     if ($free -lt $script:DiskFreeNeededGB) { throw "$($script:Settings.Root)'s drive has $free GB free, and this wants $script:DiskFreeNeededGB. Choose another with -Root." }
     Say "$free GB free where the disk will be"
@@ -502,8 +667,7 @@ function Assert-ImageDigest([string] $Path) {
 }
 
 function Get-PinnedImage {
-    $folder = Split-Path -Parent $script:ImageFile
-    $null = New-Item -ItemType Directory -Force -Path $folder
+    Initialize-ProtectedFolder (Split-Path -Parent $script:ImageFile) 'the image folder'
     if (Test-Path -LiteralPath $script:ImageFile) {
         Say 'already here, and checking its digest again'
         Assert-ImageDigest $script:ImageFile
@@ -521,6 +685,7 @@ function Get-PinnedImage {
         throw
     }
     Move-Item -LiteralPath $part -Destination $script:ImageFile
+    Set-AdminOwner $script:ImageFile
     Say "SHA-256 $script:ImageSha256, as pinned"
 }
 
@@ -738,22 +903,22 @@ function Assert-GptDisk([string] $Path, [long] $Size) {
 }
 
 function New-GuestDisk {
+    $folder = Split-Path -Parent $script:DiskFile
+    Initialize-ProtectedFolder $folder 'the disk folder'
     if (Test-Path -LiteralPath $script:DiskFile) {
-        # The folder is locked to administrators (the step before this), so no ordinary process could place or change a file in it.
-        # The record, which only an elevated run writes, is what says this disk is one we built; without it, we do not trust it.
-        if ($script:Settings.DiskMade) {
+        # The record, checked as an administrators' alone before it was read, is what says this disk is one we built, and the disk
+        # itself must still be one that only administrators and Hyper-V could have changed. Otherwise it is not trusted.
+        $problem = Get-PathTrustProblem $script:DiskFile
+        if ($script:Settings.DiskMade -and -not $problem) {
             Say 'already here, and the record says this run built it'
             return
         }
-        Say 'a disk is here that the record does not account for, so it is being remade from the pinned image'
+        Say ($problem ? "a disk is here that cannot be trusted ($problem), so it is being remade from the pinned image" : 'a disk is here that the record does not account for, so it is being remade from the pinned image')
         if (Get-VM -Name $script:VmName -ErrorAction SilentlyContinue | Where-Object { "$($_.State)" -ne 'Off' }) {
             throw "the VM holds $script:DiskFile and is not off, so it cannot be remade. -Action Remove first, then Create."
         }
         Remove-Item -LiteralPath $script:DiskFile -Force
     }
-    $folder = Split-Path -Parent $script:DiskFile
-    Assert-NoReparsePoint $folder
-    $null = New-Item -ItemType Directory -Force -Path $folder
     $fixed = Join-Path $folder 'converting.vhd'
     $new = Join-Path $folder 'converting.vhdx'
     Remove-Item -LiteralPath $fixed, $new -Force -ErrorAction SilentlyContinue
@@ -767,6 +932,8 @@ function New-GuestDisk {
     Resize-VHD -Path $new -SizeBytes ($script:DiskGB * 1GB)
     Move-Item -LiteralPath $new -Destination $script:DiskFile
     Remove-Item -LiteralPath $fixed -Force
+    Set-AdminOwner $script:DiskFile
+    Assert-Trusted $script:DiskFile 'the disk just made'
     # Record that this run built it, so a later run trusts it and does not rebuild it under the running VM.
     $script:Settings.DiskMade = $true
     Save-Record
@@ -969,7 +1136,7 @@ function New-SeedIso([System.Collections.IDictionary] $Files, [string] $Path) {
 }
 
 function New-Seed {
-    $null = New-Item -ItemType Directory -Force -Path (Split-Path -Parent $script:SeedFile)
+    Initialize-ProtectedFolder (Split-Path -Parent $script:SeedFile) 'the seed folder'
     # By way of a new file: on a second run the seed can be in a running VM's DVD drive, where it cannot be written, and the same
     # settings make the same bytes.
     $new = "$script:SeedFile.new"
@@ -977,10 +1144,12 @@ function New-Seed {
     if ((Test-Path -LiteralPath $script:SeedFile) -and (Get-FileHash -LiteralPath $new).Hash -eq (Get-FileHash -LiteralPath $script:SeedFile).Hash) {
         Remove-Item -LiteralPath $new -Force
         Say 'already here, and the same'
-        return
     }
-    Move-Item -LiteralPath $new -Destination $script:SeedFile -Force
-    Say $script:SeedFile
+    else {
+        Move-Item -LiteralPath $new -Destination $script:SeedFile -Force
+        Say $script:SeedFile
+    }
+    Set-AdminOwner $script:SeedFile
 }
 
 # ---------------------------------------------------------------------------------------------------------------------
@@ -1099,7 +1268,9 @@ function New-GuestVm {
         else { throw "A VM named $script:VmName is here, and this script did not make it. Nothing was changed." }
     }
     if ($vm -and $vm.Notes -eq $script:Mark -and "$($vm.State)" -ne 'Off') {
-        Say "it is already here and $($vm.State), so its settings stay as they are, and the next step reads them"
+        # An extended ACL can change while it runs, so this Create's -StatefulSshAcl, on or off, still holds.
+        Sync-StatefulSshAcl
+        Say "it is already here and $($vm.State), so its other settings stay as they are, and the next step reads them"
         return
     }
     $memory = [long] $script:Settings.MemoryGB * 1GB
@@ -1161,18 +1332,25 @@ function New-GuestVm {
             Add-VMNetworkAdapterAcl -VMName $script:VmName -Direction $acl.Direction -Action $acl.Action -RemoteIPAddress $acl.Remote
         }
     }
-    if ($script:Settings.StatefulSshAcl) {
-        # Off by default (read the param's note). If the owner asked, a stateful extended ACL for the host's SSH: inbound to the
-        # guest on port 22 from the host, with its replies, so that only SSH, and no connection the guest starts, reaches the host.
-        # Whether a client Hyper-V enforces an extended ACL beside the basic ones is unproven; Prove's host-tcp to 10.213.57.1 on a
-        # port other than 22, and its host-spoof lines, are what would show it.
-        $existing = @(Get-VMNetworkAdapterExtendedAcl -VMName $script:VmName | Where-Object { "$($_.LocalPort)" -eq '22' -and "$($_.Direction)" -eq 'Inbound' })
-        if (-not $existing) {
-            Add-VMNetworkAdapterExtendedAcl -VMName $script:VmName -Direction Inbound -Action Allow -LocalPort 22 -Protocol TCP -RemoteIPAddress $script:Plan.HostIp -Stateful $true -Weight 100 | Out-Null
-            Say 'added a stateful extended ACL for SSH from the host (asked for, and unproven)'
-        }
-    }
+    Sync-StatefulSshAcl
     Say 'every setting is set'
+}
+
+# Off by default (read the param's note). If the owner asked, a stateful extended ACL for the host's SSH: inbound to the guest on
+# port 22 from the host, with its replies, so that only SSH, and no connection the guest starts, reaches the host. Whether a client
+# Hyper-V enforces an extended ACL beside the basic ones is unproven; Prove's host-tcp to 10.213.57.1 on a port other than 22, and
+# its host-spoof lines, are what would show it. A Create without -StatefulSshAcl takes away one an earlier Create added, so the
+# switch says what there is. On this VM alone, taken by its weight and direction, which is how Hyper-V names an extended ACL.
+function Sync-StatefulSshAcl {
+    $existing = @(Get-VMNetworkAdapterExtendedAcl -VMName $script:VmName | Where-Object { "$($_.LocalPort)" -eq '22' -and "$($_.Direction)" -eq 'Inbound' })
+    if ($script:Settings.StatefulSshAcl -and -not $existing) {
+        Add-VMNetworkAdapterExtendedAcl -VMName $script:VmName -Direction Inbound -Action Allow -LocalPort 22 -Protocol TCP -RemoteIPAddress $script:Plan.HostIp -Stateful $true -Weight 100 | Out-Null
+        Say 'added a stateful extended ACL for SSH from the host (asked for, and unproven)'
+    }
+    elseif (-not $script:Settings.StatefulSshAcl -and $existing) {
+        foreach ($acl in $existing) { Remove-VMNetworkAdapterExtendedAcl -VMName $script:VmName -Direction Inbound -Weight $acl.Weight }
+        Say 'took away the stateful extended ACL for SSH that an earlier Create added, as this one was not given -StatefulSshAcl'
+    }
 }
 
 # ---------------------------------------------------------------------------------------------------------------------
@@ -1321,6 +1499,8 @@ function Get-SshArguments([switch] $FirstContact) {
         '-o', "UserKnownHostsFile=`"$known`"", '-o', 'GlobalKnownHostsFile=NUL',
         # The first boot makes its host key, and it is kept from then on. Every later connection must match it.
         '-o', "StrictHostKeyChecking=$($FirstContact ? 'accept-new' : 'yes')",
+        # No agent is asked for a key, whatever SSH_AUTH_SOCK or Windows' agent service holds, and no escape character is read.
+        '-o', 'IdentityAgent=none', '-e', 'none',
         '-o', 'ForwardAgent=no', '-o', 'ForwardX11=no', '-o', 'ClearAllForwardings=yes', '-o', 'PermitLocalCommand=no',
         '-o', 'RequestTTY=no', '-o', 'UpdateHostKeys=no', '-o', 'ServerAliveInterval=15', '-o', 'ServerAliveCountMax=8',
         $script:Plan.VmIp
@@ -1406,6 +1586,8 @@ function Invoke-FirstBoot {
         return
     }
     Step 'Add the seed on a DVD drive, and read everything back before anything boots' {
+        # What the guest's first boot takes its settings from: only administrators may have written it.
+        Assert-Trusted $script:SeedFile 'the seed'
         if (-not (Get-VMDvdDrive -VMName $script:VmName)) { Add-VMDvdDrive -VMName $script:VmName -Path $script:SeedFile }
         Assert-Findings -SeedExpected
     }
@@ -1456,16 +1638,23 @@ function Invoke-FirstBoot {
 }
 
 function Invoke-Create {
-    $null = Initialize-Settings
+    # Who, and how it was started, before anything is read or made.
+    Assert-Administrator 'Create'
+    Assert-NoProfile
+    # The record's folder is made locked if it is not here, and it and the record are checked before either is read.
+    $null = Initialize-Settings -ForCreate
     Step 'Check this machine, before changing anything' {
         Assert-Preflight
     }
-    Step "The folder $($script:Settings.Root), locked to administrators, and the record of what was made" {
-        Assert-NoReparsePoint $script:Settings.Root
-        $null = New-Item -ItemType Directory -Force -Path $script:Settings.Root
-        # Administrators and SYSTEM only, so no ordinary process can place or change the image, disk or seed inside it.
-        Protect-RootFolder $script:Settings.Root
-        Set-Content -LiteralPath (Join-Path $script:Settings.Root $script:RootMarker) -Value $script:Mark
+    Step "The folder $($script:Settings.Root), made locked to administrators, and the record of what was made" {
+        # Made locked and owned by Administrators if it is not here. A folder that was here is used only if it passed Assert-OurRoot in
+        # the step before, and either way it is checked again now, so that one put here in between is caught. Administrators and
+        # SYSTEM only, so no ordinary process can place or change the image, disk or seed inside it.
+        Initialize-ProtectedFolder $script:Settings.Root $script:Settings.Root
+        $marker = Join-Path $script:Settings.Root $script:RootMarker
+        if (-not (Test-Path -LiteralPath $marker)) { Set-Content -LiteralPath $marker -Value $script:Mark }
+        Set-AdminOwner $marker
+        Assert-Trusted $marker 'Its mark'
         Save-Record
     }
     Step 'The SSH key that reaches the guest, in a folder of its own, never printed' { New-GuestKey }
@@ -1617,12 +1806,14 @@ function Get-RunHeader {
 }
 
 function Invoke-Prove {
-    $exists = Initialize-Settings
-    if (-not $exists -or -not (Test-Path -LiteralPath $script:KeyFile)) {
-        throw 'There is nothing to attack here yet: -Action Create comes first, once, as administrator.'
-    }
     if (Test-Administrator) {
         throw 'Prove runs from an ordinary terminal, not as administrator. It is a conversation with a guest it is trying to break out of, and a job would have no administrator either.'
+    }
+    # Unelevated, and only reading: a record that cannot be shown to be an administrators' alone is not read, and the defaults are
+    # used. A wrong address then reaches no guest, or one whose host key does not match the one kept, and ssh refuses it.
+    $null = Initialize-Settings -IfUntrusted Ignore
+    if (-not (Test-Path -LiteralPath $script:KeyFile)) {
+        throw 'There is nothing to attack here yet: -Action Create comes first, once, as administrator.'
     }
     $report = [System.Collections.Generic.List[string]]::new()
     $header = @(Get-RunHeader)
@@ -1720,8 +1911,9 @@ function Stop-Guest {
 }
 
 function Invoke-Stop {
-    $exists = Initialize-Settings
-    if (-not $exists -or -not (Test-Path -LiteralPath $script:KeyFile)) { throw 'There is nothing to stop here: no Create has run.' }
+    # As Prove: unelevated, a record that cannot be trusted is not read. Elevated, it stops the run, as anywhere an administrator acts.
+    $null = Initialize-Settings -IfUntrusted ((Test-Administrator) ? 'Throw' : 'Ignore')
+    if (-not (Test-Path -LiteralPath $script:KeyFile)) { throw 'There is nothing to stop here: no Create has run.' }
     if (Test-Administrator) {
         # An administrator can see the truth. Ask from inside, then read Hyper-V's own state, and turn it off if it did not go.
         Step 'Power it off, and confirm Hyper-V shows it off' {
@@ -1756,11 +1948,11 @@ function Invoke-Stop {
 }
 
 function Invoke-Start {
-    $null = Initialize-Settings
     if (-not (Test-Administrator)) {
         Write-Host (Get-StartChoices)
         return 2
     }
+    $null = Initialize-Settings
     Step 'Start it' {
         $vm = Get-VM -Name $script:VmName -ErrorAction SilentlyContinue
         if (-not $vm) { throw "There is no VM named $script:VmName: -Action Create comes first." }
@@ -1779,8 +1971,8 @@ function Invoke-Start {
 }
 
 function Invoke-Check {
-    $null = Initialize-Settings
     Assert-Administrator 'Reading a VM back'
+    $null = Initialize-Settings
     $findings = @()
     Step 'Read everything back, and change nothing' {
         $seed = -not $script:Settings.FirstBootDone
@@ -1793,10 +1985,11 @@ function Invoke-Check {
 }
 
 function Invoke-Remove {
-    # The folder is checked first: a -Root that is not this script's is refused before anything else is touched.
-    $null = Initialize-Settings
     Assert-Administrator 'Removing a VM, a switch, a NAT and firewall rules'
     Assert-NoProfile
+    # A record that cannot be shown to be an administrators' alone is not read, and the defaults are used. It decides nothing that
+    # is deleted: each thing below is taken only by its fixed name and mark, and a folder only if it passes the same checks.
+    $null = Initialize-Settings -IfUntrusted Ignore
     $root = $script:Settings.Root
     Step "The VM $script:VmName, by that name alone" {
         $vm = Get-VM -Name $script:VmName -ErrorAction SilentlyContinue
@@ -1806,6 +1999,10 @@ function Invoke-Remove {
             else { throw "A VM named $script:VmName is here, and this script did not make it, so it stays. Nothing else was removed." }
         }
         if ("$($vm.State)" -ne 'Off') { Stop-VM -Name $script:VmName -TurnOff -Force }
+        # The extended ACL a Create with -StatefulSshAcl added, by name, before the VM that holds it.
+        foreach ($acl in @(Get-VMNetworkAdapterExtendedAcl -VMName $script:VmName | Where-Object { "$($_.LocalPort)" -eq '22' -and "$($_.Direction)" -eq 'Inbound' })) {
+            Remove-VMNetworkAdapterExtendedAcl -VMName $script:VmName -Direction Inbound -Weight $acl.Weight
+        }
         Remove-VM -Name $script:VmName -Force
         Say 'gone'
     }
@@ -1834,10 +2031,14 @@ function Invoke-Remove {
         Say 'gone'
     }
     Step "What this script put in $root" {
-        # The root came from the admin-only record (or the fixed default, or an explicit -Root), never a user-writable file, and no
-        # part of it is a link: so this recursive delete stays inside the folder this script made.
+        # Emptied only if it has this script's mark and only administrators could have changed it, with no link on the way, so a
+        # recursive delete stays inside the folder this script made. A folder that fails that is not this script's to empty: it
+        # stays as it is, and Remove stops here so that the owner looks at it.
         if (-not (Test-Path -LiteralPath $root)) { Say 'not here'; return }
-        Assert-NoReparsePoint $root
+        $problem = (Test-Path -LiteralPath (Join-Path $root $script:RootMarker)) ? (Get-PathTrustProblem $root) : "it does not have this script's mark"
+        if ($problem) {
+            throw "$root is not emptied, because $problem. It may be a folder an ordinary process made, or one a run with stand-ins left. Nothing in it was touched. docs/CI.md says how to look at it and remove it by hand; then run Remove again for the key and the record."
+        }
         foreach ($name in 'vm', 'disk', 'seed', 'image') {
             $folder = Join-Path $root $name
             if (Test-Path -LiteralPath $folder) { Remove-Item -LiteralPath $folder -Recurse -Force }
@@ -1852,18 +2053,32 @@ function Invoke-Remove {
         }
     }
     Step "The key and Prove's reports, in $script:StateDir" {
-        if (Test-Path -LiteralPath $script:StateDir) {
-            Assert-NoReparsePoint $script:StateDir
-            Remove-Item -LiteralPath $script:StateDir -Recurse -Force
+        # The owner's own folder, which any of the owner's processes can change, so this deletes the files it made, by name, and
+        # then the folders only if they are empty. Never a recursive delete there.
+        if (-not (Test-Path -LiteralPath $script:StateDir)) { Say 'not here'; return }
+        Assert-NoReparsePoint $script:KeyDir
+        $files = @($script:KeyFile, "$script:KeyFile.pub", $script:KnownHosts, "$script:KnownHosts.old")
+        $files += @(Get-ChildItem -LiteralPath $script:StateDir -Filter 'prove-*.txt' -File -Force | ForEach-Object FullName)
+        foreach ($file in $files) {
+            if (Test-Path -LiteralPath $file -PathType Leaf) { Remove-Item -LiteralPath $file -Force }
         }
-        Say 'gone'
+        foreach ($folder in $script:KeyDir, $script:StateDir) {
+            if (-not (Test-Path -LiteralPath $folder)) { continue }
+            if (Get-ChildItem -LiteralPath $folder -Force | Select-Object -First 1) { Say "$folder holds other things, which are not this script's, so it stays" }
+            else { Remove-Item -LiteralPath $folder -Force }
+        }
+        Say 'what it made there is gone'
     }
     Step "The record, in $script:AdminStateDir" {
-        if (Test-Path -LiteralPath $script:AdminStateDir) {
-            Assert-NoReparsePoint $script:AdminStateDir
-            Remove-Item -LiteralPath $script:AdminStateDir -Recurse -Force
+        if (-not (Test-Path -LiteralPath $script:AdminStateDir)) { Say 'not here'; return }
+        $problem = Get-PathTrustProblem $script:AdminStateDir
+        if (-not $problem -and (Test-Path -LiteralPath $script:RecordFile)) { $problem = Get-PathTrustProblem $script:RecordFile }
+        if ($problem) {
+            throw "$script:AdminStateDir is not this script's to remove, because $problem. It stays as it is. docs/CI.md says how to look at it and remove it by hand."
         }
-        Say 'gone'
+        if (Test-Path -LiteralPath $script:RecordFile) { Remove-Item -LiteralPath $script:RecordFile -Force }
+        if (Get-ChildItem -LiteralPath $script:AdminStateDir -Force | Select-Object -First 1) { Say "$script:AdminStateDir holds other things, which are not this script's, so it stays" }
+        else { Remove-Item -LiteralPath $script:AdminStateDir -Force; Say 'gone' }
     }
     Write-Host 'All of it is gone, and nothing else was touched.'
     return 0
