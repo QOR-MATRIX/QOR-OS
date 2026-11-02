@@ -1517,7 +1517,7 @@ private slots:
                                           "function word() { return \"THE-SOURCE-RAN\" }\n");
         QVERIFY2(planted.isEmpty(), qPrintable(planted));
         QVERIFY(writeFile(project.file(QStringLiteral("scenes/level.qml")),
-                          "import QQ\nimport \"helper.js\" as Helper\n\nScene {\n    name: \"level\"\n"
+                          "import QtQml\nimport QQ\nimport \"helper.js\" as Helper\n\nScene {\n    name: \"level\"\n"
                           "    Component.onCompleted: console.log(\"SAID: \" + Helper.word())\n}\n"));
 
         // The person's own: the project trusted, and left last with that scene open.
