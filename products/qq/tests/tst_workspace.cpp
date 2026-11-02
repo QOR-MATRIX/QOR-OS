@@ -1836,7 +1836,10 @@ private slots:
         });
 
         QProcess studio;
-        studio.setProcessEnvironment(env);
+        QProcessEnvironment told = env;
+        told.insert(QStringLiteral("QT_FORCE_STDERR_LOGGING"), QStringLiteral("1"));
+        studio.setProcessEnvironment(told);
+        studio.setProcessChannelMode(QProcess::MergedChannels);
         studio.start(QStringLiteral(QQ_STUDIO), {QStringLiteral("--project"), p.path(), QStringLiteral("--launcher-channel"), channel});
         QVERIFY(studio.waitForStarted());
         studio.write(QByteArray(32, 'a') + '\n');
@@ -1847,7 +1850,14 @@ private slots:
         QVERIFY(addEntityThrough(pipe, QStringLiteral("Kept through the close")));
         // Straight away: the copy that matters is the one made as it closes, and not one a pause might already have made.
         peer->disconnectFromServer();
-        QVERIFY(studio.waitForFinished(60000));
+        const bool ended = studio.waitForFinished(60000);
+        if (!ended) {
+            studio.kill();
+            studio.waitForFinished();
+        }
+        QVERIFY2(ended, qPrintable(QStringLiteral("The Studio did not end. The copy %1 there. It said: %2")
+                                       .arg(QFileInfo::exists(copyThere) ? QStringLiteral("is") : QStringLiteral("is not"))
+                                       .arg(QString::fromUtf8(studio.readAll()))));
         QCOMPARE(studio.exitStatus(), QProcess::NormalExit);
         QVERIFY2(readBytes(copyThere).contains("Kept through the close"), readBytes(copyThere).constData());
     }
