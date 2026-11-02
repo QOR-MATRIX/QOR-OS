@@ -106,6 +106,11 @@ class WorkflowTest(unittest.TestCase):
             with self.subTest(word=word):
                 self.assertIn(f"{word}: ${{{{ {expression} }}}}", readiness)
 
+    def test_no_job_claims_the_products_ran_unrelaxed_on_a_graphics_card(self):
+        # Until a job runs the products on a Linux machine with a graphics card, readiness is told nothing of it, and so reads
+        # "not run". A job that adds it must set it from what that run did.
+        self.assertNotIn("LINUX_PRODUCTS_GPU", "\n".join(job("readiness")))
+
     def test_each_job_says_what_its_required_steps_did(self):
         for name, outputs in {
             "windows": {"gpu": "steps.gpu-tests.outcome", "products": "steps.product-suites.outcome", "products-changed": "steps.products.outputs.run"},
