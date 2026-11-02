@@ -1218,9 +1218,11 @@ QVariantMap SceneIO::brokenCode(const QUrl &project)
         QFile f(root.filePath(relative));
         if (!f.open(QIODevice::ReadOnly))
             continue;
+        // Not that it does not build: that it was not looked at, so "file" is empty and the message names it.
         if (f.size() > largestCodeChecked)
-            return {{QStringLiteral("file"), relative}, {QStringLiteral("line"), 0},
-                    {QStringLiteral("message"), QStringLiteral("it is more than %1 MB, more than is checked before a build").arg(largestCodeChecked / (1024 * 1024))}};
+            return {{QStringLiteral("file"), QString()}, {QStringLiteral("line"), 0},
+                    {QStringLiteral("message"), QStringLiteral("%1 is more than %2 MB, more than is checked before a build.")
+                                                    .arg(relative).arg(largestCodeChecked / (1024 * 1024))}};
         const QVariantList problems = checkLogic(QString::fromUtf8(f.read(largestCodeChecked)), QUrl::fromLocalFile(f.fileName()));
         if (!problems.isEmpty()) {
             const QVariantMap first = problems.first().toMap();

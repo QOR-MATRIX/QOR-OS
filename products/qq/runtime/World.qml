@@ -127,9 +127,10 @@ View3D {
     }
     function makeSky() {
         const before = madeSky
-        madeSky = madeSkyMaker.createObject(world, { skyTopColor: world.skyTop, skyHorizonColor: world.skyHorizon,
-                                                     groundHorizonColor: world.groundHorizon,
-                                                     groundBottomColor: world.groundBottom })
+        // In its texture, as one written inside it would be: Qt Quick 3D's own objects are placed among its own.
+        madeSky = madeSkyMaker.createObject(made, { skyTopColor: world.skyTop, skyHorizonColor: world.skyHorizon,
+                                                    groundHorizonColor: world.groundHorizon,
+                                                    groundBottomColor: world.groundBottom })
         if (before)
             before.destroy()
     }
