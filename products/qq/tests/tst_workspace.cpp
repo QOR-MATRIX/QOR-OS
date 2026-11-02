@@ -1669,6 +1669,7 @@ private slots:
         stranger.scene(QStringLiteral("theirs"), QStringLiteral("Theirs"));
         QJsonObject copy = h.goodCopy();
         copy.insert(QStringLiteral("project"), stranger.real());
+        copy.insert(QStringLiteral("folder"), qq::ProjectWorkspace::folderIdentity(stranger.real()));
         QJsonObject scene = copy.value(QStringLiteral("scene")).toObject();
         scene.insert(QStringLiteral("file"), QString());
         scene.insert(QStringLiteral("name"), QStringLiteral("mine"));
