@@ -1070,6 +1070,41 @@ private slots:
         QVERIFY(!texts.first().contains(QStringLiteral("Only in alpha")));
     }
 
+    /// A project opened here for the first time starts in a new scene called untitled, and may already have one.
+    void aNewSceneTakesNoOthersPlace()
+    {
+        TwoProjects two;
+        const QByteArray theirs = markingScene(QStringLiteral("already-here"));
+        QVERIFY(writeFile(two.b.file(QStringLiteral("scenes/untitled.qml")), theirs));
+        const QString beta = two.b.file(QStringLiteral("scenes/beta.qml"));
+        const QByteArray betaBefore = readBytes(beta);
+        STUDIO_IN(two.b.url());
+        QCOMPARE(s.sceneName(), QStringLiteral("untitled"));
+
+        s.edit();
+        QVERIFY(s.call("saveScene").toBool());
+        QCOMPARE(readBytes(two.b.file(QStringLiteral("scenes/untitled.qml"))), theirs);
+        QCOMPARE(s.sceneName(), QStringLiteral("untitled-2"));
+        const QString mine = two.b.file(QStringLiteral("scenes/untitled-2.qml"));
+        QVERIFY(QFileInfo::exists(mine));
+        QVERIFY(s.notice().contains(QStringLiteral("scenes/untitled.qml")));
+
+        // Saved again, it is the scene opened from that file, and writes over it alone.
+        s.edit();
+        const QByteArray before = readBytes(mine);
+        QVERIFY(s.call("saveScene").toBool());
+        QCOMPARE(s.sceneName(), QStringLiteral("untitled-2"));
+        QVERIFY(readBytes(mine) != before);
+        QVERIFY(!QFileInfo::exists(two.b.file(QStringLiteral("scenes/untitled-3.qml"))));
+
+        // Given another's name, it takes a name of its own too.
+        s.window->setProperty("sceneName", QStringLiteral("beta"));
+        QVERIFY(s.call("saveScene").toBool());
+        QCOMPARE(readBytes(beta), betaBefore);
+        QCOMPARE(s.sceneName(), QStringLiteral("beta-2"));
+        QVERIFY(QFileInfo::exists(two.b.file(QStringLiteral("scenes/beta-2.qml"))));
+    }
+
     void savingInOneProjectWritesNothingInAnother()
     {
         TwoProjects two;

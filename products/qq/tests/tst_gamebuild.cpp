@@ -425,6 +425,7 @@ private slots:
         QTemporaryDir games;
         const QVariantMap first = build(project, games.path());
         QVERIFY(first.value(QStringLiteral("ok")).toBool());
+        QCOMPARE(first.value(QStringLiteral("build")).toInt(), 1);
         const QString folder = first.value(QStringLiteral("folder")).toString();
         QVERIFY(QFile::exists(QDir(folder).filePath(QStringLiteral("assets/sub/tile.png"))));
 
@@ -437,6 +438,7 @@ private slots:
         QVERIFY(QFile::remove(project.file(QStringLiteral("assets/sub/tile.png"))));
         const QVariantMap second = build(project, games.path());
         QVERIFY(second.value(QStringLiteral("ok")).toBool());
+        QCOMPARE(second.value(QStringLiteral("build")).toInt(), 2);
         QVERIFY(!QFile::exists(QDir(folder).filePath(QStringLiteral("assets/sub/tile.png"))));
         QCOMPARE(leftovers(games.path()), QStringList{QStringLiteral(".building-another-game-Ab12Cd")});
         QCOMPARE(QJsonDocument::fromJson(readBytes(QDir(folder).filePath(QStringLiteral("game.json"))))
@@ -765,6 +767,25 @@ private slots:
 
         studio.click("buildButton");
         QTRY_VERIFY2(question->property("opened").toBool(), "the trust question was not asked");
+        QVERIFY(!studio.building());
+        QVERIFY(!QDir(qq::GameBuild::gamesFolder()).exists(game));
+    }
+
+    /// Saving asks first, so this is what asks when there is nothing to save: trust withdrawn from a scene already saved.
+    void trustWithdrawnIsAskedAboutWithNothingToSave()
+    {
+        Project project;
+        project.fill();
+        qq::SceneIO().trustProject(project.url());
+        Studio studio;
+        QVERIFY(studio.open(project.url()));
+        QVERIFY(studio.call("saveScene").toBool());
+        QVERIFY(!studio.get("dirty").toBool());
+        QVERIFY(studio.window->setProperty("projectTrusted", false));
+        const QString game = qq::GameBuild::folderNameFor(qq::Confinement::realPath(project.path()));
+
+        studio.click("buildButton");
+        QTRY_VERIFY2(studio.child("trustDialog")->property("opened").toBool(), "the trust question was not asked");
         QVERIFY(!studio.building());
         QVERIFY(!QDir(qq::GameBuild::gamesFolder()).exists(game));
     }

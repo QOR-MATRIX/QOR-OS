@@ -272,6 +272,10 @@ no mix-ups between them, on native Linux.
 - [x] QQ Studio: a workspace for each project, one way to switch, unsaved work kept, a list of recent projects. Shown by `tst_workspace`
   in software on Linux, on 1 November 2026, and not yet on native Linux, a GPU or Windows. A crash still loses unsaved work, and so does
   the launcher closing the Studio
+- [x] QQ Studio builds a game of a project, and Prism's Library plays that copy: QML in QQ's runtime, not a native program. Shown by
+  `tst_gamebuild` and `first_journey` in software under WSL, on 1 November 2026, with Prism starting a stand-in for the Player and the
+  real Player playing what it asked for on a display of its own. Not yet on native Linux, a GPU or Windows; the real Player in a Prism
+  window needs a real graphics card, and an import records no permission for what it brings in
 - [ ] What is pinned to a project: its engine and version, and its asset dependencies, apart from the person's own library
 - [ ] Prism: a project as a place on the desktop, with its files, tools, window layout, build targets and test history
 - [ ] Budgets, proposed and not yet measured, on the reference laptop: back in a small project within 1 second at p95, no
@@ -295,7 +299,7 @@ not a vendor's support. The commit and date go in the row.
 | Configuration | Editor launch | Menus, focus | Pointer capture | Graphics | Audio | Controller | Project save | Packaged build | Game launch |
 |---------------|---------------|--------------|-----------------|----------|-------|------------|--------------|----------------|-------------|
 | QQ, Windows 11, in CI, at `3bf213a` | passed, suites | passed, suites | untested | passed, suites | suites, deaf to the machine | virtual only | passed, suites | untested: no build step yet | project in the Player: passed, suites; packaged: untested |
-| QQ, Ubuntu in WSL2, software, hidden display | passed, suites | passed, suites | untested | software only | deaf to the machine | virtual only | passed, suites | untested: no build step yet | project in the Player: suites, known timing failures |
+| QQ, Ubuntu in WSL2, software, hidden display, on 1 November 2026 | passed, suites | passed, suites | untested | software only | deaf to the machine | virtual only | passed, suites | passed, suites (`tst_gamebuild`, `first_journey`) | what was built, in the real Player: passed, suites; from the Library: Prism starts a stand-in there, and the real Player plays what it asked for |
 | QQ, native Linux | blocked: machine | blocked: machine | blocked: machine | blocked: machine | blocked: machine | blocked: machine | blocked: machine | blocked: machine | blocked: machine |
 | Unreal 5.8 | blocked: licence, not installed | blocked | blocked: Prism's interfaces | blocked | blocked | blocked | blocked | blocked | blocked |
 | Unity 6.3 | blocked: operation gated | blocked | blocked | blocked | blocked | blocked | blocked | blocked | blocked |

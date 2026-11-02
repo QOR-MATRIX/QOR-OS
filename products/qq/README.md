@@ -148,6 +148,16 @@ it; the QQ Player plays a scene on its own, natively and in a browser.
   scene or logic file, Close in the editor and closing the window ask about unsaved work too. `--project` always wins;
   with nothing on the command line the Studio goes back to the last project; a capture keeps nothing. Launched by the
   launcher, a Studio that the launcher closes exits without asking (ADR-046).
+- **Building a game (QOR OS, 1 November 2026):** **Build** saves what is on the screen, then copies the project's `scenes/`,
+  `logic/`, `prefabs/` and `assets/` into a folder of the game's own, `<GenericDataLocation>/qor-os/games/<name>-<hash of the
+  project's real path>/`, with a `game.json` of what it holds and the digest of each file (`studio/gamebuild.h`). Play here runs the
+  project as it stands, and the Library plays this copy, which changes only when built again and plays with the project gone. What a
+  game cannot carry refuses the build, with the reason: a link, a pipe, a name a system would read as more, more than 8 GB or 50,000
+  files. Dot-files and anything else in the project stay behind. A new build replaces the old only once it is whole.
+  `qq-studio --project <folder> --build <scenes/x.qml>` does the same with no window, printing `QQ-BUILD` and its result as JSON.
+  Importing a file records no permission for it: that waits for the asset library
+  ([QOR-0021](../../docs/decisions/QOR-0021-projects-engines-and-two-stores.md)). QML in a game runs inside QQ's runtime, behind the
+  Player's walls, and no native program is made.
 - **The files:** a scene is `scenes/<name>.qml` in the project, in one canonical layout: read and written back it is
   the same bytes, and one changed value is one changed line in Projects. Models and sounds are copied into `assets/`
   and logic into `logic/`, so the project is whole on its own; a Tiled map brings its tileset and image, and one whose

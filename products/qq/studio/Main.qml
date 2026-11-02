@@ -565,6 +565,15 @@ ApplicationWindow {
         })
     }
 
+    /// `name`, or the first like it that no scene in this project has. Names are compared as a system that ignores case would.
+    function freeSceneName(name) {
+        const taken = (SceneIO.project(project).scenes ?? []).map(held => String(held).toLowerCase())
+        let free = name
+        for (let n = 2; taken.includes(free); n++)
+            free = name + "-" + n
+        return free
+    }
+
     function saveScene() {
         if (!scene || playing)
             return false
@@ -578,7 +587,10 @@ ApplicationWindow {
             trusting(() => saveScene())
             return false
         }
-        const name = sceneName.trim().toLowerCase().replace(/[^a-z0-9-]+/g, "-").replace(/^-+|-+$/g, "") || "untitled"
+        const wanted = sceneName.trim().toLowerCase().replace(/[^a-z0-9-]+/g, "-").replace(/^-+|-+$/g, "") || "untitled"
+        // A scene already in scenes/ is written over only by the scene opened from it. A new one, or one given another's
+        // name, takes a name of its own: a project opened here for the first time starts in a new scene called untitled.
+        const name = savedText === "" || fileFor(wanted) !== String(sceneFile) ? freeSceneName(wanted) : wanted
         // Files from outside the project (models, sounds, pictures, skies, prefabs, logic) come into it first, so the
         // project is whole on its own: the scene's own (its sky) and its entities', those in groups too.
         if (!adoptFiles([scene].concat(SceneIO.entities(scene))))
@@ -598,8 +610,9 @@ ApplicationWindow {
         history.amend(savedText)
         projectInfo = SceneIO.project(project)
         refresh()
-        say(projectInfo.repository ? qsTr("Saved scenes/%1.qml. Commit it in Projects.").arg(name)
-                                   : qsTr("Saved scenes/%1.qml. This folder is not versioned yet: open it in Projects.").arg(name))
+        const kept = name === wanted ? "" : qsTr(" scenes/%1.qml was already there, and is as it was.").arg(wanted)
+        say((projectInfo.repository ? qsTr("Saved scenes/%1.qml. Commit it in Projects.").arg(name)
+                                    : qsTr("Saved scenes/%1.qml. This folder is not versioned yet: open it in Projects.").arg(name)) + kept)
         return true
     }
 
