@@ -26,6 +26,7 @@ qt_add_qml_module(qor_store
         qml/ThemePreview.qml
     SOURCES
         qml/store.h qml/store.cpp
+        qml/storefronts.h qml/storefronts.cpp
         src/archive.h src/archive.cpp
         src/catalog.h src/catalog.cpp
         src/filerules.h src/filerules.cpp
@@ -42,6 +43,16 @@ qt_add_qml_module(qor_store
         QOR.Kit
         QOR.Services
 )
+
+# The demonstration's key, in a build that asked for it and in no other (docs/STORE.md).
+if(QOR_STORE_DEMONSTRATION)
+    set(QOR_STORE_DEMONSTRATION_PUB "${CMAKE_SOURCE_DIR}/tests/store/fixtures-demo/store.pub")
+    set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${QOR_STORE_DEMONSTRATION_PUB}")
+    file(READ "${QOR_STORE_DEMONSTRATION_PUB}" QOR_STORE_DEMONSTRATION_KEY)
+    string(STRIP "${QOR_STORE_DEMONSTRATION_KEY}" QOR_STORE_DEMONSTRATION_KEY)
+    set_property(SOURCE qml/storefronts.cpp APPEND PROPERTY
+        COMPILE_DEFINITIONS "QOR_STORE_DEMONSTRATION_KEY=\"${QOR_STORE_DEMONSTRATION_KEY}\"")
+endif()
 
 if(WIN32)
     target_sources(qor_store PRIVATE src/signature_windows.cpp)
