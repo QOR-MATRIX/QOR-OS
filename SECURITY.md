@@ -6,7 +6,8 @@ Please **do not** open a public issue for security problems.
 
 Report privately through GitHub's
 [security advisory form](https://github.com/QOR-MATRIX/qor-os/security/advisories/new),
-which, while this repository is private, only people with access to it can reach.
+which, while this repository is private, only people with access to it can reach. There is
+no public route yet, and one is a release gate ([ROADMAP](docs/ROADMAP.md#release-gates)).
 Include:
 
 - the affected component: the compositor, a service, an app, QQ, ARQADE, QOR
@@ -87,11 +88,30 @@ and through the whole history; the QOR core's dependencies audited weekly.
 Say so if you find a way past one; these are the walls we know are low.
 
 - **This repository was public from 27 October to 1 November 2026,** against its own
-  documents, while CI ran on the owner's machine. It is private now, but anyone may have
-  copied it up to `a3a2fd4`: GitHub counted 85 unique cloners and 25 unique visitors over
-  the last fortnight, its own CI perhaps among them, and no pull request was ever opened.
-  The history's secret scan passed at that commit, so a copy should hold no secret. It
-  does hold the code, the plans and the Store's public key.
+  documents, while CI ran on the owner's machine. It is private now, but treat the code as
+  copied up to `a3a2fd4`. GitHub counted 239 clones (85 unique) and does not say by whom. CI's
+  jobs explain at most about 163 of them, and the gap is widest on 31 October, at 133 clones
+  against 45 jobs. The history's secret scan passed at that commit, and no artifact was
+  kept, so a copy should hold no secret, though that scan is not proof. A copy holds the code,
+  the plans and the Store's public key. CI's logs were readable as well. A scan of all 120 runs'
+  logs on 1 November, by the patterns `tools/ci/check_secrets.py` uses, found no key, token or
+  email address, and neither the signing folder's name nor the Qt account file's. They do show
+  the workstation's name and its Windows user folder. **Nothing found shows that outside code ran on that
+  machine:** of 117 runs, all came from this repository, 110 triggered by the owner and 7 by
+  Dependabot; there were no forks and no pull requests. The signing keys' last-access times, and
+  their backup's, have not moved since 27 October, which is consistent with no later read and
+  does not prove it.
+- **A CI job on the workstation can reach what its user can:** the Store's keys and backup,
+  and SSH, cloud, GitHub CLI and Qt credentials. Those jobs are off until their runner is isolated
+  ([docs/CI.md](docs/CI.md#what-ci-trusts)), but the runners stay online. Whatever can write workflows
+  can address them, and that includes GitHub Apps installed on the organisation with workflow
+  access.
+- **Under WSL, any Linux process can reach the Windows drive with the Windows user's rights.** Measured on 1 November 2026: with
+  drives unmounted and interop off, a process with no privilege opened `AF_VSOCK` to Windows' 9P file server and attached to
+  `C:\`. Only a filter on the process closes that, as in `qor-ci`'s job sandbox and the QQ Player's wall. So nothing run in WSL
+  without such a filter is contained, whatever `wsl.conf` says. A device has no WSL.
+- **A game past QQ's own checks can still use local sockets on Linux,** which the display and sound need. The kernel's wall
+  refuses it the network and its files, not what listens on a local socket.
 - **On Windows the Player has only QQ's own checks.** Windows is a development
   host, not the device. Qt Quick's `Canvas` (reads any picture) and `grabToImage`
   (writes over any picture) and Qt Multimedia's camera, microphone, screen capture

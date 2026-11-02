@@ -16,6 +16,11 @@
 // qq-mcp, which relays to it (agent/). One Studio at a time serves the pipe; QQ_MCP_PIPE names another.
 //
 // Changed for QOR OS: the watchdog for logic that never returns (QOR-0018).
+//
+// Changed for QOR OS: each project's workspace (projectworkspace.h). --project always wins. With nothing at all on the
+// command line, the Studio goes back to the last project, by the same way and past the same trust check as any other
+// change of project: only a person starting it directly does that, since the launcher names its project. A model given
+// on the command line asks for a new scene, and a capture is a look at what was asked for, which keeps no workspace.
 
 #include <QCommandLineParser>
 #include <QDir>
@@ -103,8 +108,13 @@ int main(int argc, char *argv[])
     const QUrl folder = parser.isSet(project) ? QUrl::fromLocalFile(QDir().absoluteFilePath(parser.value(project)))
                                               : QUrl();
 
+    const bool bareStart = !parser.isSet(project) && positional.isEmpty() && !parser.isSet(capture) && !parser.isSet(channel);
+
     QQmlApplicationEngine engine;
-    engine.setInitialProperties({{QStringLiteral("model"), model}, {QStringLiteral("project"), folder}});
+    engine.setInitialProperties({{QStringLiteral("model"), model},
+                                 {QStringLiteral("project"), folder},
+                                 {QStringLiteral("reopenLast"), bareStart},
+                                 {QStringLiteral("remembers"), !parser.isSet(capture)}});
     QObject::connect(
         &engine, &QQmlApplicationEngine::objectCreationFailed, &app, [] { QCoreApplication::exit(1); },
         Qt::QueuedConnection);

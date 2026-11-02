@@ -1,6 +1,7 @@
 # QQ's tests: Qt Test, rendering for real on the machine's GPU and judging what was drawn by its pixels.
 #
 # Changed for QOR OS: every suite is built with virtualpads.cpp, so no controller on the machine joins in.
+# Changed for QOR OS: tst_workspace.
 
 qt_add_executable(tst_world tst_world.cpp)
 
@@ -66,6 +67,14 @@ add_dependencies(tst_player qq-player)
 
 add_test(NAME tst_player COMMAND tst_player)
 
+# Changed for QOR OS: the kernel's wall around a game, from the hostile side (QOR-0018). The Linux wall needs Linux.
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    qt_add_executable(tst_playerwall tst_playerwall.cpp ../player/sandbox.cpp)
+    target_include_directories(tst_playerwall PRIVATE ../player)
+    target_link_libraries(tst_playerwall PRIVATE Qt6::Test Qt6::Gui Qt6::Qml qqruntime)
+    add_test(NAME tst_playerwall COMMAND tst_playerwall)
+endif()
+
 qt_add_executable(tst_agent tst_agent.cpp)
 
 # The real programs, started as an MCP client and the launcher start them.
@@ -104,6 +113,29 @@ target_link_libraries(tst_publish PRIVATE
 )
 
 add_test(NAME tst_publish COMMAND tst_publish)
+
+qt_add_executable(tst_workspace tst_workspace.cpp)
+
+# Each project's workspace in the real Studio, from the hostile side too; the agent's run, against a stand-in provider;
+# and the real program, for what its command line asks.
+target_compile_definitions(tst_workspace PRIVATE
+    QQ_FIXTURES="${CMAKE_CURRENT_SOURCE_DIR}/fixtures"
+    QQ_STUDIO="$<TARGET_FILE:qq-studio>")
+
+target_link_libraries(tst_workspace PRIVATE
+    Qt6::Test Qt6::Gui Qt6::Qml Qt6::Quick Qt6::Quick3D Qt6::QuickControls2 Qt6::Network
+    qqagent qqstudio qqstudioplugin qqruntime qqruntimeplugin
+)
+add_dependencies(tst_workspace qq-studio)
+
+add_test(NAME tst_workspace COMMAND tst_workspace)
+
+# Changed for QOR OS: these ask the renderer for its name (drawnin.h), which only Qt's private headers can do.
+set(QT_NO_PRIVATE_MODULE_WARNING ON)
+find_package(Qt6 6.12 REQUIRED COMPONENTS GuiPrivate)
+foreach(suite tst_studio tst_play tst_agent)
+    target_link_libraries(${suite} PRIVATE Qt6::GuiPrivate)
+endforeach()
 
 # Every suite in this folder, so a new one cannot forget.
 get_directory_property(qq_suites BUILDSYSTEM_TARGETS)

@@ -10,10 +10,14 @@ name: Build
 #      - a Qt kit already installed on a self-hosted runner
 #   2. Secrets QT_INSTALLER_JWT_TOKEN, or QT_INSTALLER_EMAIL + QT_INSTALLER_PASSWORD
 #      - unattended Qt Online Installer on a hosted runner, cached
+# A kit means a runner on the workstation, whose job runs only with QOR_WINDOWS_RUNNER_ISOLATED /
+# QOR_LINUX_RUNNER_ISOLATED set to true. Without it nothing is built or tested, and Release readiness, the last job, fails:
+# it passes only when every required step ran and passed (tools/ci/release_readiness.py).
 # Runner selection: repository variables QOR_WINDOWS_RUNNER / QOR_LINUX_RUNNER
 # take a JSON runner label, e.g. '["self-hosted","windows","qt"]'.
 # Set QOR_RUN_GPU_TESTS=true on a runner with a desktop session to also run
-# the GPU-labelled suites. See docs/CI.md.
+# the GPU-labelled suites, and QOR_RUN_LINUX_PRODUCTS=true to run the products
+# on Linux, in software. See docs/CI.md.
 
 on:
   push:
@@ -47,24 +51,46 @@ jobs:
     outputs:
       windows: ${{ steps.check.outputs.windows }}
       linux: ${{ steps.check.outputs.linux }}
+      windows-source: ${{ steps.check.outputs.windows-source }}
+      linux-source: ${{ steps.check.outputs.linux-source }}
     steps:
       - id: check
         env:
           HAS_WINDOWS_KIT: ${{ vars.QOR_WINDOWS_QT_DIR != '' }}
           HAS_LINUX_KIT: ${{ vars.QOR_LINUX_QT_DIR != '' }}
           HAS_SECRETS: ${{ secrets.QT_INSTALLER_JWT_TOKEN != '' || (secrets.QT_INSTALLER_EMAIL != '' && secrets.QT_INSTALLER_PASSWORD != '') }}
+          # A kit means a runner on the workstation, which holds the Store's keys and the owner's credentials. Its job runs only
+          # once a person has said that runner cannot reach them, and its first step checks (docs/CI.md#what-ci-trusts).
+          WINDOWS_ISOLATED: ${{ vars.QOR_WINDOWS_RUNNER_ISOLATED == 'true' }}
+          LINUX_ISOLATED: ${{ vars.QOR_LINUX_RUNNER_ISOLATED == 'true' }}
         run: |
-          windows=false; linux=false
-          { [ "$HAS_WINDOWS_KIT" = "true" ] || [ "$HAS_SECRETS" = "true" ]; } && windows=true
-          { [ "$HAS_LINUX_KIT" = "true" ] || [ "$HAS_SECRETS" = "true" ]; } && linux=true
+          # has a kit, its runner is isolated, has secrets
+          runs() {
+            if [ "$1" = "true" ]; then echo "$2"; else echo "$3"; fi
+          }
+          source_of() {
+            if [ "$1" = "true" ]; then
+              if [ "$2" = "true" ]; then echo "self-hosted kit"; else echo "self-hosted kit, paused: not isolated"; fi
+            elif [ "$3" = "true" ]; then echo "online installer"
+            else echo "none"; fi
+          }
+          windows=$(runs "$HAS_WINDOWS_KIT" "$WINDOWS_ISOLATED" "$HAS_SECRETS")
+          linux=$(runs "$HAS_LINUX_KIT" "$LINUX_ISOLATED" "$HAS_SECRETS")
+          windows_source=$(source_of "$HAS_WINDOWS_KIT" "$WINDOWS_ISOLATED" "$HAS_SECRETS")
+          linux_source=$(source_of "$HAS_LINUX_KIT" "$LINUX_ISOLATED" "$HAS_SECRETS")
           echo "windows=$windows" >> "$GITHUB_OUTPUT"
           echo "linux=$linux" >> "$GITHUB_OUTPUT"
+          echo "windows-source=$windows_source" >> "$GITHUB_OUTPUT"
+          echo "linux-source=$linux_source" >> "$GITHUB_OUTPUT"
+          if [ "$windows" != "true" ] || [ "$linux" != "true" ]; then
+            echo "::warning title=Not built::Windows runs: $windows. Linux runs: $linux. A job that did not run proves nothing. See docs/CI.md."
+          fi
           {
             echo "### Qt builds"
             echo "| Platform | Qt source | Runs |"
             echo "|----------|-----------|------|"
-            echo "| Windows | $([ "$HAS_WINDOWS_KIT" = "true" ] && echo "self-hosted kit" || ([ "$HAS_SECRETS" = "true" ] && echo "online installer" || echo "none")) | $windows |"
-            echo "| Linux | $([ "$HAS_LINUX_KIT" = "true" ] && echo "self-hosted kit" || ([ "$HAS_SECRETS" = "true" ] && echo "online installer" || echo "none")) | $linux |"
+            echo "| Windows | $windows_source | $windows |"
+            echo "| Linux | $linux_source | $linux |"
             echo
             echo "Configure a Qt source per platform to enable its job. See docs/CI.md."
           } >> "$GITHUB_STEP_SUMMARY"
@@ -76,7 +102,27 @@ jobs:
     if: needs.preflight.outputs.windows == 'true' && github.event.pull_request.user.login != 'dependabot[bot]'
     runs-on: ${{ fromJSON(vars.QOR_WINDOWS_RUNNER || '"windows-2025"') }}
     timeout-minutes: 90
+    # What Release readiness needs to know: a job can pass with these steps skipped.
+    outputs:
+      gpu: ${{ steps.gpu-tests.outcome }}
+      products: ${{ steps.product-suites.outcome }}
+      products-changed: ${{ steps.products.outputs.run }}
     steps:
+      # Before anything from the repository runs: a job that can reach the owner's keys or credentials goes no further, whatever
+      # a person said of this runner (docs/CI.md#what-ci-trusts).
+      - name: Runner boundary
+        if: vars.QOR_WINDOWS_QT_DIR != ''
+        shell: pwsh
+        run: |
+          $held = '.qor-os', '.ssh', '.aws', 'AppData\Roaming\GitHub CLI', 'AppData\Roaming\Qt\qtaccount.ini'
+          $reachable = foreach ($person in Get-ChildItem C:\Users -Directory -Force -ErrorAction SilentlyContinue) {
+            foreach ($thing in $held) { if (Test-Path -LiteralPath (Join-Path $person.FullName $thing)) { $thing } }
+          }
+          if ($reachable) {
+            "::error::This job can reach: $(@($reachable | Sort-Object -Unique) -join ', '). It stops here."
+            exit 1
+          }
+
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           # Self-hosted runners keep the build tree for incremental builds.
@@ -182,6 +228,7 @@ jobs:
       # Each product's own script builds and tests it, exactly as upstream
       # (docs/UPSTREAM.md); a product that fails is tried once more.
       - name: Products (QQ, ARQADE, QOR Media)
+        id: product-suites
         if: steps.products.outputs.run == 'true'
         shell: pwsh
         run: python tools/ci/with_display.py -- pwsh -NoProfile -File tools\dev\products.ps1 -Qt $env:QOR_QT_DIR -BuildRoot build\ci-products
@@ -208,8 +255,40 @@ jobs:
     # A dependency update waits for a person: Dependabot's pull requests never run on the workstation (docs/CI.md).
     if: ${{ !cancelled() && needs.preflight.outputs.linux == 'true' && github.event.pull_request.user.login != 'dependabot[bot]' }}
     runs-on: ${{ fromJSON(vars.QOR_LINUX_RUNNER || '"ubuntu-24.04"') }}
-    timeout-minutes: 90
+    # With the products, whose step alone may take 180.
+    timeout-minutes: ${{ vars.QOR_RUN_LINUX_PRODUCTS == 'true' && 270 || 90 }}
+    # What Release readiness needs to know: a job can pass with these steps skipped.
+    outputs:
+      gpu: ${{ steps.gpu-tests.outcome }}
+      prism: ${{ steps.prism-protocol.outcome }}
+      products: ${{ steps.product-suites.outcome }}
+      products-changed: ${{ steps.products.outputs.run }}
     steps:
+      # Before anything from the repository runs: a job that can reach Windows, or the owner's credentials, goes no further,
+      # whatever a person said of this runner (docs/CI.md#what-ci-trusts).
+      - name: Runner boundary
+        if: vars.QOR_LINUX_QT_DIR != ''
+        run: |
+          reachable=""
+          for drive in /mnt/*; do
+            if [ -d "$drive/Windows" ] || [ -d "$drive/Users" ]; then reachable="$reachable a Windows drive at $drive;"; fi
+          done
+          if command -v cmd.exe >/dev/null 2>&1; then reachable="$reachable Windows programs on the PATH;"; fi
+          if [ -e /proc/sys/fs/binfmt_misc/WSLInterop ]; then reachable="$reachable Windows interop;"; fi
+          # wsl.conf does not close this: a process that opens AF_VSOCK reaches Windows' file server (isolated-linux-runner.sh).
+          opened=0
+          python3 -I -c 'import socket; socket.socket(socket.AF_VSOCK, socket.SOCK_STREAM)' 2>/dev/null || opened=$?
+          if [ "$opened" -eq 0 ]; then reachable="$reachable AF_VSOCK, the way to Windows' file server;"; fi
+          if [ "$opened" -eq 127 ]; then reachable="$reachable perhaps AF_VSOCK: no python3 to test it;"; fi
+          if id -nG | grep -qwE 'sudo|docker|adm'; then reachable="$reachable a privileged group;"; fi
+          for held in .ssh .aws .config/gh .npmrc .local/share/Qt/qtaccount.ini; do
+            if [ -e "$HOME/$held" ]; then reachable="$reachable ~/$held;"; fi
+          done
+          if [ -n "$reachable" ]; then
+            echo "::error::This job can reach:$reachable It stops here."
+            exit 1
+          fi
+
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           clean: ${{ vars.QOR_LINUX_QT_DIR == '' }}
@@ -309,6 +388,7 @@ jobs:
       # Real Wayland clients against the built compositor; needs a display
       # (WSLg or a desktop session), weston and wayland-utils on the runner.
       - name: Prism protocol check
+        id: prism-protocol
         if: vars.QOR_RUN_GPU_TESTS == 'true' && vars.QOR_LINUX_QT_DIR != ''
         run: tools/dev/prism-protocol-check.sh build/ci-linux
 
@@ -316,9 +396,10 @@ jobs:
       # how it is built) changed, on tags and on manual runs. Only where
       # QOR_RUN_LINUX_PRODUCTS says so: on 28 October their GPU suites under
       # WSL froze the PC the runner shares (docs/CI.md#the-carried-products).
+      # The script fences them from the GPU, so this needs no QOR_RUN_GPU_TESTS.
       - name: Did the carried products change?
         id: products
-        if: vars.QOR_RUN_GPU_TESTS == 'true' && vars.QOR_RUN_LINUX_PRODUCTS == 'true'
+        if: vars.QOR_RUN_LINUX_PRODUCTS == 'true'
         env:
           EVENT: ${{ github.event_name }}
           BEFORE: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
@@ -328,12 +409,49 @@ jobs:
               && ! echo "$BEFORE" | grep -qE '^0+$' && [ "${GITHUB_REF#refs/tags/}" = "$GITHUB_REF" ]; then
             git fetch --quiet --no-tags --depth=1 origin "$BEFORE"
             git diff --name-only "$BEFORE" HEAD \
-              | grep -qE '^(products/|tools/qor-media/|docs/design/tokens\.json$|tools/dev/products(\.sh|-display\.qml)$|\.github/workflows/build\.yml$|\.github/qt-packages\.json$)' \
+              | grep -qE '^(products/|tools/qor-media/|docs/design/tokens\.json$|tools/dev/(products\.sh|products-display\.qml|products-report\.py|secret-service\.py)$|\.github/workflows/build\.yml$|\.github/qt-packages\.json$)' \
               || run=false
           fi
           echo "run=$run" >> "$GITHUB_OUTPUT"
           echo "Carried products: $([ "$run" = true ] && echo 'built and tested' || echo 'unchanged, skipped')" >> "$GITHUB_STEP_SUMMARY"
 
+      # Fenced from the GPU, in software, on a display of its own. Its log and the step's summary name each case failed or
+      # skipped, with why. A cold build, every suite, and a failed tst_games again (docs/CI.md#what-linux-runs).
       - name: Products (QQ, ARQADE, QOR Media)
+        id: product-suites
         if: steps.products.outputs.run == 'true'
+        timeout-minutes: 180
         run: tools/dev/products.sh --qt "$QOR_QT_DIR" --build-root build/ci-products
+
+      - name: Exploit mitigations (the products)
+        if: steps.products.outputs.run == 'true'
+        run: python3 tools/ci/check_hardening.py build/ci-products
+
+  # A runner being allowed is not a build having passed. This reports each apart, and fails unless every required step ran and
+  # passed, so a run that built nothing is never green. On a machine of GitHub's, whatever became of the jobs.
+  readiness:
+    name: Release readiness
+    needs: [preflight, windows, linux]
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Did every required build and test run, and pass?
+        env:
+          WINDOWS_RUNNER: ${{ needs.preflight.outputs.windows-source }}
+          LINUX_RUNNER: ${{ needs.preflight.outputs.linux-source }}
+          WINDOWS_JOB: ${{ needs.windows.result }}
+          WINDOWS_GPU: ${{ needs.windows.outputs.gpu }}
+          WINDOWS_PRODUCTS: ${{ needs.windows.outputs.products }}
+          WINDOWS_PRODUCTS_CHANGED: ${{ needs.windows.outputs.products-changed }}
+          LINUX_JOB: ${{ needs.linux.result }}
+          LINUX_GPU: ${{ needs.linux.outputs.gpu }}
+          LINUX_PRISM: ${{ needs.linux.outputs.prism }}
+          LINUX_PRODUCTS: ${{ needs.linux.outputs.products }}
+          LINUX_PRODUCTS_CHANGED: ${{ needs.linux.outputs.products-changed }}
+          IS_RELEASE: ${{ startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch' }}
+        run: python3 -I tools/ci/release_readiness.py

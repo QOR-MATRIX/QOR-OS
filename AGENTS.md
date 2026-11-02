@@ -71,7 +71,8 @@ in that list is not current.
   Nobody here downloads the engine until the owner has accepted that licence.
 - **Unity** is Unity's ([QOR-0021](docs/decisions/QOR-0021-projects-engines-and-two-stores.md)). Nothing of its editor enters this
   repository, the image or the Store's own content. Its terms name AI agents, so no assistant operates its editor or opens anything
-  under its install folders, and no code of ours touches its editor until Unity has answered in writing or counsel has read them.
+  under its install folders. No code of ours touches its editor until that operation has a grant, in Unity's terms, its documentation or
+  its written answer, or a legal reading says none is needed. An owner's approval cannot override a third party's terms.
 - **QTOS** (`QOR-MATRIX/QTOS`) is frozen: its code at `37b621e`, plus a note saying so (`3ecdded`). Do no new work there.
 - **Demiurge's old documentation does not exist.** Its pre-realignment
   documents were deleted on 13 September 2026. Never read, restore, quote or
@@ -175,8 +176,11 @@ QTOS's practice, which QOR OS keeps:
 - **Render on demand.** No continuous frames or wakeups when nothing changes.
   Shell and Kit changes are benchmarked before and after on the same machine
   ([docs/PERFORMANCE.md](docs/PERFORMANCE.md)).
-- **CI runs on self-hosted runners with the licensed kit** ([docs/CI.md](docs/CI.md)).
-  If CI does not run, first check that the runners are online.
+- **CI's Qt jobs are paused, and their self-hosted runners stopped, until a replacement
+  is shown to be isolated** ([docs/CI.md](docs/CI.md#what-ci-trusts)). A runner being
+  online is not a build having passed, and Release readiness fails while a required
+  build or test did not run. Until then, a result is a run on the machine that states
+  its commit, commands, environment, failures and skips.
 - **Report failures honestly, with the output.** Never weaken a test or a
   check to make it pass. Loosening a check is the owner's decision.
 - **On the owner's Windows machine:**

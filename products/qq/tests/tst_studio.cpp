@@ -5,8 +5,9 @@
 // the disk.
 //
 // Changed for QOR OS: a warning from QQ's own QML (an undefined name, a failed binding) fails the case it happens in;
-// a Studio is open once its window has the keyboard too, so that a shortcut is not pressed before it can answer; and no
-// controller on the machine joins in (virtualpads.cpp).
+// a Studio is open once its window has the keyboard too, so that a shortcut is not pressed before it can answer; no
+// controller on the machine joins in (virtualpads.cpp); and drawn in software alone, what play does to bodies is waited
+// for on the physics world's clock.
 
 #include <QDir>
 #include <QElapsedTimer>
@@ -22,6 +23,7 @@
 #include <QQuickStyle>
 #include <QQuickWindow>
 #include <QRegularExpression>
+#include <QSignalSpy>
 #include <QStandardPaths>
 #include <QTemporaryDir>
 #include <QTest>
@@ -30,6 +32,7 @@
 #include <cmath>
 #include <QtQml/qqmlextensionplugin.h>
 
+#include "drawnin.h"
 #include "gamepadmanager.h"
 #include "gpu.h"
 #include "mixer.h"
@@ -526,8 +529,31 @@ private slots:
         QVERIFY(s.playScene() && s.playScene() != s.scene());
         QVERIFY(!s.call("saveScene").toBool());  // nothing is saved from play
 
+        // On a GPU, `ms` on the wall's clock, so what follows checks too that the world keeps up with real time. Bodies move by
+        // the physics world's clock, which frames drawn in software leave behind the wall's: there alone, `ms` of that, with a
+        // limit on the wall's time that only stops a game that has hung (docs/CI.md#what-linux-runs).
+        const bool software = qq::drawnInSoftware(s.window);
+        QSignalSpy steps(s.playScene()->property("physicsWorld").value<QObject *>(), SIGNAL(frameDone(float)));
+        const auto play = [&](int ms) {
+            if (!software) {
+                s.run(ms);
+                return true;
+            }
+            double done = 0;
+            QElapsedTimer guard;
+            guard.start();
+            while (done < ms && guard.elapsed() < 30000 + 30 * ms) {
+                s.window->update();
+                QTest::qWait(4);
+                for (const QList<QVariant> &step : std::as_const(steps))
+                    done += step.at(0).toDouble();
+                steps.clear();
+            }
+            return done >= ms;
+        };
+
         // The crate falls in play; the scene's crate stays where it was put.
-        s.run(2500);
+        QVERIFY(play(2500));
         QObject *falling = s.played(QStringLiteral("Crate"));
         QVERIFY(falling);
         const float y = falling->property("physics").value<QObject *>()->property("scenePosition").value<QVector3D>().y();
@@ -539,9 +565,9 @@ private slots:
         QCOMPARE(s.window->property("follow").value<QObject *>(), player);
         const float startZ = player->property("feet").value<QVector3D>().z();
         QTest::keyPress(s.window, Qt::Key_W);
-        s.run(700);
+        QVERIFY(play(700));
         QTest::keyRelease(s.window, Qt::Key_W);
-        s.run(100);
+        QVERIFY(play(100));
         const float walked = startZ - player->property("feet").value<QVector3D>().z();
         QVERIFY2(walked > 1.5f, qPrintable(QStringLiteral("walked %1").arg(walked)));
         QObject *world = s.window->findChild<QObject *>(QStringLiteral("world"));
@@ -553,7 +579,7 @@ private slots:
         const double pitch = player->property("pitch").toDouble();
         const QPointF from = s.onScreen("world", player->property("lookAt").value<QVector3D>());
         s.drag(from, from + QPointF(160, 40));
-        s.run(200);
+        QVERIFY(play(200));
         const double turned = heading - player->property("heading").toDouble();
         QVERIFY2(turned > 32 && turned < 48, qPrintable(QStringLiteral("turned %1").arg(turned)));
         const double tilted = player->property("pitch").toDouble() - pitch;

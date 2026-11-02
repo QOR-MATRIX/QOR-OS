@@ -26,6 +26,10 @@
 // Ctrl+Y, so there Delete is the Delete key alone and Redo adds Ctrl+Y, the keys this window promises on every system.
 // Changed for QOR OS: a project from elsewhere runs nothing until it is trusted, the Studio's guard, and whether the
 // agent's logic may run (QOR-0018).
+// Changed for QOR OS: each project is a workspace the Studio comes back to, as it was left (ProjectWorkspace). There is
+// one way to change project, switchProject(): it asks about unsaved work, leaves nothing of the old project behind, goes
+// past the same trust check as anything else that runs a project's files, then restores. Unsaved work is asked about too
+// before a new scene, another scene or logic file, or the window closing. Names from outside are text, never markup.
 
 import QtQuick
 // Before the Material style: Qt Quick 3D has a type called Material too, and the import that comes later wins.
@@ -35,6 +39,7 @@ import QtQuick.Controls.Material
 import QtQuick.Dialogs
 import QtQuick.Layouts
 import QQ
+import QQ.Studio
 
 ApplicationWindow {
     id: window
@@ -42,6 +47,10 @@ ApplicationWindow {
     /// A glTF model for a new scene, and the project folder, both given on the command line (or chosen here).
     required property url model
     required property url project
+    /// Started with nothing on the command line (main.cpp): go back to the last project, if it is there.
+    property bool reopenLast: false
+    /// False for a one-off look (a capture): it keeps no workspace and joins no recent list.
+    property bool remembers: true
 
     width: 1600
     height: 960
@@ -101,6 +110,21 @@ ApplicationWindow {
     readonly property QtObject history: History {}
     /// What the next refresh() records as: an edit's key, so quick edits of one field are one step ("" for none).
     property string editKey: ""
+
+    /// What is kept of each project, outside it (projectworkspace.h).
+    readonly property ProjectWorkspace workspace: ProjectWorkspace {}
+    /// The recent projects, as the workspace lists them.
+    property var recentProjects: []
+    /// A new scene's text as it was made: one nobody has touched is no work to save, though it has never been saved.
+    property string pristineText: ""
+    /// While a project is being put back, what changes is not a person's change to keep.
+    property bool restoring: false
+    /// What waits on the answer to Save, Discard or Cancel: { scene, logic, then, saveInto }; or null when nothing is asked.
+    property var askingFor: null
+    /// The window may go: its unsaved work has been answered for.
+    property bool closeSettled: false
+    /// Toggled to make the Agent panel anew, with nothing typed in it, for the next project.
+    property bool agentPanelLive: true
     /// The statistics over the world, and the colliders drawn in play (F3).
     property bool showStats: false
 
@@ -250,38 +274,293 @@ ApplicationWindow {
         return false
     }
 
+    /// Where a scene not yet saved is built. QML takes every file beside a scene as a type of the same name, so an untrusted
+    /// project's scenes/ folder could stand in for Sun or Ground: it has no place in there until the project is trusted.
+    function placeFor(name) {
+        return projectTrusted ? fileFor(name) : "qrc:/qq-untrusted/" + name + ".qml"
+    }
+
     function newScene() {
         const text = 'import QQ\nScene {\n    name: "untitled"\n    Sun { elevation: 38 }\n    Ground {}\n'
                    + '    Shape { name: "Plinth"; position: Qt.vector3d(0, 0.25, 0); scale: Qt.vector3d(2, 0.5, 2); '
                    + 'colour: "#2b3140"; roughness: 0.6 }\n'
                    + '    Prop { name: "Orb"; position: Qt.vector3d(0, 1.75, 0); source: ' + JSON.stringify(String(model))
                    + ' }\n}\n'
-        // QML takes every file beside a scene as a type of the same name, so an untrusted project's scenes/ folder could
-        // stand in for Sun or Ground: a new scene has no place in it until it is trusted.
-        const place = projectTrusted ? fileFor("untitled") : "qrc:/qq-untrusted/untitled.qml"
+        const place = placeFor("untitled")
         if (show(SceneIO.loadText(text, place, stage), place, "untitled", false)) {
-            history.reset(SceneIO.write(scene, sceneFile))
+            pristineText = SceneIO.write(scene, sceneFile)
+            history.reset(pristineText)
             say(qsTr("A new scene. Save it to keep it in the project."))
         }
     }
 
-    function openScene(name) {
-        return trusting(() => {
-            if (show(SceneIO.load(fileFor(name), stage), fileFor(name), name, true)) {
-                history.reset(SceneIO.write(scene, sceneFile))
-                say(qsTr("Opened scenes/%1.qml").arg(name))
-            }
-        })
+    /// Open scenes/<name>.qml, which the project's trust has already allowed: true if it did.
+    function openTrustedScene(name) {
+        if (!show(SceneIO.load(fileFor(name), stage), fileFor(name), name, true))
+            return false
+        pristineText = ""
+        history.reset(SceneIO.write(scene, sceneFile))
+        say(qsTr("Opened scenes/%1.qml").arg(name))
+        return true
     }
 
+    function openScene(name) {
+        return trusting(() => openTrustedScene(name))
+    }
+
+    // ── changing project ──
+
+    /// Whether the scene holds work that saving would keep.
+    function sceneHasWork() {
+        if (!scene)
+            return false
+        const text = SceneIO.write(scene, sceneFile)
+        return text !== savedText && text !== pristineText
+    }
+
+    /// Do `then` once what `parts` names ({ scene, logic }) has nothing unsaved, or the person has said what becomes of it.
+    /// True if it ran now; false if the question is on the screen, or another already was.
+    function settleThen(parts, then) {
+        if (askingFor !== null)
+            return false
+        const scenePart = parts.scene === true && sceneHasWork()
+        const logicPart = parts.logic === true && logicEditor.dirty
+        if (!scenePart && !logicPart) {
+            then()
+            return true
+        }
+        ask({ scene: scenePart, logic: logicPart, then: then })
+        return false
+    }
+
+    function ask(question) {
+        askingFor = question
+        const logicName = "logic/" + logicEditor.name + ".qml"
+        unsavedText.text = question.scene && question.logic ? qsTr("The scene %1 and %2 have changes that are not saved.").arg(sceneName).arg(logicName)
+                         : question.scene ? qsTr("The scene %1 has changes that are not saved.").arg(sceneName)
+                         : qsTr("%1 has changes that are not saved.").arg(logicName)
+        unsavedDialog.open()
+    }
+
+    /// What the question's buttons do: "save", "discard" or "cancel". Cancel changes nothing at all, so play is stopped
+    /// only now, when the answer is to go on. Saving what fails to save stays where it is, with the reason said.
+    function answerUnsaved_(answer) {
+        const asked = askingFor
+        askingFor = null
+        unsavedDialog.close()
+        if (!asked || answer === "cancel")
+            return false
+        if (answer === "save") {
+            if (asked.saveInto !== undefined)
+                return saveInto(asked.saveInto)
+            stop()  // nothing is saved from play
+            if (asked.logic && !logicEditor.save())
+                return false
+            if (asked.scene && !saveScene())
+                return false
+        }
+        asked.then()
+        return true
+    }
+
+    /// The one way to change project: from the chooser, from Recent, and when the Studio starts. True if it is done now;
+    /// false if it was refused or waits on a question. A scene in no project has come from none, so it can go with the
+    /// person: Save there means saving it into the project being chosen.
+    function switchProject(folder) {
+        if (askingFor !== null)
+            return false
+        if (!workspace.isFolder(folder)) {
+            say(qsTr("That project's folder is not there any more."), true)
+            recentProjects = workspace.recentProjects()
+            return false
+        }
+        if (String(project) !== "" && workspace.sameProject(project, folder)) {
+            // The same one, looked at again: what is in it may be new, and nothing is left.
+            projectTrusted = SceneIO.projectTrusted(project)
+            projectInfo = SceneIO.project(project)
+            refresh()
+            return true
+        }
+        if (String(project) === "" && sceneHasWork()) {
+            ask({ scene: true, logic: false, saveInto: folder, then: () => enterProject(folder) })
+            return false
+        }
+        return settleThen({ scene: true, logic: true }, () => enterProject(folder))
+    }
+
+    /// What this used to be called: the same one way in.
     function chooseProject(folder) {
+        return switchProject(folder)
+    }
+
+    /// What the chooser's answer does: where a scene with no project is to be saved, or the project to change to.
+    function folderChosen(folder) {
+        const saving = projectChooser.thenSave
+        projectChooser.thenSave = false
+        return saving ? saveInto(folder) : switchProject(folder)
+    }
+
+    /// Save the scene, which is in no project yet, as part of `folder`: what Save asks for before a project is chosen.
+    function saveInto(folder) {
+        stop()
+        if (!workspace.isFolder(folder)) {
+            say(qsTr("That project's folder is not there any more."), true)
+            return false
+        }
+        adoptProject(folder)
+        return saveScene()
+    }
+
+    /// Everything that belongs to the project being left goes, in an order that can reach no other: its workspace kept
+    /// while it is still the project, and then whatever runs, waits or was typed for it.
+    function leaveProject() {
+        if (designer)
+            designer.forget()
+        stop()
+        saveWorkspace()
+        whenTrusted = null
+        trustDialog.close()
+        logicEditor.reset()
+        projectPanel.reset()
+        // A permission given for one project is not given for the next.
+        agentMayRun = false
+        agentPanelLive = false
+        agentPanelLive = true
+        yaw = 25
+        pitch = 16
+        distance = 8
+        target = Qt.vector3d(0, 1, 0)
+    }
+
+    /// `folder` is the project now, by SceneIO's trust check.
+    function adoptProject(folder) {
         project = folder
         SceneIO.setProject(folder)
         projectTrusted = SceneIO.projectTrusted(folder)
         projectInfo = SceneIO.project(folder)
-        if (scene && String(sceneFile) === "")
-            sceneFile = fileFor(sceneName)
-        refresh()
+        if (remembers) {
+            workspace.noteRecent(folder)
+            recentProjects = workspace.recentProjects()
+        }
+    }
+
+    function enterProject(folder) {
+        leaveProject()
+        arriveIn(folder)
+    }
+
+    /// Into `folder`, with nothing of anywhere else here: a new scene first, so whatever cannot be restored leaves a clean
+    /// window, and then what was kept for it.
+    function arriveIn(folder) {
+        restoring = true
+        adoptProject(folder)
+        newScene()
+        restoreWorkspace()
+        restoring = false
+    }
+
+    /// Put back what was kept for the project. The panels and the window run nothing of it. The files do, so they wait for
+    /// the trust check like anything else; a scene or file that cannot be had is said, and a new scene stays open.
+    function restoreWorkspace() {
+        const state = workspace.load(project)
+        agentOpen = state.panels.agent === true
+        showStats = state.panels.stats === true
+        applyWindow(state.window)
+
+        const keptScene = /^scenes\/([^/]+)\.qml$/.exec(state.scene)
+        const keptLogic = /^logic\/(.+)\.qml$/.exec(state.logic)
+        const problems = state.problem === "" ? [] : [state.problem]
+        if ((state.scene !== "" && !keptScene) || (state.logic !== "" && !keptLogic))
+            problems.push(qsTr("It named a file that does not belong there, which was left closed."))
+        if (problems.length > 0)
+            say(problems.join(" "), true)
+        if (!keptScene && !keptLogic)
+            return
+        trusting(() => {
+            const before = restoring
+            restoring = true
+            if (keptScene && !openTrustedScene(keptScene[1]))
+                problems.push(SceneIO.lastError)
+            if (keptLogic && !logicEditor.open(keptLogic[1]))
+                problems.push(SceneIO.lastError)
+            viewport.forceActiveFocus()  // the editor took it, and nobody has started typing there
+            restoring = before
+            if (problems.length > 0)
+                say(problems.join(" "), true)
+            else
+                say(qsTr("Back in %1, as you left it.").arg(projectInfo.name))
+        })
+    }
+
+    function applyWindow(placed) {
+        if (placed.maximized === true) {
+            showMaximized()
+            return
+        }
+        if (visibility === Window.Maximized)
+            showNormal()
+        if (placed.width !== undefined) {
+            width = placed.width
+            height = placed.height
+        }
+        if (placed.x !== undefined) {
+            x = placed.x
+            y = placed.y
+        }
+    }
+
+    /// Keep where this project stands, in the person's own store. A project not trusted has opened nothing worth keeping,
+    /// and what it remembered from when it was stays, for the moment it is trusted again.
+    function saveWorkspace() {
+        saveLater.stop()
+        if (!remembers || String(project) === "" || !projectTrusted)
+            return false
+        const maximized = visibility === Window.Maximized
+        return workspace.save(project, {
+            scene: savedText !== "" ? workspace.relativeInside(project, sceneFile) : "",
+            logic: logicEditor.name !== "" ? "logic/" + logicEditor.name + ".qml" : "",
+            panels: { agent: agentOpen, stats: showStats },
+            window: maximized ? { maximized: true } : { x: x, y: y, width: width, height: height }
+        })
+    }
+
+    /// Something a workspace keeps has really changed: kept in a moment, however many more changes that moment holds. Only
+    /// a change starts this, so an idle Studio has nothing waiting.
+    function keepWorkspaceSoon() {
+        if (!restoring && remembers && String(project) !== "" && scene)
+            saveLater.restart()
+    }
+
+    Timer {
+        id: saveLater
+        objectName: "workspaceSaveLater"
+        interval: 1000
+        onTriggered: window.saveWorkspace()
+    }
+
+    onSceneFileChanged: keepWorkspaceSoon()
+    onAgentOpenChanged: keepWorkspaceSoon()
+    onShowStatsChanged: keepWorkspaceSoon()
+    onXChanged: keepWorkspaceSoon()
+    onYChanged: keepWorkspaceSoon()
+    onWidthChanged: keepWorkspaceSoon()
+    onHeightChanged: keepWorkspaceSoon()
+    onVisibilityChanged: keepWorkspaceSoon()
+    Connections {
+        target: logicEditor
+        function onNameChanged() { window.keepWorkspaceSoon() }
+    }
+
+    // The window closing is a way of leaving too, so it asks first, and goes once that is answered. What it was left as is
+    // kept by release(), as the application quits.
+    onClosing: (close) => {
+        if (closeSettled)
+            return
+        close.accepted = false
+        settleThen({ scene: true, logic: true }, () => {
+            closeSettled = true
+            Qt.callLater(() => window.close())
+        })
     }
 
     function saveScene() {
@@ -290,6 +569,11 @@ ApplicationWindow {
         if (String(project) === "") {
             projectChooser.thenSave = true
             projectChooser.open()
+            return false
+        }
+        // Saved in there, the scene is built among a stranger's files from then on, so this asks first as opening does.
+        if (!projectTrusted) {
+            trusting(() => saveScene())
             return false
         }
         const name = sceneName.trim().toLowerCase().replace(/[^a-z0-9-]+/g, "-").replace(/^-+|-+$/g, "") || "untitled"
@@ -307,6 +591,7 @@ ApplicationWindow {
         sceneName = name
         sceneFile = file
         savedText = SceneIO.write(scene, file)
+        pristineText = ""
         // What saving changed (the name, files brought into the project) is part of the step it saved, not one to undo.
         history.amend(savedText)
         projectInfo = SceneIO.project(project)
@@ -323,8 +608,10 @@ ApplicationWindow {
             return
         }
         const name = String(file).split("/").pop().replace(/\.qq\.json$/, "").toLowerCase()
-        if (!show(SceneIO.loadText(result.qml, fileFor(name), stage), fileFor(name), name, false))
+        const place = placeFor(name)
+        if (!show(SceneIO.loadText(result.qml, place, stage), place, name, false))
             return
+        pristineText = ""
         history.reset(SceneIO.write(scene, sceneFile))
         say(qsTr("Imported %1 entities.").arg(result.imported)
             + (result.skipped.length ? " " + qsTr("Not brought in: %1.").arg(result.skipped.join("; ")) : ""))
@@ -381,7 +668,7 @@ ApplicationWindow {
         const here = scene.view === "2d" ? Qt.vector3d(target.x, target.y, 0) : undefined
         switch (f.kind) {
         case "scene":
-            openScene(f.name)
+            settleThen({ scene: true }, () => openScene(f.name))
             return scene
         case "prefab":
             return add("Prefab", { name: base, source: f.url })
@@ -417,8 +704,11 @@ ApplicationWindow {
     function openLogic(name) {
         if (String(project) === "")
             return false
+        // Already open: read again from its file, it would lose what is being typed.
+        if (logicEditor.name === name && logicEditor.dirty)
+            return true
         let opened = false
-        trusting(() => opened = logicEditor.open(name))
+        settleThen({ logic: true }, () => trusting(() => opened = logicEditor.open(name)))
         return opened
     }
 
@@ -611,6 +901,7 @@ ApplicationWindow {
         if (designer)
             designer.stop()
         stop()
+        saveWorkspace()
         if (scene)
             SceneIO.discard(scene)
         scene = null
@@ -710,9 +1001,117 @@ ApplicationWindow {
     Component.onCompleted: {
         // Before anything of a project is looked at.
         SceneIO.guardStudio()
-        if (String(project) !== "")
-            chooseProject(project)
+        recentProjects = workspace.recentProjects()
+        if (String(project) !== "") {
+            arriveIn(project)
+            return
+        }
+        const last = reopenLast && recentProjects.length > 0 ? recentProjects[0] : null
+        if (last && !last.missing) {
+            arriveIn(last.url)
+            return
+        }
         newScene()
+        if (last)
+            say(qsTr("%1, the project you were last in, is not there any more.").arg(last.name), true)
+    }
+
+    // Asked before anything unsaved is left behind. Esc is Cancel.
+    Dialog {
+        id: unsavedDialog
+        objectName: "unsavedDialog"
+        anchors.centerIn: parent
+        modal: true
+        closePolicy: Popup.CloseOnEscape
+        title: qsTr("Save your work?")
+        standardButtons: Dialog.NoButton
+        width: 460
+        onClosed: {
+            if (window.askingFor !== null)
+                window.answerUnsaved_("cancel")
+        }
+        contentItem: Label {
+            id: unsavedText
+            objectName: "unsavedText"
+            wrapMode: Text.Wrap
+            textFormat: Text.PlainText
+        }
+        footer: DialogButtonBox {
+            Button {
+                objectName: "unsavedSave"
+                text: qsTr("Save")
+                DialogButtonBox.buttonRole: DialogButtonBox.AcceptRole
+                onClicked: window.answerUnsaved_("save")
+            }
+            Button {
+                objectName: "unsavedDiscard"
+                text: qsTr("Discard")
+                DialogButtonBox.buttonRole: DialogButtonBox.DestructiveRole
+                onClicked: window.answerUnsaved_("discard")
+            }
+            Button {
+                objectName: "unsavedCancel"
+                text: qsTr("Cancel")
+                DialogButtonBox.buttonRole: DialogButtonBox.RejectRole
+                onClicked: window.answerUnsaved_("cancel")
+            }
+        }
+    }
+
+    // The projects worked in lately. A name is whatever the folder is called, so it is shown as text.
+    Popup {
+        id: recentPopup
+        objectName: "recentPopup"
+        anchors.centerIn: parent
+        modal: true
+        width: 480
+        height: Math.min(window.height - 80, recentList.contentHeight + 2 * padding)
+        ListView {
+            id: recentList
+            objectName: "recentList"
+            anchors.fill: parent
+            clip: true
+            model: window.recentProjects
+            delegate: ItemDelegate {
+                id: recentRow
+                required property var modelData
+                width: ListView.view.width
+                // One whose folder has gone is shown, and cannot be opened.
+                enabled: !modelData.missing
+                onClicked: {
+                    recentPopup.close()
+                    window.switchProject(modelData.url)
+                }
+                contentItem: ColumnLayout {
+                    spacing: 0
+                    RowLayout {
+                        Label {
+                            objectName: "recentName"
+                            Layout.fillWidth: true
+                            text: recentRow.modelData.name
+                            textFormat: Text.PlainText
+                            elide: Text.ElideRight
+                            font.weight: Font.Medium
+                        }
+                        Label {
+                            objectName: "recentMissing"
+                            visible: recentRow.modelData.missing
+                            text: qsTr("Missing")
+                            color: Look.bad
+                            font.pixelSize: 12
+                        }
+                    }
+                    Label {
+                        Layout.fillWidth: true
+                        text: recentRow.modelData.path
+                        textFormat: Text.PlainText
+                        elide: Text.ElideMiddle
+                        font.pixelSize: 11
+                        opacity: 0.6
+                    }
+                }
+            }
+        }
     }
 
     Dialog {
@@ -736,6 +1135,7 @@ ApplicationWindow {
                 onClicked: window.trustProject_()
             }
             Button {
+                objectName: "keepClosed"
                 text: qsTr("Keep it closed")
                 DialogButtonBox.buttonRole: DialogButtonBox.RejectRole
                 onClicked: {
@@ -796,7 +1196,9 @@ ApplicationWindow {
                 color: Look.giltBright
             }
             Label {
+                objectName: "projectName"
                 text: window.projectInfo.name !== "" ? window.projectInfo.name : qsTr("No project")
+                textFormat: Text.PlainText
                 Layout.maximumWidth: 200
                 elide: Text.ElideRight
                 font.family: Look.ui
@@ -836,6 +1238,7 @@ ApplicationWindow {
                 wrapMode: Text.Wrap
                 maximumLineCount: 2
                 elide: Text.ElideRight
+                textFormat: Text.PlainText
                 text: window.playProblem !== "" ? window.playProblem : window.notice
                 color: window.noticeIsProblem || window.playProblem !== "" ? Look.bad : Look.inkBody
                 opacity: window.noticeIsProblem || window.playProblem !== "" ? 1 : 0.7
@@ -843,9 +1246,15 @@ ApplicationWindow {
                 HoverHandler { id: noticeHover }
                 ToolTip {
                     objectName: "noticeTip"
+                    id: noticeTip
                     visible: noticeHover.hovered && noticeLabel.truncated
                     text: noticeLabel.text
                     width: Math.min(implicitWidth, 560)
+                    contentItem: Label {
+                        text: noticeTip.text
+                        textFormat: Text.PlainText
+                        wrapMode: Text.Wrap
+                    }
                 }
             }
             StudioButton {
@@ -899,7 +1308,12 @@ ApplicationWindow {
                 ToolTip.visible: hovered
                 ToolTip.text: qsTr("What the world costs, and colliders in play (F3)")
             }
-            StudioButton { text: qsTr("New"); enabled: !window.playing; onClicked: window.newScene() }
+            StudioButton {
+                objectName: "newButton"
+                text: qsTr("New")
+                enabled: !window.playing
+                onClicked: window.settleThen({ scene: true }, () => window.newScene())
+            }
             StudioButton { text: qsTr("Import 2D…"); enabled: !window.playing; onClicked: importChooser.open() }
             // Play is the one primary action; unsaved work lights Save's ember edge rather than making a second one.
             StudioButton {
@@ -1063,7 +1477,12 @@ ApplicationWindow {
                                      : entry.modelData.kind === "Prefab" ? Look.gilt
                                      : Look.accent
                             }
-                            Label { text: entry.modelData.name; Layout.fillWidth: true; elide: Text.ElideRight }
+                            Label {
+                                text: entry.modelData.name
+                                textFormat: Text.PlainText
+                                Layout.fillWidth: true
+                                elide: Text.ElideRight
+                            }
                             Label { text: entry.modelData.kind; opacity: 0.4; font.pixelSize: 11 }
                         }
                     }
@@ -1083,6 +1502,17 @@ ApplicationWindow {
                         Layout.fillWidth: true
                     }
                     StudioButton {
+                        objectName: "recentButton"
+                        visible: window.recentProjects.length > 0
+                        text: qsTr("Recent")
+                        onClicked: {
+                            // Looked at now: a folder may have gone or come back since.
+                            window.recentProjects = window.workspace.recentProjects()
+                            recentPopup.open()
+                        }
+                    }
+                    StudioButton {
+                        objectName: "projectButton"
                         text: String(window.project) === "" ? qsTr("Choose…") : qsTr("Change…")
                         onClicked: projectChooser.open()
                     }
@@ -1097,6 +1527,7 @@ ApplicationWindow {
                                                         : qsTr("Not versioned yet: open it in Projects")
                 }
                 ProjectPanel {
+                    id: projectPanel
                     objectName: "projectPanel"
                     visible: String(window.project) !== ""
                     Layout.fillWidth: true
@@ -1408,6 +1839,7 @@ ApplicationWindow {
                             text: window.selection ? (window.selection === window.scene ? qsTr("Look and sky")
                                                                                         : window.selection.name)
                                                    : qsTr("Nothing selected")
+                            textFormat: Text.PlainText
                             font.family: Look.ui
                             font.pixelSize: Look.sizeHeading + 2
                             font.weight: Font.DemiBold
@@ -1535,7 +1967,7 @@ ApplicationWindow {
 
             Loader {
                 anchors.fill: parent
-                active: window.designer !== null
+                active: window.designer !== null && window.agentPanelLive
                 sourceComponent: AgentPanel {
                     designer: window.designer
                     mayRun: window.agentMayRun
@@ -1568,15 +2000,10 @@ ApplicationWindow {
 
     FolderDialog {
         id: projectChooser
+        objectName: "projectChooser"
         property bool thenSave: false
         title: qsTr("Choose the project folder")
-        onAccepted: {
-            window.chooseProject(selectedFolder)
-            if (thenSave) {
-                thenSave = false
-                window.saveScene()
-            }
-        }
+        onAccepted: window.folderChosen(selectedFolder)
         onRejected: thenSave = false
     }
 
@@ -1616,6 +2043,9 @@ ApplicationWindow {
         id: importChooser
         title: qsTr("Import a 2D QQ scene")
         nameFilters: [qsTr("QQ 2D scene (*.qq.json)")]
-        onAccepted: window.importScene(selectedFile)
+        onAccepted: {
+            const file = selectedFile
+            window.settleThen({ scene: true }, () => window.importScene(file))
+        }
     }
 }
