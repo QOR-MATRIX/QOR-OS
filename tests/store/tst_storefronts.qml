@@ -118,6 +118,8 @@ Item {
             compare(find("storeCategory:<b>2D art</b>"), null);
             compare(find("storeCreator").visible, false);
             verify(find("storeDemonstrationNote").visible);
+            for (const marker of ["<b>game name</b>", "<b>game summary</b>", "<b>Platformers</b>"])
+                expectPlain(storeApp, marker);
         }
 
         function test_b_searchFromThePlayerStoreAsksOfItAlone() {
@@ -150,6 +152,9 @@ Item {
             storeApp.show("creator");
             compare(storeApp.section, "discover");
             compare(storeApp.sectionView, "");
+            storeApp.section = "creator";
+            compare(storeApp.sectionView, "");
+            compare(find("storefrontTitle"), null);
             storeApp.show("games");
         }
 
@@ -235,6 +240,8 @@ Item {
             compare(find("storeListing:" + gameId), null);
             compare(find("storeFeatured:" + gameId), null);
             compare(find("storeCategory:<b>Platformers</b>"), null);
+            for (const marker of ["<b>pack name</b>", "<b>pack summary</b>", "<b>2D art</b>"])
+                expectPlain(storeApp, marker);
             // A person with creator features on still has the player store as players do.
             storeApp.show("games");
             tryVerify(() => find("storeListing:" + gameId) !== null);
