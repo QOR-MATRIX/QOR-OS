@@ -195,7 +195,8 @@ needs its own answer.
 
 #### The owner's first run
 
-Run this at the commit that added `tools/ci/isolated-vm.ps1` (`git log -1 tools/ci/isolated-vm.ps1`), with the working tree clean.
+Run this at the commit that last changed `tools/ci/isolated-vm.ps1` (`git log -1 --format=%h -- tools/ci/isolated-vm.ps1`; it was
+`6a759f4` when this was written, the commit with the review's fixes), with the working tree clean.
 The first run is likely to stop somewhere, because nothing here has met Hyper-V; each stop prints its reason, and most say to run the
 same command again.
 
@@ -229,6 +230,7 @@ writes `%LOCALAPPDATA%\qor-ci-vm\prove-<when>.txt`. It powers the VM off at the 
 machine's addresses and port numbers, and no credential.
 
 **If it stops halfway:**
+
 - **Most steps:** run the same command again; it does what is left.
 - **It stops waiting for SSH:** likely Secure Boot refusing the image. The VM keeps running; as administrator,
   `Stop-VM -Name qor-ci-vm -TurnOff -Force`, then `-Action Remove`. The script will not turn Secure Boot off; that is the owner's call.
