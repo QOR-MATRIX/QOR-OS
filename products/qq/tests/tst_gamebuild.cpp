@@ -976,6 +976,9 @@ private slots:
         // Logic in a folder of its own is read from the scene too, and what neither of them holds is still refused.
         row("logic in a folder, naming what neither it nor the scene has", QStringLiteral("logic/enemies/boss.qml"),
             "import QQ\n\nLogic {\n    onStarted: play(\"../../assets/roar.wav\")\n}\n", QStringLiteral("../../assets/roar.wav"));
+        // An import is QML's to read, from the file's own folder, whatever is beside the scene.
+        row("an import of what only the scene's folder has", QStringLiteral("logic/rule.qml"),
+            "import QQ\nimport \"level.qml\" as L\n\nLogic {\n}\n", QStringLiteral("level.qml"));
 
         // Tiled maps and tilesets, as TileMap reads them.
         const QString map = QStringLiteral("assets/map.tmj");
@@ -1189,7 +1192,8 @@ private slots:
         HeldBuild first;
         first.start(project.path(), QStringLiteral("scenes/level.qml"), games.path(), "walked");
         QVERIFY(first.hasReachedIt());
-        // Held for an hour, as a large game's build may be: a lock is never stale by its age while its holder lives.
+        // Held for an hour, as a large game's build may be, and still held. That is the system's own lock keeping it here: this
+        // does not show setStaleLockTime(0) doing anything, which matters only where the file system cannot lock (gamebuild.cpp).
         const QStringList locks = QDir(games.path()).entryList({QStringLiteral(".lock-*")}, QDir::Files | QDir::Hidden);
         QCOMPARE(locks.size(), 1);
         std::error_code aged;
@@ -1831,6 +1835,8 @@ private slots:
         QVERIFY(studio.get("noticeIsProblem").toBool());
         QVERIFY2(studio.notice().contains(QStringLiteral("logic/many/rule-3.qml")), qPrintable(studio.notice()));
         QVERIFY2(studio.notice().contains(QStringLiteral("16 MB")), qPrintable(studio.notice()));
+        // Said by the check, before the build, which would refuse it too, but only after reading the rest.
+        QVERIFY2(studio.notice().contains(QStringLiteral("checked before a build")), qPrintable(studio.notice()));
         QVERIFY(!QDir(qq::GameBuild::gamesFolder()).exists(game));
     }
 
@@ -2162,7 +2168,7 @@ private slots:
         QTemporaryDir none;
         limits.trusted = [](const QString &) { return false; };
         const QVariantMap refused = qq::GameBuild::make(trusted.path(), QStringLiteral("scenes/level.qml"), none.path(), limits);
-        QVERIFY(!refused.value(QStringLiteral("ok")).toBool(true));
+        QCOMPARE(refused.value(QStringLiteral("ok")), QVariant(false));
         QVERIFY2(refused.value(QStringLiteral("problem")).toString().contains(QStringLiteral("trust")), qPrintable(refused.value(QStringLiteral("problem")).toString()));
         QVERIFY(QDir(none.path()).isEmpty());
     }
