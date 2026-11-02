@@ -1499,8 +1499,8 @@ private slots:
         QVERIFY(!qq::Confinement::readsCompiledUnits(nullptr));
     }
 
-    /// The Studio, too, runs a project's source and no unit compiled from it: a project's scene uses a type kept beside it, and a
-    /// unit beside that type says something else. Whatever the environment asks of Qt's cache.
+    /// The Studio, too, runs a project's source and no unit compiled from it: a project's scene imports a script kept beside it,
+    /// and a unit beside that script says something else. Whatever the environment asks of Qt's cache.
     void theStudioRunsNoCompiledUnit_data() { cacheAsked_data(); }
     void theStudioRunsNoCompiledUnit()
     {
@@ -1512,11 +1512,13 @@ private slots:
         if (!QFile::exists(qmlcachegen()))
             QSKIP("This kit has no qmlcachegen to make a compiled unit with.");
         Project project;
-        const QString marker = project.file(QStringLiteral("scenes/Marker.qml"));
-        const QString planted = plantUnit(marker, "import QtQml\n\nQtObject {\n    Component.onCompleted: console.log(\"SAID: THE-COMPILED-UNIT-RAN\")\n}\n",
-                                          "import QtQml\n\nQtObject {\n    Component.onCompleted: console.log(\"SAID: THE-SOURCE-RAN\")\n}\n");
+        const QString helper = project.file(QStringLiteral("scenes/helper.js"));
+        const QString planted = plantUnit(helper, "function word() { return \"THE-COMPILED-UNIT-RAN\" }\n",
+                                          "function word() { return \"THE-SOURCE-RAN\" }\n");
         QVERIFY2(planted.isEmpty(), qPrintable(planted));
-        QVERIFY(writeFile(project.file(QStringLiteral("scenes/level.qml")), "import QQ\n\nScene {\n    name: \"level\"\n    Marker { }\n}\n"));
+        QVERIFY(writeFile(project.file(QStringLiteral("scenes/level.qml")),
+                          "import QQ\nimport \"helper.js\" as Helper\n\nScene {\n    name: \"level\"\n"
+                          "    Component.onCompleted: console.log(\"SAID: \" + Helper.word())\n}\n"));
 
         // The person's own: the project trusted, and left last with that scene open.
         QTemporaryDir data;
