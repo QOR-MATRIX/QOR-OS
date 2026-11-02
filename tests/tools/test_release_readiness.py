@@ -27,6 +27,7 @@ ALL_PASSED = {
     "LINUX_PRISM": "success",
     "LINUX_PRODUCTS": "success",
     "LINUX_PRODUCTS_CHANGED": "true",
+    "LINUX_PRODUCTS_GPU": "success",
     "IS_RELEASE": "false",
 }
 OUTCOMES = [item.outcome for item in release_readiness.REQUIRED]
@@ -108,6 +109,17 @@ class ReleaseReadinessTest(unittest.TestCase):
         for outcome in ("WINDOWS_JOB", "WINDOWS_GPU", "LINUX_JOB", "LINUX_GPU", "LINUX_PRISM"):
             with self.subTest(outcome=outcome):
                 self.assertFalse(ready({**ALL_PASSED, outcome: "skipped", "WINDOWS_PRODUCTS_CHANGED": "false", "LINUX_PRODUCTS_CHANGED": "false"}))
+
+    def test_the_products_unrelaxed_on_a_graphics_card_are_required(self):
+        # What software eases is a pass of nothing it leaves out: a release needs the same suites run on a graphics card.
+        without = dict(ALL_PASSED)
+        del without["LINUX_PRODUCTS_GPU"]
+        self.assertFalse(ready(without))
+        self.assertIn("| Linux: the products on a graphics card, unrelaxed | not run |", text(without))
+        # Unchanged products excuse the software run outside a release, and never this one.
+        unchanged = {**without, "LINUX_PRODUCTS": "skipped", "LINUX_PRODUCTS_CHANGED": "false", "WINDOWS_PRODUCTS_CHANGED": "false"}
+        self.assertFalse(ready(unchanged))
+        self.assertFalse(ready({**ALL_PASSED, "LINUX_PRODUCTS_GPU": "skipped", "LINUX_PRODUCTS_CHANGED": "false"}))
 
     def test_the_summary_is_written_and_failure_is_reported(self):
         import tempfile

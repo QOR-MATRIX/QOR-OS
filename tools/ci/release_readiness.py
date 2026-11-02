@@ -34,6 +34,10 @@ REQUIRED = (
     Required("Linux: suites that draw", "LINUX_GPU"),
     Required("Linux: Prism's protocol check", "LINUX_PRISM"),
     Required("Linux: the products", "LINUX_PRODUCTS", "LINUX_PRODUCTS_CHANGED"),
+    # In software some of the products' checks are eased (docs/CI.md, "What software alone no longer checks"), so a release
+    # also needs them run unrelaxed, on a Linux machine with a graphics card. No job does that yet: build.yml tells this
+    # nothing, and it reads "not run". It never stands down for unchanged products.
+    Required("Linux: the products on a graphics card, unrelaxed", "LINUX_PRODUCTS_GPU"),
 )
 
 
