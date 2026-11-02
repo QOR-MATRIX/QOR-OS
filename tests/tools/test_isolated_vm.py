@@ -240,6 +240,7 @@ class WithPwsh(unittest.TestCase):
         self.folder = Path(folder.name)
         self.env = {
             "LOCALAPPDATA": str(self.folder / "local"),
+            "ProgramData": str(self.folder / "programdata"),
             "QOR_TEST_ROOT": str(self.folder / "root"),
         }
 
@@ -505,11 +506,22 @@ class TheImageReader(WithPwsh):
     def convert(self, data: bytes, most: str = "") -> tuple[subprocess.CompletedProcess, Path]:
         source, target = self.folder / "image.img", self.folder / "out.vhd"
         source.write_bytes(data)
+        expected = getattr(self, "_expected_sha", "")
         done = run_pwsh(
-            f"try {{ $size = Convert-Qcow2ToVhd '{source}' '{target}' {most}; \"SIZE=$size\" }} catch {{ \"REFUSED: $($_.Exception.Message)\"; exit 1 }}\n",
+            f"try {{ $size = Convert-Qcow2ToVhd '{source}' '{target}' '{expected}' {most}; \"SIZE=$size\" }} catch {{ \"REFUSED: $($_.Exception.Message)\"; exit 1 }}\n",
             self.env,
         )
         return done, target
+
+    def test_the_digest_is_checked_on_the_same_handle_before_converting(self):
+        data = qcow2(gpt_disk(1024 * 1024))
+        self._expected_sha = hashlib.sha256(data).hexdigest()
+        done, target = self.convert(data)
+        self.assertEqual(done.returncode, 0, done.stdout + done.stderr)
+        self.assertTrue(target.exists())
+        self._expected_sha = "0" * 64
+        self.assert_refused(data, "not the pinned")
+        self._expected_sha = ""
 
     def assert_converts(self, raw: bytes, data: bytes):
         done, target = self.convert(data)
@@ -749,6 +761,85 @@ class TheNetworkPlan(WithPwsh):
         self.assertIn("True True False", done.stdout)
 
 
+class TheAclList(WithPwsh):
+    """Every ACL entry pinned here, apart from Get-ExpectedAcls, so that dropping one from the script is a mismatch, not a list
+    that still agrees with itself. The three faults the reviewer kept alive -- dropping 127.0.0.0/8, dropping 172.16.0.0/12, and
+    dropping every inbound entry -- each change this set."""
+
+    DENY = [
+        "0.0.0.0/8", "10.0.0.0/8", "100.64.0.0/10", "127.0.0.0/8", "169.254.0.0/16", "172.16.0.0/12",
+        "192.0.0.0/24", "192.168.0.0/16", "198.18.0.0/15", "224.0.0.0/4", "240.0.0.0/4", "::/0",
+    ]
+
+    def expected(self) -> set[str]:
+        want: set[str] = set()
+        for direction in ("inbound", "outbound"):
+            for prefix in self.DENY:
+                want.add(f"{direction} deny {prefix}")
+            want.add(f"{direction} allow 10.213.57.1/32")
+            want.add(f"{direction} allow 0.0.0.0/0")
+        return want
+
+    def test_get_expected_acls_is_exactly_the_pinned_set(self):
+        done = run_pwsh(
+            "$null = Initialize-Settings\nGet-ExpectedAcls | ForEach-Object { 'ACL ' + (Format-Acl $_.Direction $_.Action $_.Remote) }\n",
+            self.env,
+        )
+        got = {line[4:].strip() for line in done.stdout.splitlines() if line.startswith("ACL ")}
+        self.assertEqual(got, self.expected(), done.stdout + done.stderr)
+        self.assertEqual(len(got), 28, "14 per direction, both directions")
+
+    def test_canonical_address_folds_spellings_but_keeps_ranges_apart(self):
+        done = run_pwsh(
+            "foreach ($a in '10.213.57.1', '10.213.57.1/32', '::/0', '0.0.0.0/0', 'ANY', '192.168.0.0/16') { 'C ' + (Get-CanonicalAddress $a) }\n",
+            self.env,
+        )
+        lines = [line[2:] for line in done.stdout.splitlines() if line.startswith("C ")]
+        self.assertEqual(lines[0], "10.213.57.1/32")
+        self.assertEqual(lines[1], "10.213.57.1/32", "a bare host and its /32 are the same")
+        self.assertEqual(lines[2], "::/0")
+        self.assertEqual(lines[3], "0.0.0.0/0")
+        self.assertEqual(lines[4], "any", "ANY is left as itself, so it never silently equals 0.0.0.0/0")
+        self.assertEqual(lines[5], "192.168.0.0/16")
+
+
+class TheNoProfileCheck(WithPwsh):
+    def test_it_sees_the_switch_only_when_present(self):
+        done = run_pwsh(
+            "\"nop: $(Test-LaunchedWithoutProfile @('pwsh','-NoProfile','-File','x'))\"\n"
+            "\"abbrev: $(Test-LaunchedWithoutProfile @('pwsh','-nop'))\"\n"
+            "\"slash: $(Test-LaunchedWithoutProfile @('pwsh','/noprofile'))\"\n"
+            "\"none: $(Test-LaunchedWithoutProfile @('pwsh','-File','x'))\"\n"
+            "\"loadtime: $(Test-LaunchedWithoutProfile @('pwsh','-NoProfileLoadTime'))\"\n"
+            "try { Assert-NoProfile; 'assert-passed' } catch { 'assert-threw' }\n",
+            self.env,
+        )
+        self.assertIn("nop: True", done.stdout, done.stdout + done.stderr)
+        self.assertIn("abbrev: True", done.stdout)
+        self.assertIn("slash: True", done.stdout)
+        self.assertIn("none: False", done.stdout)
+        self.assertIn("loadtime: False", done.stdout, "-NoProfileLoadTime is a different switch")
+        # The test driver itself is launched with -NoProfile, so the real Assert-NoProfile passes.
+        self.assertIn("assert-passed", done.stdout)
+
+
+class TheReparseGuard(WithPwsh):
+    @unittest.skipUnless(os.name == "nt", "junctions are a Windows thing")
+    def test_a_path_through_a_junction_is_refused_but_a_real_folder_is_not(self):
+        done = run_pwsh(
+            "$real = Join-Path $env:QOR_TEST_ROOT 'real'; $link = Join-Path $env:QOR_TEST_ROOT 'link'\n"
+            "$null = New-Item -ItemType Directory -Force -Path $real\n"
+            "$null = New-Item -ItemType Junction -Path $link -Target $real\n"
+            "try { Assert-NoReparsePoint (Join-Path $link 'inside'); 'TOOK IT' } catch { \"refused: $($_.Exception.Message)\" }\n"
+            "try { Assert-NoReparsePoint $real; 'real ok' } catch { \"real refused: $($_.Exception.Message)\" }\n",
+            self.env,
+        )
+        self.assertIn("refused:", done.stdout, done.stdout + done.stderr)
+        self.assertIn("reparse point", done.stdout)
+        self.assertIn("real ok", done.stdout)
+        self.assertNotIn("TOOK IT", done.stdout)
+
+
 # What Create should have set, each as Hyper-V would read it back. A planted fault for each, which Check must name.
 PLANTS = [
     ("secure-boot", "$vm.Firmware.SecureBoot = 'Off'"),
@@ -796,6 +887,8 @@ PLANTS = [
     ("qor-ci-vm-block-by-adapter", "$global:World.Rules['qor-ci-vm-block-by-adapter'].InterfaceAlias = 'Wi-Fi'"),
     ("qor-ci-vm-block-by-address", "$global:World.Rules.Remove('qor-ci-vm-block-by-address')"),
     ("qor-ci-vm-block-by-address", "$global:World.Rules['qor-ci-vm-block-by-address'].RemoteAddress = '10.0.0.0/8'"),
+    ("com-ports", "$vm.ComPorts[0].Path = '\\\\.\\pipe\\sneaky'"),
+    ("stateful-ssh-acl", "$vm.ExtAcls.Add([pscustomobject] @{ LocalPort = '22'; Direction = 'Inbound'; Stateful = 'True' })"),
 ]
 
 
@@ -820,6 +913,12 @@ class WithAWorld(WithPwsh):
 
     def create(self) -> str:
         return "$code = Invoke-Main 'Create'; \"CODE=$code\"\n"
+
+    def fresh(self) -> None:
+        """Clear every folder the script persists to, so a subtest starts as if nothing had run. The admin record in programdata
+        is the one a subtest loop must not inherit: it remembers that first boot was done."""
+        for name in ("root", "local", "programdata"):
+            shutil.rmtree(self.folder / name, ignore_errors=True)
 
     @staticmethod
     def calls(done: subprocess.CompletedProcess) -> list[str]:
@@ -900,8 +999,7 @@ class Create(WithAWorld):
     def test_a_run_again_after_stopping_at_each_step_finishes_the_job(self):
         for step in ("New-VMSwitch", "New-NetIPAddress", "New-NetNat", "New-NetFirewallRule", "New-VM", "Set-VMFirmware", "Add-VMNetworkAdapterAcl", "Add-VMDvdDrive", "Start-VM", "Remove-VMDvdDrive", "Convert-VHD"):
             with self.subTest(step):
-                shutil.rmtree(self.folder / "root", ignore_errors=True)
-                shutil.rmtree(self.folder / "local", ignore_errors=True)
+                self.fresh()
                 done = self.world(
                     f"$global:World.FailAt = '{step}'\n"
                     "$first = Invoke-Main 'Create'; \"FIRST=$first\"\n"
@@ -943,8 +1041,7 @@ class Create(WithAWorld):
             ("too little disk", "$global:World.FreeDisk = 5", "wants 40"),
         ):
             with self.subTest(what):
-                shutil.rmtree(self.folder / "root", ignore_errors=True)
-                shutil.rmtree(self.folder / "local", ignore_errors=True)
+                self.fresh()
                 done = self.world(plant + "\n" + self.create())
                 self.assertIn("CODE=1", done.stdout, done.stdout + done.stderr)
                 self.assertIn(says, done.stdout)
@@ -980,6 +1077,59 @@ class Create(WithAWorld):
         joined = "\n".join(self.calls(done))
         self.assertNotIn("EnableSecureBoot Off", joined)
 
+    def test_the_root_folder_is_locked_and_the_record_is_written(self):
+        done = self.world(self.create() + "\"RECORD: $(Test-Path -LiteralPath $script:RecordFile)\"\n")
+        self.assertIn("CODE=0", done.stdout, done.stdout + done.stderr)
+        calls = self.calls(done)
+        root = str(self.folder / "root")
+        programdata = str(self.folder / "programdata" / "qor-ci-vm")
+        # The root is locked, by its own path, and so is the record folder.
+        self.assertTrue(any(c.startswith("Invoke-Quiet icacls.exe") and root in c for c in calls), f"root not locked: {calls}")
+        self.assertTrue(any(c.startswith("Invoke-Quiet icacls.exe") and programdata in c for c in calls), f"record folder not locked: {calls}")
+        self.assertIn("RECORD: True", done.stdout)
+        # The record landed in the admin folder, not a user-writable state.json beside the key.
+        self.assertFalse((self.folder / "local" / "qor-ci-vm" / "state.json").exists())
+
+    def test_a_vm_left_unmarked_between_making_and_marking_is_finished_on_re_run(self):
+        done = self.world(
+            "$global:World.FailAt = 'Set-VM'\n"
+            "$first = Invoke-Main 'Create'; \"FIRST=$first\"\n"
+            "\"NOTES1: [$($global:World.VMs['qor-ci-vm'].Notes)]\"\n"
+            "$global:World.FailAt = ''\n"
+            "$second = Invoke-Main 'Create'; \"SECOND=$second\"\n"
+            "\"NOTES2: [$($global:World.VMs['qor-ci-vm'].Notes)]\"\n"
+        )
+        self.assertIn("FIRST=1", done.stdout, done.stdout + done.stderr)
+        self.assertRegex(done.stdout, r"NOTES1: \[\]")
+        self.assertIn("SECOND=0", done.stdout, done.stdout + done.stderr)
+        self.assertIn("half-made", done.stdout)
+        self.assertRegex(done.stdout, r"NOTES2: \[Made by")
+
+    def test_a_disk_the_record_does_not_account_for_is_remade(self):
+        # Create once, then forget the disk in the record, then Create again: it must rebuild rather than trust the file.
+        done = self.world(
+            self.create()
+            + "$global:World.Calls.Clear()\n"
+            + "$script:Settings.DiskMade = $false; Save-Record\n"
+            + "$global:World.VMs.Remove('qor-ci-vm')\n"  # so the rebuild is not blocked by a running VM
+            + "$again = Invoke-Main 'Create'; \"AGAIN=$again\"\n"
+        )
+        self.assertIn("AGAIN=0", done.stdout, done.stdout + done.stderr)
+        self.assertIn("does not account for", done.stdout)
+        self.assertIn("Convert-VHD", "\n".join(self.calls(done)), "it rebuilt the disk")
+
+    def test_cloud_init_warnings_pass_only_once_sshd_is_confirmed(self):
+        warn = "$global:World.SshAnswers['*cloud-init status*'] = [pscustomobject] @{ ExitCode = 2; Lines = @('status: done'); Error = '' }\n"
+        done = self.world(warn + self.create())
+        self.assertIn("CODE=0", done.stdout, done.stdout + done.stderr)
+        self.assertIn("cloud-init warned, but sshd is as required", done.stdout)
+
+    def test_a_guest_whose_sshd_is_wrong_stops_it(self):
+        done = self.world("$global:World.SshdBad = $true\n" + self.create())
+        self.assertIn("CODE=1", done.stdout, done.stdout + done.stderr)
+        self.assertIn("sshd is not what the seed asked for", done.stdout)
+        self.assertNotIn("it answered, and it is running now", done.stdout)
+
 
 class Check(WithAWorld):
     def test_each_planted_fault_is_named(self):
@@ -995,6 +1145,8 @@ class Check(WithAWorld):
                 f"$savedAddress = $global:World.Addresses[0].PrefixLength\n"
                 f"$savedProfile = $global:World.Profiles[2].Enabled\n"
                 f"$savedBinding = ($global:World.Bindings['vEthernet (qor-ci-vm)'] | Where-Object ComponentID -EQ 'ms_server').Enabled\n"
+                f"$savedComPaths = @($vm.ComPorts | ForEach-Object {{ $_.Path }})\n"
+                f"$savedExt = @($vm.ExtAcls)\n"
                 f"$savedFacts = @{{ G=$vm.Generation; N=$vm.Notes; C=$vm.CheckpointType; A=$vm.AutomaticCheckpointsEnabled; S=$vm.AutomaticStartAction; T=$vm.AutomaticStopAction; E=$vm.EnhancedSessionTransportType; B=$vm.BatteryPassthroughEnabled; Tpm=$vm.Tpm; SB=$vm.Firmware.SecureBoot; SBT=$vm.Firmware.SecureBootTemplate; BO=$vm.Firmware.BootOrder; D=$vm.Memory.DynamicMemoryEnabled; M=$vm.Memory.Startup; P=$vm.Processor.Count; X=$vm.Processor.ExposeVirtualizationExtensions; Disks=$vm.Disks; Snap=$vm.Snapshots; Gpu=$vm.Gpu; As=$vm.Assigned; F=$vm.Fibre; AS2=$vm.Adapter.SwitchName; Mac=$vm.Adapter.MacAddressSpoofing; Dh=$vm.Adapter.DhcpGuard; Ro=$vm.Adapter.RouterGuard; Mi=$vm.Adapter.PortMirroringMode; Te=$vm.Adapter.AllowTeaming; Dn=$vm.Adapter.DeviceNaming; Sv=@($vm.Services | ForEach-Object Enabled) }}\n"
                 f"{plant}\n"
                 f"$code = Invoke-Main 'Check'; \"PLANT {index} EXIT $code\"\n"
@@ -1002,6 +1154,8 @@ class Check(WithAWorld):
                 "$vm.Generation=$savedFacts.G; $vm.Notes=$savedFacts.N; $vm.CheckpointType=$savedFacts.C; $vm.AutomaticCheckpointsEnabled=$savedFacts.A; $vm.AutomaticStartAction=$savedFacts.S; $vm.AutomaticStopAction=$savedFacts.T; $vm.EnhancedSessionTransportType=$savedFacts.E; $vm.BatteryPassthroughEnabled=$savedFacts.B; $vm.Tpm=$savedFacts.Tpm; $vm.Firmware.SecureBoot=$savedFacts.SB; $vm.Firmware.SecureBootTemplate=$savedFacts.SBT; $vm.Firmware.BootOrder=$savedFacts.BO; $vm.Memory.DynamicMemoryEnabled=$savedFacts.D; $vm.Memory.Startup=$savedFacts.M; $vm.Processor.Count=$savedFacts.P; $vm.Processor.ExposeVirtualizationExtensions=$savedFacts.X; $vm.Disks=$savedFacts.Disks; $vm.Snapshots=$savedFacts.Snap; $vm.Gpu=$savedFacts.Gpu; $vm.Assigned=$savedFacts.As; $vm.Fibre=$savedFacts.F; $vm.Adapter.SwitchName=$savedFacts.AS2; $vm.Adapter.MacAddressSpoofing=$savedFacts.Mac; $vm.Adapter.DhcpGuard=$savedFacts.Dh; $vm.Adapter.RouterGuard=$savedFacts.Ro; $vm.Adapter.PortMirroringMode=$savedFacts.Mi; $vm.Adapter.AllowTeaming=$savedFacts.Te; $vm.Adapter.DeviceNaming=$savedFacts.Dn\n"
                 "$i=0; foreach ($s in $vm.Services) { $s.Enabled = $savedFacts.Sv[$i]; $i++ }\n"
                 "$vm.Dvds.Clear(); $vm.Acls.Clear(); foreach ($a in $savedAcls) { $vm.Acls.Add($a) }\n"
+                "$i=0; foreach ($c in $vm.ComPorts) { $c.Path = $savedComPaths[$i]; $i++ }\n"
+                "$vm.ExtAcls.Clear(); foreach ($e in $savedExt) { $vm.ExtAcls.Add($e) }\n"
                 "$global:World.Rules = $savedRules; $global:World.Nats = $savedNats; $global:World.Switches['qor-ci-vm'] = $savedSwitch; $global:World.Addresses[0].PrefixLength = $savedAddress; $global:World.Profiles[2].Enabled = $savedProfile\n"
                 "($global:World.Bindings['vEthernet (qor-ci-vm)'] | Where-Object ComponentID -EQ 'ms_server').Enabled = $savedBinding\n"
                 f"$code = Invoke-Main 'Check'; \"RESTORED {index} EXIT $code\"\n"
@@ -1082,8 +1236,7 @@ class Remove(WithAWorld):
             ("rule", "$global:World.Rules['qor-ci-vm-block-by-address'].Description = 'someone else'"),
         ):
             with self.subTest(what):
-                shutil.rmtree(self.folder / "root", ignore_errors=True)
-                shutil.rmtree(self.folder / "local", ignore_errors=True)
+                self.fresh()
                 done = self.world(self.create() + plant + "\n$code = Invoke-Main 'Remove'; \"REMOVE=$code\"\n")
                 self.assertIn("REMOVE=1", done.stdout, done.stdout + done.stderr)
                 self.assertIn("did not make it, so it stays", done.stdout)
@@ -1092,6 +1245,17 @@ class Remove(WithAWorld):
         done = self.world(self.create() + "$global:World.Admin = $false\n$global:World.Calls.Clear()\n$code = Invoke-Main 'Remove'; \"REMOVE=$code\"\n")
         self.assertIn("REMOVE=1", done.stdout)
         self.assertEqual(self.calls(done), [])
+
+    def test_it_takes_an_unmarked_half_made_vm_whose_files_are_under_its_root(self):
+        done = self.world(
+            self.create()
+            + "$global:World.VMs['qor-ci-vm'].Notes = ''\n"
+            + "$code = Invoke-Main 'Remove'; \"REMOVE=$code\"\n"
+            + "\"VMS: [$($global:World.VMs.Keys -join ',')]\"\n"
+        )
+        self.assertIn("REMOVE=0", done.stdout, done.stdout + done.stderr)
+        self.assertIn("half-made", done.stdout)
+        self.assertIn("VMS: [someone-elses-vm]", done.stdout, "the half-made one was removed, the other left")
 
 
 class StartAndStop(WithAWorld):
@@ -1125,6 +1289,53 @@ class StartAndStop(WithAWorld):
         self.assertIn("START=1", done.stdout, done.stdout + done.stderr)
         self.assertIn("One heavy job at a time", done.stdout)
         self.assertEqual(self.calls(done), [])
+
+    def test_an_ordinary_account_does_not_call_a_running_guest_stopped_when_ssh_is_silent(self):
+        # The bug the review found: a Running VM that does not answer SSH must not be reported as stopped.
+        done = self.world(
+            self.create()
+            + "$global:World.Admin = $false\n$global:World.GuestUp = $false\n$global:World.Calls.Clear()\n"
+            + "$code = Invoke-Main 'Stop'; \"STOP=$code\"\n\"STATE: $($global:World.VMs['qor-ci-vm'].State)\"\n"
+        )
+        self.assertIn("STOP=1", done.stdout, done.stdout + done.stderr)
+        self.assertIn("STATE: Running", done.stdout)
+        self.assertEqual(self.calls(done), [], "an ordinary account makes no Hyper-V call")
+        self.assertIn("not answering", done.stdout)
+
+    def test_an_administrator_confirms_off_through_hyper_v_even_when_ssh_is_silent(self):
+        done = self.world(
+            self.create()
+            + "$global:World.GuestUp = $false\n$global:World.Calls.Clear()\n"
+            + "$code = Invoke-Main 'Stop'; \"STOP=$code\"\n\"STATE: $($global:World.VMs['qor-ci-vm'].State)\"\n"
+        )
+        self.assertIn("STOP=0", done.stdout, done.stdout + done.stderr)
+        self.assertIn("STATE: Off", done.stdout)
+        self.assertIn("Stop-VM -Name qor-ci-vm -TurnOff -Force", self.calls(done))
+
+    def test_the_stateful_ssh_acl_is_off_unless_asked(self):
+        done = self.world(self.create() + "\"EXT: $($global:World.VMs['qor-ci-vm'].ExtAcls.Count)\"\n")
+        self.assertIn("CODE=0", done.stdout, done.stdout + done.stderr)
+        self.assertIn("EXT: 0", done.stdout)
+        self.assertNotIn("Add-VMNetworkAdapterExtendedAcl", "\n".join(self.calls(done)))
+
+    def test_the_stateful_ssh_acl_is_added_and_read_back_when_asked(self):
+        done = self.world(
+            "$script:UseStatefulSshAcl = $true\n" + self.create()
+            + "$c = Invoke-Main 'Check'; \"CHECK=$c\"\n\"EXT: $($global:World.VMs['qor-ci-vm'].ExtAcls.Count)\"\n"
+        )
+        self.assertIn("CODE=0", done.stdout, done.stdout + done.stderr)
+        self.assertIn("EXT: 1", done.stdout)
+        self.assertIn("Add-VMNetworkAdapterExtendedAcl", "\n".join(self.calls(done)))
+        self.assertIn("CHECK=0", done.stdout, "the extended ACL reads back as expected")
+
+    def test_a_later_check_without_the_flag_still_expects_the_acl_create_added(self):
+        # Created with the flag; a later session runs Check without it, as the owner would. The record says what was built.
+        done = self.world(
+            "$script:UseStatefulSshAcl = $true\n" + self.create()
+            + "$script:UseStatefulSshAcl = $false\n$c = Invoke-Main 'Check'; \"CHECK=$c\"\n"
+        )
+        self.assertIn("CODE=0", done.stdout, done.stdout + done.stderr)
+        self.assertIn("CHECK=0", done.stdout, "Check read the record, not the absent flag")
 
 
 class ProveVerdict(WithAWorld):
@@ -1394,6 +1605,7 @@ class GuestWorld:
         self.root = Path(self.folder.name)
         self.answers = {}
         self.vsock = {}
+        self.vsock_default = errno.ECONNRESET
         self.https = ["HTTP/1.1 200 OK", "HTTP/1.1 200 OK"]
         self.dns = ["140.82.121.4"]
         self.dns_error = None
@@ -1467,7 +1679,7 @@ class GuestWorld:
             self.commands.setdefault("modprobe", (0, ""))
         with (
             mock.patch.object(guest, "connect_many", self.connect_many),
-            mock.patch.object(guest, "connect_vsock", lambda cid, port, timeout: self.vsock.get((cid, port), errno.ECONNRESET)),
+            mock.patch.object(guest, "connect_vsock", lambda cid, port, timeout: self.vsock.get((cid, port), self.vsock_default)),
             mock.patch.object(guest, "https_status", self.https_status),
             mock.patch.object(guest, "resolve", self.resolve),
             mock.patch.object(guest, "run_command", self.run_command),
@@ -1511,7 +1723,10 @@ class TheGuestsJudgement(unittest.TestCase):
             (guest.NO_FAMILY, "root", "UNRUN"),
             (guest.TIMED_OUT, "user", "PASS"),
             (errno.ECONNRESET, "user", "PASS"),
-            (errno.ENODEV, "root", "PASS"),
+            (errno.ECONNREFUSED, "user", "PASS"),
+            # No transport bound: the connect reached nothing because nothing could carry it, so it shows nothing.
+            (errno.ENODEV, "root", "NOTE"),
+            (errno.ENODEV, "user", "NOTE"),
             (errno.EPERM, "user", "UNRUN"),
             (errno.EACCES, "root", "UNRUN"),
         ):
@@ -1535,11 +1750,36 @@ class TheGuestsWholeRun(unittest.TestCase):
                 self.assert_line(printed, "PASS", "tcp 192.168.1.50:445: no answer")
                 self.assert_line(printed, "PASS", "tcp 192.168.1.1:445: no answer")
                 self.assert_line(printed, "PASS", "tcp 172.22.12.5:8123: no answer")
-                self.assert_line(printed, "PASS", "tcp [2001:db8::5]:3389: no answer")
+                # The guest in the stand-in tree has no IPv6 route, so the IPv6 attacks decide nothing and are notes, not passes.
+                self.assert_line(printed, "NOTE", "tcp [2001:db8::5]: this guest has no IPv6 route")
                 self.assert_line(printed, "PASS", "port 50002, the 9P route")
                 self.assert_line(printed, "PASS", "HTTPS before the attacks")
                 self.assert_line(printed, "PASS", "HTTPS after the attacks")
                 self.assert_line(printed, "PASS", "DNS before the attacks")
+
+    def test_an_ipv6_route_makes_the_ipv6_attacks_real(self):
+        with GuestWorld() as world:
+            # A global address and a default route: now the IPv6 targets are attacked for real, and a connection would fail the run.
+            (world.root / "proc/net/if_inet6").write_text("20010db8000000000000000000000005 02 40 00 00 eth0\n")
+            (world.root / "proc/net/ipv6_route").write_text("00000000000000000000000000000000 00 " + "0" * 32 + " 00 " + "f" * 32 + " 00000400 00000001 00000000 00000001 eth0\n")
+            code, printed = world.run("user")
+            self.assertEqual(code, 0, printed)
+            self.assert_line(printed, "PASS", "tcp [2001:db8::5]:445: no answer")
+
+    def test_a_dynamic_memory_channel_is_noted_not_failed(self):
+        with GuestWorld() as world:
+            world.add_vmbus("dm", "525074dc-8985-46e2-8057-a307dc18a502")
+            code, printed = world.run("user")
+            self.assertEqual(code, 0, printed)
+            self.assert_line(printed, "NOTE", "Dynamic Memory")
+
+    def test_user_vsock_with_no_transport_is_noted_not_passed_and_the_run_still_passes(self):
+        with GuestWorld() as world:
+            world.vsock_default = errno.ENODEV
+            code, printed = world.run("user")
+            self.assertEqual(code, 0, printed)
+            self.assert_line(printed, "NOTE", "no vsock transport is loaded")
+            self.assertNotIn("PASS  vsock", printed, "with no transport, nothing in vsock is claimed as a pass")
 
     def plant_fails(self, plant, status: str, words: str, level: str = "user"):
         with GuestWorld() as world:
@@ -1608,7 +1848,6 @@ class TheGuestsWholeRun(unittest.TestCase):
             ("time", "9527e630-d0ae-497b-adce-e80ab0175caf", "Time Synchronization"),
             ("heartbeat", "57164f39-9115-4e78-ab55-382f3bd5422d", "Heartbeat"),
             ("vss", "35fa2e29-ea23-4236-96ae-3a6ebacba440", "VSS"),
-            ("dynamic memory", "525074dc-8985-46e2-8057-a307dc18a502", "Dynamic Memory"),
             ("pass-through", "44c4f61d-4444-4400-9d52-802e27ede19f", "pass-through"),
             ("something new", "00000000-0000-0000-0000-000000000abc", "not a device this VM was given"),
         ):
@@ -1804,10 +2043,12 @@ class RealSockets(unittest.TestCase):
                 listener.close()
         self.assertEqual(results, dict.fromkeys(many, 0))
 
-    def test_an_address_with_nothing_there_is_shut(self):
-        # TEST-NET-1, reserved for documents: one SYN to nowhere, whichever way it is refused.
-        results = guest.connect_many([("192.0.2.1", 9)], 0.3, 1)
-        self.assertEqual(guest.judge_tcp(results[("192.0.2.1", 9)], 0.3)[0], "PASS", str(results))
+    def test_a_timeout_reads_as_shut_without_touching_the_network(self):
+        # connect_many against an unreachable address would send a packet. The "nothing answered" outcome is a timeout, and how a
+        # timeout is read is judge_tcp's job, tested here with no socket opened, so this hears nothing of the machine's network.
+        for code in (guest.TIMED_OUT, errno.ETIMEDOUT, errno.EHOSTUNREACH, errno.ENETUNREACH):
+            with self.subTest(errno.errorcode.get(code, code)):
+                self.assertEqual(guest.judge_tcp(code, 0.3)[0], "PASS")
 
     def test_the_control_passes_only_when_a_connection_is_seen(self):
         report = guest.Report("user", True)

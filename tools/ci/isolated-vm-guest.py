@@ -104,11 +104,16 @@ VMBUS_FORBIDDEN = {
     "a9a0f4e7-5a45-4d96-b827-8a841e8c03e6": "Data Exchange integration service",
     "35fa2e29-ea23-4236-96ae-3a6ebacba440": "Backup (VSS) integration service",
     "34d14be3-dee4-41c8-9ae7-6b174977c192": "Guest Services, the host's file copy",
-    "525074dc-8985-46e2-8057-a307dc18a502": "Dynamic Memory",
     "32412632-86cb-44a2-9b5c-50d1417354f5": "IDE controller, which a generation 2 VM does not have",
     "2f9bcc4a-0069-4af3-b76b-6fd0be528cda": "Fibre Channel adapter",
     "8c2eaf3d-32a7-4b09-ab99-bd1f1c86b501": "RDMA adapter",
     "44c4f61d-4444-4400-9d52-802e27ede19f": "PCI Express pass-through",
+}
+# Dynamic Memory is controlled by the VM's memory setting, not by Disable-VMIntegrationService, and whether Hyper-V still offers
+# its channel to a static-memory VM is not known here. It is not a data channel to the host's files, so finding it is noted, not
+# failed: a correct static-memory VM must not be failed for it. Its balloon is covered by the memory read-back on the host side.
+VMBUS_TOLERATED = {
+    "525074dc-8985-46e2-8057-a307dc18a502": "Dynamic Memory (host-managed; this VM is set to static memory, so this decides nothing)",
 }
 
 # What brings a host's or another machine's files into a Linux filesystem tree.
@@ -131,6 +136,9 @@ class Report:
         print(f"{status:<5} {category:<13} {text}", flush=True)
 
     def note(self, category: str, text: str) -> None:
+        # A note decides nothing, but it does count as the category having spoken, so a category whose only honest answer is "this
+        # shows nothing here" (no IPv6 route, no host share offered, no vsock transport) is not then flagged as having run nothing.
+        self.seen.add(category)
         print(f"{'NOTE':<5} {category:<13} {text}", flush=True)
 
     def finish(self) -> int:
@@ -421,9 +429,21 @@ def judge_vsock(code: int, level: str) -> tuple[str, str]:
         if level == "root":
             return "UNRUN", "this kernel offers root no AF_VSOCK, so nothing was tried"
         return "PASS", "this kernel offers no AF_VSOCK to this process"
-    if code in (TIMED_OUT, errno.ETIMEDOUT, errno.ECONNRESET, errno.ECONNREFUSED, errno.ENODEV, errno.ENETUNREACH, errno.EHOSTUNREACH):
+    if code == errno.ENODEV:
+        # The socket opened but no vsock transport is bound, so the connect reached nothing because nothing could carry it. That is
+        # not the host refusing; it shows nothing. Root loads hv_sock first, so at root this should not happen.
+        return "NOTE", "no vsock transport is loaded, so this shows nothing"
+    if code in (TIMED_OUT, errno.ETIMEDOUT, errno.ECONNRESET, errno.ECONNREFUSED, errno.ENETUNREACH, errno.EHOSTUNREACH):
         return "PASS", "no answer in time" if code == TIMED_OUT else errno_name(code)
     return "UNRUN", f"{errno_name(code)}, which shows nothing"
+
+
+def emit(report: "Report", status: str, category: str, text: str) -> None:
+    """A note decides nothing; a PASS, FAIL or UNRUN counts."""
+    if status == "NOTE":
+        report.note(category, text)
+    else:
+        report.line(status, category, text)
 
 
 # ---------------------------------------------------------------------------------------------------------------------
@@ -571,6 +591,8 @@ def check_vmbus(run: Run) -> None:
     for device, class_id in found.items():
         if class_id in VMBUS_EXPECTED:
             report.line("PASS", "vmbus", f"{device}: {VMBUS_EXPECTED[class_id]}, which is expected")
+        elif class_id in VMBUS_TOLERATED:
+            report.note("vmbus", f"{device}: {VMBUS_TOLERATED[class_id]}")
         else:
             about = VMBUS_FORBIDDEN.get(class_id, "not a device this VM was given")
             report.line("FAIL", "vmbus", f"{device}: class {class_id}, {about}")
@@ -613,7 +635,9 @@ def check_mounts(run: Run) -> None:
                 run_command(["umount", folder])
                 report.line("FAIL", "mounts", f"{' '.join(command[:-1])}: it mounted")
             else:
-                report.line("PASS", "mounts", f"{' '.join(command[:-1])}: refused, {said or 'with no reason given'}")
+                # A clean VM offers no host share, so there is nothing of the host's to mount, and this failing shows nothing on its
+                # own: the FAIL case above, a mount that works, is the one that would matter. The real test is the scan above.
+                report.note("mounts", f"{' '.join(command[:-1])}: did not mount ({said or 'no reason given'}); nothing of the host is offered here")
 
 
 def check_devices(run: Run) -> None:
@@ -684,11 +708,11 @@ def check_vsock(run: Run) -> None:
     for port in ports:
         about = "the 9P route that reached C:\\ from WSL" if port == NINE_P_PORT else "a Hyper-V socket"
         status, what = judge_vsock(connect_vsock(VMADDR_CID_HOST, port, CONNECT_TIMEOUT), run.level)
-        report.line(status, "vsock", f"AF_VSOCK to the host, port {port}, {about}: {what}")
+        emit(run.report, status, "vsock", f"AF_VSOCK to the host, port {port}, {about}: {what}")
     # Not the host's address, for the kernels and transports that take any of them.
     for cid in (0, 1, 3):
         status, what = judge_vsock(connect_vsock(cid, NINE_P_PORT, CONNECT_TIMEOUT), run.level)
-        report.line(status, "vsock", f"AF_VSOCK to cid {cid}, port {NINE_P_PORT}: {what}")
+        emit(run.report, status, "vsock", f"AF_VSOCK to cid {cid}, port {NINE_P_PORT}: {what}")
 
 
 def attack_tcp(run: Run, category: str, addresses: list[str], ports: list[int]) -> None:
@@ -703,10 +727,33 @@ def attack_tcp(run: Run, category: str, addresses: list[str], ports: list[int]) 
         run.report.line(status, category, f"tcp {shown}:{port}: {what}")
 
 
+def has_global_ipv6(run: Run) -> bool:
+    """A global (not link-local, not loopback) address and an IPv6 default route. Without both, IPv6 attacks reach nothing."""
+    try:
+        addresses = run.read("/proc/net/if_inet6").splitlines()
+        routes = run.read("/proc/net/ipv6_route").splitlines()
+    except OSError:
+        return False
+    # if_inet6 field 4 is the scope; 0x00 is global.
+    has_address = any(len(fields) >= 5 and fields[3] == "00" for fields in (line.split() for line in addresses))
+    has_default = any(
+        len(fields) >= 2 and fields[0] == "0" * 32 and int(fields[1], 16) == 0 for fields in (line.split() for line in routes)
+    )
+    return has_address and has_default
+
+
 def check_host_tcp(run: Run) -> None:
     targets = run.targets
-    addresses = sorted({targets["gateway"], *targets["host_addresses"], *targets["host_addresses_v6"]})
-    attack_tcp(run, "host-tcp", addresses, sorted(set(targets["host_ports"])))
+    ports = sorted(set(targets["host_ports"]))
+    attack_tcp(run, "host-tcp", sorted({targets["gateway"], *targets["host_addresses"]}), ports)
+    v6 = sorted(set(targets["host_addresses_v6"]))
+    if not v6:
+        return
+    if has_global_ipv6(run):
+        attack_tcp(run, "host-tcp", v6, ports)
+    else:
+        for address in v6:
+            run.report.note("host-tcp", f"tcp [{address}]: this guest has no IPv6 route, so this shows nothing")
 
 
 def raise_file_limit(wanted: int) -> int:
