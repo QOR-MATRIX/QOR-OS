@@ -42,6 +42,8 @@ public:
     static StoreEngine *engine();
     // The QOR OS Store's public key: the root of trust for every install.
     static QByteArray storeKey();
+    // Where the Store keeps what it installs: QOR_STORE_DIR, by default the app data folder's "store".
+    static QString dataLocation();
 
     bool isReady() const;
     bool isLoading() const;

@@ -19,6 +19,8 @@ QT_END_NAMESPACE
 
 namespace qor::store {
 
+struct PackageResult;
+
 // The QOR OS Store client for one user: fetches the signed catalogue, and
 // downloads, verifies, installs, updates and removes packages under
 // `dataDir` (items/<id>/ and installed.json).
@@ -86,6 +88,11 @@ public:
     // here.
     bool isIntact(const QString &id) const;
 
+    // Whether what is installed for `id` has a newer version that may be had now. With creator features off, the update
+    // of what only the creator store carries waits, as install would refuse it.
+    bool hasUpdate(const QString &id) const;
+    int updateCount() const;
+
     bool isBusy(const QString &id) const { return m_jobs.contains(id); }
     double progress(const QString &id) const { return m_progress.value(id, 0); }
 
@@ -100,6 +107,11 @@ public:
     // features are off.
     bool fetchPreview(const QString &id, int index);
 
+    // A licence's text is only in the package. This fetches the item's package, checks it as an install would, installs
+    // nothing, and ends with licenceFetched(). False if the item has no licence, or only the creator store carries it
+    // and creator features are off.
+    bool fetchLicence(const QString &id);
+
 Q_SIGNALS:
     void stateChanged();
     void catalogChanged();
@@ -108,6 +120,7 @@ Q_SIGNALS:
     void progressChanged(const QString &id);
     void finished(const QString &id, bool ok, const QString &error);
     void previewFetched(const QString &id, int index, bool ok, const QByteArray &data, const QString &error);
+    void licenceFetched(const QString &id, bool ok, const QString &text, const QString &error);
 
 protected:
     // Takes a catalogue that has passed every check.
@@ -124,6 +137,8 @@ private:
     void complete(const QString &id, const QByteArray &data);
     void fail(const QString &id, const QString &error);
     QString refusalToInstall(const CatalogItem &item) const;
+    QString refusePackage(const CatalogItem &item, const QByteArray &data, PackageResult *package) const;
+    QString licenceIn(const QString &id, const QByteArray &data, QString *text) const;
     QString admit(const Catalog &catalog, const QByteArray &json);
     QMap<QString, InstalledVersion> installedVersions() const;
     void recoverInterrupted();
