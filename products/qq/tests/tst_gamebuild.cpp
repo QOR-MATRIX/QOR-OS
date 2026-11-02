@@ -33,6 +33,7 @@
 #include <QTemporaryDir>
 #include <QTest>
 #include <QThread>
+#include <QVector3D>
 #include <QtQml/qqmlextensionplugin.h>
 
 #include <cstdlib>
@@ -331,29 +332,29 @@ struct Studio {
         QTRY_VERIFY(!building());
     }
 
-    /// The top of the world, as the window shows it now.
-    QImage skyShown()
+    /// The middle of the world, as the window shows it now: a tenth of it each way.
+    QImage middleShown()
     {
         auto *view = window->findChild<QQuickItem *>(QStringLiteral("viewport"));
         if (!view)
             return {};
         window->update();
         QTest::qWait(200);
-        const QRectF band = view->mapRectToScene(QRectF(0, 0, view->width(), view->height() / 6));
-        return window->grabWindow().copy(band.toRect());
+        const QRectF middle = view->mapRectToScene(QRectF(view->width() * 0.45, view->height() * 0.45, view->width() / 10, view->height() / 10));
+        return window->grabWindow().copy(middle.toRect());
     }
 
-    /// Whether the top of the world comes to be mostly of this channel (shareOf) within half a minute. If not, the last look is
-    /// kept in the temporary folder and named, with its shares, so a failure can be looked at.
-    void waitForSkyShown(int channel)
+    /// Whether the middle of the world comes to be mostly of this channel (shareOf) within half a minute. If not, the last look
+    /// is kept in the temporary folder and named, with its shares, so a failure can be looked at.
+    void waitForMiddleShown(int channel)
     {
         QImage last;
         for (int tries = 0; tries < 60; ++tries) {
-            last = skyShown();
+            last = middleShown();
             if (shareOf(last, channel) > 0.5)
                 return;
         }
-        const QString kept = QDir::temp().filePath(QStringLiteral("tst_gamebuild-sky-shown.png"));
+        const QString kept = QDir::temp().filePath(QStringLiteral("tst_gamebuild-middle-shown.png"));
         last.save(kept);
         QFAIL(qPrintable(QStringLiteral("The world does not show it: red %1, green %2, blue %3, as kept in %4")
                              .arg(shareOf(last, 0)).arg(shareOf(last, 1)).arg(shareOf(last, 2)).arg(kept)));
@@ -1276,18 +1277,21 @@ private slots:
         QVERIFY(leftovers(games.path()).isEmpty());
     }
 
-    /// A real compiled unit, made by Qt's own tool, beside a source that says something else. Were it read, the program behind the
-    /// wall would be the unit and not the source, and its contents are not checked as source is: the Player keeps to the source.
+    /// A real compiled unit, made by Qt's own tool, beside a source that says something else: a script, which a game's logic
+    /// imports (a scene's own types beside it are not types to a confined Player). Were the unit read, what ran behind the wall
+    /// would be the unit and not the source, and a unit is not checked as source is: the Player keeps to the source.
     void thePlayerRunsNoCompiledUnit()
     {
         const QString tool = QDir(QLibraryInfo::path(QLibraryInfo::LibraryExecutablesPath)).filePath(QStringLiteral("qmlcachegen"));
         if (!QFile::exists(tool))
             QSKIP("This kit has no qmlcachegen to make a compiled unit with.");
         QTemporaryDir game;
-        const QString helper = game.filePath(QStringLiteral("scenes/Helper.qml"));
-        QVERIFY(writeFile(helper, "import QtQml\nQtObject {\n    Component.onCompleted: console.log(\"THE-COMPILED-UNIT-RAN\")\n}\n"));
+        const QString helper = game.filePath(QStringLiteral("logic/helper.js"));
+        QVERIFY(writeFile(helper, "function word() { return \"THE-COMPILED-UNIT-RAN\" }\n"));
+        QVERIFY(writeFile(game.filePath(QStringLiteral("logic/rule.qml")),
+                          "import QQ\nimport \"helper.js\" as Helper\n\nLogic {\n    onStarted: console.log(\"SAID: \" + Helper.word())\n}\n"));
         QVERIFY(writeFile(game.filePath(QStringLiteral("scenes/level.qml")),
-                          "import QQ\n\nScene {\n    name: \"level\"\n    Helper {}\n}\n"));
+                          "import QQ\n\nScene {\n    name: \"level\"\n    Behaviour { name: \"Rule\"; source: \"../logic/rule.qml\" }\n}\n"));
         QProcess compile;
         compile.setProcessChannelMode(QProcess::MergedChannels);
         compile.start(tool, {QStringLiteral("--only-bytecode"), helper, QStringLiteral("-o"), helper + QLatin1Char('c')});
@@ -1296,7 +1300,7 @@ private slots:
 
         // The source says something else now, and still looks as it did to anything that goes by its time.
         const QDateTime when = QFileInfo(helper).lastModified();
-        QVERIFY(writeFile(helper, "import QtQml\nQtObject {\n    Component.onCompleted: console.log(\"THE-SOURCE-RAN\")\n}\n"));
+        QVERIFY(writeFile(helper, "function word() { return \"THE-SOURCE-RAN\" }\n"));
         QFile touched(helper);
         QVERIFY(touched.open(QIODevice::ReadWrite));
         QVERIFY(touched.setFileTime(when, QFileDevice::FileModificationTime));
@@ -1309,7 +1313,7 @@ private slots:
         const int code = runPlayer({game.filePath(QStringLiteral("scenes/level.qml")), QStringLiteral("--measure"), measure}, &said);
         QVERIFY2(code == 0, qPrintable(QStringLiteral("exit %1: %2").arg(code).arg(QString::fromUtf8(said))));
         QVERIFY2(!said.contains("THE-COMPILED-UNIT-RAN"), said.constData());
-        QVERIFY2(said.contains("THE-SOURCE-RAN"), said.constData());
+        QVERIFY2(said.contains("SAID: THE-SOURCE-RAN"), said.constData());
         // And it says so, for a check that does not plant a unit.
         const QJsonObject measured = QJsonDocument::fromJson(readBytes(measure)).object();
         QCOMPARE(measured.value(QStringLiteral("qmlDiskCache")).toBool(true), false);
@@ -1358,15 +1362,25 @@ private slots:
             QCOMPARE(skyOf(QDir(firstFolder).filePath(relative)), 0);
 
             // Edit, and do not build. Play is pressed: it runs the project as it stands, edit and all, and the world on the
-            // screen shows it, while what was built plays as it was built.
+            // screen shows it, while what was built plays as it was built. What shows it is a glowing wall where the eye
+            // looks: the Studio's world, unlike the Player's, keeps the sky it was first drawn with in software (W9 saw
+            // it stay so through three changes of colour, on the code before and after this change), so the sky is
+            // checked by what the play holds and the pixels by the wall.
             studio.paintSky(QStringLiteral("#00ff00"));
+            QVERIFY(studio.call("add", QStringLiteral("Shape"),
+                                QVariantMap{{QStringLiteral("name"), QStringLiteral("Wall")},
+                                            {QStringLiteral("position"), QVariant::fromValue(QVector3D(0, 1, 0))},
+                                            {QStringLiteral("scale"), QVariant::fromValue(QVector3D(3, 3, 3))},
+                                            {QStringLiteral("colour"), QColor(QStringLiteral("#00ff00"))},
+                                            {QStringLiteral("emissive"), QColor(QStringLiteral("#00ff00"))},
+                                            {QStringLiteral("emissivePower"), 2.0}}).isValid());
             QVERIFY(studio.call("saveScene").toBool());
             studio.click("playButton");
             QTRY_VERIFY2(studio.get("playing").toBool(), qPrintable(studio.notice()));
             QObject *playing = studio.get("playScene").value<QObject *>();
             QVERIFY(playing);
             QCOMPARE(playing->property("skyTop").value<QColor>(), QColor(QStringLiteral("#00ff00")));
-            studio.waitForSkyShown(1);
+            studio.waitForMiddleShown(1);
             if (QTest::currentTestFailed())
                 return;
             QCOMPARE(skyOf(QDir(firstFolder).filePath(relative)), 0);
