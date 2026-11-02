@@ -121,6 +121,7 @@ outputs; see [AUDIO.md](AUDIO.md).
 | `controllerAutoSwitch` | bool | READWRITE | Switch when a controller connects, without asking |
 | `controllerCursorSpeed` | double | READWRITE | 0.0 to 1.0 |
 | `controllerVibration`, `controllerLightbar` | bool | READWRITE | Feedback; PlayStation light bars in the accent colour |
+| `creatorFeatures` | bool | READWRITE | The Creator Store, off by default. A preference: what protects is the Store's engine, which is handed it ([STORE.md](STORE.md)) |
 | `userName`, `hostName` | QString | source-only | |
 
 ### `SimControl` — `simcontrol.rep` (simulation only)

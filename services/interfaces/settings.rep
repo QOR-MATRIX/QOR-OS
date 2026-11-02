@@ -32,6 +32,9 @@ class Settings
     PROP(bool controllerVibration=true READWRITE)
     // PlayStation light bars follow the accent colour.
     PROP(bool controllerLightbar=true READWRITE)
+    // Creator features: the Creator Store, for those who make games (QOR-0021).
+    // A person's preference: the Store's engine refuses, whatever a page shows.
+    PROP(bool creatorFeatures=false READWRITE)
     PROP(QString userName SOURCEONLYSETTER)
     PROP(QString hostName SOURCEONLYSETTER)
 }
