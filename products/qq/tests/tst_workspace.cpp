@@ -251,7 +251,9 @@ struct Studio {
     }
 
     bool asking() const { return child("unsavedDialog")->property("opened").toBool(); }
-    bool askingAboutRecovery() const { return child("recoveryDialog")->property("opened").toBool(); }
+    /// On the screen, or on its way there: a dialog is not "opened" until it has finished appearing, so a check that nothing is
+    /// asked has to look at whether it is shown at all.
+    bool askingAboutRecovery() const { return child("recoveryDialog")->property("visible").toBool(); }
     QString recoveryQuestion() const { return child("recoveryText")->property("text").toString(); }
     /// The recovery question is on the screen, and this button is pressed.
     void answerRecovery(const char *button)
@@ -1518,7 +1520,8 @@ private slots:
         QTest::newRow("a list") << Plant([](const Hostile &h) { h.plantCopy(QByteArray("[1, 2]")); });
         QTest::newRow("binary") << Plant([](const Hostile &h) { h.plantCopy(QByteArray("\x00\xff\xfe\x01 not text", 12)); });
         QTest::newRow("too large") << Plant([](const Hostile &h) {
-            h.plantCopy(QByteArray(qq::ProjectWorkspace::largestRecovery + 1, ' '));
+            // A good copy, and past the limit only by what follows it: so it is the limit that says no.
+            h.plantCopy(QJsonDocument(h.goodCopy()).toJson() + QByteArray(qq::ProjectWorkspace::largestRecovery, ' '));
         });
         QTest::newRow("another version") << Plant([](const Hostile &h) { h.plantCopy(QJsonObject{{QStringLiteral("version"), 99}}); });
         QTest::newRow("a version as text") << Plant([](const Hostile &h) { h.plantCopy(QJsonObject{{QStringLiteral("version"), QStringLiteral("1")}}); });
@@ -1656,6 +1659,9 @@ private slots:
         s.edit();
         QVERIFY(!s.keepingSoon());
         QTest::qWait(1200);
+        QCOMPARE(readBytes(stranger.recoveryFile()), bytes);
+        // Nor by what the Studio does as it quits with nobody asked, a launcher's close.
+        QVERIFY(s.call("keepRecovery").toBool());
         QCOMPARE(readBytes(stranger.recoveryFile()), bytes);
 
         // Back later, with an answer to the first question: the second is asked, and still nothing has run.
