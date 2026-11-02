@@ -63,17 +63,16 @@ QQ's, ARQADE's and QOR Media's suites.
 
   **Begun 28 October:** all three build on Linux with `tools/dev/products.sh`, on a display nobody sees, and the Linux
   kit has Qt Quick 3D Physics and Qt PDF. Under WSL, runs on the GPU hung the workstation three times on 28 October,
-  so since 29 October the script fences them from it and they draw in software. Fenced, in software, at `6dd9e43` on
-  1 November, every suite runs to its end:
-  - QOR Media passes all 9 suites; docking is skipped on Wayland, and the video case skips, needing a Windows sample file;
-  - ARQADE passed all 4 at `6dd9e43`, with no case skipped. At `fcea2e0` `games` passed 65 of 67: Ever Rift's pilot, which
-    tests the game, paced for ever in one run, choosing by eye what lay behind a wall. It now chooses by the walk, and by the
-    rules alone it stood at none of 600 seeds; `games` has not yet run whole since. The stall at Orbital's ten locks was
-    Qt's threaded render loop starving the event loop on Wayland at these frame rates; in software ARQADE draws on the basic
-    loop. `tst_games` takes about 50 minutes;
-  - QQ passes 7 of 8. The one failure is the QQ Player's floor of 20 frames a second, reading 5 to 6 in software. Whether
-    Linux CI stays red on it or lets it stand is the owner's decision (`--accept-software-floor`). The live-provider case
-    skips, needing `QQ_LIVE_ENDPOINT=1`.
+  so since 29 October the script fences them from it and they draw in software. Fenced, in software, on 1 November, every
+  suite runs to its end:
+  - QOR Media passes all 9 suites at `6dd9e43`; docking is skipped on Wayland, and the video case skips, needing a Windows sample file;
+  - ARQADE passes all 4 at `ff6946f` on the first attempt: 112 cases, none skipped, `games` 67 of 67 in 52 minutes. The stall at
+    Orbital's ten locks was Qt's threaded render loop starving the event loop on Wayland at these frame rates; in software ARQADE
+    draws on the basic loop;
+  - QQ passes 9 of 10 at `ff6946f`: 353 cases passed, 1 failed, 1 skipped, in 22 minutes. The one failure is the QQ Player's floor of
+    20 frames a second, reading 6.2 to 6.3 in software over four runs, with the Player still drawing to the end of each. Whether Linux
+    CI stays red on it or lets it stand is the owner's decision (`--accept-software-floor`). The live-provider case skips, needing
+    `QQ_LIVE_ENDPOINT=1`.
 
   In software some checks are eased, and the owner has not been asked to accept that: [CI.md](CI.md#what-linux-runs) lists what
   software alone no longer shows. A pass in software says nothing of a real GPU, real sound or real controllers. Linux CI can run them
