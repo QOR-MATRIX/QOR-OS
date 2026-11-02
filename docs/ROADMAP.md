@@ -374,11 +374,16 @@ vendor's claim. No firmware turns an output-only HDMI port into an input, so thi
 - [x] The repository private, as its documents always said (1 November; it had been public since 27 October, while CI ran on
   the owner's machine)
 - [ ] CI that cannot reach the owner's keys or credentials ([CI.md](CI.md#what-ci-trusts)). Build's workstation jobs fail closed
-  until their runner is isolated: the gate is pull request #2, for the owner to merge
+  until their runner is isolated (pull request #2, merged 1 November 2026), both runners are stopped, and Release readiness fails
+  while a required build did not run (pull request #3, for the owner to merge)
   - [ ] The Store's keys and their backup off the workstation (the owner's act)
   - [ ] Linux jobs in a distribution of their own, with no Windows drive, no Windows programs and no credentials. `qor-ci` is
-    built and its boundary tried ([CI.md](CI.md#an-isolated-place-for-linux-jobs)). Still to do: ask Qt whether it may build without
-    the licence service, register its runner, move Build's Linux job to it, retire the `Ubuntu` runner and settle the GPU steps
+    built and its boundary tried ([CI.md](CI.md#an-isolated-place-for-linux-jobs)), but a distribution shares WSL's kernel, and
+    any process in one reaches `C:\` through `AF_VSOCK`, so it is not the replacement
+  - [ ] Linux jobs in a VM of their own: `tools/ci/isolated-vm.ps1` is written and tested against stand-ins
+    ([CI.md](CI.md#a-clean-vm-for-linux-jobs-not-yet-made)), and under independent review. Still to do: the owner runs Create and
+    Prove; a way to start it without elevating each time, by a decision of its own; then Qt's answer, a kit, a runner and a clean
+    disk per job
   - [ ] Windows jobs under an account or a virtual machine that cannot reach the owner's profile
   - [ ] The GitHub Apps with workflow access to every repository limited, so that they cannot reach the runners (the owner's act)
 - [x] Prism: the bus, the keyboard, the lock screen, what a client's name and title can do, the Store's widgets

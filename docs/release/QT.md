@@ -242,7 +242,8 @@ token as a repository secret.
   the suites that draw, and no repository secret exists to install Qt with.
 - **A clean Linux VM on this machine.** No purchase: Windows 11 Pro's hypervisor is already running under WSL, and X: has 186 GB free.
   Its own kernel closes what `qor-ci` shares with `Ubuntu`: the kernel, the user and network namespaces, `/dev`, and the route to `C:\`.
-  It needs an administrator to turn Hyper-V on, and has to fit in 16 GB beside everything else. It takes Linux only: a Windows
+  Hyper-V is already on here (checked 1 November 2026), but making the VM, and starting it, needs an administrator: this account
+  cannot even list VMs unelevated. It has to fit in 16 GB beside everything else, so it runs only when no heavy build does. It takes Linux only: a Windows
   guest needs a Windows licence, and this document does not assume one. **This is the recommended replacement for the Linux job.** The
   Windows job has no replacement yet: a second account qualifies only once a job under it is shown unable to reach the owner's files
   and privileges.
