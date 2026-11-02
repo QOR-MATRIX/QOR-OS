@@ -633,10 +633,14 @@ private slots:
         {
             Studio studio;
             QVERIFY(studio.open(first.url()));
-            // Import: what the model chooser does with the file a person picks.
+            // Import: what the model chooser does with the file a person picks. It has a name of its own, because every new
+            // scene starts with the Studio's orb, in any project: what must stay in this one is what was imported into it.
+            QTemporaryDir picked;
+            const QString imported = picked.filePath(QStringLiteral("only-in-first.gltf"));
+            QVERIFY(QFile::copy(fixture(QStringLiteral("orb.gltf")), imported));
             QVERIFY(studio.call("add", QStringLiteral("Prop"),
                                 QVariantMap{{QStringLiteral("name"), QStringLiteral("Imported")},
-                                            {QStringLiteral("source"), QUrl::fromLocalFile(fixture(QStringLiteral("orb.gltf")))}}).isValid());
+                                            {QStringLiteral("source"), QUrl::fromLocalFile(imported)}}).isValid());
             studio.paintSky(QStringLiteral("#ff0000"));
             QVERIFY(studio.get("dirty").toBool());
             studio.pressBuild();
@@ -648,9 +652,9 @@ private slots:
             const QString sceneName = studio.get("sceneName").toString();
             const QString relative = QStringLiteral("scenes/%1.qml").arg(sceneName);
             QVERIFY(QFile::exists(first.file(relative)));
-            QVERIFY(QFile::exists(first.file(QStringLiteral("assets/orb.gltf"))));
+            QVERIFY(QFile::exists(first.file(QStringLiteral("assets/only-in-first.gltf"))));
             QCOMPARE(readBytes(QDir(firstFolder).filePath(relative)), readBytes(first.file(relative)));
-            QCOMPARE(readBytes(QDir(firstFolder).filePath(QStringLiteral("assets/orb.gltf"))), readBytes(fixture(QStringLiteral("orb.gltf"))));
+            QCOMPARE(readBytes(QDir(firstFolder).filePath(QStringLiteral("assets/only-in-first.gltf"))), readBytes(imported));
             QCOMPARE(skyOf(QDir(firstFolder).filePath(relative)), 0);
 
             // Edit, and do not build: Play here has the edit, and the game has not.
@@ -668,7 +672,9 @@ private slots:
             const QString secondRelative = QStringLiteral("scenes/%1.qml").arg(studio.get("sceneName").toString());
             QCOMPARE(skyOf(QDir(secondFolder).filePath(secondRelative)), 2);
             QCOMPARE(skyOf(QDir(firstFolder).filePath(relative)), 0);
-            QVERIFY(!QFile::exists(QDir(secondFolder).filePath(QStringLiteral("assets/orb.gltf"))));
+            QVERIFY(!QFile::exists(QDir(secondFolder).filePath(QStringLiteral("assets/only-in-first.gltf"))));
+            QVERIFY(!QFile::exists(second.file(QStringLiteral("assets/only-in-first.gltf"))));
+            QVERIFY(!readBytes(QDir(secondFolder).filePath(secondRelative)).contains("Imported"));
 
             // Back to the first, as it was left: the green sky saved, not yet in its game.
             QVERIFY(studio.call("switchProject", first.url()).toBool());
