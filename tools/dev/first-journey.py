@@ -128,7 +128,7 @@ def find_program(root: Path, name: str) -> str:
     raise Failed(f"no {name} under {root}")
 
 
-def prism_steps(build_folder: Path, home: Path, scene: str, project_scene: str, title: str) -> list[str]:
+def prism_steps(build_folder: Path, home: Path, scene: str, project_scene: str, game_title: str) -> list[str]:
     """Prism's Library is asked to play the game. What Prism started the Player with."""
     runtime = home / "runtime"
     runtime.mkdir(mode=0o700)
@@ -139,7 +139,7 @@ def prism_steps(build_folder: Path, home: Path, scene: str, project_scene: str, 
     recorder.chmod(0o755)
 
     item = f"qq:{scene}"
-    title = f"{Path(scene).name} — Test QQ Player"
+    window_title = f"{Path(scene).name} — Test QQ Player"
     script = home / "journey.e2e.json"
     script.write_text(
         json.dumps(
@@ -151,13 +151,13 @@ def prism_steps(build_folder: Path, home: Path, scene: str, project_scene: str, 
                     {"expect": {"path": "library.games.0", "equals": item}},
                     {"log": "With the title the build gave it, which only a manifest the Library believes can say"},
                     {"expect": {"path": "library.gameSources.0", "equals": "built"}},
-                    {"expect": {"path": "library.gameTitles.0", "equals": title}},
+                    {"expect": {"path": "library.gameTitles.0", "equals": game_title}},
                     {"log": "And the project itself beside it, as the person's own, as it stands: two things, told apart"},
                     {"expect": {"path": "library.mine.0", "equals": f"qq:{project_scene}"}},
                     {"expect": {"path": "library.recent", "equals": ""}},
                     {"log": "Asked to play it, Prism starts the Player"},
                     {"call": "runAction", "args": ["library.play", {"id": item}]},
-                    {"waitFor": {"window": {"title": title}, "timeout": 30000}},
+                    {"waitFor": {"window": {"title": window_title}, "timeout": 30000}},
                     {"expect": {"path": "products.qq-player.running", "equals": True}},
                     {"expect": {"path": "library.recent", "equals": item}},
                 ],
