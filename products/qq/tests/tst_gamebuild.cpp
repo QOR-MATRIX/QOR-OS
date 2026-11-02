@@ -36,6 +36,7 @@
 #include <QVector3D>
 #include <QtQml/qqmlextensionplugin.h>
 
+#include <chrono>
 #include <cstdlib>
 #include <filesystem>
 #include <memory>
@@ -1063,6 +1064,13 @@ private slots:
         HeldBuild first;
         first.start(project.path(), QStringLiteral("scenes/level.qml"), games.path(), "walked");
         QVERIFY(first.hasReachedIt());
+        // Held for an hour, as a large game's build may be: a lock is never stale by its age while its holder lives.
+        const QStringList locks = QDir(games.path()).entryList({QStringLiteral(".lock-*")}, QDir::Files | QDir::Hidden);
+        QCOMPARE(locks.size(), 1);
+        std::error_code aged;
+        std::filesystem::last_write_time(QFileInfo(games.filePath(locks.first())).filesystemFilePath(),
+                                         std::filesystem::file_time_type::clock::now() - std::chrono::hours(1), aged);
+        QVERIFY(!aged);
 
         // Not a moment's wait: the person is told, and the first goes on whole.
         const QVariantMap second = build(project, games.path());
