@@ -23,11 +23,13 @@
 // on the command line asks for a new scene, and a capture is a look at what was asked for, which keeps no workspace.
 //
 // Changed for QOR OS: qq-studio --project <folder> --build <scene> makes a game of the project (gamebuild.h) with no window
-// and no display, prints "QQ-BUILD {json}" and exits: 0 built, 3 refused.
+// and no display, prints "QQ-BUILD {json}" on standard output and exits: 0 built, 3 refused. Nobody is there to be asked, so it
+// builds only a project already on the person's trusted list, and it compiles nothing, as its answer says.
 
 #include <QCommandLineParser>
 #include <QCoreApplication>
 #include <QDir>
+#include <QFileInfo>
 #include <QGuiApplication>
 #include <QImage>
 #include <QJsonDocument>
@@ -39,6 +41,7 @@
 #include <QUrl>
 #include <QtQml/qqmlextensionplugin.h>
 
+#include <cstdio>
 #include <memory>
 
 #include "gamebuild.h"
@@ -92,8 +95,26 @@ int buildAndExit(int argc, char *argv[])
     parser.addOption(project);
     parser.addOption(build);
     parser.process(app);
-    const QVariantMap result = qq::GameBuild::make(parser.value(project), parser.value(build), qq::GameBuild::gamesFolder());
-    qInfo("QQ-BUILD %s", QJsonDocument(QJsonObject::fromVariantMap(result)).toJson(QJsonDocument::Compact).constData());
+    const QString folder = parser.value(project);
+    QVariantMap result;
+    // What is built is one press from playing in the Library. The Studio asks about a project from elsewhere, and here there is
+    // nobody to ask, so this takes only what is on the person's list, and adds nothing to it, however empty the folder.
+    if (!folder.isEmpty() && QFileInfo(folder).isDir() && !qq::SceneIO::onTrustedList(QUrl::fromLocalFile(QDir().absoluteFilePath(folder)))) {
+        result = {{QStringLiteral("ok"), false},
+                  {QStringLiteral("problem"), QObject::tr("%1 is not a project you have said you trust. Open it in QQ Studio and "
+                                                          "trust it there, then build.").arg(folder)}};
+    } else {
+        result = qq::GameBuild::make(folder, parser.value(build), qq::GameBuild::gamesFolder());
+        if (result.value(QStringLiteral("ok")).toBool()) {
+            result.insert(QStringLiteral("compiled"), false);
+            result.insert(QStringLiteral("note"), QObject::tr("Nothing was compiled: this copies the project's files. Code in it that does not "
+                                                              "build is found when the game plays, or by building in QQ Studio."));
+        }
+    }
+    // Its answer, on standard output: what asked for it reads that, with nothing else to set.
+    const QByteArray line = "QQ-BUILD " + QJsonDocument(QJsonObject::fromVariantMap(result)).toJson(QJsonDocument::Compact) + '\n';
+    std::fwrite(line.constData(), 1, size_t(line.size()), stdout);
+    std::fflush(stdout);
     return result.value(QStringLiteral("ok")).toBool() ? 0 : 3;
 }
 
@@ -101,8 +122,11 @@ int buildAndExit(int argc, char *argv[])
 
 int main(int argc, char *argv[])
 {
+    // Either way of writing it: nothing that asks for a build opens a window.
     for (int i = 1; i < argc; ++i) {
-        if (qstrcmp(argv[i], "--build") == 0)
+        if (qstrcmp(argv[i], "--") == 0)
+            break;
+        if (qstrcmp(argv[i], "--build") == 0 || qstrncmp(argv[i], "--build=", 8) == 0)
             return buildAndExit(argc, argv);
     }
 

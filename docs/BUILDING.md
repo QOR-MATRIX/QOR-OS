@@ -481,6 +481,23 @@ tools/dev/products.sh --gpu                           # under WSL, on the GPU, w
 - **Programs:** on Linux QQ's programs sit in their target folders
   (`studio/qq-studio`, `player/qq-player`, `agent/qq-mcp`, `tests/tst_*`);
   ARQADE's and QOR Media's sit in the build folder.
+- **The first journey** (`first_journey`, `tools/dev/first-journey.py`) is the
+  one place QQ and Prism meet: a project built by the real `qq-studio --build`,
+  found in real Prism's Library and played by the real Player. Its Prism steps
+  need a build of Prism with its stand-ins for the products, named by
+  `QOR_PRISM_BUILD`; without it the run skips them and the test is reported
+  as skipped (exit 77), which is not a pass. To run all of it:
+
+  ```bash
+  cmake --preset linux-asan
+  cmake --build build/linux-asan --target prism prism-test-qq-player \
+      prism-test-qq-studio prism-test-arqade prism-test-media
+  QOR_PRISM_BUILD=$PWD/build/linux-asan tools/dev/products.sh --product qq \
+      --tests '^first_journey$'
+  ```
+
+  Any Linux build of Prism will do; that one is what the security bar runs
+  its suites under.
 
 The samples are QQ scenes you can open in QQ Studio, for example
 `products/qq/samples/orb-run`. Running them inside Prism, with Prism placing

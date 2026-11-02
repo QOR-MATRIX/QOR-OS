@@ -5,7 +5,8 @@
 // as it picks up any save of its logic.
 //
 // Changed for QOR OS: reset(), which leaves nothing of a file behind when it closes or its project is left; Close asks
-// about unsaved text first; and a file's name is text, never markup (AGENTS.md).
+// about unsaved text first; a file's name is text, never markup (AGENTS.md); saving goes back to the file that is open, and
+// says if that cannot be, and waits while a game is being built.
 
 import QtQuick
 import QtQuick.Controls
@@ -54,13 +55,17 @@ Pane {
 
     /// Write the text to its file, whole: true if written.
     function save() {
-        if (name === "")
+        if (name === "" || studio.refusedWhileBuilding(qsTr("save")))
             return false
         const written = SceneIO.writeLogic(studio.project, name, code.text)
         if (String(written) === "") {
             studio.say(SceneIO.lastError, true)
             return false
         }
+        // Its file had gone, so it has the name a new one gets, and that is the file open now.
+        const folder = String(studio.project) + "/logic/"
+        if (String(written).startsWith(folder))
+            name = decodeURIComponent(String(written).slice(folder.length)).replace(/\.qml$/, "")
         saved = code.text
         check()
         studio.say(problems.length === 0 ? qsTr("Saved logic/%1.qml.").arg(name)

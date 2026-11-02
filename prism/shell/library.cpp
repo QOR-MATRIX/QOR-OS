@@ -81,14 +81,15 @@ QVariantMap gameItem(const QDir &folder, const QString &scene, bool mine)
              { u"modified"_s, QFileInfo(scene).lastModified().toMSecsSinceEpoch() } };
 }
 
-// A game QQ Studio built (products/qq/studio/gamebuild.h), by what it says of itself in game.json: its title and the
-// scene it starts in, and nothing else is taken from there. Any folder here could hold such a file, so it is a
-// stranger's: anything wrong with it and the folder is a QQ game like any other, known by its scenes. The Player's
-// walls are what hold a game in.
+// A game QQ Studio built (products/qq/studio/gamebuild.h), by what it says of itself in game.json: its title, the scene
+// it starts in and how many times it has been built, and nothing else is taken from there. Any folder here could hold
+// such a file, so it is a stranger's: anything wrong with it, a link or a junction anywhere it matters among that, and
+// the folder is a QQ game like any other, known by its scenes. The Player's walls are what hold a game in.
 QVariantMap builtGameItem(const QDir &folder)
 {
     const QFileInfo manifest(folder.filePath(u"game.json"_s));
-    if (QFileInfo(folder.path()).isSymLink() || manifest.isSymLink() || !manifest.isFile()
+    const QFileInfo place(folder.path());
+    if (place.isSymLink() || place.isJunction() || manifest.isSymLink() || !manifest.isFile()
         || manifest.size() > LargestManifest)
         return {};
     QFile file(manifest.filePath());
@@ -109,9 +110,9 @@ QVariantMap builtGameItem(const QDir &folder)
         || parts.last().contains(u'\\'))
         return {};
     const QFileInfo scene(folder.filePath(relative));
-    if (scene.isSymLink() || !scene.isFile()
-        || scene.canonicalPath() != QFileInfo(folder.filePath(u"scenes"_s)).canonicalFilePath()
-        || QFileInfo(folder.filePath(u"scenes"_s)).isSymLink())
+    const QFileInfo scenes(folder.filePath(u"scenes"_s));
+    if (scene.isSymLink() || !scene.isFile() || scene.canonicalPath() != scenes.canonicalFilePath()
+        || scenes.isSymLink() || scenes.isJunction())
         return {};
     QVariantMap item = gameItem(folder, scene.filePath(), false);
     item.insert(u"source"_s, u"built"_s);

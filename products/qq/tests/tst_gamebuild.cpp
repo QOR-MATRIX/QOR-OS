@@ -249,10 +249,13 @@ struct HeldBuild {
         go.release();
         thread->wait();
     }
+    /// Let go whatever happened: a case that stopped early would otherwise leave a build waiting for ever, and its Studio
+    /// waiting for that build as it closes.
     ~HeldBuild()
     {
-        if (thread && thread->isRunning())
-            finish();
+        go.release();
+        if (thread)
+            thread->wait();
     }
 };
 
@@ -328,17 +331,32 @@ struct Studio {
         QTRY_VERIFY(!building());
     }
 
-    /// How much of the top of the world, as the window shows it now, is mostly of this channel (shareOf).
-    double skyShownOf(int channel)
+    /// The top of the world, as the window shows it now.
+    QImage skyShown()
     {
         auto *view = window->findChild<QQuickItem *>(QStringLiteral("viewport"));
         if (!view)
-            return -1;
+            return {};
         window->update();
         QTest::qWait(200);
         const QRectF band = view->mapRectToScene(QRectF(0, 0, view->width(), view->height() / 6));
-        const QImage frame = window->grabWindow();
-        return shareOf(frame.copy(band.toRect()), channel);
+        return window->grabWindow().copy(band.toRect());
+    }
+
+    /// Whether the top of the world comes to be mostly of this channel (shareOf) within half a minute. If not, the last look is
+    /// kept in the temporary folder and named, with its shares, so a failure can be looked at.
+    void waitForSkyShown(int channel)
+    {
+        QImage last;
+        for (int tries = 0; tries < 60; ++tries) {
+            last = skyShown();
+            if (shareOf(last, channel) > 0.5)
+                return;
+        }
+        const QString kept = QDir::temp().filePath(QStringLiteral("tst_gamebuild-sky-shown.png"));
+        last.save(kept);
+        QFAIL(qPrintable(QStringLiteral("The world does not show it: red %1, green %2, blue %3, as kept in %4")
+                             .arg(shareOf(last, 0)).arg(shareOf(last, 1)).arg(shareOf(last, 2)).arg(kept)));
     }
 };
 
@@ -1288,7 +1306,8 @@ private slots:
         QTemporaryDir out;
         const QString measure = out.filePath(QStringLiteral("measure.json"));
         QByteArray said;
-        QCOMPARE(runPlayer({game.filePath(QStringLiteral("scenes/level.qml")), QStringLiteral("--measure"), measure}, &said), 0);
+        const int code = runPlayer({game.filePath(QStringLiteral("scenes/level.qml")), QStringLiteral("--measure"), measure}, &said);
+        QVERIFY2(code == 0, qPrintable(QStringLiteral("exit %1: %2").arg(code).arg(QString::fromUtf8(said))));
         QVERIFY2(!said.contains("THE-COMPILED-UNIT-RAN"), said.constData());
         QVERIFY2(said.contains("THE-SOURCE-RAN"), said.constData());
         // And it says so, for a check that does not plant a unit.
@@ -1347,7 +1366,9 @@ private slots:
             QObject *playing = studio.get("playScene").value<QObject *>();
             QVERIFY(playing);
             QCOMPARE(playing->property("skyTop").value<QColor>(), QColor(QStringLiteral("#00ff00")));
-            QTRY_VERIFY2_WITH_TIMEOUT(studio.skyShownOf(1) > 0.5, "Play does not show the edit", 30000);
+            studio.waitForSkyShown(1);
+            if (QTest::currentTestFailed())
+                return;
             QCOMPARE(skyOf(QDir(firstFolder).filePath(relative)), 0);
             QVERIFY(studio.get("playing").toBool());
             studio.call("stop");

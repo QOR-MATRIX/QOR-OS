@@ -30,8 +30,9 @@
 // one way to change project, switchProject(): it asks about unsaved work, leaves nothing of the old project behind, goes
 // past the same trust check as anything else that runs a project's files, then restores. Unsaved work is asked about too
 // before a new scene, another scene or logic file, or the window closing. Names from outside are text, never markup.
-// Changed for QOR OS: Build saves, then makes a game of the project (gamebuild.h). Play runs the project, here, as it
-// stands; the Library plays the copy, which changes only by building again.
+// Changed for QOR OS: Build brings in what the scene names from outside, saves, says if any of the project's code does not
+// build, then makes a game of the project (gamebuild.h). Play runs the project, here, as it stands; the Library plays the
+// copy, which changes only by building again. While a build runs nothing is saved and the project does not change, each saying why.
 
 import QtQuick
 // Before the Material style: Qt Quick 3D has a type called Material too, and the import that comes later wins.
@@ -369,7 +370,7 @@ ApplicationWindow {
     /// false if it was refused or waits on a question. A scene in no project has come from none, so it can go with the
     /// person: Save there means saving it into the project being chosen.
     function switchProject(folder) {
-        if (askingFor !== null)
+        if (askingFor !== null || refusedWhileBuilding(qsTr("change project")))
             return false
         if (!workspace.isFolder(folder)) {
             say(qsTr("That project's folder is not there any more."), true)
@@ -404,6 +405,8 @@ ApplicationWindow {
 
     /// Save the scene, which is in no project yet, as part of `folder`: what Save asks for before a project is chosen.
     function saveInto(folder) {
+        if (refusedWhileBuilding(qsTr("save")))
+            return false
         stop()
         if (!workspace.isFolder(folder)) {
             say(qsTr("That project's folder is not there any more."), true)
@@ -565,6 +568,11 @@ ApplicationWindow {
         })
     }
 
+    /// A name as a new scene's file is written.
+    function normalSceneName(name) {
+        return String(name).trim().toLowerCase().replace(/[^a-z0-9-]+/g, "-").replace(/^-+|-+$/g, "") || "untitled"
+    }
+
     /// `name`, or the first like it that no scene in this project has. Names are compared as a system that ignores case would.
     function freeSceneName(name) {
         const taken = (SceneIO.project(project).scenes ?? []).map(held => String(held).toLowerCase())
@@ -575,7 +583,7 @@ ApplicationWindow {
     }
 
     function saveScene() {
-        if (!scene || playing)
+        if (!scene || playing || refusedWhileBuilding(qsTr("save")))
             return false
         if (String(project) === "") {
             projectChooser.thenSave = true
@@ -587,16 +595,19 @@ ApplicationWindow {
             trusting(() => saveScene())
             return false
         }
-        const wanted = sceneName.trim().toLowerCase().replace(/[^a-z0-9-]+/g, "-").replace(/^-+|-+$/g, "") || "untitled"
-        // A scene already in scenes/ is written over only by the scene opened from it. A new one, or one given another's
-        // name, takes a name of its own: a project opened here for the first time starts in a new scene called untitled.
-        const name = savedText === "" || fileFor(wanted) !== String(sceneFile) ? freeSceneName(wanted) : wanted
+        const wanted = normalSceneName(sceneName)
+        // A scene already in scenes/ is written over only by the scene opened from it, whose file keeps its own name however
+        // that is written. A new one, or one given another's name, takes a name of its own: a project opened here for the first
+        // time starts in a new scene called untitled.
+        const own = savedText === "" ? null : /^scenes\/([^/]+)\.qml$/.exec(workspace.relativeInside(project, sceneFile))
+        const itself = own !== null && normalSceneName(own[1]) === wanted
+        const name = itself ? own[1] : freeSceneName(wanted)
         // Files from outside the project (models, sounds, pictures, skies, prefabs, logic) come into it first, so the
         // project is whole on its own: the scene's own (its sky) and its entities', those in groups too.
         if (!adoptFiles([scene].concat(SceneIO.entities(scene))))
             return false
         scene.name = name
-        const file = fileFor(name)
+        const file = itself ? sceneFile : fileFor(name)
         const problem = SceneIO.save(scene, file)
         if (problem !== "") {
             say(problem, true)
@@ -610,7 +621,7 @@ ApplicationWindow {
         history.amend(savedText)
         projectInfo = SceneIO.project(project)
         refresh()
-        const kept = name === wanted ? "" : qsTr(" scenes/%1.qml was already there, and is as it was.").arg(wanted)
+        const kept = itself || name === wanted ? "" : qsTr(" scenes/%1.qml was already there, and is as it was.").arg(wanted)
         say((projectInfo.repository ? qsTr("Saved scenes/%1.qml. Commit it in Projects.").arg(name)
                                     : qsTr("Saved scenes/%1.qml. This folder is not versioned yet: open it in Projects.").arg(name)) + kept)
         return true
@@ -641,6 +652,11 @@ ApplicationWindow {
         if (!scene)
             return null
         let n = 1
+        // A prefab is built from its file as soon as it is placed, so one placed in a project from elsewhere asks as opening does.
+        if (kind === "Prefab" && !projectTrusted) {
+            trusting(() => addInto(kind, properties, into))
+            return null
+        }
         const base = properties.name ?? kind
         let name = base
         while (entityList.some(e => e.name === name))
@@ -801,12 +817,15 @@ ApplicationWindow {
             for (const field of e.fields) {
                 if (SceneIO.fieldType(e, field) !== "url" || String(e[field]) === "")
                     continue
-                const adopted = SceneIO.adopt(SceneIO.resolvedUrl(e, e[field]), project)
+                const whole = SceneIO.resolvedUrl(e, e[field])
+                const adopted = SceneIO.adopt(whole, project)
                 if (String(adopted) === "") {
                     say(SceneIO.lastError, true)
                     return false
                 }
-                e[field] = adopted
+                // Only what came in changes: a model already in the project is not loaded again for being named again.
+                if (String(adopted) !== String(whole))
+                    e[field] = adopted
             }
         }
         return true
@@ -850,6 +869,8 @@ ApplicationWindow {
             say(qsTr("A prefab lives in the project: choose a project first."), true)
             return null
         }
+        if (refusedWhileBuilding(qsTr("save")))
+            return null
         const group = selection
         if (!adoptFiles([group].concat(SceneIO.entities(group))))
             return null
@@ -939,6 +960,8 @@ ApplicationWindow {
 
     /// Start a new behaviour: a logic file in the project from a template, driving the selection.
     function addBehaviour() {
+        if (refusedWhileBuilding(qsTr("write a file")))
+            return null
         if (String(project) === "") {
             say(qsTr("A behaviour's logic lives in the project: choose a project first."), true)
             return null
@@ -985,23 +1008,46 @@ ApplicationWindow {
         launcher.publish(project, qsTr("Publish %1").arg(sceneName))
     }
 
+    /// With a build running, what would change what it is reading, or put its answer in another project, waits: said, and true.
+    function refusedWhileBuilding(what) {
+        if (!gameBuild.busy)
+            return false
+        say(qsTr("%1 is being built. When that has finished, %2.").arg(projectInfo.name).arg(what), true)
+        return true
+    }
+
     /// Save what is on the screen, then make a game of the project: what is built is what is on the disk.
     function buildGame() {
-        if (playing || gameBuild.busy)
+        if (playing || gameBuild.busy || askingFor !== null)
             return
         if (String(project) === "") {
             say(qsTr("Choose a project to build: Project, then a folder."), true)
             return
         }
-        // Built, its files are one press from playing in the Library, so this asks first as opening does.
+        // Built, its files are one press from playing in the Library, so this asks first as opening does; --build refuses instead.
         if (!projectTrusted) {
             trusting(() => buildGame())
             return
         }
+        // A project just opened shows a new scene nobody has touched, which is no work, and no game of a project that has scenes.
+        projectInfo = SceneIO.project(project)
+        if (savedText === "" && !sceneHasWork() && (projectInfo.scenes ?? []).length > 0) {
+            say(qsTr("Open the scene the game starts in, then build."), true)
+            return
+        }
+        // What the scene names from outside comes in, as saving does, even with nothing else to save: so a scene whose model is
+        // elsewhere is brought whole rather than refused. If that changed anything, it is saved below.
+        if (!adoptFiles([scene].concat(SceneIO.entities(scene))))
+            return
         if ((savedText === "" || sceneHasWork()) && !saveScene())
             return
         if (logicEditor.dirty && !logicEditor.save())
             return
+        const broken = SceneIO.brokenCode(project)
+        if (broken.file !== undefined) {
+            say(qsTr("%1 does not build, so no game was made of this project (line %2): %3").arg(broken.file).arg(broken.line).arg(broken.message), true)
+            return
+        }
         say(qsTr("Building %1…").arg(projectInfo.name))
         gameBuild.start(project, sceneFile)
     }
