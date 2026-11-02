@@ -33,6 +33,9 @@
 // Changed for QOR OS: Build brings in what the scene names from outside, saves, says if any of the project's code does not
 // build, then makes a game of the project (gamebuild.h). Play runs the project, here, as it stands; the Library plays the
 // copy, which changes only by building again. While a build runs nothing is saved and the project does not change, each saying why.
+// Changed for QOR OS: what is unsaved is copied to the person's own store after a short pause in editing (ProjectWorkspace), with
+// no timer running but for that pause, so a crash or a launcher closing the Studio loses none of it: on arriving in the project,
+// past the trust check, a person is asked to Restore or Discard it. The camera is remembered with the rest of a project.
 
 import QtQuick
 // Before the Material style: Qt Quick 3D has a type called Material too, and the import that comes later wins.
@@ -126,6 +129,12 @@ ApplicationWindow {
     property var askingFor: null
     /// The window may go: its unsaved work has been answered for.
     property bool closeSettled: false
+    /// A recovery copy on the screen as a question: what was found, until it is answered.
+    property var recoveryOffer: null
+    /// A recovery copy is there that nobody has answered for yet: it may be all there is of some work, so nothing is written over it.
+    property bool recoveryUnanswered: false
+    /// What the last recovery copy kept, to write nothing when nothing has changed.
+    property string recoveryKept: "{}"
     /// Toggled to make the Agent panel anew, with nothing typed in it, for the next project.
     property bool agentPanelLive: true
     /// The statistics over the world, and the colliders drawn in play (F3).
@@ -169,6 +178,7 @@ ApplicationWindow {
         const text = SceneIO.write(scene, sceneFile)
         dirty = text !== savedText
         history.note(text, key)
+        keepRecoverySoon()
     }
 
     /// Undo and redo: the scene put back to the text before or after, its file, saved state, view and selection kept.
@@ -370,7 +380,7 @@ ApplicationWindow {
     /// false if it was refused or waits on a question. A scene in no project has come from none, so it can go with the
     /// person: Save there means saving it into the project being chosen.
     function switchProject(folder) {
-        if (askingFor !== null || refusedWhileBuilding(qsTr("change project")))
+        if (askingFor !== null || recoveryOffer !== null || refusedWhileBuilding(qsTr("change project")))
             return false
         if (!workspace.isFolder(folder)) {
             say(qsTr("That project's folder is not there any more."), true)
@@ -423,6 +433,14 @@ ApplicationWindow {
             designer.forget()
         stop()
         saveWorkspace()
+        // Whatever was unsaved here has been answered for by now: saved, or discarded. A copy nobody has answered for stays.
+        recoverLater.stop()
+        if (!recoveryUnanswered)
+            workspace.dropRecovery(project)
+        recoveryUnanswered = false
+        recoveryKept = "{}"
+        recoveryOffer = null
+        recoveryDialog.close()
         whenTrusted = null
         trustDialog.close()
         logicEditor.reset()
@@ -435,6 +453,7 @@ ApplicationWindow {
         pitch = 16
         distance = 8
         target = Qt.vector3d(0, 1, 0)
+        saveLater.stop()
     }
 
     /// `folder` is the project now, by SceneIO's trust check.
@@ -443,6 +462,8 @@ ApplicationWindow {
         SceneIO.setProject(folder)
         projectTrusted = SceneIO.projectTrusted(folder)
         projectInfo = SceneIO.project(folder)
+        recoveryKept = "{}"
+        recoveryUnanswered = remembers && workspace.loadRecovery(folder).found
         if (remembers) {
             workspace.noteRecent(folder)
             recentProjects = workspace.recentProjects()
@@ -471,15 +492,23 @@ ApplicationWindow {
         agentOpen = state.panels.agent === true
         showStats = state.panels.stats === true
         applyWindow(state.window)
+        applyCamera(state.camera)
 
         const keptScene = /^scenes\/([^/]+)\.qml$/.exec(state.scene)
         const keptLogic = /^logic\/(.+)\.qml$/.exec(state.logic)
         const problems = state.problem === "" ? [] : [state.problem]
         if ((state.scene !== "" && !keptScene) || (state.logic !== "" && !keptLogic))
             problems.push(qsTr("It named a file that does not belong there, which was left closed."))
+        // Read as a stranger's, here, where it runs nothing: scene text runs when it is loaded, so it waits for the same check.
+        const copy = remembers ? workspace.loadRecovery(project) : ({ found: false, stale: false, problem: "" })
+        if (copy.problem !== "")
+            problems.push(copy.problem)
+        if (copy.stale)
+            workspace.dropRecovery(project)
+        recoveryUnanswered = copy.found
         if (problems.length > 0)
             say(problems.join(" "), true)
-        if (!keptScene && !keptLogic)
+        if (!keptScene && !keptLogic && !copy.found)
             return
         trusting(() => {
             const before = restoring
@@ -488,13 +517,137 @@ ApplicationWindow {
                 problems.push(SceneIO.lastError)
             if (keptLogic && !logicEditor.open(keptLogic[1]))
                 problems.push(SceneIO.lastError)
+            // After the scene: a 2D scene frames itself as it opens, and what the person left it at comes after that.
+            applyCamera(state.camera)
             viewport.forceActiveFocus()  // the editor took it, and nobody has started typing there
             restoring = before
             if (problems.length > 0)
                 say(problems.join(" "), true)
-            else
+            else if (keptScene || keptLogic)
                 say(qsTr("Back in %1, as you left it.").arg(projectInfo.name))
+            if (copy.found)
+                offerRecovery(copy)
         })
+    }
+
+    function applyCamera(camera) {
+        if (camera.yaw === undefined)
+            return
+        yaw = camera.yaw
+        pitch = camera.pitch
+        distance = camera.distance
+        target = Qt.vector3d(camera.x, camera.y, camera.z)
+    }
+
+    // ── what is not saved yet, kept for a crash ──
+
+    /// Something unsaved may have changed: kept once editing pauses, however many changes that holds. Only a change starts
+    /// this, so an idle Studio has nothing waiting and nothing wakes it.
+    function keepRecoverySoon() {
+        if (!restoring && remembers && !recoveryUnanswered && String(project) !== "")
+            recoverLater.restart()
+    }
+
+    /// Bring the recovery copy up to what is unsaved now. A copy nobody has answered for is not written over. False, and said,
+    /// if it could not be kept.
+    function keepRecovery() {
+        recoverLater.stop()
+        if (!remembers || recoveryUnanswered || String(project) === "")
+            return true
+        const work = {}
+        if (sceneHasWork()) {
+            work.scene = { name: sceneName, text: SceneIO.write(scene, sceneFile),
+                           file: savedText !== "" ? workspace.relativeInside(project, sceneFile) : "" }
+        }
+        if (logicEditor.dirty)
+            work.logic = { name: logicEditor.name, file: "logic/" + logicEditor.name + ".qml", text: logicEditor.text }
+        const now = JSON.stringify(work)
+        if (now === recoveryKept)
+            return true
+        if (!workspace.keepRecovery(project, work)) {
+            recoveryKept = "{}"
+            say(qsTr("A recovery copy of your unsaved work could not be kept, so a crash would lose it. Save it to keep it."), true)
+            return false
+        }
+        recoveryKept = now
+        return true
+    }
+
+    Timer {
+        id: recoverLater
+        objectName: "recoverLater"
+        interval: 1000
+        onTriggered: window.keepRecovery()
+    }
+
+    Connections {
+        target: logicEditor
+        function onTextChanged() { window.keepRecoverySoon() }
+    }
+
+    /// Ask about what was kept. Names from outside are text.
+    function offerRecovery(copy) {
+        const named = []
+        if (copy.scene)
+            named.push(qsTr("the scene %1").arg(copy.scene.name))
+        if (copy.logic)
+            named.push(copy.logic.file)
+        const notes = []
+        for (const part of [copy.scene, copy.logic]) {
+            if (part && part.gone)
+                notes.push(qsTr("%1 is no longer on the disk; saving this makes it again.").arg(part.file))
+            else if (part && part.changed)
+                notes.push(qsTr("%1 has changed on the disk since this copy was made: restoring shows this copy, and leaves the file as it is until you save, which would write over that change.").arg(part.file))
+        }
+        recoveryOffer = copy
+        recoveryText.text = qsTr("QQ Studio stopped before this was saved: %1.").arg(named.join(qsTr(" and ")))
+                            + (notes.length > 0 ? "\n\n" + notes.join(" ") : "")
+                            + "\n\n" + qsTr("Restore puts it back, still unsaved. Discard throws it away.")
+        recoveryDialog.open()
+    }
+
+    /// What the question's buttons do: "restore" or "discard". A scene that will not build is said and its copy stays, so that it
+    /// is still there to be asked about, and nothing of what is restored is written anywhere but back to the copy.
+    function answerRecovery_(answer) {
+        const copy = recoveryOffer
+        recoveryOffer = null
+        recoveryDialog.close()
+        if (!copy)
+            return false
+        if (answer !== "restore") {
+            recoveryUnanswered = false
+            recoveryKept = "{}"
+            workspace.dropRecovery(project)
+            return true
+        }
+        const before = restoring
+        restoring = true
+        const sceneBack = !copy.scene || restoreSceneCopy(copy.scene)
+        if (copy.logic)
+            logicEditor.restore(copy.logic.name, copy.logic.text)
+        viewport.forceActiveFocus()
+        restoring = before
+        recoveryUnanswered = !sceneBack
+        if (!sceneBack)
+            return false
+        recoveryKept = ""
+        keepRecovery()
+        say(qsTr("Restored what was not saved. It is still not saved."))
+        return true
+    }
+
+    /// The scene from a recovery copy, unsaved against what is on the disk now, if its file is still there. Built where it would
+    /// have been: relative URLs and types beside it mean what they meant.
+    function restoreSceneCopy(part) {
+        const hasFile = part.file !== "" && !part.gone
+        const place = hasFile ? String(project) + "/" + part.file : placeFor("untitled")
+        if (!show(SceneIO.loadText(part.text, place, stage), place, part.name, false))
+            return false
+        savedText = hasFile ? (SceneIO.readText(place) ?? "") : ""
+        pristineText = ""
+        history.reset(SceneIO.write(scene, sceneFile))
+        refresh()
+        return true
     }
 
     function applyWindow(placed) {
@@ -525,6 +678,7 @@ ApplicationWindow {
             scene: savedText !== "" ? workspace.relativeInside(project, sceneFile) : "",
             logic: logicEditor.name !== "" ? "logic/" + logicEditor.name + ".qml" : "",
             panels: { agent: agentOpen, stats: showStats },
+            camera: { yaw: yaw, pitch: pitch, distance: distance, x: target.x, y: target.y, z: target.z },
             window: maximized ? { maximized: true } : { x: x, y: y, width: width, height: height }
         })
     }
@@ -551,6 +705,10 @@ ApplicationWindow {
     onWidthChanged: keepWorkspaceSoon()
     onHeightChanged: keepWorkspaceSoon()
     onVisibilityChanged: keepWorkspaceSoon()
+    onYawChanged: keepWorkspaceSoon()
+    onPitchChanged: keepWorkspaceSoon()
+    onDistanceChanged: keepWorkspaceSoon()
+    onTargetChanged: keepWorkspaceSoon()
     Connections {
         target: logicEditor
         function onNameChanged() { window.keepWorkspaceSoon() }
@@ -621,6 +779,8 @@ ApplicationWindow {
         history.amend(savedText)
         projectInfo = SceneIO.project(project)
         refresh()
+        // Saved, and no copy of it stays a moment longer.
+        keepRecovery()
         const kept = itself || name === wanted ? "" : qsTr(" scenes/%1.qml was already there, and is as it was.").arg(wanted)
         say((projectInfo.repository ? qsTr("Saved scenes/%1.qml. Commit it in Projects.").arg(name)
                                     : qsTr("Saved scenes/%1.qml. This folder is not versioned yet: open it in Projects.").arg(name)) + kept)
@@ -938,6 +1098,12 @@ ApplicationWindow {
             designer.stop()
         stop()
         saveWorkspace()
+        // Closed by the person, every question has been answered. Closed any other way, a launcher's or anything else's, nobody
+        // was asked, so what is unsaved stays in its copy for the next time.
+        if (!closeSettled)
+            keepRecovery()
+        else if (!recoveryUnanswered)
+            workspace.dropRecovery(project)
         if (scene)
             SceneIO.discard(scene)
         scene = null
@@ -1148,6 +1314,38 @@ ApplicationWindow {
                 text: qsTr("Cancel")
                 DialogButtonBox.buttonRole: DialogButtonBox.RejectRole
                 onClicked: window.answerUnsaved_("cancel")
+            }
+        }
+    }
+
+    // Work found unsaved from the last time. It must be answered: no answer, and it is all still there the next time.
+    Dialog {
+        id: recoveryDialog
+        objectName: "recoveryDialog"
+        anchors.centerIn: parent
+        modal: true
+        closePolicy: Popup.NoAutoClose
+        title: qsTr("Restore unsaved work?")
+        standardButtons: Dialog.NoButton
+        width: 520
+        contentItem: Label {
+            id: recoveryText
+            objectName: "recoveryText"
+            wrapMode: Text.Wrap
+            textFormat: Text.PlainText
+        }
+        footer: DialogButtonBox {
+            Button {
+                objectName: "recoveryRestore"
+                text: qsTr("Restore")
+                DialogButtonBox.buttonRole: DialogButtonBox.AcceptRole
+                onClicked: window.answerRecovery_("restore")
+            }
+            Button {
+                objectName: "recoveryDiscard"
+                text: qsTr("Discard")
+                DialogButtonBox.buttonRole: DialogButtonBox.DestructiveRole
+                onClicked: window.answerRecovery_("discard")
             }
         }
     }

@@ -6,7 +6,7 @@
 //
 // Changed for QOR OS: reset(), which leaves nothing of a file behind when it closes or its project is left; Close asks
 // about unsaved text first; a file's name is text, never markup (AGENTS.md); saving goes back to the file that is open, and
-// says if that cannot be, and waits while a game is being built.
+// says if that cannot be, and waits while a game is being built; restore(), for a recovery copy.
 
 import QtQuick
 import QtQuick.Controls
@@ -53,6 +53,16 @@ Pane {
         return true
     }
 
+    /// Put a recovery copy back: logic/<name>.qml open, with this text in it, unsaved against what is in the file now.
+    function restore(logicName, text) {
+        const onDisk = SceneIO.readText(String(studio.project) + "/logic/" + logicName + ".qml")
+        name = logicName
+        saved = onDisk ?? ""
+        code.text = text
+        code.cursorPosition = 0
+        check()
+    }
+
     /// Write the text to its file, whole: true if written.
     function save() {
         if (name === "" || studio.refusedWhileBuilding(qsTr("save")))
@@ -71,6 +81,7 @@ Pane {
         studio.say(problems.length === 0 ? qsTr("Saved logic/%1.qml.").arg(name)
                                          : qsTr("Saved logic/%1.qml; it does not build yet (line %2).")
                                                .arg(name).arg(problems[0].line), problems.length > 0)
+        studio.keepRecovery()
         return true
     }
 

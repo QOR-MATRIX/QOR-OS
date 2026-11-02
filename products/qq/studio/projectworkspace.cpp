@@ -10,6 +10,7 @@
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QRegularExpression>
 #include <QSaveFile>
 #include <QScreen>
 #include <QStandardPaths>
@@ -34,7 +35,7 @@ QString realFolder(const QUrl &folder)
 
 /// A file of the store as bytes, or nothing with `why` saying what is wrong with it: "" if it just is not there. Only a
 /// regular file is opened, so a pipe left there cannot hang the Studio, and no more than the most it can be is read.
-std::optional<QByteArray> readStoreFile(const QString &path, QString *why)
+std::optional<QByteArray> readStoreFile(const QString &path, QString *why, qint64 most = ProjectWorkspace::largestFile)
 {
     why->clear();
     const QFileInfo info(path);
@@ -44,7 +45,7 @@ std::optional<QByteArray> readStoreFile(const QString &path, QString *why)
         *why = ProjectWorkspace::tr("is not a plain file");
         return std::nullopt;
     }
-    if (info.size() > ProjectWorkspace::largestFile) {
+    if (info.size() > most) {
         *why = ProjectWorkspace::tr("is too large");
         return std::nullopt;
     }
@@ -53,8 +54,8 @@ std::optional<QByteArray> readStoreFile(const QString &path, QString *why)
         *why = ProjectWorkspace::tr("could not be opened");
         return std::nullopt;
     }
-    QByteArray bytes = file.read(ProjectWorkspace::largestFile + 1);
-    if (bytes.size() > ProjectWorkspace::largestFile) {
+    QByteArray bytes = file.read(most + 1);
+    if (bytes.size() > most) {
         *why = ProjectWorkspace::tr("is too large");
         return std::nullopt;
     }
@@ -63,10 +64,10 @@ std::optional<QByteArray> readStoreFile(const QString &path, QString *why)
 
 /// Write a file of the store, whole or not at all, for this person's eyes. A link in its place is replaced, never written
 /// through.
-bool writeStoreFile(const QString &path, const QJsonObject &object)
+bool writeStoreFile(const QString &path, const QJsonObject &object, qint64 most = ProjectWorkspace::largestFile)
 {
     const QByteArray bytes = QJsonDocument(object).toJson();
-    if (bytes.size() > ProjectWorkspace::largestFile)
+    if (bytes.size() > most)
         return false;
     if (!QDir().mkpath(QFileInfo(path).absolutePath()))
         return false;
@@ -96,6 +97,65 @@ bool numberFrom(const QVariant &value, int *out)
         return false;
     *out = static_cast<int>(number);
     return true;
+}
+
+/// The digest of a saved file a recovery copy is of, or "" for one that cannot be read as a plain file in the project.
+QString digestOf(const QString &realProject, const QString &relative)
+{
+    const QString real = ProjectWorkspace::fileInside(realProject, relative);
+    if (real.isEmpty())
+        return {};
+    QFile file(real);
+    if (!file.open(QIODevice::ReadOnly))
+        return {};
+    QCryptographicHash hash(QCryptographicHash::Sha256);
+    hash.addData(&file);
+    return QString::fromLatin1(hash.result().toHex());
+}
+
+/// One part of a recovery copy as it was kept, read as a stranger's: its fields, or nothing, with `*why` saying why not, if it
+/// is there and wrong. "" for `why` means it is just not there, or no longer differs from its file.
+QVariantMap recoveryPart(const QJsonObject &kept, const QString &key, const QString &root, const QRegularExpression &allowed, QString *why)
+{
+    why->clear();
+    const QJsonValue value = kept.value(key);
+    if (value.isUndefined())
+        return {};
+    const QString refused = ProjectWorkspace::tr("Part of this project's recovery copy named something that is not a plain file in this project, "
+                                                 "or was not what was kept, so that part was left alone.");
+    const QJsonObject part = value.toObject();
+    if (!value.isObject() || !part.value(QStringLiteral("text")).isString() || !part.value(QStringLiteral("file")).isString()) {
+        *why = refused;
+        return {};
+    }
+    const QString file = part.value(QStringLiteral("file")).toString();
+    const QString text = part.value(QStringLiteral("text")).toString();
+    const QString name = part.value(QStringLiteral("name")).toString();
+    const bool plainName = std::none_of(name.cbegin(), name.cend(), [](QChar c) { return c.unicode() < 0x20; }) && name.size() <= 200;
+    if (!plainName || (!file.isEmpty() && (!ProjectWorkspace::plainRelative(file) || !allowed.match(file).hasMatch()))) {
+        *why = refused;
+        return {};
+    }
+    QVariantMap out{{QStringLiteral("file"), file}, {QStringLiteral("text"), text}, {QStringLiteral("name"), name},
+                    {QStringLiteral("changed"), false}, {QStringLiteral("gone"), false}};
+    if (file.isEmpty())
+        return out;
+    const QFileInfo there(QDir(root).filePath(file));
+    if (!there.exists() && !there.isSymLink()) {
+        out.insert(QStringLiteral("gone"), true);
+        return out;
+    }
+    const QString real = ProjectWorkspace::fileInside(root, file);
+    if (real.isEmpty()) {
+        *why = refused;
+        return {};
+    }
+    QFile onDisk(real);
+    // What is the same as its file is no longer unsaved work: a copy can outlive a save by the moment a crash took.
+    if (onDisk.open(QIODevice::ReadOnly) && onDisk.size() == text.toUtf8().size() && onDisk.readAll() == text.toUtf8())
+        return {};
+    out.insert(QStringLiteral("changed"), digestOf(root, file) != part.value(QStringLiteral("sha256")).toString());
+    return out;
 }
 
 /// The recent list as it was kept: absolute paths with no control characters in them, each once, the most there can be.
@@ -135,6 +195,12 @@ QString ProjectWorkspace::fileFor(const QString &realProject)
 {
     const QByteArray hash = QCryptographicHash::hash(realProject.toUtf8(), QCryptographicHash::Sha256).toHex();
     return storeFolder() + QLatin1Char('/') + QString::fromLatin1(hash) + QStringLiteral(".json");
+}
+
+QString ProjectWorkspace::recoveryFileFor(const QString &realProject)
+{
+    const QByteArray hash = QCryptographicHash::hash(realProject.toUtf8(), QCryptographicHash::Sha256).toHex();
+    return storeFolder() + QLatin1Char('/') + QString::fromLatin1(hash) + QStringLiteral(".recovery.json");
 }
 
 QString ProjectWorkspace::recentFile()
@@ -218,11 +284,28 @@ QVariantMap ProjectWorkspace::fitWindow(const QVariantMap &stored, const QList<Q
     return fitted;
 }
 
+QVariantMap ProjectWorkspace::fitCamera(const QVariantMap &stored)
+{
+    QVariantMap fitted;
+    for (const char *key : {"yaw", "pitch", "distance", "x", "y", "z"}) {
+        const QVariant value = stored.value(QLatin1String(key));
+        const bool isNumber = value.typeId() == QMetaType::Int || value.typeId() == QMetaType::LongLong || value.typeId() == QMetaType::Double;
+        const double number = isNumber ? value.toDouble() : 0;
+        if (!isNumber || !std::isfinite(number) || std::abs(number) > 1e6)
+            return {};
+        fitted.insert(QLatin1String(key), number);
+    }
+    fitted.insert(QStringLiteral("pitch"), qBound(-5.0, fitted.value(QStringLiteral("pitch")).toDouble(), 85.0));
+    fitted.insert(QStringLiteral("distance"), qBound(1.5, fitted.value(QStringLiteral("distance")).toDouble(), 80.0));
+    return fitted;
+}
+
 QVariantMap ProjectWorkspace::load(const QUrl &project) const
 {
     QVariantMap out{{QStringLiteral("found"), false},          {QStringLiteral("problem"), QString()},
                     {QStringLiteral("scene"), QString()},      {QStringLiteral("logic"), QString()},
-                    {QStringLiteral("panels"), QVariantMap()}, {QStringLiteral("window"), QVariantMap()}};
+                    {QStringLiteral("panels"), QVariantMap()}, {QStringLiteral("camera"), QVariantMap()},
+                    {QStringLiteral("window"), QVariantMap()}};
     const QString root = realFolder(project);
     if (root.isEmpty())
         return out;
@@ -278,6 +361,7 @@ QVariantMap ProjectWorkspace::load(const QUrl &project) const
             panels.insert(it.key(), it.value().toBool());
     }
     out.insert(QStringLiteral("panels"), panels);
+    out.insert(QStringLiteral("camera"), fitCamera(kept.value(QStringLiteral("camera")).toObject().toVariantMap()));
 
     QList<QRect> screens;
     const QList<QScreen *> all = QGuiApplication::screens();
@@ -304,7 +388,96 @@ bool ProjectWorkspace::save(const QUrl &project, const QVariantMap &state)
                     {QStringLiteral("scene"), path(QStringLiteral("scene"))},
                     {QStringLiteral("logic"), path(QStringLiteral("logic"))},
                     {QStringLiteral("panels"), QJsonObject::fromVariantMap(state.value(QStringLiteral("panels")).toMap())},
+                    {QStringLiteral("camera"), QJsonObject::fromVariantMap(state.value(QStringLiteral("camera")).toMap())},
                     {QStringLiteral("window"), QJsonObject::fromVariantMap(state.value(QStringLiteral("window")).toMap())}});
+}
+
+bool ProjectWorkspace::keepRecovery(const QUrl &project, const QVariantMap &work)
+{
+    const QString root = realFolder(project);
+    if (root.isEmpty())
+        return false;
+    QJsonObject kept{{QStringLiteral("version"), schemaVersion}, {QStringLiteral("project"), root}};
+    for (const char *key : {"scene", "logic"}) {
+        const QVariantMap part = work.value(QLatin1String(key)).toMap();
+        if (part.isEmpty())
+            continue;
+        const QString file = part.value(QStringLiteral("file")).toString();
+        kept.insert(QLatin1String(key), QJsonObject{{QStringLiteral("name"), part.value(QStringLiteral("name")).toString()},
+                                                    {QStringLiteral("file"), file},
+                                                    {QStringLiteral("text"), part.value(QStringLiteral("text")).toString()},
+                                                    {QStringLiteral("sha256"), file.isEmpty() ? QString() : digestOf(root, file)}});
+    }
+    if (kept.size() == 2) {
+        dropRecovery(project);
+        return true;
+    }
+    return writeStoreFile(recoveryFileFor(root), kept, largestRecovery);
+}
+
+QVariantMap ProjectWorkspace::loadRecovery(const QUrl &project) const
+{
+    QVariantMap out{{QStringLiteral("found"), false}, {QStringLiteral("stale"), false}, {QStringLiteral("problem"), QString()}};
+    const QString root = realFolder(project);
+    if (root.isEmpty())
+        return out;
+    const auto refuse = [&out](const QString &why) {
+        out.insert(QStringLiteral("problem"), tr("This project's recovery copy %1, so it was left alone.").arg(why));
+        return out;
+    };
+    QString why;
+    const std::optional<QByteArray> bytes = readStoreFile(recoveryFileFor(root), &why, largestRecovery);
+    if (!bytes)
+        return why.isEmpty() ? out : refuse(why);
+    QJsonParseError error;
+    const QJsonDocument document = QJsonDocument::fromJson(*bytes, &error);
+    if (error.error != QJsonParseError::NoError || !document.isObject())
+        return refuse(tr("could not be read"));
+    const QJsonObject kept = document.object();
+    const QJsonValue version = kept.value(QStringLiteral("version"));
+    if (!version.isDouble() || version.toDouble() != schemaVersion)
+        return refuse(tr("is of a version this Studio does not know"));
+    if (kept.value(QStringLiteral("project")).toString() != root)
+        return refuse(tr("was written for another folder"));
+
+    static const QRegularExpression aScene(QStringLiteral("^scenes/[^/]+\\.qml$"));
+    static const QRegularExpression aLogicFile(QStringLiteral("^logic/.+\\.qml$"));
+    QStringList problems;
+    QString wrong;
+    QVariantMap scene = recoveryPart(kept, QStringLiteral("scene"), root, aScene, &wrong);
+    if (!wrong.isEmpty())
+        problems << wrong;
+    QVariantMap logic = recoveryPart(kept, QStringLiteral("logic"), root, aLogicFile, &wrong);
+    if (!wrong.isEmpty())
+        problems << wrong;
+    // A logic file is its file. A part with no file to go back to is a scene not saved yet, which is all it can be.
+    if (!logic.isEmpty() && logic.value(QStringLiteral("file")).toString().isEmpty()) {
+        logic.clear();
+        problems << tr("Part of this project's recovery copy named no file, so that part was left alone.");
+    }
+    problems.removeDuplicates();
+    out.insert(QStringLiteral("problem"), problems.join(QLatin1Char(' ')));
+    if (!scene.isEmpty()) {
+        if (scene.value(QStringLiteral("name")).toString().trimmed().isEmpty())
+            scene.insert(QStringLiteral("name"), QStringLiteral("untitled"));
+        out.insert(QStringLiteral("scene"), scene);
+    }
+    if (!logic.isEmpty()) {
+        const QString file = logic.value(QStringLiteral("file")).toString();
+        logic.insert(QStringLiteral("name"), file.mid(6, file.size() - 10));
+        out.insert(QStringLiteral("logic"), logic);
+    }
+    const bool any = !scene.isEmpty() || !logic.isEmpty();
+    out.insert(QStringLiteral("found"), any);
+    out.insert(QStringLiteral("stale"), !any && problems.isEmpty());
+    return out;
+}
+
+void ProjectWorkspace::dropRecovery(const QUrl &project)
+{
+    const QString root = realFolder(project);
+    if (!root.isEmpty())
+        QFile::remove(recoveryFileFor(root));
 }
 
 bool ProjectWorkspace::isFolder(const QUrl &folder) const
