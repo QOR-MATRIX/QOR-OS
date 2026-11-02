@@ -15,14 +15,16 @@
 
     Actions:
 
-        Create   As administrator. Makes everything below, saying each step first, and stops at the first failure with the
-                 reason. Run it again after fixing one: it does what is left. Leaves the VM running, for Prove.
+        Create   As administrator, in a pwsh started with -NoProfile (it refuses otherwise). Makes everything below, saying each
+                 step first, and stops at the first failure with the reason. Run it again after fixing one: it does what is left.
+                 Leaves the VM running, for Prove.
         Check    As administrator. Reads back all of it against what it should be. Changes nothing.
         Start    As administrator. Starts the VM. See "Starting and stopping" below.
         Prove    From an ordinary terminal, NOT as administrator. Attacks from inside the guest, as a user with no privilege and
                  then as root, and powers it off after (-KeepRunning to leave it up). Exits 0 only if every line passed.
-        Stop     From an ordinary terminal. Powers the guest off from inside.
-        Remove   As administrator. Takes away everything below, by exact name, and nothing else.
+        Stop     From an ordinary terminal powers the guest off from inside, and calls it stopped only if it was answering and
+                 stopped; as administrator, confirms against Hyper-V and turns it off if it did not go.
+        Remove   As administrator, with -NoProfile. Takes away everything below, by exact name, and nothing else.
 
     What it makes, all of it, and nothing else on this machine is changed:
 
@@ -30,8 +32,13 @@
         Virtual switch  qor-ci-vm (internal), and its adapter "vEthernet (qor-ci-vm)" with one address
         NAT             qor-ci-vm
         Firewall rules  qor-ci-vm-block-by-adapter, qor-ci-vm-block-by-address
-        Folders         -Root (default X:\qor-ci-vm): image, disk, seed, VM files
+        Folders         -Root (default X:\qor-ci-vm): image, disk, seed, VM files, locked to Administrators and SYSTEM
                         %LOCALAPPDATA%\qor-ci-vm: the SSH key that opens this guest and nothing else, and Prove's reports
+                        %ProgramData%\qor-ci-vm: the record of what was made, which decides what Remove deletes; readable by
+                        the owner, writable only by an elevated run, so no ordinary process can steer Remove
+
+    No path is written, re-permissioned or deleted along a reparse point (a link or junction). The image's digest is checked on the
+    same open handle the conversion reads. An existing disk is trusted only if the record says this script built it.
 
     The image. Ubuntu 24.04's generic cloud image, ubuntu-24.04-server-cloudimg-amd64.img, by dated URL and SHA-256, the digest
     read from SHA256SUMS, whose signature by Ubuntu's image key was checked. Why this one, of what Ubuntu publishes:
@@ -56,7 +63,10 @@
     evidence for it, and this script will not turn it off: that is the owner's decision); that the reader is right about the real
     file, since the image was not downloaded while writing this, and it has read only files written from the format's description;
     that Linux's own ISO reader takes the seed, which only blkid and libarchive have read; that WinNAT agrees to a NAT beside WSL's
-    and the Default Switch's, and that the rule on the adapter leaves it working; everything about the network and the firewall below.
+    and the Default Switch's, and that the rule on the adapter leaves it working; that locking -Root to Administrators and SYSTEM
+    leaves Hyper-V's own access to the VM's files working (its service, as SYSTEM, should add the VM's account when New-VM runs);
+    that Hyper-V spells ACL addresses back the way the read-back expects (if not, Create stops before booting and names the
+    difference); everything about the network and the firewall below.
 
     What blocks what, for a classic VM. From Microsoft's documents and this machine, 1 November 2026:
 
@@ -119,13 +129,22 @@ param(
     [ValidateRange(2, 8)]
     [int] $MemoryGB = 6,
     # Prove powers the guest off when it ends, as only an administrator can start it again. This leaves it running.
-    [switch] $KeepRunning
+    [switch] $KeepRunning,
+    # Off by default, and deliberately so. A stateful extended ACL (Add-VMNetworkAdapterExtendedAcl -Stateful) would, if Windows 11
+    # honours it, let the guest reach the host's SSH and reply, and nothing else on the host, in place of the stateless both-ways
+    # allow of the host's address. It is not turned on for the first proof: mixing extended and basic ACLs on a client Hyper-V is not
+    # documented, and getting it wrong would block the guest's internet (which Prove's control would then catch) or its SSH. Turn it
+    # on only after the stateless boundary is proven, and read what Prove's host-tcp and host-spoof lines then say about 10.213.57.1.
+    [switch] $StatefulSshAcl
 )
 
 $ErrorActionPreference = 'Stop'
 $ProgressPreference = 'SilentlyContinue'
 $script:Asked = @{}
 foreach ($name in $PSBoundParameters.Keys) { $script:Asked[$name] = $PSBoundParameters[$name] }
+# Its own name, not $script:StatefulSshAcl: that is the [switch] parameter itself, and assigning to it turns a bool back into a
+# SwitchParameter, which would then be written into the record as an object and read back as true.
+$script:UseStatefulSshAcl = [bool] $StatefulSshAcl
 
 # Exact and fixed, so that nothing here can be pointed at anything else.
 $script:VmName = 'qor-ci-vm'
@@ -149,16 +168,22 @@ $script:VmProcessors = 8
 $script:DiskGB = 64
 $script:DiskFreeNeededGB = 40
 
-$script:SystemRoot32 = Join-Path ($env:SystemRoot ?? 'C:\Windows') 'System32'
-# By path, never from PATH: Git's and WSL's are on some PATHs, and this one goes on talking to a guest.
-$script:SshExe = Join-Path $script:SystemRoot32 'OpenSSH\ssh.exe'
-$script:SshKeygenExe = Join-Path $script:SystemRoot32 'OpenSSH\ssh-keygen.exe'
+# [Environment]::SystemDirectory, not $env:SystemRoot: the environment can be set by whoever started the process, and these
+# programs run as administrator and go on to talk to a guest. By path, never from PATH, where Git's and WSL's also sit.
+$script:System32 = [Environment]::SystemDirectory
+$script:SshExe = Join-Path $script:System32 'OpenSSH\ssh.exe'
+$script:SshKeygenExe = Join-Path $script:System32 'OpenSSH\ssh-keygen.exe'
+$script:IcaclsExe = Join-Path $script:System32 'icacls.exe'
 
+# The key and Prove's reports: the owner's own folder, because Prove reads the key unelevated. Per-viewer, user-writable.
 $script:StateDir = Join-Path ($env:LOCALAPPDATA ?? '.') 'qor-ci-vm'
-$script:StateFile = Join-Path $script:StateDir 'state.json'
 $script:KeyDir = Join-Path $script:StateDir 'ssh'
 $script:KeyFile = Join-Path $script:KeyDir 'id_ed25519'
 $script:KnownHosts = Join-Path $script:KeyDir 'known_hosts'
+# What Create chose, and what Remove deletes: written only by an elevated run, readable by the owner (so unelevated Prove and
+# Stop can read the network), never writable unelevated. So nothing an ordinary process can edit decides what Remove erases.
+$script:AdminStateDir = Join-Path ($env:ProgramData ?? 'C:\ProgramData') 'qor-ci-vm'
+$script:RecordFile = Join-Path $script:AdminStateDir 'record.json'
 
 # What Prove must see from each level, or the run is a failure. isolated-vm-guest.py has the same two lists, and a test holds
 # them together. This list is here so that a guest cut off partway, or lying by omission, cannot pass by saying less.
@@ -191,6 +216,66 @@ function Assert-Administrator([string] $Why) {
     if (-not (Test-Administrator)) {
         throw "$Why needs an administrator. Open PowerShell 7 with Run as administrator, after reading this script, and run the same command. This script never elevates itself."
     }
+}
+
+# PowerShell records the switches it was launched with. -NoProfile (abbreviated down to -nop) shows here when the owner started
+# pwsh with it, interactively or with -File; a window opened from a profile-loaded session does not. So the elevated, mutating
+# runs can refuse a session that may have run a profile script or loaded a user module first.
+function Test-LaunchedWithoutProfile {
+    param([string[]] $LaunchArgs = [Environment]::GetCommandLineArgs())
+    foreach ($arg in $LaunchArgs) {
+        $lower = '-' + "$arg".ToLowerInvariant().TrimStart('/', '-')
+        if ($lower.Length -ge 4 -and '-noprofile'.StartsWith($lower)) { return $true }
+    }
+    return $false
+}
+
+function Assert-NoProfile {
+    if (-not (Test-LaunchedWithoutProfile)) {
+        throw "Start this elevated run with no profile, so that no profile script or user module runs before it. In your administrator PowerShell 7, run: pwsh -NoProfile, then the same command again. Nothing was changed."
+    }
+}
+
+# Every part of a path that already exists, from the drive down, must be a real directory, not a junction or symbolic link that
+# could point writes, permission changes or a recursive delete somewhere else. Checked before icacls, ssh-keygen, a write or a
+# recursive delete touches it.
+function Assert-NoReparsePoint([string] $Path) {
+    $full = [IO.Path]::GetFullPath($Path)
+    $parts = [System.Collections.Generic.List[string]]::new()
+    $walk = $full
+    while ($walk) {
+        $parts.Add($walk)
+        $parent = Split-Path -Parent $walk
+        if (-not $parent -or $parent -eq $walk) { break }
+        $walk = $parent
+    }
+    foreach ($part in $parts) {
+        if (-not (Test-Path -LiteralPath $part)) { continue }
+        if (([IO.File]::GetAttributes($part) -band [IO.FileAttributes]::ReparsePoint) -ne 0) {
+            throw "$part, on the way to $full, is a reparse point (a link or junction). This script will not write through or delete along one. Remove it, or choose another place, and run again. Nothing was changed."
+        }
+    }
+}
+
+# Administrators and SYSTEM only, inheritance off. Hyper-V's own service runs as SYSTEM and adds the per-VM account's access to
+# the VM's files when New-VM runs, so this does not lock Hyper-V out. Unproven until Create runs; a failure there would stop it,
+# not open anything.
+function Protect-RootFolder([string] $Path) {
+    Invoke-Quiet $script:IcaclsExe @($Path, '/inheritance:r', '/grant:r', '*S-1-5-32-544:(OI)(CI)F', '*S-1-5-18:(OI)(CI)F', '/Q')
+}
+
+# The owner may read it (so unelevated Prove and Stop can read the network), administrators and SYSTEM may write it, nobody else
+# may do either. The owner's unelevated token holds Administrators as deny-only, so the owner writes it only when elevated.
+function Protect-RecordFolder([string] $Path) {
+    $me = Get-OwnSid
+    Invoke-Quiet $script:IcaclsExe @($Path, '/inheritance:r', '/grant:r', "*${me}:(OI)(CI)RX", '*S-1-5-32-544:(OI)(CI)F', '*S-1-5-18:(OI)(CI)F', '/Q')
+}
+
+function Test-PathUnder([string] $Child, [string] $Parent) {
+    if (-not $Child -or -not $Parent) { return $false }
+    $c = [IO.Path]::GetFullPath($Child).TrimEnd('\', '/') + '\'
+    $p = [IO.Path]::GetFullPath($Parent).TrimEnd('\', '/') + '\'
+    return $c.StartsWith($p, [StringComparison]::OrdinalIgnoreCase)
 }
 
 function Get-StartChoices {
@@ -264,11 +349,12 @@ function Assert-SafeRoot([string] $Path) {
     return $full
 }
 
-# What Create chose, so that every later action means the same place. An argument that disagrees stops it.
+# What Create chose, so that every later action means the same place. The record is in the admin-only folder, so only an elevated
+# run wrote it; an ordinary process cannot change what a later Remove erases. An argument that disagrees with the record stops it.
 function Initialize-Settings {
     $saved = $null
-    if (Test-Path -LiteralPath $script:StateFile) {
-        $saved = Get-Content -LiteralPath $script:StateFile -Raw | ConvertFrom-Json
+    if (Test-Path -LiteralPath $script:RecordFile) {
+        $saved = Get-Content -LiteralPath $script:RecordFile -Raw | ConvertFrom-Json
         foreach ($name in 'Root', 'Network', 'MemoryGB') {
             if ($script:Asked.ContainsKey($name) -and "$($script:Asked[$name])" -ne "$($saved.$name)") {
                 throw "Create chose -$name $($saved.$name) already, and this asks for $($script:Asked[$name]). -Action Remove first to change it."
@@ -280,6 +366,9 @@ function Initialize-Settings {
         Network       = $saved ? $saved.Network : $Network
         MemoryGB      = $saved ? [int] $saved.MemoryGB : $MemoryGB
         FirstBootDone = $saved ? [bool] $saved.FirstBootDone : $false
+        DiskMade      = $saved ? [bool] $saved.DiskMade : $false
+        # What was built, so a later Check in another session expects the extended ACL exactly when Create added it.
+        StatefulSshAcl = [bool] (($saved -and $null -ne $saved.StatefulSshAcl) ? $saved.StatefulSshAcl : $script:UseStatefulSshAcl)
     }
     $script:Plan = Get-NetworkPlan $script:Settings.Network
     $script:DiskFile = Join-Path $script:Settings.Root 'disk\qor-ci-vm.vhdx'
@@ -288,9 +377,12 @@ function Initialize-Settings {
     return ($null -ne $saved)
 }
 
-function Save-Settings {
-    $null = New-Item -ItemType Directory -Force -Path $script:StateDir
-    $script:Settings | ConvertTo-Json | Set-Content -LiteralPath $script:StateFile -Encoding utf8
+# Written only from an elevated run, into the admin-only folder. Never from Prove or Stop.
+function Save-Record {
+    Assert-NoReparsePoint $script:AdminStateDir
+    $null = New-Item -ItemType Directory -Force -Path $script:AdminStateDir
+    Protect-RecordFolder $script:AdminStateDir
+    $script:Settings | ConvertTo-Json | Set-Content -LiteralPath $script:RecordFile -Encoding utf8
 }
 
 function Get-FreeMemoryGB { return [math]::Round((Get-CimInstance Win32_OperatingSystem).FreePhysicalMemory / 1MB, 1) }
@@ -332,6 +424,7 @@ function Assert-NetworkFree {
 
 function Assert-Preflight {
     Assert-Administrator 'This step'
+    Assert-NoProfile
     foreach ($command in 'New-VM', 'New-VMSwitch', 'Convert-VHD', 'Add-VMNetworkAdapterAcl', 'New-NetNat', 'New-NetFirewallRule') {
         if (-not (Get-Command $command -ErrorAction SilentlyContinue)) { throw "$command is not on this machine, so Hyper-V's tools are not all here." }
     }
@@ -368,19 +461,21 @@ function New-GuestKey {
         Say "already in $script:KeyDir"
         return
     }
+    # No link anywhere along the way, before icacls or ssh-keygen touches it.
+    Assert-NoReparsePoint $script:KeyDir
     $null = New-Item -ItemType Directory -Force -Path $script:KeyDir
     # This account and SYSTEM, before the key exists. OpenSSH refuses a key that others can read.
     $me = Get-OwnSid
-    Invoke-Quiet (Join-Path $script:SystemRoot32 'icacls.exe') @($script:KeyDir, '/inheritance:r', '/grant:r', "*${me}:(OI)(CI)F", '*S-1-5-18:(OI)(CI)F', '/Q')
+    Invoke-Quiet $script:IcaclsExe @($script:KeyDir, '/inheritance:r', '/grant:r', "*${me}:(OI)(CI)F", '*S-1-5-18:(OI)(CI)F', '/Q')
     Invoke-Quiet $script:SshKeygenExe @('-q', '-t', 'ed25519', '-N', '', '-C', 'qor-ci-vm', '-f', $script:KeyFile)
     # ssh-keygen gives its files an entry for Administrators of its own, so this account and SYSTEM are said again, alone.
     foreach ($file in $script:KeyFile, "$script:KeyFile.pub") {
-        Invoke-Quiet (Join-Path $script:SystemRoot32 'icacls.exe') @($file, '/inheritance:r', '/remove:g', '*S-1-5-32-544', '/grant:r', "*${me}:F", '*S-1-5-18:F', '/Q')
+        Invoke-Quiet $script:IcaclsExe @($file, '/inheritance:r', '/remove:g', '*S-1-5-32-544', '/grant:r', "*${me}:F", '*S-1-5-18:F', '/Q')
     }
     if (Test-Administrator) {
         # An elevated process's files can belong to Administrators. Prove runs unelevated, and must be able to use this.
         foreach ($file in $script:KeyFile, "$script:KeyFile.pub") {
-            Invoke-Quiet (Join-Path $script:SystemRoot32 'icacls.exe') @($file, '/setowner', "*$me", '/Q')
+            Invoke-Quiet $script:IcaclsExe @($file, '/setowner', "*$me", '/Q')
         }
     }
     Say "made in $script:KeyDir, for this account alone"
@@ -490,11 +585,20 @@ function New-VhdFooter([long] $Size, [guid] $UniqueId) {
 }
 
 function Convert-Qcow2ToVhd {
-    param([string] $Source, [string] $Destination, [long] $MostBytes = 64GB)
+    param([string] $Source, [string] $Destination, [string] $ExpectedSha256, [long] $MostBytes = 64GB)
+    # Open once, with write sharing denied, and hold it open through the hash and the conversion, so the bytes converted are the
+    # bytes hashed: nothing can be written to the file in between.
     $in = [IO.File]::Open($Source, 'Open', 'Read', 'Read')
     $out = $null
     $done = $false
     try {
+        if ($ExpectedSha256) {
+            $hasher = [Security.Cryptography.SHA256]::Create()
+            try { $actual = [BitConverter]::ToString($hasher.ComputeHash($in)).Replace('-', '').ToLowerInvariant() }
+            finally { $hasher.Dispose() }
+            if ($actual -ne $ExpectedSha256) { throw "its SHA-256 is $actual, not the pinned $ExpectedSha256" }
+            $null = $in.Seek(0, [IO.SeekOrigin]::Begin)
+        }
         $header = Read-At $in 0 72
         if ($header[0] -ne 0x51 -or $header[1] -ne 0x46 -or $header[2] -ne 0x49 -or $header[3] -ne 0xFB) { throw 'it is not QCOW2: the magic number is wrong' }
         $version = Get-Be32 $header 4
@@ -635,17 +739,27 @@ function Assert-GptDisk([string] $Path, [long] $Size) {
 
 function New-GuestDisk {
     if (Test-Path -LiteralPath $script:DiskFile) {
-        Say 'already here'
-        return
+        # The folder is locked to administrators (the step before this), so no ordinary process could place or change a file in it.
+        # The record, which only an elevated run writes, is what says this disk is one we built; without it, we do not trust it.
+        if ($script:Settings.DiskMade) {
+            Say 'already here, and the record says this run built it'
+            return
+        }
+        Say 'a disk is here that the record does not account for, so it is being remade from the pinned image'
+        if (Get-VM -Name $script:VmName -ErrorAction SilentlyContinue | Where-Object { "$($_.State)" -ne 'Off' }) {
+            throw "the VM holds $script:DiskFile and is not off, so it cannot be remade. -Action Remove first, then Create."
+        }
+        Remove-Item -LiteralPath $script:DiskFile -Force
     }
     $folder = Split-Path -Parent $script:DiskFile
+    Assert-NoReparsePoint $folder
     $null = New-Item -ItemType Directory -Force -Path $folder
     $fixed = Join-Path $folder 'converting.vhd'
     $new = Join-Path $folder 'converting.vhdx'
     Remove-Item -LiteralPath $fixed, $new -Force -ErrorAction SilentlyContinue
-    Assert-ImageDigest $script:ImageFile
     Say 'reading the image into a fixed VHD, here in PowerShell, so this takes a minute or more'
-    $size = Convert-Qcow2ToVhd $script:ImageFile $fixed
+    # The digest is checked on the same open handle the conversion reads from (Convert-Qcow2ToVhd).
+    $size = Convert-Qcow2ToVhd $script:ImageFile $fixed $script:ImageSha256
     Assert-GptDisk $fixed $size
     Say 'its GPT headers and partition lists check out, at both ends of the disk'
     # Generation 2 boots only from VHDX. A 1 MB block: Microsoft's advice for Linux, so that a small write grows it by little.
@@ -653,6 +767,9 @@ function New-GuestDisk {
     Resize-VHD -Path $new -SizeBytes ($script:DiskGB * 1GB)
     Move-Item -LiteralPath $new -Destination $script:DiskFile
     Remove-Item -LiteralPath $fixed -Force
+    # Record that this run built it, so a later run trusts it and does not rebuild it under the running VM.
+    $script:Settings.DiskMade = $true
+    Save-Record
     Say "$script:DiskFile, up to $script:DiskGB GB, growing as it is used"
 }
 
@@ -666,7 +783,8 @@ instance-id: qor-ci-vm-1
 local-hostname: qor-ci-vm
 "@
     # qor is how the script on Windows gets in, with sudo for Prove's root level. runner has no key, no password and no sudo,
-    # and is what a job would be. No package is installed or updated: what is booted is what was pinned.
+    # and is what a job would be. No package is installed or updated: cloud-init's apt steps are off, and runcmd masks Ubuntu's
+    # own auto-update timers and holds snap, so what is booted stays what was pinned.
     $userData = @"
 #cloud-config
 # Made by tools/ci/isolated-vm.ps1. One public key, and no secret.
@@ -704,6 +822,9 @@ write_files:
       AllowAgentForwarding no
       X11Forwarding no
       PermitTunnel no
+runcmd:
+  - [ systemctl, mask, --now, unattended-upgrades.service, apt-daily.timer, apt-daily.service, apt-daily-upgrade.timer, apt-daily-upgrade.service ]
+  - [ sh, -c, "command -v snap >/dev/null 2>&1 && snap refresh --hold >/dev/null 2>&1 || true" ]
 "@
     # A fixed address: WinNAT hands out none. Public resolvers: nothing of this machine's answers the guest.
     $networkConfig = @"
@@ -893,8 +1014,22 @@ function Get-ExpectedAcls {
     return $acls
 }
 
+# A canonical "direction action address/prefix", so that the same ACL reads the same whichever way Hyper-V spells the address
+# back: a bare host address becomes /32 (or /128 for IPv6), a parsed address loses any odd casing or form. What cannot be parsed
+# is left as its lowercased self, so an unexpected spelling (ANY, say) will not silently equal a range, and the read-back fails
+# closed with both sets shown.
+function Get-CanonicalAddress([string] $Remote) {
+    $text = "$Remote".Trim()
+    if (-not $text) { return '0.0.0.0/0' }
+    $ip, $length = $text -split '/', 2
+    $parsed = $null
+    if (-not [ipaddress]::TryParse($ip, [ref] $parsed)) { return $text.ToLowerInvariant() }
+    if (-not $length) { $length = ($parsed.AddressFamily -eq 'InterNetworkV6') ? '128' : '32' }
+    return "$($parsed.IPAddressToString)/$length".ToLowerInvariant()
+}
+
 function Format-Acl([string] $Direction, [string] $AclAction, [string] $Remote) {
-    return ("$Direction $AclAction " + ($Remote -replace '/32$', '')).ToLowerInvariant()
+    return "$($Direction.ToLowerInvariant()) $($AclAction.ToLowerInvariant()) $(Get-CanonicalAddress $Remote)"
 }
 
 function New-GuestNetwork {
@@ -951,10 +1086,19 @@ function New-GuestNetwork {
     Say 'the two firewall rules are in place'
 }
 
+function Test-OurHalfMadeVm($Vm) {
+    # New-VM makes the VM, and Set-VM marks it a moment later; a stop in between leaves it unmarked. If its configuration is under
+    # our -Root, it is that half-made VM, not someone else's, and Create re-marks it and Remove takes it.
+    return $Vm -and -not $Vm.Notes -and (Test-PathUnder "$($Vm.Path)" $script:Settings.Root)
+}
+
 function New-GuestVm {
     $vm = Get-VM -Name $script:VmName -ErrorAction SilentlyContinue
-    if ($vm -and $vm.Notes -ne $script:Mark) { throw "A VM named $script:VmName is here, and this script did not make it. Nothing was changed." }
-    if ($vm -and "$($vm.State)" -ne 'Off') {
+    if ($vm -and $vm.Notes -ne $script:Mark) {
+        if (Test-OurHalfMadeVm $vm) { Say 'an unmarked qor-ci-vm whose files are under this root is here: a half-made one, so this finishes it' }
+        else { throw "A VM named $script:VmName is here, and this script did not make it. Nothing was changed." }
+    }
+    if ($vm -and $vm.Notes -eq $script:Mark -and "$($vm.State)" -ne 'Off') {
         Say "it is already here and $($vm.State), so its settings stay as they are, and the next step reads them"
         return
     }
@@ -1015,6 +1159,17 @@ function New-GuestVm {
     foreach ($acl in Get-ExpectedAcls) {
         if ((Format-Acl $acl.Direction $acl.Action $acl.Remote) -notin $have) {
             Add-VMNetworkAdapterAcl -VMName $script:VmName -Direction $acl.Direction -Action $acl.Action -RemoteIPAddress $acl.Remote
+        }
+    }
+    if ($script:Settings.StatefulSshAcl) {
+        # Off by default (read the param's note). If the owner asked, a stateful extended ACL for the host's SSH: inbound to the
+        # guest on port 22 from the host, with its replies, so that only SSH, and no connection the guest starts, reaches the host.
+        # Whether a client Hyper-V enforces an extended ACL beside the basic ones is unproven; Prove's host-tcp to 10.213.57.1 on a
+        # port other than 22, and its host-spoof lines, are what would show it.
+        $existing = @(Get-VMNetworkAdapterExtendedAcl -VMName $script:VmName | Where-Object { "$($_.LocalPort)" -eq '22' -and "$($_.Direction)" -eq 'Inbound' })
+        if (-not $existing) {
+            Add-VMNetworkAdapterExtendedAcl -VMName $script:VmName -Direction Inbound -Action Allow -LocalPort 22 -Protocol TCP -RemoteIPAddress $script:Plan.HostIp -Stateful $true -Weight 100 | Out-Null
+            Say 'added a stateful extended ACL for SSH from the host (asked for, and unproven)'
         }
     }
     Say 'every setting is set'
@@ -1092,6 +1247,8 @@ function Get-BoundaryFindings([switch] $SeedExpected) {
         Add 'gpu-partitions' '0' "$(@(Get-VMGpuPartitionAdapter -VMName $script:VmName).Count)"
         Add 'assigned-devices' '0' "$(@(Get-VMAssignableDevice -VMName $script:VmName).Count)"
         Add 'fibre-channel' '0' "$(@(Get-VMFibreChannelHba -VMName $script:VmName).Count)"
+        # No serial port carries anything: a COM port with a named pipe is another way out. The default is none.
+        Add 'com-ports' 'none' ((@(Get-VMComPort -VMName $script:VmName | Where-Object { $_.Path } | ForEach-Object Path) -join ', ') -replace '^$', 'none')
         $adapters = @(Get-VMNetworkAdapter -VMName $script:VmName)
         Add 'network-adapters' '1' "$($adapters.Count)"
         foreach ($adapter in $adapters) {
@@ -1103,9 +1260,17 @@ function Get-BoundaryFindings([switch] $SeedExpected) {
             Add 'teaming' 'Off' "$($adapter.AllowTeaming)"
             Add 'device-naming' 'Off' "$($adapter.DeviceNaming)"
         }
-        $want = (@(Get-ExpectedAcls | ForEach-Object { Format-Acl $_.Direction $_.Action $_.Remote }) | Sort-Object) -join '; '
-        $have = (@(Get-VMNetworkAdapterAcl -VMName $script:VmName | ForEach-Object { Format-Acl $_.Direction $_.Action $_.RemoteAddress }) | Sort-Object) -join '; '
-        Add 'port-acls' $want $have
+        # Compared as sets of canonical entries, and on a mismatch the finding names what is missing and what is extra, rather than
+        # two long strings. Fails closed: any entry that does not match, whatever the reason, leaves the finding bad.
+        $want = @(Get-ExpectedAcls | ForEach-Object { Format-Acl $_.Direction $_.Action $_.Remote })
+        $have = @(Get-VMNetworkAdapterAcl -VMName $script:VmName | ForEach-Object { Format-Acl $_.Direction $_.Action $_.RemoteAddress })
+        $missing = @($want | Where-Object { $_ -notin $have })
+        $extra = @($have | Where-Object { $_ -notin $want })
+        $actual = ($missing.Count -or $extra.Count) ? "missing [$($missing -join ', ')]; extra [$($extra -join ', ')]" : 'the planned set'
+        Add 'port-acls' 'the planned set' $actual
+        # The stateful extended SSH ACL: present exactly when it was asked for.
+        $ssh = @(Get-VMNetworkAdapterExtendedAcl -VMName $script:VmName | Where-Object { "$($_.LocalPort)" -eq '22' -and "$($_.Direction)" -eq 'Inbound' -and "$($_.Stateful)" -eq 'True' })
+        Add 'stateful-ssh-acl' ($script:Settings.StatefulSshAcl ? 'one' : 'none') ("$($ssh.Count)" -replace '^0$', 'none' -replace '^1$', 'one')
     }
 
     $switch = Get-VMSwitch -Name $script:SwitchName -ErrorAction SilentlyContinue
@@ -1255,8 +1420,19 @@ function Invoke-FirstBoot {
     }
     Step 'Wait for its first-boot setup to finish' {
         $done = Invoke-Ssh -Command 'cloud-init status --wait --long' -TimeoutSeconds 900 -Show
-        # 2 is cloud-init finishing with something to say, which is above for reading. 1 is it failing.
+        # 0 is clean. 1 is a failure. 2 is "done, with warnings", which could mean a recoverable error left the sshd file unwritten,
+        # so it is not accepted on its own: the next step confirms sshd either way, and a 2 passes only once it has.
+        $script:CloudInitExit = $done.ExitCode
         if ($done.ExitCode -notin 0, 2) { throw "cloud-init ended with exit $($done.ExitCode): $($done.Error)" }
+    }
+    Step 'Confirm sshd took the seed settings, whatever cloud-init said' {
+        $check = Invoke-Ssh -Command 'sudo -n sshd -T 2>/dev/null | grep -iE "^(passwordauthentication|permitrootlogin|kbdinteractiveauthentication|allowusers) "' -Show
+        $text = ($check.Lines -join "`n").ToLowerInvariant()
+        $ok = $text -match '(?m)^passwordauthentication no' -and $text -match '(?m)^permitrootlogin no' -and $text -match "(?m)^allowusers (\S+ )*$($script:GuestUser)(\s|$)"
+        if (-not $ok) {
+            throw "sshd is not what the seed asked for (cloud-init exited $script:CloudInitExit). It reports: $($text -replace '\s+', ' '). The guest is not trustworthy, so nothing is proven. -Action Stop, then -Action Remove, and try again."
+        }
+        Say ("sshd: password auth off, root login off, only $script:GuestUser" + ($script:CloudInitExit -eq 2 ? ' (cloud-init warned, but sshd is as required)' : ''))
     }
     Step 'Turn cloud-init off inside, so that no later boot takes settings from anywhere' {
         $done = Invoke-Ssh -Command 'sudo -n touch /etc/cloud/cloud-init.disabled'
@@ -1275,7 +1451,7 @@ function Invoke-FirstBoot {
         }
         Remove-Item -LiteralPath (Split-Path -Parent $script:SeedFile) -Recurse -Force
         $script:Settings.FirstBootDone = $true
-        Save-Settings
+        Save-Record
     }
 }
 
@@ -1283,11 +1459,14 @@ function Invoke-Create {
     $null = Initialize-Settings
     Step 'Check this machine, before changing anything' {
         Assert-Preflight
-        Save-Settings
     }
-    Step "The folder $($script:Settings.Root)" {
+    Step "The folder $($script:Settings.Root), locked to administrators, and the record of what was made" {
+        Assert-NoReparsePoint $script:Settings.Root
         $null = New-Item -ItemType Directory -Force -Path $script:Settings.Root
+        # Administrators and SYSTEM only, so no ordinary process can place or change the image, disk or seed inside it.
+        Protect-RootFolder $script:Settings.Root
         Set-Content -LiteralPath (Join-Path $script:Settings.Root $script:RootMarker) -Value $script:Mark
+        Save-Record
     }
     Step 'The SSH key that reaches the guest, in a folder of its own, never printed' { New-GuestKey }
     Step 'The image, by its exact URL, checked against its pinned SHA-256' { Get-PinnedImage }
@@ -1510,39 +1689,70 @@ function Invoke-Prove {
         Write-Host 'Left running, as asked. It holds its memory until -Action Stop.'
     }
     else {
-        Step 'Power the guest off, so it holds no memory. Only an administrator can start it again' { $null = Stop-Guest }
+        Step 'Power the guest off, so it holds no memory. Only an administrator can start it again' {
+            $result = Stop-Guest
+            if ($result.Stopped) { Say 'it has stopped answering SSH' }
+            else { Say "it did not stop from inside; as administrator: Stop-VM -Name $script:VmName -TurnOff -Force" }
+        }
     }
     return ($reasons.Count ? 1 : 0)
 }
 
 # ---------------------------------------------------------------------------------------------------------------------
 
+# Powers the guest off from inside, over SSH, which needs no privilege. Returns whether it could reach the guest at all, and
+# whether it then stopped answering. "Stopped answering" is all an unelevated account can see; it never claims more. A guest that
+# never answered (stuck at a Secure Boot refusal, say) cannot be powered off from inside, and this says so rather than calling it
+# stopped.
 function Stop-Guest {
+    if ((Invoke-Ssh -Command 'true' -TimeoutSeconds 15).ExitCode -ne 0) {
+        return [pscustomobject] @{ Reachable = $false; Stopped = $false }
+    }
     $done = Invoke-Ssh -Command 'sudo -n systemctl poweroff' -TimeoutSeconds 30
-    # ssh's exit is whatever the connection did as the guest went away, so what counts is whether it goes on answering.
     foreach ($attempt in 1..12) {
         Start-Sleep -Seconds 5
         if ((Invoke-Ssh -Command 'true' -TimeoutSeconds 15).ExitCode -ne 0) {
-            Say 'it has stopped answering SSH, which is as much as this account can see'
-            return $true
+            return [pscustomobject] @{ Reachable = $true; Stopped = $true }
         }
     }
-    Say "It is still answering after a minute (poweroff said: $($done.Error))."
-    Say "From here that is all that can be done. As administrator: Stop-VM -Name $script:VmName -TurnOff -Force"
-    return $false
+    $script:LastStopError = $done.Error
+    return [pscustomobject] @{ Reachable = $true; Stopped = $false }
 }
 
 function Invoke-Stop {
     $exists = Initialize-Settings
     if (-not $exists -or -not (Test-Path -LiteralPath $script:KeyFile)) { throw 'There is nothing to stop here: no Create has run.' }
-    $stopped = $false
-    Step 'Power the guest off from inside, over SSH, which needs no privilege here' { $script:Stopped = Stop-Guest }
-    $stopped = $script:Stopped
-    if (-not $stopped -and (Test-Administrator)) {
-        Step 'It would not go, and this is an administrator, so turn it off' { Stop-VM -Name $script:VmName -TurnOff -Force }
-        $stopped = $true
+    if (Test-Administrator) {
+        # An administrator can see the truth. Ask from inside, then read Hyper-V's own state, and turn it off if it did not go.
+        Step 'Power it off, and confirm Hyper-V shows it off' {
+            $vm = Get-VM -Name $script:VmName -ErrorAction SilentlyContinue
+            if (-not $vm) { throw "There is no VM named $script:VmName." }
+            if ("$($vm.State)" -eq 'Off') { Say 'it is already off'; return }
+            $null = Stop-Guest
+            if (-not (Wait-VmState 'Off' 60)) {
+                Say 'it did not go from inside, so it is being turned off'
+                Stop-VM -Name $script:VmName -TurnOff -Force
+            }
+            if (-not (Wait-VmState 'Off' 60)) { throw "it is still not off. Try again, or in Hyper-V Manager." }
+            Say 'Hyper-V shows it off'
+        }
+        return 0
     }
-    return ($stopped ? 0 : 1)
+    # Unelevated: SSH is all there is, and it cannot read Hyper-V's state.
+    Step 'Power the guest off from inside, over SSH, which needs no privilege here' { $script:StopResult = Stop-Guest }
+    $result = $script:StopResult
+    if ($result.Stopped) {
+        Say 'it answered, was told to power off, and has stopped answering SSH. This account cannot read Hyper-V to confirm it is off.'
+        return 0
+    }
+    if (-not $result.Reachable) {
+        Say 'it is not answering SSH, so it cannot be powered off from inside, and this account cannot tell whether it is off or stuck.'
+    }
+    else {
+        Say "it kept answering after a minute (poweroff said: $script:LastStopError)."
+    }
+    Say "As administrator, to be sure: Stop-VM -Name $script:VmName -TurnOff -Force"
+    return 1
 }
 
 function Invoke-Start {
@@ -1586,11 +1796,15 @@ function Invoke-Remove {
     # The folder is checked first: a -Root that is not this script's is refused before anything else is touched.
     $null = Initialize-Settings
     Assert-Administrator 'Removing a VM, a switch, a NAT and firewall rules'
+    Assert-NoProfile
     $root = $script:Settings.Root
     Step "The VM $script:VmName, by that name alone" {
         $vm = Get-VM -Name $script:VmName -ErrorAction SilentlyContinue
         if (-not $vm) { Say 'not here'; return }
-        if ($vm.Notes -ne $script:Mark) { throw "A VM named $script:VmName is here, and this script did not make it, so it stays. Nothing else was removed." }
+        if ($vm.Notes -ne $script:Mark) {
+            if (Test-OurHalfMadeVm $vm) { Say 'an unmarked qor-ci-vm whose files are under this root is here: a half-made one, so it is taken' }
+            else { throw "A VM named $script:VmName is here, and this script did not make it, so it stays. Nothing else was removed." }
+        }
         if ("$($vm.State)" -ne 'Off') { Stop-VM -Name $script:VmName -TurnOff -Force }
         Remove-VM -Name $script:VmName -Force
         Say 'gone'
@@ -1620,7 +1834,10 @@ function Invoke-Remove {
         Say 'gone'
     }
     Step "What this script put in $root" {
+        # The root came from the admin-only record (or the fixed default, or an explicit -Root), never a user-writable file, and no
+        # part of it is a link: so this recursive delete stays inside the folder this script made.
         if (-not (Test-Path -LiteralPath $root)) { Say 'not here'; return }
+        Assert-NoReparsePoint $root
         foreach ($name in 'vm', 'disk', 'seed', 'image') {
             $folder = Join-Path $root $name
             if (Test-Path -LiteralPath $folder) { Remove-Item -LiteralPath $folder -Recurse -Force }
@@ -1635,7 +1852,17 @@ function Invoke-Remove {
         }
     }
     Step "The key and Prove's reports, in $script:StateDir" {
-        if (Test-Path -LiteralPath $script:StateDir) { Remove-Item -LiteralPath $script:StateDir -Recurse -Force }
+        if (Test-Path -LiteralPath $script:StateDir) {
+            Assert-NoReparsePoint $script:StateDir
+            Remove-Item -LiteralPath $script:StateDir -Recurse -Force
+        }
+        Say 'gone'
+    }
+    Step "The record, in $script:AdminStateDir" {
+        if (Test-Path -LiteralPath $script:AdminStateDir) {
+            Assert-NoReparsePoint $script:AdminStateDir
+            Remove-Item -LiteralPath $script:AdminStateDir -Recurse -Force
+        }
         Say 'gone'
     }
     Write-Host 'All of it is gone, and nothing else was touched.'
@@ -1645,12 +1872,12 @@ function Invoke-Remove {
 function Show-Help {
     Write-Host @'
 Makes qor-ci-vm, a clean Linux VM, and attacks it from inside. Read this file before running it, and see docs/CI.md.
-  -Action Create   as administrator: makes it, saying each step, and leaves it running for Prove
+  -Action Create   as administrator, in pwsh -NoProfile: makes it, saying each step, and leaves it running for Prove
   -Action Prove    NOT as administrator: attacks from inside, then powers it off. Exits 0 only if every line passed
   -Action Check    as administrator: reads every setting back, and changes nothing
   -Action Start    as administrator: starts it. An ordinary account cannot, and is told the choices
   -Action Stop     from an ordinary terminal: powers it off from inside
-  -Action Remove   as administrator: takes away everything it made, by exact name
+  -Action Remove   as administrator, in pwsh -NoProfile: takes away everything it made, by exact name
 '@
 }
 

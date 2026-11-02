@@ -75,7 +75,9 @@ function Save-Image([string] $Url, [string] $Path) {
     Copy-Item -LiteralPath $global:World.ImageSource -Destination $Path
 }
 function Invoke-Quiet([string] $Program, [string[]] $Arguments) {
-    $global:World.Calls.Add("Invoke-Quiet $(Split-Path -Leaf $Program)")
+    # For icacls, the path it acts on is recorded too, so a test can see which folder was locked.
+    $leaf = Split-Path -Leaf $Program
+    $global:World.Calls.Add($leaf -eq 'icacls.exe' ? "Invoke-Quiet icacls.exe $($Arguments[0])" : "Invoke-Quiet $leaf")
     if ($Program -like '*ssh-keygen*') {
         $key = $Arguments[$Arguments.IndexOf('-f') + 1]
         Set-Content -LiteralPath $key -Value 'stand-in for a private key, which no test ever prints' -NoNewline
@@ -98,6 +100,11 @@ function Invoke-Ssh {
             if ($Show) { foreach ($line in $answer.Lines) { Write-Host $line } }
             return $answer
         }
+    }
+    if ($Command -like '*sshd -T*') {
+        $lines = $global:World.SshdBad ? @('passwordauthentication yes', 'permitrootlogin yes', 'allowusers') : @('passwordauthentication no', 'kbdinteractiveauthentication no', 'permitrootlogin no', 'allowusers qor')
+        if ($Show) { foreach ($line in $lines) { Write-Host $line } }
+        return [pscustomobject] @{ ExitCode = 0; Lines = $lines; Error = '' }
     }
     return [pscustomobject] @{ ExitCode = 0; Lines = @(); Error = '' }
 }
@@ -124,6 +131,9 @@ function New-StandInVm([string] $Name, [hashtable] $Given) {
         Dvds = [System.Collections.Generic.List[object]]::new()
         Adapter = [pscustomobject] @{ SwitchName = $Given.SwitchName; MacAddressSpoofing = 'On'; DhcpGuard = 'Off'; RouterGuard = 'Off'; PortMirroringMode = 'Source'; AllowTeaming = 'On'; DeviceNaming = 'On' }
         Acls = [System.Collections.Generic.List[object]]::new()
+        ExtAcls = [System.Collections.Generic.List[object]]::new()
+        ComPorts = @([pscustomobject] @{ Path = '' }, [pscustomobject] @{ Path = '' })
+        Path = $Given.Path
         Snapshots = @(); Gpu = @(); Assigned = @(); Fibre = @(); Tpm = $false
     }
 }
@@ -210,6 +220,12 @@ function Add-VMNetworkAdapterAcl {
     $a = Write-Call 'Add-VMNetworkAdapterAcl' $args
     $global:World.VMs[$a.VMName].Acls.Add([pscustomobject] @{ Direction = $a.Direction; Action = $a.Action; RemoteAddress = $a.RemoteIPAddress })
 }
+function Get-VMNetworkAdapterExtendedAcl { return $global:World.VMs[(Get-StandInArguments $args).VMName].ExtAcls }
+function Add-VMNetworkAdapterExtendedAcl {
+    $a = Write-Call 'Add-VMNetworkAdapterExtendedAcl' $args
+    $global:World.VMs[$a.VMName].ExtAcls.Add([pscustomobject] @{ Direction = $a.Direction; Action = $a.Action; LocalPort = $a.LocalPort; Protocol = $a.Protocol; RemoteIPAddress = $a.RemoteIPAddress; Stateful = $a.Stateful; Weight = $a.Weight })
+}
+function Get-VMComPort { return $global:World.VMs[(Get-StandInArguments $args).VMName].ComPorts }
 
 # ---- The switch and the network.
 function Get-VMSwitch { return $global:World.Switches[(Get-StandInArguments $args).Name] }
