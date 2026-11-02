@@ -109,10 +109,14 @@ for Qt's answer and for the proof.
 
 **What it makes,** and `-Action Remove` takes away, by these exact names and each only if it carries the script's mark: the VM and an
 internal virtual switch `qor-ci-vm`, that switch's adapter with one address, a NAT `qor-ci-vm`, the firewall rules
-`qor-ci-vm-block-by-adapter` and `qor-ci-vm-block-by-address`, a folder (`X:\qor-ci-vm` unless told otherwise) and
-`%LOCALAPPDATA%\qor-ci-vm`, which holds the SSH key that opens this guest and nothing else. It changes no other VM, switch, rule or
-setting, and it stops rather than touch one of those names that it did not make. Windows supports one NAT per host, so another NAT
-stops it too.
+`qor-ci-vm-block-by-adapter` and `qor-ci-vm-block-by-address`, a folder (`X:\qor-ci-vm` unless told otherwise, locked to
+administrators and SYSTEM so no ordinary process can place or change the image, disk or seed inside it), `%LOCALAPPDATA%\qor-ci-vm`
+(the SSH key that opens this guest and nothing else, and Prove's reports), and `%ProgramData%\qor-ci-vm` (a record of what was made,
+which only an elevated run can write). What `-Action Remove` deletes comes from that administrator-only record, an explicit `-Root`,
+or the fixed default, never from a file an ordinary process could edit, and no part of a path it deletes along may be a link. It
+changes no other VM, switch, rule or setting, and it stops rather than touch one of those names that it did not make. Windows
+supports one NAT per host, so another NAT stops it too. An elevated run refuses to start unless it was launched with `-NoProfile`,
+so that no profile script or user module runs first.
 
 **The VM.** Generation 2, Secure Boot with the UEFI CA template, no checkpoints, no shared folders, no GPU or device passthrough, no
 nested virtualisation, and every integration service off. Enhanced Session has no per-VM off switch, and the host's is left alone: this
@@ -139,11 +143,20 @@ Not the Azure VHD (its manifest carries `walinuxagent`), Quick Create's desktop 
 | **Port ACL on the VM's adapter** (`Add-VMNetworkAdapterAcl`) | Below the guest's kernel and before NAT, so root in the guest cannot change it. Denies private, carrier NAT, link-local, loopback, multicast and reserved ranges and all of IPv6; longest match decides | It has no state, so the one address SSH's replies go to must be allowed, and only the firewall rules stand in front of that address. Microsoft's page is written for Windows Server: whether the switch enforces it on Windows 11 Pro is for Prove to show |
 | **The adapter's bindings** | SMB, IPv6 and link-layer protocols, which an IP ACL never sees, are off on this one adapter | NetBIOS over TCP/IP stays with IPv4, behind the firewall rules |
 
+A stateless ACL cannot tell a reply from a new connection, so `-StatefulSshAcl` (off by default) would add a stateful extended ACL
+(`Add-VMNetworkAdapterExtendedAcl -Stateful`) for the host's SSH, which, if Windows 11 honours extended ACLs beside basic ones, would
+let only SSH and its replies reach the host. It is off for the first proof, because mixing the two ACL kinds on a client Hyper-V is
+undocumented and getting it wrong would block the guest's internet (Prove's control would catch that) or its SSH; turn it on once the
+stateless boundary is proven, and read what Prove's `host-tcp` to `10.213.57.1` on a non-SSH port, and its `host-spoof` lines, then say.
+
 Also unknown until it runs: whether WinNAT agrees to a NAT beside WSL's and the Default Switch's, and whether it still forwards with the
 rule on the adapter in place. Create would stop at the first, with Windows' reason, and Prove's outbound control would show the second.
 
 **Starting and stopping.** Stopping needs no privilege while the guest cooperates: `-Action Stop` powers it off from inside, over SSH.
-A guest that will not go takes an administrator. **Starting has no way round.** Hyper-V has no per-VM right to start one
+An ordinary account cannot read Hyper-V's state, so it reports only that the guest stopped answering SSH, and a guest that never
+answered (stuck at a Secure Boot refusal, say) it reports as not stopped, with the administrator command to force it, rather than
+calling it stopped. An administrator confirms against Hyper-V's own state and turns it off if it did not go. **Starting has no way
+round.** Hyper-V has no per-VM right to start one
 (`Grant-VMConnectAccess` gives the console and nothing more), and this account is neither an elevated administrator nor in Hyper-V
 Administrators. None of these is made by the script. The choices:
 
@@ -179,6 +192,51 @@ one that has run jobs. A job here would have the internet, on any port, so it co
 **Before Build can move here,** beyond the proof: Qt's answer and a kit, a way to start the VM, a runner, and a clean disk for each job,
 which this does not do. 6 GB will not carry 8 compilers without swap, and the suites that draw need a display it lacks. The Windows job
 needs its own answer.
+
+#### The owner's first run
+
+Run this at the commit that added `tools/ci/isolated-vm.ps1` (`git log -1 tools/ci/isolated-vm.ps1`), with the working tree clean.
+The first run is likely to stop somewhere, because nothing here has met Hyper-V; each stop prints its reason, and most say to run the
+same command again.
+
+**Before elevating:** read the top of `tools/ci/isolated-vm.ps1` down to `param(`, and this section. Confirm the tree: `git status`
+clean, `git log -1`. Pick a time with no build running, since it needs about 7 GB of memory free.
+
+**Create.** Open PowerShell 7 as administrator from the Start menu, then run `pwsh -NoProfile` (the script refuses an elevated run that
+was not). Then:
+
+```powershell
+cd X:\REPOZ\QOR-OS
+.\tools\ci\isolated-vm.ps1 -Action Create
+```
+
+Pass no `-Root`; a later `-Root` spelled even slightly differently is refused. Don't press Ctrl+C during the VM steps. Expect a download
+of about 600 MB, a conversion of a minute or more, up to 15 minutes for the first boot, then the VM left running on 6 GB. It ends with
+the line telling you to run Prove from an ordinary terminal.
+
+**Prove.** Start WSL (so Prove has something to attack on that side), then, in an **ordinary** PowerShell 7 (Prove refuses to run
+elevated):
+
+```powershell
+cd X:\REPOZ\QOR-OS
+.\tools\ci\isolated-vm.ps1 -Action Prove; "exit status: $LASTEXITCODE"
+```
+
+It prints one line per attempt and ends with a per-level summary and either `Every line passed...` or `PROVE FAILED:` with reasons, then
+writes `%LOCALAPPDATA%\qor-ci-vm\prove-<when>.txt`. It powers the VM off at the end.
+
+**Send back:** all of Create's output (or its `STOPPED` block), and the `prove-...txt` file with the exit status. That file holds this
+machine's addresses and port numbers, and no credential.
+
+**If it stops halfway:**
+- **Most steps:** run the same command again; it does what is left.
+- **It stops waiting for SSH:** likely Secure Boot refusing the image. The VM keeps running; as administrator,
+  `Stop-VM -Name qor-ci-vm -TurnOff -Force`, then `-Action Remove`. The script will not turn Secure Boot off; that is the owner's call.
+- **An unmarked `qor-ci-vm` is left (a stop between making and marking):** run `-Action Create` again, which finishes it, or
+  `-Action Remove`, which takes it when its files are under this script's root.
+- **WSL or the Default Switch lose networking:** `-Action Remove`, then `wsl --shutdown`, then reboot.
+
+**To undo everything, as administrator:** `pwsh -NoProfile`, then `.\tools\ci\isolated-vm.ps1 -Action Remove`.
 
 ## What the Build job needs on a runner
 
