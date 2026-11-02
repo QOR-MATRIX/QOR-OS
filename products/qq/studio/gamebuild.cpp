@@ -521,7 +521,8 @@ QString titleOf(const QString &folder)
                             .split(QLatin1Char(' '), Qt::SkipEmptyParts);
     for (QString &word : words)
         word[0] = word[0].toUpper();
-    const QString title = words.join(QLatin1Char(' ')).simplified().left(longestTitle);
+    // Cut, then trimmed: a cut between two words would leave a space the Library takes off, and the two would differ.
+    const QString title = words.join(QLatin1Char(' ')).simplified().left(longestTitle).trimmed();
     return title.isEmpty() ? tr("Untitled") : title;
 }
 
