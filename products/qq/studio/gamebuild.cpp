@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: LicenseRef-QOR-OS-Proprietary
 #include "gamebuild.h"
 
+#include <QBuffer>
 #include <QCryptographicHash>
 #include <QDateTime>
 #include <QDir>
@@ -16,10 +17,12 @@
 #include <QSysInfo>
 #include <QTemporaryDir>
 #include <QUrl>
+#include <QXmlStreamReader>
 #include <QtEndian>
 
 #include <algorithm>
 #include <filesystem>
+#include <initializer_list>
 #include <limits>
 #include <optional>
 #include <system_error>
@@ -46,8 +49,12 @@ constexpr int longestTitle = 80;
 /// The most of one file a build looks through for what it names. A model holds its buffers as text, so it may be large.
 constexpr qint64 largestCodeLookedThrough = 16 * 1024 * 1024;
 constexpr qint64 largestModelLookedThrough = 1024 * 1024 * 1024;
-/// As much of a string as a build keeps to look at: no path is longer, and a model's data: URI can be most of a gigabyte.
+/// The longest name a model or a map can give a file: no path is longer, and a model's data: URI, which names none, can be
+/// most of a gigabyte. A longer one that is not data: is refused, not cut short and looked at.
 constexpr qsizetype longestNameKept = 4096;
+/// Logic plays a sound or places a prefab by a path from the scene playing it (Logic.qml's play() and spawn()), so a string in
+/// code is also read from the folders the game's scenes are in: at most this many of them, the first in order.
+constexpr int mostSceneFoldersTried = 8;
 /// How many of what was left out are listed, however many there are.
 constexpr int mostLeftOutListed = 100;
 
@@ -205,6 +212,10 @@ QString copyCounted(const QString &root, const QString &relative, const QString 
 struct Held {
     QSet<QString> files;
     QSet<QString> folders;
+    /// The folders the game's scenes are in, "scenes" first if it holds one, and the folders its .obj models are in, each at
+    /// most mostSceneFoldersTried, the first in order.
+    QStringList sceneFolders;
+    QStringList objFolders;
 
     static QString key(const QString &path)
     {
@@ -216,11 +227,27 @@ struct Held {
     }
     explicit Held(const QStringList &all)
     {
+        QSet<QString> scenes;
+        QSet<QString> objs;
         for (const QString &file : all) {
             files.insert(key(file));
             for (qsizetype slash = file.lastIndexOf(QLatin1Char('/')); slash > 0; slash = file.lastIndexOf(QLatin1Char('/'), slash - 1))
                 folders.insert(key(file.left(slash)));
+            const QString folder = file.left(qMax(qsizetype(0), file.lastIndexOf(QLatin1Char('/'))));
+            if (file.startsWith(QStringLiteral("scenes/")) && file.endsWith(QStringLiteral(".qml"), Qt::CaseInsensitive))
+                scenes.insert(folder);
+            if (file.endsWith(QStringLiteral(".obj"), Qt::CaseInsensitive))
+                objs.insert(folder);
         }
+        const auto firstOf = [](const QSet<QString> &set) {
+            QStringList list(set.cbegin(), set.cend());
+            list.sort();  // "scenes" sorts before any folder in it
+            if (list.size() > mostSceneFoldersTried)
+                list.resize(mostSceneFoldersTried);
+            return list;
+        };
+        sceneFolders = firstOf(scenes);
+        objFolders = firstOf(objs);
     }
 };
 
@@ -244,31 +271,44 @@ std::optional<QString> inGame(const QString &from, const QString &named)
     return at.join(QLatin1Char('/'));
 }
 
-/// The value of the string opening at `at`, which ends past it: its escapes read, and no more of it than a path could be. A
-/// string in quotes ends at its line's end, so a quote in something this does not read as code (a pattern, say) costs one line
-/// and no more. In back quotes, what comes before the first ${, which is what can be known of it.
-QByteArray readString(QByteArrayView text, qsizetype &at)
+int hexDigit(char c)
+{
+    return (c >= '0' && c <= '9') ? c - '0' : (c >= 'a' && c <= 'f') ? c - 'a' + 10 : (c >= 'A' && c <= 'F') ? c - 'A' + 10 : -1;
+}
+
+/// The value of the string opening at `at`, which ends past it, with its escapes read as JavaScript and JSON read them: \xHH,
+/// \uHHHH, \u{H...}, a legacy octal \NNN, and a backslash before a line's end, which joins two lines. At most `most` bytes of
+/// it are kept; `cut`, if given, says whether there was more. A string in quotes ends at its line's end, so a quote in
+/// something this does not read as code (a pattern, say) costs one line and no more. In back quotes, what comes before the
+/// first ${, which is what can be known of it.
+QByteArray readString(QByteArrayView text, qsizetype &at, qsizetype most, bool *cut = nullptr)
 {
     const char quote = text[at++];
     QByteArray value;
     bool keeping = true;
+    if (cut)
+        *cut = false;
     const auto keep = [&](char c) {
-        if (keeping && value.size() < longestNameKept)
+        if (!keeping)
+            return;
+        if (value.size() < most)
             value += c;
+        else if (cut)
+            *cut = true;
     };
+    // Only what could be part of a path that climbs matters: anything else stands as something that is not one of those.
+    const auto keepCode = [&](qint64 code) { keep(code > 0 && code < 0x80 ? char(code) : '?'); };
     const auto hex = [&](qsizetype digits) {
-        int code = 0;
+        qint64 code = 0;
         qsizetype read = 0;
         for (; read < digits && at + read < text.size(); ++read) {
-            const char c = text[at + read];
-            const int digit = (c >= '0' && c <= '9') ? c - '0' : (c >= 'a' && c <= 'f') ? c - 'a' + 10 : (c >= 'A' && c <= 'F') ? c - 'A' + 10 : -1;
+            const int digit = hexDigit(text[at + read]);
             if (digit < 0)
                 break;
             code = code * 16 + digit;
         }
         at += read;
-        // Only what could be part of a path that climbs matters: anything else stands as something that is not one of those.
-        keep(read == digits && code > 0 && code < 0x80 ? char(code) : '?');
+        keepCode(read == digits ? code : 0);
     };
     while (at < text.size()) {
         const char c = text[at++];
@@ -283,12 +323,34 @@ QByteArray readString(QByteArrayView text, qsizetype &at)
         if (at >= text.size())
             return value;
         const char escaped = text[at++];
-        if (escaped == 'x')
+        if (escaped == 'x') {
             hex(2);
-        else if (escaped == 'u')
+        } else if (escaped == 'u' && at < text.size() && text[at] == '{') {
+            // ES2015's code point, \u{2e}: as many digits as are given, up to the last code point there is.
+            qint64 code = 0;
+            qsizetype end = at + 1;
+            while (end < text.size() && hexDigit(text[end]) >= 0 && code <= 0x10FFFF)
+                code = code * 16 + hexDigit(text[end++]);
+            const bool whole = end < text.size() && text[end] == '}' && end > at + 1 && code <= 0x10FFFF;
+            at = whole ? end + 1 : end;
+            keepCode(whole ? code : 0);
+        } else if (escaped == 'u') {
             hex(4);
-        else if (escaped != '\n')
+        } else if (escaped >= '0' && escaped <= '7') {
+            // \56 is a dot to JavaScript that is not strict: at most three digits, and no more than \377.
+            int code = escaped - '0';
+            const int digits = escaped <= '3' ? 3 : 2;
+            for (int read = 1; read < digits && at < text.size() && text[at] >= '0' && text[at] <= '7'; ++read)
+                code = code * 8 + (text[at++] - '0');
+            keepCode(code);
+        } else if (escaped == '\r') {
+            if (at < text.size() && text[at] == '\n')
+                ++at;
+        } else if (escaped == '\xE2' && at + 1 < text.size() && text[at] == '\x80' && (text[at + 1] == '\xA8' || text[at + 1] == '\xA9')) {
+            at += 2;  // a line or paragraph separator after a backslash joins lines too
+        } else if (escaped != '\n') {
             keep(escaped);
+        }
     }
     return value;
 }
@@ -333,8 +395,21 @@ bool climbs(const QString &text)
            || text.endsWith(QStringLiteral("/.."));
 }
 
+/// Where `named` leads, read from `from`: into what the game holds, into the game but to nothing it holds, or out of it.
+enum class Leads { Held, NotHeld, Out };
+
+Leads whereItLeads(const QString &from, const QString &named, const Held &held)
+{
+    const std::optional<QString> place = inGame(from, named);
+    if (!place)
+        return Leads::Out;
+    const QString key = Held::key(*place);
+    return key.isEmpty() || held.files.contains(key) || held.folders.contains(key) ? Leads::Held : Leads::NotHeld;
+}
+
 /// What is wrong with a string in code, as read: "" for a string that names nothing it should not. An import is a path for
-/// certain, and anything else only if it looks like one that leads somewhere it should not.
+/// certain, read from the file's own folder, as QML reads it. Anything else only if it looks like one that leads somewhere it
+/// should not, from the file's folder and from every folder a scene is in, since that is where play() and spawn() read it.
 QString problemWithString(const QString &file, const QString &from, const QByteArray &string, bool isImport, const Held &held)
 {
     if (string.isEmpty())
@@ -357,13 +432,15 @@ QString problemWithString(const QString &file, const QString &from, const QByteA
     } else if (!climbs(named)) {
         return {};
     }
-    const std::optional<QString> place = inGame(from, named);
-    if (!place)
-        return leadsOut(file, shown, words);
-    const QString key = Held::key(*place);
-    if (key.isEmpty() || held.files.contains(key) || held.folders.contains(key))
-        return {};
-    return notHeld(file, shown, words);
+    Leads leads = whereItLeads(from, named, held);
+    for (qsizetype i = 0; !isImport && leads != Leads::Held && i < held.sceneFolders.size(); ++i)
+        leads = std::min(leads, whereItLeads(held.sceneFolders.at(i), named, held));
+    switch (leads) {
+    case Leads::Held: return {};
+    case Leads::NotHeld: return notHeld(file, shown, words);
+    case Leads::Out: break;
+    }
+    return leadsOut(file, shown, words);
 }
 
 bool isWordCharacter(char c)
@@ -390,7 +467,8 @@ QString problemInCode(const QString &file, const QString &from, QByteArrayView t
             at += 2;
         } else if (c == '"' || c == '\'' || c == '`') {
             const bool isImport = word == QByteArrayView("import") || word == QByteArrayView("from");
-            const QByteArray string = readString(text, at);
+            // Whole: a file is at most largestCodeLookedThrough, so nothing is cut short to be looked at.
+            const QByteArray string = readString(text, at, text.size());
             word = {};
             if (const QString problem = problemWithString(file, from, string, isImport, held); !problem.isEmpty())
                 return problem;
@@ -408,8 +486,9 @@ QString problemInCode(const QString &file, const QString &from, QByteArrayView t
     return {};
 }
 
-/// What is wrong with a file a model names: "" for one in the game, or held in the model itself.
-QString problemWithUri(const QString &file, const QString &from, const QByteArray &uri, const Held &held)
+/// What is wrong with a file a model or a map names: "" for one in the game, or held in the model itself. It is read from each
+/// of `bases` in turn, and is in the game if any of them leads to it.
+QString problemWithUri(const QString &file, const QStringList &bases, const QByteArray &uri, const Held &held)
 {
     const QString shown = QString::fromUtf8(uri);
     if (shown.isEmpty() || shown.startsWith(QStringLiteral("data:"), Qt::CaseInsensitive))
@@ -420,16 +499,29 @@ QString problemWithUri(const QString &file, const QString &from, const QByteArra
     const qsizetype slash = named.indexOf(QLatin1Char('/'));
     if (named.startsWith(QLatin1Char('/')) || (colon >= 0 && (slash < 0 || colon < slash)))
         return leadsOut(file, shown, false);
-    const std::optional<QString> place = inGame(from, named);
-    if (!place)
-        return leadsOut(file, shown, false);
-    return held.files.contains(Held::key(*place)) ? QString() : notHeld(file, shown, false);
+    Leads leads = Leads::Out;
+    for (const QString &base : bases) {
+        const std::optional<QString> place = inGame(base, named);
+        leads = std::min(leads, !place ? Leads::Out : held.files.contains(Held::key(*place)) ? Leads::Held : Leads::NotHeld);
+        if (leads == Leads::Held)
+            return {};
+    }
+    return leads == Leads::NotHeld ? notHeld(file, shown, false) : leadsOut(file, shown, false);
 }
 
-/// Every "uri" in a glTF's JSON, in one pass, however deep and however many: not parsed, so two of one name are both looked at,
-/// whichever of them another reader would believe.
-QString problemInGltf(const QString &file, const QString &from, QByteArrayView json, const Held &held)
+QString problemWithUri(const QString &file, const QString &from, const QByteArray &uri, const Held &held)
 {
+    return problemWithUri(file, QStringList{from}, uri, held);
+}
+
+/// Every string under one of `keys` in JSON, in one pass, however deep and however many: not parsed, so two of one name are
+/// both looked at, whichever of them another reader would believe. A name longer than any path is refused, unless it is a
+/// data: URI, which names no file. Where `onlyText`, a name that is not a string is refused too.
+QString problemInJson(const QString &file, const QString &from, QByteArrayView json, const Held &held,
+                      std::initializer_list<QByteArrayView> keys, bool onlyText)
+{
+    // Longer than any of the keys looked for, so one cut to this is none of them.
+    constexpr qsizetype longestKeyKept = 8;
     const auto skipSpace = [&json](qsizetype at) {
         while (at < json.size() && (json[at] == ' ' || json[at] == '\t' || json[at] == '\n' || json[at] == '\r'))
             ++at;
@@ -437,21 +529,28 @@ QString problemInGltf(const QString &file, const QString &from, QByteArrayView j
     };
     qsizetype at = 0;
     while ((at = json.indexOf('"', at)) >= 0) {
-        const QByteArray key = readString(json, at);
+        const QByteArray key = readString(json, at, longestKeyKept);
         qsizetype next = skipSpace(at);
         if (next >= json.size() || json[next] != ':')
             continue;
         at = next + 1;
-        if (key != "uri")
+        if (std::find(keys.begin(), keys.end(), QByteArrayView(key)) == keys.end())
             continue;
         next = skipSpace(at);
         if (next >= json.size())
             return {};
-        if (json[next] != '"')
-            return tr("%1 names a file by something other than text, which a game cannot be sure of.").arg(file);
+        if (json[next] != '"') {
+            if (onlyText)
+                return tr("%1 names a file by something other than text, which a game cannot be sure of.").arg(file);
+            continue;
+        }
         at = next;
-        const QByteArray uri = readString(json, at);
-        if (const QString problem = problemWithUri(file, from, uri, held); !problem.isEmpty())
+        bool cut = false;
+        const QByteArray name = readString(json, at, longestNameKept, &cut);
+        if (cut && name.left(5).toLower() != "data:")
+            return tr("%1 names a file by a name longer than %2 characters, longer than any path, so a build cannot tell where "
+                      "it leads.").arg(file).arg(longestNameKept);
+        if (const QString problem = problemWithUri(file, from, name, held); !problem.isEmpty())
             return problem;
     }
     return {};
@@ -469,10 +568,150 @@ QString problemInGlb(const QString &file, const QString &from, QByteArrayView da
     const quint32 chunk = qFromLittleEndian<quint32>(data.data() + header);
     if (chunk > quint64(data.size() - header - chunkHeader))
         return tr("%1 says it holds more than it does, so it is not a whole model.").arg(file);
-    return problemInGltf(file, from, data.sliced(header + chunkHeader, chunk), held);
+    return problemInJson(file, from, data.sliced(header + chunkHeader, chunk), held, {QByteArrayView("uri")}, true);
 }
 
-enum class Names { Nothing, Code, Gltf, Glb };
+/// A Tiled tileset kept as XML (.tsx), which TileMap reads too: the source of each element, its image among them.
+QString problemInTsx(const QString &file, const QString &from, QByteArrayView data, const Held &held)
+{
+    QByteArray raw = QByteArray::fromRawData(data.data(), data.size());
+    QBuffer buffer(&raw);
+    if (!buffer.open(QIODevice::ReadOnly))
+        return tr("%1 could not be looked through.").arg(file);
+    QXmlStreamReader xml(&buffer);
+    while (!xml.atEnd()) {
+        if (!xml.readNextStartElement())
+            continue;
+        for (const QXmlStreamAttribute &attribute : xml.attributes()) {
+            if (attribute.name() != QStringLiteral("source"))
+                continue;
+            if (const QString problem = problemWithUri(file, from, attribute.value().toUtf8(), held); !problem.isEmpty())
+                return problem;
+        }
+    }
+    // What is not XML, TileMap does not read, so it names nothing.
+    return {};
+}
+
+/// The lines of a model kept as text, each without what ends it.
+template<typename Each>
+QString eachLine(QByteArrayView text, Each each)
+{
+    qsizetype at = 0;
+    while (at < text.size()) {
+        qsizetype end = text.indexOf('\n', at);
+        if (end < 0)
+            end = text.size();
+        if (const QString problem = each(text.sliced(at, end - at)); !problem.isEmpty())
+            return problem;
+        at = end + 1;
+    }
+    return {};
+}
+
+bool isSpace(char c)
+{
+    return c == ' ' || c == '\t' || c == '\r' || c == '\f' || c == '\v' || c == '\0';
+}
+
+QByteArrayView trimmed(QByteArrayView text)
+{
+    qsizetype start = 0;
+    qsizetype end = text.size();
+    while (start < end && isSpace(text[start]))
+        ++start;
+    while (end > start && isSpace(text[end - 1]))
+        --end;
+    return text.sliced(start, end - start);
+}
+
+/// A line's first word, and where what follows it starts.
+QByteArrayView firstWord(QByteArrayView line, qsizetype &after)
+{
+    qsizetype start = 0;
+    while (start < line.size() && isSpace(line[start]))
+        ++start;
+    after = start;
+    while (after < line.size() && !isSpace(line[after]))
+        ++after;
+    return line.sliced(start, after - start);
+}
+
+/// An .obj's material libraries, each `mtllib` line naming one, to the line's end, as Assimp reads it, from the model's folder.
+QString problemInObj(const QString &file, const QString &from, QByteArrayView text, const Held &held)
+{
+    return eachLine(text, [&](QByteArrayView line) -> QString {
+        qsizetype after = 0;
+        if (firstWord(line, after).compare(QByteArrayView("mtllib"), Qt::CaseInsensitive) != 0)
+            return {};
+        const QByteArrayView name = trimmed(line.sliced(after));
+        if (name.size() > longestNameKept)
+            return tr("%1 names a file by a name longer than %2 characters, longer than any path, so a build cannot tell where it "
+                      "leads.").arg(file).arg(longestNameKept);
+        return name.isEmpty() ? QString() : problemWithUri(file, from, name.toByteArray(), held);
+    });
+}
+
+/// How many words follow an option of an .mtl's picture, as Assimp counts them: it knows an option by how it starts, in this
+/// order, and one it does not know takes none.
+int optionWords(QByteArrayView option)
+{
+    const auto is = [option](const char *name) {
+        const QByteArrayView known(name);
+        return option.size() >= known.size() && option.first(known.size()).compare(known, Qt::CaseInsensitive) == 0;
+    };
+    for (const char *one : {"-clamp", "-type", "-blendu", "-blendv", "-boost", "-texres", "-bm", "-imfchan"}) {
+        if (is(one))
+            return 1;
+    }
+    if (is("-mm"))
+        return 2;
+    if (is("-o") || is("-s") || is("-t"))
+        return 3;
+    return 0;
+}
+
+/// The pictures an .mtl names: a line of a map_ kind, or bump, disp, decal, refl or norm, gives its options, then the file,
+/// to the line's end, as Assimp reads it. Qt Quick 3D reads a model's
+/// pictures from the model's folder, which may not be the library's, so a picture is looked for from both: the library's own
+/// folder, and each folder an .obj of the game is in.
+QString problemInMtl(const QString &file, const QString &from, QByteArrayView text, const Held &held)
+{
+    QStringList bases{from};
+    bases += held.objFolders;
+    return eachLine(text, [&](QByteArrayView line) -> QString {
+        qsizetype after = 0;
+        const QByteArrayView kind = firstWord(line, after);
+        const bool picture = kind.size() > 4 && kind.first(4).compare(QByteArrayView("map_"), Qt::CaseInsensitive) == 0;
+        if (!picture) {
+            bool other = false;
+            for (const char *word : {"bump", "disp", "decal", "refl", "norm"})
+                other = other || kind.compare(QByteArrayView(word), Qt::CaseInsensitive) == 0;
+            if (!other)
+                return {};
+        }
+        QByteArrayView rest = line.sliced(after);
+        for (;;) {
+            qsizetype next = 0;
+            const QByteArrayView option = firstWord(rest, next);
+            if (!option.startsWith('-'))
+                break;
+            const int words = optionWords(option);
+            rest = rest.sliced(next);
+            for (int i = 0; i < words; ++i) {
+                firstWord(rest, next);
+                rest = rest.sliced(next);
+            }
+        }
+        const QByteArrayView name = trimmed(rest);
+        if (name.size() > longestNameKept)
+            return tr("%1 names a file by a name longer than %2 characters, longer than any path, so a build cannot tell where it "
+                      "leads.").arg(file).arg(longestNameKept);
+        return name.isEmpty() ? QString() : problemWithUri(file, bases, name.toByteArray(), held);
+    });
+}
+
+enum class Names { Nothing, Code, Gltf, Glb, Map, Tsx, Obj, Mtl };
 
 Names whatItNames(const QString &file)
 {
@@ -483,6 +722,14 @@ Names whatItNames(const QString &file)
         return Names::Gltf;
     if (suffix == QStringLiteral("glb"))
         return Names::Glb;
+    if (suffix == QStringLiteral("tmj") || suffix == QStringLiteral("tsj"))
+        return Names::Map;
+    if (suffix == QStringLiteral("tsx"))
+        return Names::Tsx;
+    if (suffix == QStringLiteral("obj"))
+        return Names::Obj;
+    if (suffix == QStringLiteral("mtl"))
+        return Names::Mtl;
     return Names::Nothing;
 }
 
@@ -494,7 +741,9 @@ QString problemInCopy(const QString &copy, const QString &file, const Held &held
     if (!in.open(QIODevice::ReadOnly))
         return tr("%1 could not be looked through.").arg(file);
     const qint64 size = in.size();
-    const qint64 most = kind == Names::Code ? largestCodeLookedThrough : largestModelLookedThrough;
+    // Code, a tileset and a material library are small; a model or a map may not be.
+    const bool small = kind == Names::Code || kind == Names::Tsx || kind == Names::Mtl;
+    const qint64 most = small ? largestCodeLookedThrough : largestModelLookedThrough;
     if (size > most)
         return tr("%1 is more than %2 MB, too large for a build to look through for what it names.").arg(file).arg(most / (1024 * 1024));
     if (size == 0)
@@ -507,8 +756,13 @@ QString problemInCopy(const QString &copy, const QString &file, const Held &held
     const QString from = slash < 0 ? QString() : file.left(slash);
     switch (kind) {
     case Names::Code: return problemInCode(file, from, data, held);
-    case Names::Gltf: return problemInGltf(file, from, data, held);
+    case Names::Gltf: return problemInJson(file, from, data, held, {QByteArrayView("uri")}, true);
     case Names::Glb: return problemInGlb(file, from, data, held);
+    // A Tiled map names its tilesets by source and its pictures by image, each from its own folder (TileMap).
+    case Names::Map: return problemInJson(file, from, data, held, {QByteArrayView("image"), QByteArrayView("source")}, false);
+    case Names::Tsx: return problemInTsx(file, from, data, held);
+    case Names::Obj: return problemInObj(file, from, data, held);
+    case Names::Mtl: return problemInMtl(file, from, data, held);
     case Names::Nothing: break;
     }
     return {};
@@ -544,6 +798,10 @@ int builtBefore(const QString &game)
     return build > 0 && build < std::numeric_limits<int>::max() ? int(build) : 0;
 }
 
+/// What ends the name of a game's leftovers: QTemporaryDir's six characters, and no more. A game's folder name ends in a hash
+/// of 16 characters, so another game's leftovers, whatever its name holds, never end so after this game's name.
+const QLatin1StringView leftoverMark("??????");
+
 /// A build that died between its two renames left the game aside, under a name the Library does not list: it goes back, the
 /// newest if there is more than one, before anything else can happen to it. A link there is nobody's game.
 void putBackWhatDied(const QDir &games, const QString &folder, const QString &target)
@@ -551,7 +809,7 @@ void putBackWhatDied(const QDir &games, const QString &folder, const QString &ta
     const QFileInfo there(target);
     if (there.exists() || there.isSymLink())
         return;
-    const QFileInfoList aside = games.entryInfoList({QStringLiteral(".old-%1-*").arg(folder)}, QDir::Dirs | QDir::Hidden | QDir::NoDotAndDotDot, QDir::Time);
+    const QFileInfoList aside = games.entryInfoList({QStringLiteral(".old-%1-%2").arg(folder, leftoverMark)}, QDir::Dirs | QDir::Hidden | QDir::NoDotAndDotDot, QDir::Time);
     for (const QFileInfo &entry : aside) {
         if (!entry.isSymLink() && !entry.isJunction() && QDir().rename(entry.filePath(), target))
             return;
@@ -562,7 +820,7 @@ void putBackWhatDied(const QDir &games, const QString &folder, const QString &ta
 /// taken away itself, and what it leads to is left alone.
 void clearLeftovers(const QDir &games, const QString &folder)
 {
-    const QFileInfoList left = games.entryInfoList({QStringLiteral(".building-%1-*").arg(folder), QStringLiteral(".old-%1-*").arg(folder)},
+    const QFileInfoList left = games.entryInfoList({QStringLiteral(".building-%1-%2").arg(folder, leftoverMark), QStringLiteral(".old-%1-%2").arg(folder, leftoverMark)},
                                                    QDir::AllEntries | QDir::Hidden | QDir::NoDotAndDotDot);
     for (const QFileInfo &entry : left) {
         if (entry.isSymLink() || entry.isJunction() || !entry.isDir())
@@ -619,6 +877,9 @@ QVariantMap GameBuild::make(const QString &project, const QString &scene, const 
     const QString root = project.isEmpty() ? QString() : Confinement::realPath(project);
     if (root.isEmpty() || !QFileInfo(root).isDir())
         return refused(tr("There is no project folder at %1.").arg(project));
+    // Asked of the folder this build goes on to copy, and of no other: what is asked about is what is built.
+    if (limits.trusted && !limits.trusted(root))
+        return refused(tr("%1 is not a project you have said you trust. Open it in QQ Studio and trust it there, then build.").arg(project));
 
     const QString gamesPath = QDir::cleanPath(games);
     if (!QDir().mkpath(gamesPath))
@@ -627,7 +888,12 @@ QVariantMap GameBuild::make(const QString &project, const QString &scene, const 
         return refused(tr("This project holds the folder games are built into, %1.").arg(gamesPath));
 
     // One build of a game at a time, for the whole of it: another would take this one's staging folder away, and answer for
-    // what was left. Never stale by its age, since a large game takes minutes: only if its holder has gone.
+    // what was left. On a local disk Qt's lock is the system's own (flock, or a file Windows will not delete while it is open),
+    // so it is kept while its holder lives, however old, and taken from a holder that has gone: that is what the tests prove.
+    // setStaleLockTime(0) is only for where the system cannot lock (FUSE, some network shares; Qt's QLockFile documentation):
+    // there Qt would take a lock older than 30 seconds from a build still running, and a large game takes minutes. With 0 it
+    // never goes by age, so a build that died on another machine sharing the folder leaves its lock until it is deleted. No
+    // test here has such a filesystem, so that line is unproven.
     const QString name = folderNameFor(root);
     const QDir gamesDir(gamesPath);
     QLockFile lock(gamesDir.filePath(QStringLiteral(".lock-%1").arg(name)));

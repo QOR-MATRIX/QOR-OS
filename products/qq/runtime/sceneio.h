@@ -200,6 +200,8 @@ public:
     /// Whether `folder` is on the person's list already, and nothing else: asking this adds nothing to it, as projectTrusted
     /// does for a folder with no code in it. What the command line goes by, with nobody there to be asked.
     static bool onTrustedList(const QUrl &folder);
+    /// The same of a folder's real path, as it is, followed no further: for a caller that goes on to use that path.
+    static bool realFolderOnTrustedList(const QString &realFolder);
     /// A person has said so.
     Q_INVOKABLE void trustProject(const QUrl &folder);
     /// The project the Studio is in, whose files it may read.

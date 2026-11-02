@@ -25,6 +25,8 @@
 // Changed for QOR OS: qq-studio --project <folder> --build <scene> makes a game of the project (gamebuild.h) with no window
 // and no display, prints "QQ-BUILD {json}" on standard output and exits: 0 built, 3 refused. Nobody is there to be asked, so it
 // builds only a project already on the person's trusted list, and it compiles nothing, as its answer says.
+//
+// Changed for QOR OS: Qt's QML disk cache only as it is compiled into the Studio, never a .qmlc or .jsc on disk.
 
 #include <QCommandLineParser>
 #include <QCoreApplication>
@@ -96,20 +98,17 @@ int buildAndExit(int argc, char *argv[])
     parser.addOption(build);
     parser.process(app);
     const QString folder = parser.value(project);
-    QVariantMap result;
     // What is built is one press from playing in the Library. The Studio asks about a project from elsewhere, and here there is
-    // nobody to ask, so this takes only what is on the person's list, and adds nothing to it, however empty the folder.
-    if (!folder.isEmpty() && QFileInfo(folder).isDir() && !qq::SceneIO::onTrustedList(QUrl::fromLocalFile(QDir().absoluteFilePath(folder)))) {
-        result = {{QStringLiteral("ok"), false},
-                  {QStringLiteral("problem"), QObject::tr("%1 is not a project you have said you trust. Open it in QQ Studio and "
-                                                          "trust it there, then build.").arg(folder)}};
-    } else {
-        result = qq::GameBuild::make(folder, parser.value(build), qq::GameBuild::gamesFolder());
-        if (result.value(QStringLiteral("ok")).toBool()) {
-            result.insert(QStringLiteral("compiled"), false);
-            result.insert(QStringLiteral("note"), QObject::tr("Nothing was compiled: this copies the project's files. Code in it that does not "
-                                                              "build is found when the game plays, or by building in QQ Studio."));
-        }
+    // nobody to ask, so this takes only what is on the person's list, and adds nothing to it, however empty the folder. It is
+    // asked by the build, of the real folder the build then copies, so a link changed meanwhile builds nothing it was not asked.
+    qq::GameBuild::Limits limits;
+    limits.trusted = [](const QString &real) { return qq::SceneIO::realFolderOnTrustedList(real); };
+    QVariantMap result = qq::GameBuild::make(folder.isEmpty() ? folder : QDir().absoluteFilePath(folder), parser.value(build),
+                                             qq::GameBuild::gamesFolder(), limits);
+    if (result.value(QStringLiteral("ok")).toBool()) {
+        result.insert(QStringLiteral("compiled"), false);
+        result.insert(QStringLiteral("note"), QObject::tr("Nothing was compiled: this copies the project's files. Code in it that does not "
+                                                          "build is found when the game plays, or by building in QQ Studio."));
     }
     // Its answer, on standard output: what asked for it reads that, with nothing else to set.
     const QByteArray line = "QQ-BUILD " + QJsonDocument(QJsonObject::fromVariantMap(result)).toJson(QJsonDocument::Compact) + '\n';
@@ -129,6 +128,13 @@ int main(int argc, char *argv[])
         if (qstrcmp(argv[i], "--build") == 0 || qstrncmp(argv[i], "--build=", 8) == 0)
             return buildAndExit(argc, argv);
     }
+
+    // Before any engine exists, which reads these once. What Qt compiled into the Studio itself, and no compiled unit kept on
+    // disk: one beside a project's file, or one Qt kept of it before, would be mapped in as code in place of the source that is
+    // shown and checked (SceneIO::brokenCode compiles a project's QML before a build looks for units). The Player keeps the
+    // cache off altogether.
+    qputenv("QML_DISK_CACHE", "aot");
+    qunsetenv("QML_FORCE_DISK_CACHE");
 
     // Before the application exists: the GPU is chosen when the first window is shown.
     const QString gpu = qq::preferHighPerformanceGpu();

@@ -73,6 +73,10 @@ public:
         /// "copied", once they and the manifest are in the staging folder; "moved-aside", between the two renames; and
         /// "in-place", before the old game is deleted. Nothing but a test sets this: no command line or setting reaches it.
         std::function<void(const char *)> step;
+        /// If set, asked with the real path of the project folder, the one make() then copies and no other, before anything is
+        /// made; false refuses the build. `qq-studio --build` asks the person's list of trusted projects this way, so a link
+        /// changed between the asking and the copying changes nothing.
+        std::function<bool(const QString &realProject)> trusted;
     };
 
     explicit GameBuild(QObject *parent = nullptr);

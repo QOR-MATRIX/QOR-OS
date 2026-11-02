@@ -1,6 +1,6 @@
 // Changed for QOR OS: a qmldir in a package is refused, since it can name a native plugin; places are compared where they
 // really are, through symbolic links, and by the file system's own rule of case; Qt.openUrlExternally is refused however
-// it is reached; and the Studio has a guard of its own (QOR-0018).
+// it is reached; and the Studio has a guard of its own (QOR-0018). What Qt's disk cache reads is said from Qt's own engine.
 
 #include "confinement.h"
 
@@ -19,6 +19,7 @@
 #include <QQmlNetworkAccessManagerFactory>
 #include <QStandardPaths>
 #include <private/qqmlglobal_p.h>
+#include <private/qv4engine_p.h>
 
 #include "sceneio.h"
 
@@ -347,6 +348,12 @@ void Confinement::guardStudio(QQmlEngine *engine)
     static RefusingAccessFactory access;
     engine->setNetworkAccessManagerFactory(&access);
     NothingOpensOutside::install();
+}
+
+bool Confinement::readsCompiledUnits(QQmlEngine *engine)
+{
+    const QV4::ExecutionEngine *v4 = engine ? engine->handle() : nullptr;
+    return v4 && v4->diskCacheOptions().testFlag(QV4::ExecutionEngine::DiskCache::QmlcRead);
 }
 
 QUrl Confinement::packageOf(const QUrl &scene)

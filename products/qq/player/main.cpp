@@ -302,7 +302,8 @@ int main(int argc, char *argv[])
                                  {QStringLiteral("lastFrameAgoMs"), elapsed - measure.lastFrameMs},
                                  {QStringLiteral("renderer"), rhi ? QString::fromUtf8(rhi->driverInfo().deviceName) : QString()},
                                  {QStringLiteral("problem"), window->property("problem").toString()},
-                                 {QStringLiteral("qmlDiskCache"), !qEnvironmentVariableIsSet("QML_DISABLE_DISK_CACHE")},
+                                 // As Qt's own engine has it, not as the environment was set.
+                                 {QStringLiteral("qmlDiskCache"), qq::Confinement::readsCompiledUnits(&engine)},
                                  {QStringLiteral("unloaded"),
                                   QJsonArray::fromStringList(window->property("unloaded").toStringList())}};
         const QByteArray line = QJsonDocument(result).toJson(QJsonDocument::Compact);

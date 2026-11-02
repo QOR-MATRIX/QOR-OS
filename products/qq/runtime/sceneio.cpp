@@ -295,6 +295,11 @@ bool SceneIO::onTrustedList(const QUrl &folder)
     return folder.isLocalFile() && trustedList().contains(Confinement::realPath(folder.toLocalFile()));
 }
 
+bool SceneIO::realFolderOnTrustedList(const QString &realFolder)
+{
+    return !realFolder.isEmpty() && trustedList().contains(realFolder);
+}
+
 bool SceneIO::openInOwnEditor(const QUrl &file)
 {
     if (!file.isLocalFile() || !file.fileName().endsWith(QStringLiteral(".qml"), Qt::CaseInsensitive)
