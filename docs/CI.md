@@ -112,11 +112,21 @@ internal virtual switch `qor-ci-vm`, that switch's adapter with one address, a N
 `qor-ci-vm-block-by-adapter` and `qor-ci-vm-block-by-address`, a folder (`X:\qor-ci-vm` unless told otherwise, locked to
 administrators and SYSTEM so no ordinary process can place or change the image, disk or seed inside it), `%LOCALAPPDATA%\qor-ci-vm`
 (the SSH key that opens this guest and nothing else, and Prove's reports), and `%ProgramData%\qor-ci-vm` (a record of what was made,
-which only an elevated run can write). What `-Action Remove` deletes comes from that administrator-only record, an explicit `-Root`,
-or the fixed default, never from a file an ordinary process could edit, and no part of a path it deletes along may be a link. It
-changes no other VM, switch, rule or setting, and it stops rather than touch one of those names that it did not make. Windows
-supports one NAT per host, so another NAT stops it too. An elevated run refuses to start unless it was launched with `-NoProfile`,
-so that no profile script or user module runs first.
+which only an elevated run can write). It changes no other VM, switch, rule or setting, and it stops rather than touch one of those
+names that it did not make. Windows supports one NAT per host, so another NAT stops it too. An elevated run refuses to start unless it
+was launched with `-NoProfile`, so that no profile script or user module runs first.
+
+**Who can have made its folders.** `X:\` and `C:\ProgramData` both let any process make a folder in them, so a folder with the right
+name proves nothing. The two locked folders are made already owned by Administrators and locked, in one step (an ordinary account
+cannot make one so, and a test shows Windows refusing it). One that is there already, or that appears between the look and the
+making, is used only if it is owned by Administrators or SYSTEM, writable by nobody else, has no link on its path, and no folder above
+it lets an ordinary process move it out of the way; otherwise the run stops and changes nothing. An owner can always rewrite a file's
+permissions, unelevated too, so what the script writes in them is given to Administrators, and the folders carry an `OWNER RIGHTS`
+entry that takes that right away from whoever owns a file inside (a test shows that too). The record is read only after the check:
+Create, Check and Start stop at one that fails it, and Prove, Stop and Remove go on without it, with the defaults, and say so. A disk is
+trusted only if the record says this script built it and the disk passes the same check, and the seed is checked before it is
+attached. `-Action Remove` empties the root only if it has the script's mark and passes the check, deletes from `%LOCALAPPDATA%` only
+the files it made there, by name, and deletes the record only if it passes the check. No path it deletes along may be a link.
 
 **The VM.** Generation 2, Secure Boot with the UEFI CA template, no checkpoints, no shared folders, no GPU or device passthrough, no
 nested virtualisation, and every integration service off. Enhanced Session has no per-VM off switch, and the host's is left alone: this
@@ -148,6 +158,8 @@ A stateless ACL cannot tell a reply from a new connection, so `-StatefulSshAcl` 
 let only SSH and its replies reach the host. It is off for the first proof, because mixing the two ACL kinds on a client Hyper-V is
 undocumented and getting it wrong would block the guest's internet (Prove's control would catch that) or its SSH; turn it on once the
 stateless boundary is proven, and read what Prove's `host-tcp` to `10.213.57.1` on a non-SSH port, and its `host-spoof` lines, then say.
+Each Create makes it match its own switch: a Create without `-StatefulSshAcl` takes away one an earlier Create added, and Remove
+takes it before the VM.
 
 Also unknown until it runs: whether WinNAT agrees to a NAT beside WSL's and the Default Switch's, and whether it still forwards with the
 rule on the adapter in place. Create would stop at the first, with Windows' reason, and Prove's outbound control would show the second.
@@ -196,12 +208,39 @@ needs its own answer.
 #### The owner's first run
 
 Run this at the commit that last changed `tools/ci/isolated-vm.ps1` (`git log -1 --format=%h -- tools/ci/isolated-vm.ps1`; it was
-`6a759f4` when this was written, the commit with the review's fixes), with the working tree clean.
+`c9513c6` when this was written, the commit with the second review's fixes), with the working tree clean.
 The first run is likely to stop somewhere, because nothing here has met Hyper-V; each stop prints its reason, and most say to run the
 same command again.
 
 **Before elevating:** read the top of `tools/ci/isolated-vm.ps1` down to `param(`, and this section. Confirm the tree: `git status`
 clean, `git log -1`. Pick a time with no build running, since it needs about 7 GB of memory free.
+
+**Confirm its three folders are not there yet,** whatever the script would make of them. This should print `False` three times:
+
+```powershell
+Test-Path -LiteralPath X:\qor-ci-vm, "$env:ProgramData\qor-ci-vm", "$env:LOCALAPPDATA\qor-ci-vm"
+```
+
+If one prints `True`, nothing of a real Create is there yet, so it is a leftover or someone else's: look at it and remove it as below
+before Create. On 2 November 2026 `X:\qor-ci-vm` was there, left by a run of the script against its test stand-ins (its disk and
+image are the suite's test files), which then had nothing to keep them inside the test's own folder; they refuse anything outside it
+now. It holds five items, all this account's: `.made-by-qor-ci-vm` (90 bytes), `disk\`, `disk\qor-ci-vm.vhdx` (2,097,664 bytes, a
+2 MB test disk), `image\`, and `image\ubuntu-24.04-server-cloudimg-amd64-20261017.img` (199,605 bytes, a test image, not Ubuntu's).
+Create refuses it, because it is not owned by Administrators.
+
+**To remove a leftover `X:\qor-ci-vm` that holds no VM,** in PowerShell 7, one command at a time, reading each answer before the next:
+
+```powershell
+Get-VM -Name qor-ci-vm -ErrorAction SilentlyContinue   # as administrator: nothing printed means there is no such VM
+Get-ChildItem -LiteralPath X:\qor-ci-vm -Recurse -Force -Attributes ReparsePoint   # must print nothing: no link inside to follow
+Get-ChildItem -LiteralPath X:\qor-ci-vm -Recurse -Force | Format-Table FullName, Length, LastWriteTime   # what will go
+Remove-Item -LiteralPath X:\qor-ci-vm -Recurse -Force
+```
+
+If `Get-VM` prints a VM, stop: that is a real one, and `-Action Remove` is the way to take it and its folder. The leftovers there now
+are this account's, so an ordinary terminal can remove them; one that belongs to Administrators needs an administrator's. The same four
+steps, with the path changed, do for a leftover `%ProgramData%\qor-ci-vm` (it should hold at most `record.json`) or
+`%LOCALAPPDATA%\qor-ci-vm` (at most `ssh\` and `prove-*.txt`).
 
 **Create.** Open PowerShell 7 as administrator from the Start menu, then run `pwsh -NoProfile` (the script refuses an elevated run that
 was not). Then:
@@ -232,6 +271,8 @@ machine's addresses and port numbers, and no credential.
 **If it stops halfway:**
 
 - **Most steps:** run the same command again; it does what is left.
+- **It says a folder or the record cannot be trusted:** it changed nothing. Look at what it names, and remove a leftover as above.
+  `-Action Remove` stops the same way at a root it cannot trust; remove that by hand, then run Remove again for the key and record.
 - **It stops waiting for SSH:** likely Secure Boot refusing the image. The VM keeps running; as administrator,
   `Stop-VM -Name qor-ci-vm -TurnOff -Force`, then `-Action Remove`. The script will not turn Secure Boot off; that is the owner's call.
 - **An unmarked `qor-ci-vm` is left (a stop between making and marking):** run `-Action Create` again, which finishes it, or
