@@ -90,7 +90,7 @@ and against what is on disk at that moment, since another program of this person
 read again, and the plan is checked again against it. A journal is written, then each new version is swapped in beside the old
 one, then `installed.json` is written. That last write is the moment it happens, and it is atomic. A failure before it puts
 everything back. So does a crash, the next time an engine starts. A crash after it finishes clearing up. A removal goes the same
-way.
+way. An engine that goes away while installs are on their way ends each of them, and says so for each.
 
 **Widgets are code.** A widget is QML that runs in the shell, so stage 1
 installs only QOR-MATRIX widgets. Third-party widgets and apps wait for the

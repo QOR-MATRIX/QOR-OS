@@ -30,6 +30,7 @@
 #include <QtCore/QRegularExpression>
 #include <QtCore/QSet>
 #include <QtCore/QTemporaryDir>
+#include <QtCore/QThread>
 #include <QtCore/private/qzipreader_p.h>
 #include <QtCore/private/qzipwriter_p.h>
 #include <QtNetwork/QNetworkProxy>
@@ -112,6 +113,13 @@ protected:
         return laterKinds.contains(kind) || StoreEngine::takesKind(kind);
     }
     bool reachedStage(CommitStage stage) override { return onStage ? onStage(stage) : true; }
+    bool saveInstalled(const QMap<QString, Installed> &records, const QString &transaction) const override
+    {
+        return !refuseRecords && StoreEngine::saveInstalled(records, transaction);
+    }
+
+public:
+    bool refuseRecords = false; // as a disk would that is full or gone read-only
 };
 
 // A copy of a folder, as a crash at this moment would leave it.
@@ -947,6 +955,9 @@ private Q_SLOTS:
         QTest::newRow("svg with no space") << QByteArray("<svg/onload=alert(1)>");
         QTest::newRow("img with no space") << QByteArray("<img/src=x onerror=alert(1)>");
         QTest::newRow("details, for browsers") << QByteArray("<details ontoggle=alert(1)>");
+        QTest::newRow("a browser's name, in capitals") << QByteArray("<SVG/onload=alert(1)>");
+        QTest::newRow("a browser's name, in mixed case") << QByteArray("<DeTaIlS ontoggle=alert(1)>");
+        QTest::newRow("a browser's name, then U+00A0") << QByteArray("<svg\xc2\xa0onload=alert(1)>");
         QTest::newRow("a name in quotes, as Qt's parser reads one") << QByteArray("<\"img\" src=x>");
         QTest::newRow("a name with an entity, as Qt's parser reads one") << QByteArray("<&#105;mg src=x>");
         QTest::newRow("a name in the Kelvin sign, which lower-cases to k") << QByteArray("<\xe2\x84\xaa"
@@ -959,11 +970,18 @@ private Q_SLOTS:
     {
         QFETCH(QByteArray, text);
         const TestSigner developer;
-        Pack pack;
-        pack.files.insert(u"LICENSE.txt"_s, text);
-        const PackageResult opened = openPackage(pack.package(developer), developer.publicKey());
-        QVERIFY(!opened.ok);
-        QVERIFY2(opened.error.contains(u"markup"_s), qPrintable(opened.error));
+        // Where it stands, and on a later line, where Qt::mightBeRichText does not look and the scan has to find it.
+        // Only what is about the first line is not markup further down.
+        const bool firstLineOnly = QByteArray(QTest::currentDataTag()).contains("on the first line");
+        for (const QByteArray &prefix : { QByteArray(), QByteArray("A line of text.\n") }) {
+            if (firstLineOnly && !prefix.isEmpty())
+                continue;
+            Pack pack;
+            pack.files.insert(u"LICENSE.txt"_s, QByteArray(prefix + text));
+            const PackageResult opened = openPackage(pack.package(developer), developer.publicKey());
+            QVERIFY2(!opened.ok, prefix.constData());
+            QVERIFY2(opened.error.contains(u"markup"_s), qPrintable(opened.error));
+        }
     }
 
     void aLicenceMayHoldAngleBracketsAsWords()
@@ -3528,6 +3546,119 @@ private Q_SLOTS:
         QVERIFY(!QFile::exists(data.path() + u"/plan-journal.json"_s));
     }
 
+    // A journal whose id climbs out of items/, with a name set aside after it that would otherwise pass. Rolled back or
+    // finished, nothing outside items/ is moved or deleted.
+    void aJournalWhoseIdsClimbMovesNothingOutside_data()
+    {
+        QTest::addColumn<bool>("committed");
+        QTest::newRow("as if it had not happened, so put back") << false;
+        QTest::newRow("as if it had, so cleared up") << true;
+    }
+    void aJournalWhoseIdsClimbMovesNothingOutside()
+    {
+        QFETCH(bool, committed);
+        QTemporaryDir data;
+        QDir().mkpath(data.path() + u"/items"_s);
+        const QString aside = u"../victim.old-"_s + QString(32, u'a');
+        writeFile(data.path() + u"/victim.old-"_s + QString(32, u'a') + u"/mine.txt"_s, "mine");
+        const QJsonObject journal { { u"transaction"_s, u"abc"_s },
+                                    { u"moves"_s, QJsonArray { QJsonObject { { u"id"_s, u"../victim"_s },
+                                                                             { u"staging"_s, u""_s },
+                                                                             { u"previous"_s, aside } } } } };
+        writeFile(data.path() + u"/plan-journal.json"_s, QJsonDocument(journal).toJson());
+        if (committed)
+            writeFile(data.path() + u"/installed.json"_s, QJsonDocument(QJsonObject { { u"format"_s, 1 },
+                                                                                      { u"transaction"_s, u"abc"_s },
+                                                                                      { u"items"_s, QJsonObject {} } })
+                                                              .toJson());
+        const StoreEngine store(data.path(), QByteArray(65, '\x04'));
+        QCOMPARE(readFile(data.path() + u"/victim.old-"_s + QString(32, u'a') + u"/mine.txt"_s), QByteArray("mine"));
+        QVERIFY(!QFileInfo::exists(data.path() + u"/victim"_s));
+        QVERIFY(!QFile::exists(data.path() + u"/plan-journal.json"_s));
+    }
+
+    void aRemovalWhoseRecordCannotBeWrittenPutsItBack()
+    {
+        const Pack pack;
+        Shop shop;
+        shop.add(pack);
+        QTemporaryDir data;
+        PlantedEngine store(data.path(), shop.store.publicKey());
+        store.setCreatorFeatures(true);
+        QCOMPARE(refreshed(store, shop.publish()), StoreEngine::State::Ready);
+        QVERIFY(installAndWait(store, pack.id).ok);
+
+        store.refuseRecords = true;
+        QSignalSpy finished(&store, &StoreEngine::finished);
+        QVERIFY(!store.remove(pack.id));
+        QCOMPARE(finished.count(), 1);
+        QVERIFY2(finished.at(0).at(2).toString().contains(u"what is installed"_s),
+                 qPrintable(finished.at(0).at(2).toString()));
+        QVERIFY(store.installed().contains(pack.id));
+        QVERIFY(store.isIntact(pack.id));
+        QVERIFY2(leftovers(store.dataDir()).isEmpty(), qPrintable(leftovers(store.dataDir()).join(u", "_s)));
+
+        store.refuseRecords = false;
+        QVERIFY(store.remove(pack.id));
+    }
+
+    // A store that goes while installs are on their way ends every one of them, and says so for each. Ending one takes
+    // its jobs out of the list being walked, which must not make the walk miss any.
+    void aStoreThatGoesEndsEveryInstallOnItsWay()
+    {
+        QNetworkProxy::setApplicationProxy(QNetworkProxy::NoProxy);
+        constexpr int kInstalls = 160;
+        TinyServer server;
+        QList<CatalogItem> items;
+        for (int i = 0; i < kInstalls; ++i) {
+            CatalogItem item = plantedItem(u"org.example.pack.p%1"_s.arg(i), u"asset-pack"_s);
+            item.packageFile = u"packages/p%1.qorpkg"_s.arg(i);
+            server.held.insert(item.packageFile);
+            items.append(item);
+        }
+        QTemporaryDir data;
+        auto store = std::make_unique<PlantedEngine>(data.path(), QByteArray(65, '\x04'));
+        store->setCreatorFeatures(true);
+        store->setCatalogUrl(server.url(u"catalog.json"_s));
+        store->adoptCatalog(plantedCatalog(items));
+        QSignalSpy finished(store.get(), &StoreEngine::finished);
+        for (const CatalogItem &item : std::as_const(items))
+            QVERIFY(store->install(item.id));
+        QTRY_VERIFY(server.waiting() > 0);
+        QCOMPARE(finished.count(), 0);
+
+        store.reset();
+        QCOMPARE(finished.count(), kInstalls);
+        QSet<QString> ended;
+        for (const QList<QVariant> &arguments : std::as_const(finished)) {
+            QVERIFY(!arguments.at(1).toBool());
+            ended.insert(arguments.at(0).toString());
+        }
+        QCOMPARE(ended.size(), kInstalls);
+    }
+
+    // However long a chain a store-signed catalogue holds, walking it never goes deeper than the limit, so a small
+    // stack is enough. Without that, the walk would go as deep as the chain before it found out.
+    void aLongChainIsWalkedOnASmallStack()
+    {
+        constexpr int kLength = 30000;
+        Catalog planted = plantedCatalog({});
+        for (int i = 0; i < kLength; ++i) {
+            CatalogItem item = plantedItem(u"org.example.pack.p%1"_s.arg(i), u"asset-pack"_s);
+            if (i < kLength - 1)
+                item.dependencies.append(VersionRange { u"org.example.pack.p%1"_s.arg(i + 1), u"1.0.0"_s, u"2.0.0"_s });
+            planted.items.append(item);
+        }
+        InstallPlan plan;
+        std::unique_ptr<QThread> thread(
+            QThread::create([&] { plan = resolveDependencies(planted, u"org.example.pack.p0"_s, {}); }));
+        thread->setStackSize(512 * 1024);
+        thread->start();
+        QVERIFY(thread->wait(60000));
+        QVERIFY(!plan.ok);
+        QVERIFY2(plan.error.contains(u"too deep"_s), qPrintable(plan.error));
+    }
+
     // Whatever is already wrong, a block is about what it affects, so nothing else is kept from installing.
     void aBrokenInstallBlocksOnlyWhatItAffects()
     {
@@ -3702,6 +3833,35 @@ private Q_SLOTS:
         CreatorStore after(data.path(), key);
         QVERIFY(after.installed().contains(pack.id));
         QVERIFY(after.installed().contains(other.id));
+    }
+
+    void aRemovalLeavesAnotherProgramsRecords()
+    {
+        const Pack pack;
+        Pack other;
+        other.id = u"org.example.pack.other"_s;
+        Shop shop;
+        shop.add(pack);
+        shop.add(other);
+        const QUrl catalogue = shop.publish();
+        QTemporaryDir data;
+        const QByteArray key = shop.store.publicKey();
+        CreatorStore stale(data.path(), key);
+        QCOMPARE(refreshed(stale, catalogue), StoreEngine::State::Ready);
+        QVERIFY(installAndWait(stale, pack.id).ok);
+        {
+            CreatorStore second(data.path(), key);
+            QCOMPARE(refreshed(second, catalogue), StoreEngine::State::Ready);
+            QVERIFY(installAndWait(second, other.id).ok);
+        }
+        QVERIFY(!stale.installed().contains(other.id));
+        QVERIFY(stale.remove(pack.id));
+        QVERIFY(stale.installed().contains(other.id));
+
+        CreatorStore after(data.path(), key);
+        QVERIFY(!after.installed().contains(pack.id));
+        QVERIFY(after.installed().contains(other.id));
+        QVERIFY(QFileInfo::exists(after.installDirectory(other.id) + u"/manifest.json"_s));
     }
 
     void anotherProgramsNewerVersionIsNotMovedBack()

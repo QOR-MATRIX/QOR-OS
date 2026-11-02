@@ -461,9 +461,6 @@ void StoreEngine::stepArrived(const PlanPtr &plan, const QString &id, const QByt
     const CatalogItem *item = m_catalog.item(id);
     if (!item)
         return failPlan(plan, id, u"The item is no longer in the catalogue."_s);
-    // The switch may have been turned off, or the catalogue run out, while this was on its way.
-    if (const QString refusal = refusalToInstall(*item); !refusal.isEmpty())
-        return failPlan(plan, id, refusal);
     PackageResult package;
     if (const QString why = refusePackage(*item, data, &package); !why.isEmpty())
         return failPlan(plan, id, why);
@@ -501,6 +498,7 @@ void StoreEngine::commitPlan(const PlanPtr &plan)
         const CatalogItem *item = m_catalog.item(step.id);
         if (!item)
             return refuse(step.id, u"The item is no longer in the catalogue."_s);
+        // The switch may have been turned off, or the catalogue run out, while this was on its way.
         if (const QString refusal = refusalToInstall(*item); !refusal.isEmpty())
             return refuse(step.id, refusal);
         if (const QString refusal = refusalAgainstInstalled(*item); !refusal.isEmpty())

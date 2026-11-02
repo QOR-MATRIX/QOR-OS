@@ -149,6 +149,8 @@ protected:
         Q_UNUSED(stage);
         return true;
     }
+    // Writes installed.json, atomically. Virtual so that a test can stand in for a disk that refuses the write.
+    virtual bool saveInstalled(const QMap<QString, Installed> &records, const QString &transaction) const;
 
 private:
     struct Step
@@ -198,7 +200,6 @@ private:
 
     QMap<QString, InstalledVersion> installedVersions() const;
     QMap<QString, Installed> readInstalled(QString *transaction = nullptr) const;
-    bool saveInstalled(const QMap<QString, Installed> &records, const QString &transaction) const;
     bool writeJournal(const QString &transaction, const QList<Move> &moves) const;
     void undoMoves(const QList<Move> &moves) const;
     void removeJournal() const;
