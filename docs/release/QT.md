@@ -295,8 +295,11 @@ bind The Qt Company.
 
 Fill every [placeholder] from the License Certificate and the owner's records.
 Remove a bracketed option that does not apply. Whether to mention the
-already-public launcher builds is the owner's call, best made with counsel;
-the draft includes them.
+already-public launcher builds, and the five days QOR OS's repository was
+public, is the owner's call, best made with counsel; the draft includes both.
+The facts in it were checked against the tree and GitHub on 2 November 2026: the
+runners are offline and stopped, and the tree holds no file with The Qt
+Company's copyright and no library or program binary.
 
 [Counsel to review section 1's description and questions 2, 13 and 15 before
 sending.]
@@ -411,11 +414,16 @@ Launcher:
 - [The Android launcher has not been released.]
 - [The QQ Player's WebAssembly build is not hosted publicly.] [or: is hosted
   at [address].]
-- QOR OS's own source is private and proprietary.
+- QOR OS's own source is private and proprietary. [Its repository was public
+  by mistake from 27 October to 1 November 2026. It holds no Qt source code and
+  no Qt binaries.]
 
 *How we develop.* We have [one] Designated User, working on [a Windows PC,
-with Linux under WSL]. AI coding assistants run on that machine. Self-hosted
-CI runners at [location or locations] install Qt with our Qt Account.
+with Linux under WSL]. AI coding assistants run on that machine. Until 1
+November 2026 two self-hosted CI runners on that same machine built and tested
+with the Qt kit installed there under our Qt Account. We stopped them that day,
+because their jobs could run third-party code, and we plan to move CI to a
+virtual machine that holds no Qt Account (question 15).
 
 **2. Our questions**
 
