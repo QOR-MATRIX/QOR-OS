@@ -130,7 +130,11 @@ struct Studio {
         if (!window || !QTest::qWaitForWindowExposed(window))
             return false;
         tools = std::make_unique<qq::StudioTools>(window, &engine, &server);
-        return QTest::qWaitFor([this] { return window->property("settled").toBool(); }, 15000);
+        if (!QTest::qWaitFor([this] { return window->property("settled").toBool(); }, 15000))
+            return false;
+        // Says what draws it, and stops the suite if products.sh expected otherwise.
+        [[maybe_unused]] const bool software = qq::drawnInSoftware(window);
+        return true;
     }
 
     ~Studio()
