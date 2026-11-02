@@ -31,6 +31,7 @@
 #include <QtCore/QSet>
 #include <QtCore/QTemporaryDir>
 #include <QtCore/QThread>
+#include <QtCore/QTimeZone>
 #include <QtCore/private/qzipreader_p.h>
 #include <QtCore/private/qzipwriter_p.h>
 #include <QtNetwork/QNetworkProxy>
@@ -4399,9 +4400,11 @@ private Q_SLOTS:
             QFile file(path);
             QVERIFY(file.open(QIODevice::WriteOnly));
             QCOMPARE(file.write(contents), contents.size());
+            QVERIFY(file.flush()); // or the write lands after the time is set, and sets it again
             QVERIFY(
                 file.setFileTime(QDateTime::currentDateTimeUtc().addSecs(-3600), QFileDevice::FileModificationTime));
             file.close();
+            QVERIFY(QFileInfo(path).lastModified(QTimeZone::UTC).secsTo(QDateTime::currentDateTimeUtc()) > 3000);
         }
         StoreEngine store(data.path(), shop.store.publicKey());
         QCOMPARE(refreshed(store, url), StoreEngine::State::Failed);
