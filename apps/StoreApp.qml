@@ -681,6 +681,7 @@ Item {
                         width: parent.width
                         height: 72
                         ListingArt {
+                            objectName: "libraryArt:" + installedEntry.modelData.id
                             x: 14
                             width: 72
                             height: 46
