@@ -123,9 +123,18 @@ Say so if you find a way past one; these are the walls we know are low.
   decoder trusts what it is sent. So: nothing sandboxed is ever given the bus.
 - **Prism's clipboard is Qt's**: any client may set the selection. Reading it takes
   the keyboard, which a client no longer gets unseen.
-- **The Store's catalogue has no expiry or sequence yet.** A replayed older one can
-  hide updates, though it cannot downgrade what is installed. It is reachable only
-  through `QOR_STORE_URL` until there is a server (Store stage 2).
+- **A format 1 Store catalogue has no sequence or expiry.** Replaying an older one can
+  hide updates, but it cannot move anything installed back to an older version. Once a
+  store key has had a format 2 catalogue accepted, format 1 is refused under that key.
+  Format 2 carries both. The memory of what was last accepted is a file the person's own
+  processes can delete; if it cannot be read it is treated as absent, with a warning,
+  since the two cannot be told apart, and an older catalogue under that key can then be
+  accepted again. The clock is trusted, and nothing limits how far ahead an expiry may
+  be. Both wait for Store stage 2.
+- **A Store package is checked on the thread that draws the shell.** At the 32 MB limit
+  the slowest text measured takes about six seconds under the sanitizers, and the
+  slowest JSON about two. Only a catalogue the store has signed can list such a package.
+  A later stage moves the check off that thread.
 - **A same-user process can rewrite a widget** after it is checked and before Qt
   reads it, in a small window. A read-only image closes that (Phase 3).
 - **A process running as the person can drive QQ Studio.** Its tools' pipe admits
@@ -141,11 +150,6 @@ Say so if you find a way past one; these are the walls we know are low.
   and the channel closes, so the product does not open. It cannot pose as the product.
 - **In the simulator, a music file is decoded inside Prism**, by Qt Multimedia, so
   a hostile file reaches the compositor's process. No device build has the simulator.
-- **A Store package's archive can claim less than it holds.** Qt's reader grows its
-  buffer until the data fits, up to about a thousand times the download, before the
-  manifest's signature is checked. The download must first match the digest in the
-  catalogue, so only a catalogue that lists such a package reaches this, and what it
-  costs is memory.
 
 Before anything holds value, the QOR core and the vault service get an
 external security review, and the key Demiurge's records list as exposed on

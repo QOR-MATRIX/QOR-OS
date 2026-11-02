@@ -311,13 +311,15 @@ real QQ project; one finished game appears for players, installs and launches; p
 featured collections and counts hold no creator-only listing, and a creator-only item is refused as well as hidden; private source and
 unpublished builds stay out of reach.
 
-- [ ] Catalogue format 2, typed per item: kind, store placement and category, stable package identity, entitlement, platform, engine
+- [x] Catalogue format 2, typed per item: kind, store placement and category, stable package identity, entitlement, platform, engine
   and base-game dependencies, licence, provenance, previews; sequence and expiry; `price` refused, and format 1's unchecked `price`
   closed. Unclassified or contradictory listings stay drafts. Hostile cases under `linux-asan`: archive bombs, duplicate and device
-  names, executable files in a pack, climbing glTF paths, an older signed copy swapped in, dependency cycles, markup in a licence
-- [ ] Explicit views in the query layer, with no fallback between stores; a utility in both stores is one package, installed once;
+  names, executable files in a pack, climbing glTF paths, an older signed copy swapped in, dependency cycles, markup in a licence.
+  Installs and removals all or nothing, across a crash. `tst_store_format2` 550 cases under `linux-asan` and MSVC at `421c2da`, 166
+  planted faults caught; an independent recheck of its fixes is under way
+- [x] Explicit views in the query layer, with no fallback between stores; a utility in both stores is one package, installed once;
   turning creator features off keeps what is installed
-- [ ] A separate demonstration catalogue with a throwaway key, never in a release; today's fixtures not re-signed
+- [x] A separate demonstration catalogue with a throwaway key, never in a release; today's fixtures not re-signed
 - [ ] The Player Store's pages, with Play; Store games in the Library, checked rather than scanned
 - [ ] The creator-features switch, and the Creator Store's pages
 - [ ] QQ Studio's asset library: browse, preview, copy into the project with a lock file, update safely
@@ -389,8 +391,8 @@ vendor's claim. No firmware turns an output-only HDMI port into an input, so thi
 - [x] Prism: the bus, the keyboard, the lock screen, what a client's name and title can do, the Store's widgets
 - [x] QQ and QOR Media: what a package can reach, the Studio's trust in a project, the agent's logic; the QQ Player
   walled in by the kernel on Linux
-- [ ] The Store's catalogue carries a sequence and an expiry, so an old one cannot be replayed (needs signing, with Store
-  stage 2)
+- [ ] The Store's own catalogue in format 2. Format 2 carries a sequence and an expiry, and its checks are done. The first-party
+  catalogue of themes and widgets is still format 1, which has neither (needs signing, with Store stage 2)
 - [ ] The Player's wall on the owner's Linux machine with a real graphics card: tested so far in software only
 - [ ] Prism's clipboard: a client sets the selection only when it has the keyboard (needs Prism's own data device, or a
   patch to Qt)
