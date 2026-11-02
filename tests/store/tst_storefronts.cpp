@@ -774,11 +774,26 @@ private Q_SLOTS:
                 return u"not refused"_s;
             return refused.at(0).at(2).toString();
         };
-        QVERIFY2(refusal(1).contains(u"does not match"_s), qPrintable(refused.at(0).at(2).toString()));
-        QVERIFY2(refusal(2).contains(u"larger"_s), qPrintable(refused.at(0).at(2).toString()));
-        QVERIFY2(refusal(3).contains(u"larger"_s), qPrintable(refused.at(0).at(2).toString()));
-        QVERIFY2(refusal(4).contains(u"not a picture"_s), qPrintable(refused.at(0).at(2).toString()));
-        QVERIFY2(refusal(5).contains(u"not a picture"_s), qPrintable(refused.at(0).at(2).toString()));
+        {
+            const QString why = refusal(1);
+            QVERIFY2(why.contains(u"does not match"_s), qPrintable(why));
+        }
+        {
+            const QString why = refusal(2);
+            QVERIFY2(why.contains(u"larger"_s), qPrintable(why));
+        }
+        {
+            const QString why = refusal(3);
+            QVERIFY2(why.contains(u"larger"_s), qPrintable(why));
+        }
+        {
+            const QString why = refusal(4);
+            QVERIFY2(why.contains(u"not a picture"_s), qPrintable(why));
+        }
+        {
+            const QString why = refusal(5);
+            QVERIFY2(why.contains(u"not a picture"_s), qPrintable(why));
+        }
         for (int index = 1; index <= 5; ++index)
             QVERIFY(fronts.preview(id, index).isEmpty());
 
