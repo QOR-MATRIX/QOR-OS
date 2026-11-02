@@ -83,6 +83,8 @@ struct Studio {
         // give it only after the first frame, which in software can take seconds; a window that never gets it is left
         // to the cases that need it.
         [[maybe_unused]] const bool hasKeyboard = QTest::qWaitForWindowActive(window, 15000);
+        // Says what draws it, and stops the suite if products.sh expected otherwise.
+        [[maybe_unused]] const bool software = qq::drawnInSoftware(window);
         return true;
     }
 

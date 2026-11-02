@@ -53,11 +53,11 @@
 #include <QTest>
 #include <QVector2D>
 #include <QtQml/qqmlextensionplugin.h>
-#include <rhi/qrhi.h>
 
 #include <cmath>
 #include <functional>
 
+#include "../../../qq/tests/drawnin.h"
 #include "activewindow.h"
 #include "arqadelink.h"
 #include "arqadeserver.h"
@@ -881,13 +881,8 @@ class TestGames : public QObject
         return (set > 0 ? set : 300000) - 20000;
     }
 
-    // Whether Mesa's software renderer draws this window, by what the renderer says of itself: an environment variable set
-    // by mistake cannot put a GPU on the path below.
-    bool drawnInSoftware() const
-    {
-        const QRhi *rhi = window->rhi();
-        return rhi && rhi->driverInfo().deviceName.contains("llvmpipe");
-    }
+    // Whether this suite takes its path for frames drawn in software: the renderer and products.sh must agree, or it stops.
+    bool drawnInSoftware() const { return qq::drawnInSoftware(window); }
 
     // One turn of a pilot's play, by `decide`, which plays what it would do next, unless `stop` says the turn is over.
     // On a GPU that is a decision, and a moment for the frame the next tick comes with. In software a frame takes over a

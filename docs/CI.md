@@ -137,9 +137,9 @@ products ran.
 
 #### What Linux runs
 
-**`QOR_RUN_LINUX_PRODUCTS` is not set, so today it runs none of this.** With it
-set, the job runs every suite each product registers with CTest, **all of them
-in software**, hidden:
+**`QOR_RUN_LINUX_PRODUCTS` is not set and Build is paused, so today CI runs none of this.** With it set, the job runs
+every suite each product registers with CTest, hidden: **in software under WSL or with no GPU device, and on the GPU
+on a Linux machine that has a working one.**
 
 - **Fenced from the GPU.** Under WSL the script hides `/dev/dxg` in a namespace of
   its own, and Mesa draws with llvmpipe. A machine with no door to a GPU at all
@@ -149,20 +149,31 @@ in software**, hidden:
   platform; a session bus and an in-memory keyring of its own; no sound device.
 - **Within the machine's limits.** One job at a time and 8 compilers, as for the
   rest of the job. The tests are held to half the processors and three quarters of
-  WSL's memory where systemd's user manager runs.
+  WSL's memory where systemd's user manager runs. The script prints the commit, the
+  kernel, the processors, the limits and the display it ran with.
 
-**A pass there says nothing of a real GPU, real sound or a real controller.** It
+**A pass in software says nothing of a real GPU, real sound or a real controller.** It
 says what the games do, by their own clocks, and that their windows behave.
 Nothing here replaces playing them on the Linux machine.
 
-**The log and the step's summary name every case failed or skipped, with why**, in
-each product's `what its suites said` (`tools/dev/products-report.py`, from CTest's own
-log, the only place a passing suite's output is kept). A suite that stops before its
-end says `STOPPED`. Nothing is excluded. These are the cases that do not simply pass:
+**What draws is checked, not assumed.** From the machine's devices the script decides what should draw, and always sets
+`QOR_EXPECTED_RENDERER` to it, whatever the environment said. The suites whose checks differ in software (`tst_play`,
+`tst_studio`, `tst_agent`, `tst_player` and `games`) print what drew them, and stop if it disagrees, whichever way round. So
+`GALLIUM_DRIVER=llvmpipe`, `LIBGL_ALWAYS_SOFTWARE=1` or a render node Mesa cannot use is a failure on a machine with a GPU, not
+an easier run, and a machine with no render node that draws with some other renderer fails too. The other suites check the same
+either way, and neither print nor stop. Run by hand, or by `products.ps1`, nothing is expected and a suite takes its strict path.
+Only someone who sets both by hand, outside the script, is eased on a machine with a GPU, and the suite says what drew it.
+
+**The log and the step's summary name every case failed or skipped, with why**, in each product's `what its suites said`
+(`tools/dev/products-report.py`). It reads two files of CTest's: its log, the only place a passing suite's output is kept, and its
+record (`ctest -T Test`), the only place that says how a suite ended. A Qt Test suite with no totals says `STOPPED`. A suite that
+could not start, or skipped itself by its `SKIP_RETURN_CODE`, says `NOT RUN`, never a pass. A suite that is not Qt Test has no counts,
+and reads passed, failed or stopped by the record. At the end the script names any suite that passed only on a later attempt, having
+checked that the retry ran it. Nothing is excluded. These are the cases that do not simply pass:
 
 | Case | In software, under WSL | Why |
 |------|------------------------|-----|
-| QQ's `tst_player`: `thePlaygroundPlaysAndItsStartIsMeasured` | **Fails, and so fails the step**, until the owner says otherwise | Its floor of 20 frames a second, a real performance check, reads 5 to 6 here. It stays a check on Windows. See below |
+| QQ's `tst_player`: `thePlaygroundPlaysAndItsStartIsMeasured` | **Fails, and so fails the step**, until the owner says otherwise | Its floor of 20 frames a second, a real performance check, reads about 6 here. It stays a check on Windows. See below |
 | QQ's `tst_agent`: `theRealProviderIsReachedOverTls` | Skipped, as everywhere | Needs `QQ_LIVE_ENDPOINT=1`, to reach the real provider |
 | QOR Media's `playback`: `video_decodes_through_ffmpeg` | Skipped | Windows' sample video is not on this machine |
 | QOR Media's `playback`: `it_docks_inside_the_launchers_window_and_lifts_out_to_full_screen` | Skipped | Wayland has no window handles to dock by; Prism places the window ([QOR-0010](decisions/QOR-0010-on-wayland-prism-places-the-products-windows.md)) |
@@ -170,40 +181,46 @@ end says `STOPPED`. Nothing is excluded. These are the cases that do not simply 
 **The QQ Player's floor** asks for 20 frames a second of the bundled playground. Software
 cannot give that, and it says nothing of the game, so the floor is neither lowered nor skipped:
 the case fails and says what it read. Whether Linux CI stays red on it or lets it stand is the
-owner's decision. `tools/dev/products.sh --accept-software-floor` is the second. In software only, it
-reports the failure and lets it stand when all of this holds: that check in that case is the product's
-only failure, `tst_player` ended normally with that one failure as its exit status (CTest's record says
-so; its log says only "Test Failed.", even of a crash), and the Player still drew **at least 1 frame a
-second**, since below that it has stopped drawing, which is a fault anywhere. `build.yml` does not pass
-it, so the step is red on this alone.
+owner's decision. `tools/dev/products.sh --accept-software-floor` is the second. It reports the failure and lets it stand only when
+all of this holds: the script expected software from the machine's devices, and the Player says `llvmpipe` drew it; that check in that
+case is the product's only failure; `tst_player` ended normally with that one failure as its exit status (CTest's record says so; its
+log says only "Test Failed.", even of a crash); and the Player read **at least 1 frame a second** (`STILL_DRAWING_FPS`). Any other
+suite that failed, stopped or could not start refuses it, Qt Test or not. One that skipped itself does not, and still reads `NOT RUN`.
+`build.yml` does not pass the flag, so the step is red on this alone.
 
-**How long.** On this laptop, with the builds incremental, about 70 minutes: QQ 17, ARQADE 50
-(`games`, which is `tst_games`, 49), QOR Media under one. So a cold build and a second go at a
-failed `games` fit the step's limit of 180 minutes, and the job has 270 with the variable set.
+**Whether the Player kept drawing is a check of its own, on every machine,** neither part of the floor nor eased with it. An average
+cannot say it: a Player that draws four frames and stops reads 1.3 over its three measured seconds. So `tst_player` fails if the last
+frame came more than a second before those three seconds ended (`lastFrameAgoMs` in `--measure`'s report).
+
+**How long.** On this laptop, with the builds incremental, about 77 minutes, QQ and ARQADE measured on 1 November 2026 with
+nothing else holding the machine's one heavy job: QQ 22 (`tst_play` 7, `tst_workspace` 4), ARQADE 55 (`games`, which is
+`tst_games`, 52), and QOR Media under one, from an earlier run. So a cold build and a second go at a failed `games` fit
+the step's limit of 180 minutes, and the job has 270 with the variable set.
 What the products built then has its exploit mitigations read back, as on Windows.
 
-**On a GPU these suites check what they always did, and one thing more:** `tst_agent`'s
-`aLongWaitLastsWhatItWasAskedFor`, on every machine. What follows is eased **in software alone**. The
-suites choose that by the renderer's own name (`llvmpipe`, in `products/qq/tests/drawnin.h` and `tst_games`'
-`drawnInSoftware`) and the script by the machine's devices. The owner has not been asked to accept these,
-and they do not count as a pass of what they leave out.
+**On a GPU these suites check what they did at `a3a2fd4`, with these differences.** Added, on every machine: `tst_agent`'s
+`aLongWaitLastsWhatItWasAskedFor`; `tst_player`'s check that the Player kept drawing; and the renderer's check above, where the script
+expects something. Changed, and no easier: the gamepad's jump in `tst_play` waits 500 ms on the wall, where its 50 short waits took at
+least that, so it has less time to reach the same height; each of Orbital's ten locks looks the satellite up and checks it is there,
+where only the first did. What follows is eased **in software alone**: where the script expects it and the renderer says `llvmpipe`
+(`products/qq/tests/drawnin.h`). The owner has not been asked to accept these, and they do not count as a pass of what they leave out.
 
 **What software alone no longer checks:**
 
-- **That the world keeps up with real time.** On a GPU the walks, the falls and Orb Run's first orb in
-  `tst_play`, `tst_studio` and `tst_agent` wait on the wall's clock, so that a walk of over 3 metres in a
-  second fails a world below two thirds of real time. In software nothing compares the world with the
-  wall. A game has three clocks, which agree at 30 frames a second or more: a body moves by the physics
-  world's (at most 1/30 s a frame), the Player's turn, fall and jump speeds go by the frame clock (at most
-  1/20 s), and logic by the scene's ticks (at most 8/60 s). In software these cases wait on the clock the
-  thing goes by, with the same numbers, and a limit on the wall's time that stops a hung game.
+- **That the world keeps up with real time, in the cases that were failing for it.** On a GPU the walks, the Studio's and the agent's
+  falls and Orb Run's first orb in `tst_play`, `tst_studio` and `tst_agent` wait on the wall's clock, so that a walk of over 3 metres in a
+  second fails a world below two thirds of real time. In software these wait instead on the clock the thing goes by, with the same numbers,
+  and a limit on the wall's time that stops a hung game. A game has three clocks, which agree at 30 frames a second or more: a body moves
+  by the physics world's (at most 1/30 s a frame), the Player's turn, fall and jump speeds go by the frame clock (at most 1/20 s), and
+  logic by the scene's ticks (at most 8/60 s). Other cases still wait on the wall in software, such as `tst_play`'s falling shapes, whose
+  2½ and 3 seconds leave a world room to run well under real time, so they check it far less than a GPU's walk does.
 - **That frames pay logic's ticks at the right rate, against what moves bodies.** On a GPU `tst_play`'s
-  `logicMakesAndRemovesEntitiesOnItsOwnClock` is paid by frames, so logic running ahead of bodies fails it. In
-  software logic's clock runs up to four times ahead of the physics world's, so there it pays its ticks from the
-  physics world's time, and `root.advance(frameTime * 3)` in `Scene.qml` passes it. Darkveil's two pilot cases are
-  paid by frames on a GPU too, as a person's game is. In software the pilot pays them itself, one to each decision,
-  because deciding once in eight ticks plays a rougher game: of two such runs of the first case, one went home to the
-  healer before it met the Elder, which fails it, and one passed.
+  `logicMakesAndRemovesEntitiesOnItsOwnClock` is paid by frames, so logic running more than about 1.6 times ahead of bodies fails it: the
+  drops have not fallen 2 metres when logic's clock says they should have. In software logic's clock runs up to four times ahead of the physics
+  world's, so there it pays its ticks from the physics world's time, and `root.advance(frameTime * 3)` in `Scene.qml` passes it. Darkveil's two
+  pilot cases are paid by frames on a GPU too, as a person's game is. In software the pilot pays them itself, one to each decision, because
+  deciding once in eight ticks plays a rougher game: of two such runs of the first case, one went home to the healer before it met the Elder,
+  which fails it, and one passed.
 - **ARQADE's threaded render loop.** The script sets `QSG_RENDER_LOOP=basic` for it. On the threaded loop,
   on Wayland, with frames this slow, each turn of the event loop took one frame more than the last: at the
   13th turn of Orbital's first lock, 13 frames and 15 seconds. ARQADE keeps one window through all its cases,
@@ -215,14 +232,16 @@ and they do not count as a pass of what they leave out.
   drawing lets the test look, so it keeps each sound as it begins (`PlacedVoices`), which shows it began where it
   should, and compares the lock with where the satellite was as the lock was asked for.
 - **Limits on the wall's time that stop a slow or hung game sooner:** `QTEST_FUNCTION_TIMEOUT` is 30 minutes and
-  a suite's limit 90, not 5 and 15; Rift Survivor's hull has that case limit, less 20 seconds, not 2 minutes, since it
-  takes 13½ to break; the drops case has 60 and 30 seconds, not 8 and 4.
+  a suite's limit 90, not 5 and 15. What follows that limit, less 20 seconds, goes from 280 seconds to 1780: Darkveil's two pilot
+  cases and Bellwick's two. Rift Survivor's hull has it too, not 2 minutes, since it takes 13½ to break. The drops case has 60 and 30
+  seconds, not 8 and 4.
 - **Anything of a real GPU, real sound or a real controller**, as above.
 
 **The GPU's side of each of these has run here only by forcing it on in software**, since no GPU may be used here. Forced, the
 walks, the falls, the drops, Orb Run's first orb, the lock's sound and the hull's two minutes each failed, as they should
 where software cannot keep up. The live check of a kill's sound and Darkveil's frame-paid first case passed. The other sounds and
-Darkveil's second case were not run forced. Windows or Linux CI on a GPU must still confirm all of it.
+Darkveil's second case were not run forced. Since Build is paused and Linux here is fenced, a stated run of `tools/dev/products.ps1` on
+Windows is what must still confirm them, with the `Qt6::GuiPrivate` that `tst_studio`, `tst_play`, `tst_agent` and `qq-player` now link.
 
 **What the suites need of the machine.** Loopback: `tst_agent`, `tst_games` (its arenas and
 sign-in) and `tst_arqadeserver` talk to stand-ins for the provider and ARQADE's server on 127.0.0.1,
