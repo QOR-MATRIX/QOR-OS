@@ -1045,6 +1045,224 @@ private slots:
         QVERIFY(!QFileInfo::exists(qq::ProjectWorkspace::recentFile()));
     }
 
+    // ── saving goes where it came from ──
+
+    /// A scene not named as the Studio would name it goes back to its own file, keeping the file's name, however often.
+    void aSceneSavesBackToTheFileItCameFrom_data()
+    {
+        QTest::addColumn<QString>("name");
+        QTest::newRow("capitals") << QStringLiteral("Level");
+        QTest::newRow("words") << QStringLiteral("My Level");
+        QTest::newRow("as the Studio names them") << QStringLiteral("level");
+    }
+    void aSceneSavesBackToTheFileItCameFrom()
+    {
+        QFETCH(QString, name);
+        Project p;
+        p.scene(name, QStringLiteral("Its own"));
+        trust(p.url());
+        STUDIO_IN(p.url());
+        QVERIFY(s.call("openScene", name).toBool());
+        const QUrl file = s.get("sceneFile").toUrl();
+        for (int round = 0; round < 2; ++round) {
+            s.edit();
+            QVERIFY(s.get("dirty").toBool());
+            QVERIFY2(s.call("saveScene").toBool(), qPrintable(s.notice()));
+            QCOMPARE(s.get("sceneFile").toUrl(), file);
+            QCOMPARE(s.get("sceneName").toString(), name);
+            QCOMPARE(s.get("dirty").toBool(), false);
+            QCOMPARE(QDir(p.file(QStringLiteral("scenes"))).entryList(QDir::Files), QStringList{name + QStringLiteral(".qml")});
+            QVERIFY(QString::fromUtf8(readBytes(file.toLocalFile())).contains(QStringLiteral(" edited")));
+        }
+        // Not said to have kept out of another's way: it was its own.
+        QVERIFY2(!s.notice().contains(QStringLiteral("already there")), qPrintable(s.notice()));
+    }
+
+#ifdef Q_OS_LINUX
+    /// Where a system tells them apart, a scene in capitals and one not are two scenes, each saved to itself.
+    void twoScenesThatDifferOnlyInCaseStayTwo()
+    {
+        Project p;
+        p.scene(QStringLiteral("Level"), QStringLiteral("Capital"));
+        p.scene(QStringLiteral("level"), QStringLiteral("Small"));
+        trust(p.url());
+        const QByteArray small = readBytes(p.file(QStringLiteral("scenes/level.qml")));
+        STUDIO_IN(p.url());
+        QVERIFY(s.call("openScene", QStringLiteral("Level")).toBool());
+        s.edit();
+        QVERIFY2(s.call("saveScene").toBool(), qPrintable(s.notice()));
+        QCOMPARE(readBytes(p.file(QStringLiteral("scenes/level.qml"))), small);
+        QVERIFY(QString::fromUtf8(readBytes(p.file(QStringLiteral("scenes/Level.qml")))).contains(QStringLiteral(" edited")));
+    }
+#endif
+
+    /// A new scene takes a name no scene has, as a system that ignores case would compare them, and goes on past -2.
+    void aNewSceneTakesANameNoSceneHas()
+    {
+        Project p;
+        p.scene(QStringLiteral("Untitled"), QStringLiteral("In capitals"));
+        trust(p.url());
+        const QByteArray theirs = readBytes(p.file(QStringLiteral("scenes/Untitled.qml")));
+        STUDIO_IN(p.url());
+        QCOMPARE(s.get("sceneName").toString(), QStringLiteral("untitled"));
+        s.edit();
+        QVERIFY2(s.call("saveScene").toBool(), qPrintable(s.notice()));
+        QCOMPARE(s.get("sceneName").toString(), QStringLiteral("untitled-2"));
+        QCOMPARE(readBytes(p.file(QStringLiteral("scenes/Untitled.qml"))), theirs);
+
+        // And again, with that one taken as well.
+        s.call("newScene");
+        s.edit();
+        QVERIFY2(s.call("saveScene").toBool(), qPrintable(s.notice()));
+        QCOMPARE(s.get("sceneName").toString(), QStringLiteral("untitled-3"));
+        QVERIFY(QFileInfo::exists(p.file(QStringLiteral("scenes/untitled-3.qml"))));
+    }
+
+    /// The logic open in the editor is saved to its own file, whatever its case or folder.
+    void logicIsSavedToTheFileThatIsOpen_data()
+    {
+        QTest::addColumn<QString>("name");
+        QTest::newRow("capitals") << QStringLiteral("PlayerMove");
+        QTest::newRow("a folder") << QStringLiteral("sub/x");
+        QTest::newRow("words") << QStringLiteral("Two Words");
+        QTest::newRow("as the Studio names them") << QStringLiteral("rule");
+    }
+    void logicIsSavedToTheFileThatIsOpen()
+    {
+        QFETCH(QString, name);
+        Project p;
+        p.scene(QStringLiteral("level"), QStringLiteral("A scene"));
+        p.logic(name, QStringLiteral("its own"));
+        // What normalising its name would have landed on, which holds other work.
+        p.logic(QStringLiteral("playermove"), QStringLiteral("another's"));
+        p.logic(QStringLiteral("sub-x"), QStringLiteral("another's"));
+        p.logic(QStringLiteral("two-words"), QStringLiteral("another's"));
+        trust(p.url());
+        const auto before = p.contents();
+        STUDIO_IN(p.url());
+        QVERIFY(s.call("openLogic", name).toBool());
+        s.type(QStringLiteral("import QQ\n\nLogic {\n    // typed\n}\n"));
+        QVariant saved;
+        QVERIFY(QMetaObject::invokeMethod(s.editor(), "save", Q_RETURN_ARG(QVariant, saved)));
+        QVERIFY2(saved.toBool(), qPrintable(s.notice()));
+        QCOMPARE(s.logicName(), name);
+        QCOMPARE(s.editor()->property("dirty").toBool(), false);
+
+        auto after = p.contents();
+        const QString relative = QStringLiteral("logic/%1.qml").arg(name);
+        QVERIFY(QString::fromUtf8(after.value(relative)).contains(QStringLiteral("typed")));
+        after.insert(relative, before.value(relative));
+        QCOMPARE(after, before);
+    }
+
+    /// Its file gone, and another of the name it would be given there: that one is not written over.
+    void logicWhoseFileHasGoneTakesNoOthersPlace()
+    {
+        Project p;
+        p.scene(QStringLiteral("level"), QStringLiteral("A scene"));
+        p.logic(QStringLiteral("PlayerMove"), QStringLiteral("its own"));
+        p.logic(QStringLiteral("playermove"), QStringLiteral("another's"));
+        trust(p.url());
+        const QByteArray other = readBytes(p.file(QStringLiteral("logic/playermove.qml")));
+        STUDIO_IN(p.url());
+        QVERIFY(s.call("openLogic", QStringLiteral("PlayerMove")).toBool());
+        s.type(QStringLiteral("// typed\n"));
+        QVERIFY(QFile::remove(p.file(QStringLiteral("logic/PlayerMove.qml"))));
+        QVariant saved;
+        QVERIFY(QMetaObject::invokeMethod(s.editor(), "save", Q_RETURN_ARG(QVariant, saved)));
+        if (!QFileInfo::exists(p.file(QStringLiteral("logic/PlayerMove.qml")))) {
+            QVERIFY(!saved.toBool());
+            QVERIFY(s.get("noticeIsProblem").toBool());
+            QVERIFY2(s.notice().contains(QStringLiteral("playermove")), qPrintable(s.notice()));
+            QVERIFY(s.editor()->property("dirty").toBool());
+        }
+        QCOMPARE(readBytes(p.file(QStringLiteral("logic/playermove.qml"))), other);
+        s.type(s.editor()->property("saved").toString());
+    }
+
+    /// Whatever name it is given, logic stays in logic/: a name is not a way out of it, or into another of the project's folders.
+    void aLogicNameLeadsNowhereElse_data()
+    {
+        QTest::addColumn<QString>("name");
+        QTest::newRow("up into scenes") << QStringLiteral("../scenes/level");
+        QTest::newRow("up and out") << QStringLiteral("../../outside");
+        QTest::newRow("a full path") << QStringLiteral("/tmp/outside");
+        QTest::newRow("the other slash") << QStringLiteral("..\\scenes\\level");
+    }
+    void aLogicNameLeadsNowhereElse()
+    {
+        QFETCH(QString, name);
+        Project p;
+        p.scene(QStringLiteral("level"), QStringLiteral("A scene"));
+        const QByteArray scene = readBytes(p.file(QStringLiteral("scenes/level.qml")));
+        qq::SceneIO io;
+        const QUrl written = io.writeLogic(p.url(), name, QStringLiteral("// written\n"));
+        QCOMPARE(readBytes(p.file(QStringLiteral("scenes/level.qml"))), scene);
+        if (!written.isEmpty())
+            QCOMPARE(QFileInfo(written.toLocalFile()).absolutePath(), QFileInfo(p.file(QStringLiteral("logic/x"))).absolutePath());
+    }
+
+    /// A logic folder that is a link out of the project is not written into, whatever the name.
+    void aLogicFolderThatLeadsOutIsNotWrittenInto()
+    {
+        Project p;
+        Project elsewhere;
+        if (!makeLink(elsewhere.path(), p.file(QStringLiteral("logic"))))
+            QSKIP("This system would not let that be made here.");
+        qq::SceneIO io;
+        QVERIFY(io.writeLogic(p.url(), QStringLiteral("rule"), QStringLiteral("// written\n")).isEmpty());
+        QVERIFY(!io.lastError().isEmpty());
+        QVERIFY(QDir(elsewhere.path()).isEmpty());
+    }
+
+    /// A link in a saved file's place that leads nowhere or out of the project is not written through.
+    void aSaveIsNotWrittenThroughALinkThatLeadsAway_data()
+    {
+        QTest::addColumn<bool>("logic");
+        QTest::addColumn<bool>("dangling");
+        QTest::newRow("a scene, to nothing") << false << true;
+        QTest::newRow("a scene, out of the project") << false << false;
+        QTest::newRow("logic, to nothing") << true << true;
+        QTest::newRow("logic, out of the project") << true << false;
+    }
+    void aSaveIsNotWrittenThroughALinkThatLeadsAway()
+    {
+        QFETCH(bool, logic);
+        QFETCH(bool, dangling);
+        Project p;
+        Project elsewhere;
+        trust(p.url());
+        const QString target = elsewhere.file(QStringLiteral("target.qml"));
+        if (!dangling)
+            QVERIFY(writeFile(target, "what is out there"));
+        const QByteArray held = readBytes(target);
+        const QString place = p.file(logic ? QStringLiteral("logic/rule.qml") : QStringLiteral("scenes/untitled.qml"));
+        if (!makeLink(target, place))
+            QSKIP("This system would not let that be made here.");
+        qq::SceneIO io;
+        STUDIO_IN(p.url());
+        if (logic) {
+            io.setProject(p.url());
+            QVERIFY(io.writeLogic(p.url(), QStringLiteral("rule"), QStringLiteral("// written\n")).isEmpty());
+            QVERIFY2(io.lastError().contains(QStringLiteral("logic/rule.qml")), qPrintable(io.lastError()));
+        } else {
+            // A link to nothing is not listed as a scene, so saving meets it, and says. One to a file is listed, so the name is
+            // taken and a new scene keeps clear of it.
+            s.edit();
+            const bool saved = s.call("saveScene").toBool();
+            QCOMPARE(saved, !dangling);
+            if (dangling) {
+                QVERIFY(s.get("noticeIsProblem").toBool());
+                QVERIFY2(s.notice().contains(QStringLiteral("link")), qPrintable(s.notice()));
+            } else {
+                QCOMPARE(s.get("sceneName").toString(), QStringLiteral("untitled-2"));
+            }
+            s.call("newScene");
+        }
+        QCOMPARE(QFileInfo::exists(target), !dangling);
+        QCOMPARE(readBytes(target), held);
+    }
+
     // ── no mix-ups ──
 
     void undoDoesNotBringOneProjectIntoAnother()

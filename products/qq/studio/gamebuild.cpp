@@ -171,7 +171,8 @@ bool GameBuild::start(const QUrl &project, const QUrl &scene)
     const QString folder = project.toLocalFile();
     const QString file = scene.toLocalFile();
     const QString games = gamesFolder();
-    QThread *thread = QThread::create([this, folder, file, games] { m_result = make(folder, file, games); });
+    const Limits limits = m_limits;
+    QThread *thread = QThread::create([this, folder, file, games, limits] { m_result = make(folder, file, games, limits); });
     thread->setParent(this);
     connect(thread, &QThread::finished, this, [this, thread] {
         m_thread = nullptr;
@@ -227,6 +228,9 @@ QVariantMap GameBuild::make(const QString &project, const QString &scene, const 
             return refused(found.problem);
     }
 
+    if (limits.step)
+        limits.step("walked");
+
     const QString name = folderNameFor(root);
     const QDir gamesDir(gamesPath);
     clearLeftovers(gamesDir, name);
@@ -267,12 +271,17 @@ QVariantMap GameBuild::make(const QString &project, const QString &scene, const 
     if (!written.open(QIODevice::WriteOnly) || written.write(QJsonDocument(manifest).toJson()) < 0 || !written.commit())
         return refused(tr("What this game holds could not be written: %1").arg(written.errorString()));
 
+    if (limits.step)
+        limits.step("copied");
+
     // Into place whole. What is playing the old one, on a system that lets a folder move under it, goes on playing it.
     QString old;
     if (existing.exists()) {
         old = gamesDir.filePath(QStringLiteral(".old-%1-%2").arg(name, QFileInfo(staging.path()).fileName().right(6)));
         if (!QDir().rename(target, old))
             return refused(tr("%1 could not be replaced. If it is playing, close it, then build.").arg(title));
+        if (limits.step)
+            limits.step("moved-aside");
     }
     if (!QDir().rename(staging.path(), target)) {
         if (!old.isEmpty())
@@ -280,6 +289,8 @@ QVariantMap GameBuild::make(const QString &project, const QString &scene, const 
         return refused(tr("%1 could not be put in place in %2.").arg(title, gamesPath));
     }
     staging.setAutoRemove(false);
+    if (limits.step)
+        limits.step("in-place");
     if (!old.isEmpty())
         QDir(old).removeRecursively();
 

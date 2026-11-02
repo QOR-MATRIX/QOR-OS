@@ -26,6 +26,8 @@
 #include <QVariantMap>
 #include <QtQml/qqmlregistration.h>
 
+#include <functional>
+
 namespace qq {
 
 class GameBuild : public QObject
@@ -41,6 +43,10 @@ public:
     struct Limits {
         qint64 bytes = 8LL * 1024 * 1024 * 1024;
         int files = 50000;
+        /// For a test: called as a build reaches each of its steps, on the build's thread: "walked", once it knows its files;
+        /// "copied", once they and the manifest are in the staging folder; "moved-aside", between the two renames; and
+        /// "in-place", before the old game is deleted. Nothing but a test sets this: no command line or setting reaches it.
+        std::function<void(const char *)> step;
     };
 
     explicit GameBuild(QObject *parent = nullptr);
@@ -66,6 +72,9 @@ public:
     /// The game's folder name for a project at this real path.
     static QString folderNameFor(const QString &realProject);
 
+    /// What start() builds with, for a test.
+    void setLimits(const Limits &limits) { m_limits = limits; }
+
 signals:
     void busyChanged();
     void finished(const QVariantMap &result);
@@ -73,6 +82,7 @@ signals:
 private:
     QPointer<QThread> m_thread;
     QVariantMap m_result;
+    Limits m_limits;
 };
 
 }  // namespace qq

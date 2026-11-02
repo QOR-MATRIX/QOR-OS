@@ -222,9 +222,12 @@ private slots:
         QVERIFY(notJson.open(QIODevice::WriteOnly));
         notJson.write("{ not json");
         notJson.close();
+        // A good manifest, and past the limit only by what follows it: reading up to the limit and no further would
+        // believe it, so it is the limit on the file that says no.
         QFile tooLarge(QDir(large).filePath(u"game.json"_s));
         QVERIFY(tooLarge.open(QIODevice::WriteOnly));
-        QVERIFY(tooLarge.resize(33 * 1024 * 1024));
+        QVERIFY(tooLarge.write(QJsonDocument(builtManifest()).toJson()) > 0);
+        QVERIFY(tooLarge.write(QByteArray(33 * 1024 * 1024, ' ')) > 0);
         tooLarge.close();
 
         const QVariantList found = Library::scan({ games.path() }, {}, {}).games;
@@ -241,6 +244,7 @@ private slots:
         QTest::newRow("the manifest") << u"manifest"_s;
         QTest::newRow("the scene") << u"scene"_s;
         QTest::newRow("the scenes folder") << u"scenes"_s;
+        QTest::newRow("the game's own folder") << u"folder"_s;
     }
     void a_built_game_is_not_believed_through_a_link()
     {
@@ -250,8 +254,14 @@ private slots:
         const QString folder = games.filePath(u"orb-run"_s);
         touch(outside.filePath(u"scenes/level.qml"_s));
         writeManifest(outside.path(), builtManifest());
-        QDir().mkpath(folder);
-        if (what == u"manifest"_s) {
+        if (what == u"folder"_s) {
+            QVERIFY(QFile::link(outside.path(), folder));
+        } else {
+            QDir().mkpath(folder);
+        }
+        if (what == u"folder"_s) {
+            // Nothing more: the whole game is the link.
+        } else if (what == u"manifest"_s) {
             touch(QDir(folder).filePath(u"scenes/level.qml"_s));
             QVERIFY(QFile::link(outside.filePath(u"game.json"_s), QDir(folder).filePath(u"game.json"_s)));
         } else if (what == u"scene"_s) {
@@ -263,8 +273,12 @@ private slots:
             writeManifest(folder, builtManifest());
         }
 
-        for (const QVariant &game : Library::scan({ games.path() }, {}, {}).games)
-            QCOMPARE(game.toMap().value(u"source"_s).toString(), u"qq"_s);
+        // Found as any folder of scenes is, and not as a game built here, whatever it says of itself. There is one: a
+        // loop over nothing would prove nothing.
+        const QVariantList found = Library::scan({ games.path() }, {}, {}).games;
+        QCOMPARE(found.size(), 1);
+        QCOMPARE(found.first().toMap().value(u"source"_s).toString(), u"qq"_s);
+        QVERIFY(found.first().toMap().value(u"title"_s).toString() != u"Orb Run (planted)"_s);
     }
 #endif
 

@@ -135,6 +135,7 @@ qt_add_executable(tst_gamebuild tst_gamebuild.cpp)
 # Changed for QOR OS: making a game of a project, the real Studio and the real Player on what it made.
 target_compile_definitions(tst_gamebuild PRIVATE
     QQ_FIXTURES="${CMAKE_CURRENT_SOURCE_DIR}/fixtures"
+    QQ_SAMPLES="${CMAKE_CURRENT_SOURCE_DIR}/../samples"
     QQ_PLAYER="$<TARGET_FILE:qq-player>"
     QQ_STUDIO="$<TARGET_FILE:qq-studio>")
 
