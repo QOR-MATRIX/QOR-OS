@@ -226,8 +226,8 @@ before Create. On the morning of 2 November 2026 an `X:\qor-ci-vm` was there, le
 (its disk and image were the suite's test files), which then had nothing to keep them inside the test's own folder; they refuse
 anything outside it now. It held five items, all this account's: `.made-by-qor-ci-vm` (90 bytes), `disk\`, `disk\qor-ci-vm.vhdx`
 (2,097,664 bytes, a 2 MB test disk), `image\`, and `image\ubuntu-24.04-server-cloudimg-amd64-20261017.img` (199,605 bytes, a test
-image, not Ubuntu's). Create refuses a folder like that, because it is not owned by Administrators. It was gone by 10:42 that day,
-removed outside the script; the check above says whether anything has come back.
+image, not Ubuntu's). Create refuses a folder like that, because it is not owned by Administrators. The owner removed it that morning,
+and on checking it was gone; the check above says whether anything has come back.
 
 **To remove a leftover `X:\qor-ci-vm` that holds no VM,** in PowerShell 7, one command at a time, reading each answer before the next:
 
