@@ -8,6 +8,7 @@
 #include "services.h"
 #include "store.h"
 #include "storeengine.h"
+#include "storefronts.h"
 
 #include <QtCore/QCoreApplication>
 #include <QtCore/QDir>
@@ -585,8 +586,34 @@ private:
         installed.sort();
         return {
             { u"ready"_s, engine->state() == store::StoreEngine::State::Ready },
-            { u"items"_s, int(engine->catalog().items.size()) },
+            { u"items"_s, int(engine->catalog().formatOneItems().size()) },
             // Installed ids with their versions, comma-separated: "id@1.0.0,…".
+            { u"installed"_s,
+              [&] {
+                  QStringList list;
+                  for (const QString &id : installed)
+                      list.append(id + u'@' + engine->installed().value(id).version);
+                  return list.join(u',');
+              }() },
+        };
+    }
+
+    // Empty but for `available` in a build without a second engine.
+    static QJsonObject storefrontsState()
+    {
+        const store::StoreEngine *engine = store::Storefronts::engine();
+        if (!engine)
+            return { { u"available"_s, false } };
+        QStringList installed = engine->installed().keys();
+        installed.sort();
+        return {
+            { u"available"_s, true },
+            { u"ready"_s, engine->state() == store::StoreEngine::State::Ready },
+            { u"error"_s, engine->error() },
+            { u"sequence"_s, engine->lastSequence() },
+            { u"creatorFeatures"_s, engine->creatorFeatures() },
+            { u"player"_s, int(engine->listings(store::View::Player).size()) },
+            { u"creator"_s, int(engine->listings(store::View::Creator).size()) },
             { u"installed"_s,
               [&] {
                   QStringList list;
@@ -873,6 +900,20 @@ private:
                         return -1;
                     }
                     value = windowState(window);
+                } else if (expectation.contains(u"item"_s)) {
+                    // What a person is shown: {"expect": {"item": "storeItemName", "path": "text", "contains":
+                    // "Ember"}}
+                    const QQuickItem *item = findItem(expectation[u"item"_s].toString());
+                    if (!item) {
+                        if (expectation[u"equals"_s] == QJsonValue(u"absent"_s))
+                            return 0;
+                        m_error = u"no item named \"%1\""_s.arg(expectation[u"item"_s].toString());
+                        return -1;
+                    }
+                    value = QJsonObject { { u"visible"_s, item->isVisible() },
+                                          { u"enabled"_s, item->isEnabled() },
+                                          { u"text"_s, item->property("text").toString() },
+                                          { u"textFormat"_s, item->property("textFormat").toInt() } };
                 } else {
                     value = state();
                 }
@@ -1079,7 +1120,7 @@ private:
               snapshot("settings",
                        { "darkMode", "accentHue", "reduceMotion", "reduceTransparency", "increaseContrast",
                          "livingWallpaper", "audioReactive", "reactiveIntensity", "reactiveLowHz", "reactiveHighHz",
-                         "controllerInterface", "controllerAutoSwitch", "theme", "widgets" }) },
+                         "controllerInterface", "controllerAutoSwitch", "theme", "widgets", "creatorFeatures" }) },
             { u"audio"_s, snapshot("audio", { "volume", "muted", "outputDevice", "equalizer", "equalizerPreset",
                                               "systemSounds", "systemVolume", "active" }) },
             { u"media"_s,
@@ -1094,6 +1135,7 @@ private:
             { u"overviewProgress"_s, m_desktop->property("overviewProgress").toDouble() },
             { u"gesture"_s, gestureState() },
             { u"store"_s, storeState() },
+            { u"storefronts"_s, storefrontsState() },
             { u"editingWidgets"_s, m_desktop->property("editingWidgets").toBool() },
             // The desktop's widgets in Settings order: "id@col,row;…".
             { u"desktopWidgets"_s, desktopWidgets() },

@@ -8,7 +8,9 @@ and 3 ([Roadmap](#roadmap)).
 
 [QOR-0021](decisions/QOR-0021-projects-engines-and-two-stores.md) makes this two storefronts on shared services, a player
 store and a creator store, starting free and curated. The engine under them exists ([Format 2](#format-2-the-two-storefronts)),
-with a demonstration catalogue and no pages yet: what people see below is still the one store of themes and widgets.
+and so do their pages, in a build that asks for them, on a catalogue signed with a throwaway key
+([The demonstration build](#the-demonstration-build)). What people see in any other build is still the one store of themes and
+widgets below.
 
 ## What people see
 
@@ -40,6 +42,7 @@ System, Focus, Visualizer), all by QOR-MATRIX.
 |------|------|
 | `StoreEngine` | Fetches the catalogue; downloads, verifies, installs, updates and removes packages per user |
 | `Store` (QML singleton) | The catalogue and the user's library as plain maps for QML; installed themes and widgets |
+| `Storefronts` (QML singleton) | The Player Store and the Creator Store for QML, each asked for by name, in a demonstration build. Empty in any other |
 | `Themes` (QML singleton) | Aurora plus installed themes; the active one; `apply(id)` |
 | `ThemePreview` | A theme in miniature: its wallpaper and a window in its colours |
 
@@ -151,7 +154,7 @@ input while the desktop is being edited: the card disables it then.
 
 ### Format 2: the two storefronts
 
-One catalogue feeds both storefronts, and each listing says where it goes. Only the engine exists so far, with no pages.
+One catalogue feeds both storefronts, and each listing says where it goes.
 
 ```json
 {
@@ -265,11 +268,58 @@ the store's to change, and is not mirrored. Themes and widgets keep format 1 man
 catalogue's digest and that it is a picture.
 
 **The demonstration** is `tests/store/fixtures-demo/`, signed with a throwaway key that is used once and dropped, so no private
-key exists to keep out of the repository. It is in tests and development builds, never in a release: nothing of it is in any
-binary, and its key opens nothing else. It has two catalogues in turn, `v1` and `v2` (sequences 1 and 2). Each holds Ember
-Climb as a `game`, its art as an `asset-pack` (1.0.0, then 1.1.0), and Ember Climb's editable project as a draft. Everything in
-it is the Apache-2.0 sample in `products/qq/samples/ember-climb/`, with its licence and notice in each package. It expires in
+key exists to keep out of the repository. It is in tests and in a build that asks for it, never in a release: nothing of it is
+in any other binary, and its key opens nothing else. It has two catalogues in turn, `v1` and `v2` (sequences 1 and 2). Each holds
+Ember Climb as a `game`, its art as an `asset-pack` (1.0.0, then 1.1.0), and Ember Climb's editable project as a draft. Everything
+in it is the Apache-2.0 sample in `products/qq/samples/ember-climb/`, with its licence and notice in each package. It expires in
 2099, because tests read it for years.
+
+### The demonstration build
+
+`QOR_STORE_DEMONSTRATION`, off by default, is what shows the two storefronts on the shell. It is a choice of a build and never a
+release:
+
+- With it off there is no second engine. `Storefronts` answers nothing, no folder is made, its URL is read by nothing, and the
+  Store's Games, Tools and Music pages and Settings are as they were.
+- With it on, `tests/store/fixtures-demo/store.pub` is compiled in, and `QOR_STORE_DEMONSTRATION_URL` names a format 2 catalogue, or
+  several separated by `|` to be taken in turn.
+- `tst_storefronts` fails if a preset turns it on whose name does not end in `-demonstration` or that says CI or a release, if
+  what CI, a release or the image runs names it, or if a default build's `qor-shell` or `prism` holds the key. CMake refuses it
+  without the simulator, which is how a device's image is built.
+
+```bash
+cmake --preset linux-demonstration      # or windows-demonstration
+cmake --build --preset linux-demonstration --target qor-shell
+QOR_STORE_DEMONSTRATION_URL="$PWD/tests/store/fixtures-demo/v1/catalog.json|$PWD/tests/store/fixtures-demo/v2/catalog.json" \
+    build/linux-demonstration/prism/qor-shell
+```
+
+**A person's walk.** Open the Store. Games is the Player Store: Ember Climb is there, with its licence, where it came from, and
+Get. Settings › Store turns creator features on, and the sidebar gains the Creator Store, with the art pack. Library has a
+**Next Catalogue** button, which takes the next URL as a real store's catalogue would move on at one address, and the pack then
+offers its update to 1.1.0. Settings › Store turns them off: the Creator Store is gone, and the pack stays, its next update
+waiting until they are on again.
+
+**Two engines, because trust differs.** Themes and widgets stay on `Store`'s engine, folder and key, in format 1, since the
+first-party catalogue cannot be signed again without the owner's key. The second `StoreEngine` has its own key and its own folder,
+`demonstration/` in the Store's data location, which the first looks past. Each refuses the other's catalogue by its signature.
+Once the second has taken a format 2 catalogue, it refuses format 1, as any engine does.
+
+**What a page gets.** Every list asks of a view named `"player"` or `"creator"`, and any other name answers nothing. No page merges
+them, and the Library keeps what each engine installed on a card of its own. A map holds no path a catalogue chose: a page asks for a
+preview by number and gets a `data:` URL of the checked bytes, once their digest has matched, their first bytes have said they are
+a picture, and their header has said they are at most 4096 pixels a side, since a small file can claim a very large picture.
+Everything from a catalogue is someone else's text, in a `Text` that sets `textFormat: Text.PlainText`.
+
+**A licence's text is only in its package.** "Read the Licence" fetches the whole package and checks it as an install would, signature
+and all, and installs nothing. So reading a licence before getting a large item costs what getting it costs: a catalogue that wants
+better would carry the text beside itself, as it does a preview. Longer than 256 KB it is not shown, and the page says it comes with
+the package.
+
+**Starting again over the same folder.** A person who has reached `v2` and starts over finds `v1` refused as older, in plain words,
+with Next Catalogue beside the refusal. That is the sequence working. A fresh `QOR_STORE_DIR` starts the walk again.
+
+A game cannot be played from here yet: that, and installed games in the Library, are the next step.
 
 ## Building the catalogue
 
@@ -305,7 +355,9 @@ store key needs a QOR OS update.
 Tests: `tst_store` (signatures, the first-party catalogue, refused tampering,
 forgery and unsigned catalogues, install, update and remove), `tst_store_format2`
 (format 2, every package check and the engine behind the two storefronts, from the hostile side, signing what it needs with
-keys it makes and drops), a qmllint pass over every widget (`store_widgets_qmllint`), the Store section of `shell_e2e`, and
+keys it makes and drops), `tst_storefronts` (the build choice, and what the layer hands a page), `tst_storefronts_qml` (the real
+pages, over a catalogue of markup), `shell_e2e_store` (in a demonstration build a person's walk, and in any other that there is
+nothing to walk), a qmllint pass over every widget (`store_widgets_qmllint`), the Store section of `shell_e2e`, and
 `tests/tools/test_build_store.py` for the builder.
 
 ## What runs, and when it is checked
