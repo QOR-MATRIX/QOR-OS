@@ -3,6 +3,7 @@ pragma Singleton
 
 import QtQuick
 import QOR.Kit
+import QOR.Store
 import "FileIndex.js" as FileIndex
 
 // Catalogue of first-party apps: identity, icon, default window size, search
@@ -37,6 +38,7 @@ QtObject {
 
     readonly property var pinned: ["files", "music", "notes", "terminal", "monitor", "store", "settings"]
 
+    // Store: only where there is a Creator Store for its switch to be about, a demonstration build for now.
     readonly property var settingsPages: [
         { id: "appearance", title: qsTr("Appearance"), icon: "palette",
           keywords: "dark light theme themes accent color wallpaper aurora living",
@@ -61,11 +63,16 @@ QtObject {
           description: qsTr("Banners and Focus.") },
         { id: "accessibility", title: qsTr("Accessibility"), icon: "accessibility",
           keywords: "reduce motion transparency contrast vision",
-          description: qsTr("Motion, transparency and legibility.") },
+          description: qsTr("Motion, transparency and legibility.") }
+    ].concat(Storefronts.available ? [
+        { id: "store", title: qsTr("Store"), icon: "shopping-bag",
+          keywords: "creator features store assets makers",
+          description: qsTr("Creator features and the Creator Store.") }
+    ] : []).concat([
         { id: "about", title: qsTr("About"), icon: "info",
           keywords: "version qt system information modules",
           description: qsTr("QOR OS, Qt and graphics information.") }
-    ]
+    ])
 
     // Identities for system senders that are not apps (notifications).
     readonly property var senders: ({

@@ -119,6 +119,7 @@ Item {
                 case "controllers": return controllersPage;
                 case "notifications": return notificationsPage;
                 case "accessibility": return accessibilityPage;
+                case "store": return Storefronts.available ? storePage : appearancePage;
                 case "about": return aboutPage;
                 default: return appearancePage;
                 }
@@ -1174,6 +1175,26 @@ Item {
                     Switch {
                         checked: Services.settings.increaseContrast
                         onToggled: Services.settings.increaseContrast = checked
+                    }
+                }
+            }
+        }
+    }
+
+    Component {
+        id: storePage
+        Column {
+            spacing: 18
+            PageTitle { text: qsTr("Store") }
+            Group {
+                SettingRow {
+                    title: qsTr("Creator features")
+                    subtitle: qsTr("Adds the Creator Store: assets for making games. Turning this off removes nothing you have installed, and their updates wait until it is on again.")
+                    last: true
+                    Switch {
+                        objectName: "creatorFeaturesSwitch"
+                        checked: Services.settings.creatorFeatures
+                        onToggled: Services.settings.creatorFeatures = checked
                     }
                 }
             }
