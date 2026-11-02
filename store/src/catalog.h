@@ -27,6 +27,9 @@ bool isKnownKind(const QString &kind);
 // of its own, with rules for what its packages may hold.
 bool isInstallableKind(const QString &kind);
 
+// The name of the system this is running on, as a listing's `platforms` names it: linux-x86_64, windows-x86_64.
+QString currentPlatform();
+
 // Whether a kind may be placed in a store at all. A utility or a creator-app may be in either or both. Every other
 // player kind is for the player store alone, and every other creator kind for the creator store alone.
 bool kindMayBePlacedIn(const QString &kind, View store);
@@ -206,6 +209,8 @@ bool isVersionInRange(const QString &version, const QString &min, const QString 
 // Read from a catalogue's entry and from a signed manifest alike. Each returns why it could not, or an empty string.
 QString parseLicence(const QJsonValue &value, Licence *licence);
 QString parseDependencies(const QJsonValue &value, QList<VersionRange> *dependencies);
+QString parseEngines(const QJsonValue &value, QList<VersionRange> *engines);
+QString parsePlatforms(const QJsonValue &value, QStringList *platforms);
 QString parseEdition(const QJsonValue &value, const QString &kind, Edition *edition);
 
 // What is already installed, as dependencies see it.
@@ -225,9 +230,17 @@ struct InstallPlan
 
 // Works out what installing `id` takes, refusing rather than guessing: a cycle, a chain too deep, a dependency this
 // catalogue does not list, a version outside the range asked for, a downgrade of a dependency, an update that would
-// leave something installed outside the range it needs, and one edition of a group depending on another.
+// leave something installed outside the range it needs, and one edition of a group reaching another, however
+// indirectly.
 InstallPlan resolveDependencies(const Catalog &catalog, const QString &id,
                                 const QMap<QString, InstalledVersion> &installed);
+
+// Whether `incoming` landing on `installed` leaves things as they should be. Everything incoming must have what it
+// needs. Something installed must not lose a range that holds now. What is already broken and is not touched is no
+// reason to refuse: a block is about what this would affect, so one broken item does not stop every other install.
+// Returns why not, or an empty string.
+QString refusalOfOutcome(const QMap<QString, InstalledVersion> &installed,
+                         const QMap<QString, InstalledVersion> &incoming);
 
 // Bytes from a catalogue or an archive, cut down to something safe to put in a message or a log.
 QString printable(QStringView text);

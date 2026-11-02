@@ -68,7 +68,8 @@ class Demo(unittest.TestCase):
             for entry in catalog["items"]:
                 self.assertTrue(entry["placements"], entry["id"])
                 self.assertEqual(entry["entitlement"], {"type": "free"})
-                self.assertTrue(entry["platforms"], entry["id"])
+                self.assertIn("linux-x86_64", entry["platforms"], entry["id"])
+                self.assertIn("windows-x86_64", entry["platforms"], entry["id"])
                 self.assertIs(entry["executable"], False)
 
     def test_the_game_and_its_project_are_separate_listings_of_one_group(self):
@@ -95,6 +96,8 @@ class Demo(unittest.TestCase):
                     self.assertEqual(manifest[field], entry[field], field)
                 self.assertEqual(manifest["stores"], sorted({p["store"] for p in entry["placements"]}))
                 self.assertEqual(manifest.get("edition"), entry.get("edition"))
+                self.assertEqual(manifest["platforms"], entry["platforms"])
+                self.assertEqual(manifest["engines"], entry["engines"])
 
     def test_the_art_keeps_its_licence_and_notice(self):
         for name, catalog in self.stores():
@@ -150,8 +153,21 @@ class FirstParty(unittest.TestCase):
                    "description": "d", "released": "2026-11-01", "price": 1}
         with self.assertRaises(SystemExit):
             build_store.validate(build_store.Item("theme", listing, {"theme.json": b"{}"}), {"d": {}})
+        listing["price"] = False
+        with self.assertRaises(SystemExit):
+            build_store.validate(build_store.Item("theme", listing, {"theme.json": b"{}"}), {"d": {}})
         listing["price"] = 0
         build_store.validate(build_store.Item("theme", listing, {"theme.json": b"{}"}), {"d": {}})
+
+    def test_a_trailing_newline_is_not_part_of_an_id_or_a_version(self):
+        listing = {"id": "dev.qorsync.theme.x\n", "name": "X", "version": "1.0.0", "developer": "d", "summary": "s",
+                   "description": "d", "released": "2026-11-01"}
+        with self.assertRaises(SystemExit):
+            build_store.validate(build_store.Item("theme", listing, {"theme.json": b"{}"}), {"d": {}})
+        listing["id"] = "dev.qorsync.theme.x"
+        listing["version"] = "1.0.0\n"
+        with self.assertRaises(SystemExit):
+            build_store.validate(build_store.Item("theme", listing, {"theme.json": b"{}"}), {"d": {}})
 
 
 if __name__ == "__main__":

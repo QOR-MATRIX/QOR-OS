@@ -11,6 +11,7 @@
 #include <QtCore/QJsonObject>
 #include <QtCore/QRegularExpression>
 #include <QtCore/QSet>
+#include <QtCore/QSysInfo>
 
 #include <algorithm>
 #include <functional>
@@ -60,7 +61,7 @@ bool holdsPrice(const QJsonValue &value)
 
 bool isSha256(const QJsonValue &value)
 {
-    static const QRegularExpression pattern(u"^[0-9a-f]{64}$"_s);
+    static const QRegularExpression pattern(u"^[0-9a-f]{64}\\z"_s);
     return value.isString() && pattern.match(value.toString()).hasMatch();
 }
 
@@ -69,7 +70,7 @@ bool isFilledText(const QJsonValue &value) { return isText(value) && !value.toSt
 
 bool isIsoDate(const QString &text)
 {
-    static const QRegularExpression pattern(u"^\\d{4}-\\d{2}-\\d{2}$"_s);
+    static const QRegularExpression pattern(u"^\\d{4}-\\d{2}-\\d{2}\\z"_s);
     return pattern.match(text).hasMatch() && QDate::fromString(text, Qt::ISODate).isValid();
 }
 
@@ -80,8 +81,12 @@ CatalogResult refusal(const QString &error)
     return result;
 }
 
+// A catalogue with no list of developers, or of items, is not an empty catalogue: a signed one would use up its
+// sequence and take with it every key that what is installed is checked against.
 QString parseDevelopers(const QJsonObject &root, Catalog *catalog)
 {
+    if (!root.value(u"developers"_s).isObject())
+        return u"The catalogue has no list of developers."_s;
     const QJsonObject developers = root.value(u"developers"_s).toObject();
     for (auto it = developers.begin(); it != developers.end(); ++it) {
         const QJsonObject entry = it.value().toObject();
@@ -89,6 +94,15 @@ QString parseDevelopers(const QJsonObject &root, Catalog *catalog)
                               QByteArray::fromBase64(entry.value(u"key"_s).toString().toLatin1()) };
         if (developer.key.size() != 65 || developer.name.isEmpty())
             return u"Developer %1 has no valid key."_s.arg(printable(developer.id));
+        // Format 2 knows these fields as it does an item's, so nothing to do with money can sit here unread.
+        if (catalog->format == 2) {
+            static const QSet<QString> known { u"name"_s, u"verified"_s, u"key"_s };
+            if (const QString unknown = unknownKey(entry, known); !unknown.isEmpty())
+                return u"Developer %1 has a field format 2 does not know: %2."_s.arg(printable(developer.id),
+                                                                                     printable(unknown));
+            if (!entry.value(u"verified"_s).isBool())
+                return u"Developer %1 does not say whether it is verified."_s.arg(printable(developer.id));
+        }
         catalog->developers.insert(developer.id, developer);
     }
     return {};
@@ -123,7 +137,7 @@ QString parseRanges(const QJsonValue &value, const std::function<bool(const QStr
 
 bool isValidEngineId(const QString &id)
 {
-    static const QRegularExpression pattern(u"^[a-z][a-z0-9-]{0,31}$"_s);
+    static const QRegularExpression pattern(u"^[a-z][a-z0-9-]{0,31}\\z"_s);
     return pattern.match(id).hasMatch();
 }
 
@@ -172,15 +186,8 @@ Draft classify(const QJsonObject &entry, CatalogItem *item)
         return draft(u"entitlement-not-free"_s, u"its entitlement is not free, the only kind this stage has."_s);
     item->entitlement = u"free"_s;
 
-    static const QRegularExpression platformName(u"^[a-z0-9][a-z0-9_-]{0,31}$"_s);
-    const QJsonValue platforms = entry.value(u"platforms"_s);
-    if (!platforms.isArray() || platforms.toArray().isEmpty() || platforms.toArray().size() > kMaximumPlatforms)
-        return draft(u"no-platforms"_s, u"it names no platform it runs on."_s);
-    for (const QJsonValue &value : platforms.toArray()) {
-        if (!platformName.match(value.toString()).hasMatch())
-            return draft(u"no-platforms"_s, u"a platform it names is not the name of one."_s);
-        item->platforms.append(value.toString());
-    }
+    if (const QString why = parsePlatforms(entry.value(u"platforms"_s), &item->platforms); !why.isEmpty())
+        return draft(u"no-platforms"_s, why + u'.');
 
     // Nothing that starts by itself reaches this stage (docs/STORE.md says what the flag means for a game).
     const QJsonValue executable = entry.value(u"executable"_s);
@@ -250,11 +257,9 @@ QString parseListing(const QJsonObject &entry, const Catalog &catalog, CatalogIt
     item->provenance = { provenance.value(u"origin"_s).toString(), provenance.value(u"author"_s).toString(),
                          provenance.value(u"source"_s).toString(), provenance.value(u"permission"_s).toString() };
 
-    why = parseRanges(entry.value(u"engines"_s), isValidEngineId, &item->engines);
+    why = parseEngines(entry.value(u"engines"_s), &item->engines);
     if (!why.isEmpty())
-        return u"its engines: %1"_s.arg(why);
-    if (item->engines.isEmpty())
-        return u"it names no engine it works with"_s;
+        return why;
     why = parseDependencies(entry.value(u"dependencies"_s), &item->dependencies);
     if (!why.isEmpty())
         return why;
@@ -291,67 +296,109 @@ QString parseListing(const QJsonObject &entry, const Catalog &catalog, CatalogIt
     return {};
 }
 
-// Walks dependencies depth first, finding cycles and writing `order` with what each item needs before it.
+// Walks dependencies depth first, finding cycles and writing `order` with what each item needs before it. The length of
+// the longest chain below each item is kept with it, so the limit on depth does not depend on which item was reached
+// first.
 struct DependencyWalk
 {
     QHash<QString, const CatalogItem *> items;
     const QMap<QString, InstalledVersion> *installed = nullptr; // when null, every edge in the catalogue is walked
-    QHash<QString, bool> finished;                              // false while the item is on `path`
+    QHash<QString, int> heights;                                // -1 while the item is on `path`
     QStringList path;
     QStringList order;
     QString error;
 
-    bool visit(const CatalogItem &item)
+    // The length of the longest chain from this item, or -1 with `error` set.
+    int visit(const CatalogItem &item)
     {
-        if (const auto mark = finished.constFind(item.id); mark != finished.cend()) {
-            if (*mark)
-                return true;
+        if (const auto height = heights.constFind(item.id); height != heights.cend()) {
+            if (*height >= 0)
+                return *height;
             error = u"These depend on each other: %1."_s.arg((path + QStringList { item.id }).join(u" -> "_s));
-            return false;
+            return -1;
         }
         if (path.size() >= kMaximumDependencyDepth) {
             error = u"%1's dependencies go too deep."_s.arg(path.constFirst());
-            return false;
+            return -1;
         }
-        finished.insert(item.id, false);
+        heights.insert(item.id, -1);
         path.append(item.id);
-        for (const VersionRange &range : item.dependencies)
-            if (!follow(item, range))
-                return false;
+        int deepest = 0;
+        for (const VersionRange &range : item.dependencies) {
+            const int height = follow(item, range);
+            if (height < 0)
+                return -1;
+            deepest = std::max(deepest, height);
+        }
         path.removeLast();
-        finished.insert(item.id, true);
+        if (deepest + 1 > kMaximumDependencyDepth) {
+            error = u"%1's dependencies go too deep."_s.arg(item.id);
+            return -1;
+        }
+        heights.insert(item.id, deepest + 1);
         order.append(item.id);
-        return true;
+        return deepest + 1;
     }
 
-    bool follow(const CatalogItem &item, const VersionRange &range)
+    int follow(const CatalogItem &item, const VersionRange &range)
     {
         const CatalogItem *target = items.value(range.id);
-        if (target && !item.edition.group.isEmpty() && target->edition.group == item.edition.group) {
-            error = u"%1 and %2 are editions of one thing, and neither brings the other."_s.arg(item.id, range.id);
-            return false;
-        }
         if (!installed)
-            return !target || visit(*target);
+            return target ? visit(*target) : 0;
 
         const auto present = installed->constFind(range.id);
         const bool isPresent = present != installed->cend();
         if (isPresent && isVersionInRange(present->version, range.min, range.below))
-            return true;
+            return 0;
         if (!target) {
             error = u"%1 needs %2, which this store does not list."_s.arg(item.id, range.id);
-            return false;
+            return -1;
         }
         if (!isVersionInRange(target->version, range.min, range.below)) {
             error = u"%1 needs %2 from %3 and below %4, and this store lists %5."_s.arg(item.id, range.id, range.min,
                                                                                         range.below, target->version);
-            return false;
+            return -1;
         }
         if (isPresent && compareVersions(target->version, present->version) < 0) {
             error = u"%1 needs %2 older than the one installed, and nothing is moved back."_s.arg(item.id, range.id);
-            return false;
+            return -1;
         }
         return visit(*target);
+    }
+};
+
+// Which edition groups an item reaches through what it depends on, however indirectly. Runs after the walk above, so
+// what it follows has no cycles and is no deeper than the limit. `budget` bounds the work a store-signed but tangled
+// catalogue can ask for: what a person's interface thread would otherwise pay, for at most 4096 items of 32
+// dependencies each.
+struct EditionWalk
+{
+    QHash<QString, const CatalogItem *> items;
+    QHash<QString, QString> groups; // id → group, for listings that are not in `items` as well
+    QHash<QString, QSet<QString>> reached;
+    qint64 budget = 2'000'000;
+
+    const QSet<QString> &groupsBelow(const CatalogItem &item)
+    {
+        if (const auto known = reached.constFind(item.id); known != reached.cend())
+            return *known;
+        QSet<QString> below;
+        for (const VersionRange &range : item.dependencies) {
+            if (const QString group = groups.value(range.id); !group.isEmpty())
+                below.insert(group);
+            if (const CatalogItem *target = items.value(range.id)) {
+                const QSet<QString> &further = groupsBelow(*target);
+                budget -= further.size() + 1;
+                if (budget > 0)
+                    below.unite(further);
+            }
+        }
+        return *reached.insert(item.id, below);
+    }
+
+    bool reachesItself(const CatalogItem &item)
+    {
+        return !item.edition.group.isEmpty() && groupsBelow(item).contains(item.edition.group);
     }
 };
 
@@ -383,6 +430,8 @@ CatalogResult parseFormat2(const QJsonObject &root, const QDate &today)
     if (const QString why = parseDevelopers(root, &catalog); !why.isEmpty())
         return refusal(why);
 
+    if (!root.value(u"items"_s).isArray())
+        return refusal(u"The catalogue has no list of items."_s);
     const QJsonArray items = root.value(u"items"_s).toArray();
     if (items.size() > kMaximumItems)
         return refusal(u"The catalogue lists too many items."_s);
@@ -424,27 +473,32 @@ CatalogResult parseFormat2(const QJsonObject &root, const QDate &today)
         catalog.items.append(item);
     }
 
-    // One edition depending on another of its group would bring it along, and an edition is held on its own.
+    DependencyWalk walk;
+    for (const CatalogItem &item : std::as_const(catalog.items))
+        walk.items.insert(item.id, &item);
+    for (const CatalogItem &item : std::as_const(catalog.items))
+        if (walk.visit(item) < 0)
+            return refusal(walk.error);
+
+    // One edition reaching another of its group would bring it along, and an edition is held on its own.
+    EditionWalk editions;
+    editions.items = walk.items;
+    editions.groups = editionGroups;
+    QSet<QString> crossing;
+    for (const CatalogItem &item : std::as_const(catalog.items)) {
+        if (editions.reachesItself(item))
+            crossing.insert(item.id);
+        if (editions.budget <= 0)
+            return refusal(u"The catalogue's dependencies are too tangled to check."_s);
+    }
     for (qsizetype i = catalog.items.size() - 1; i >= 0; --i) {
         const CatalogItem &item = catalog.items.at(i);
-        const bool crosses =
-            !item.edition.group.isEmpty()
-            && std::any_of(item.dependencies.cbegin(), item.dependencies.cend(), [&](const VersionRange &range) {
-                   return editionGroups.value(range.id) == item.edition.group;
-               });
-        if (crosses) {
+        if (crossing.contains(item.id)) {
             catalog.drafts.append(Draft { item.id, item.kind, u"edition-dependency"_s,
                                           u"%1: it depends on another edition of itself."_s.arg(item.id) });
             catalog.items.removeAt(i);
         }
     }
-
-    DependencyWalk walk;
-    for (const CatalogItem &item : std::as_const(catalog.items))
-        walk.items.insert(item.id, &item);
-    for (const CatalogItem &item : std::as_const(catalog.items))
-        if (!walk.visit(item))
-            return refusal(walk.error);
 
     result.ok = true;
     return result;
@@ -472,6 +526,18 @@ const QSet<QString> &creatorKinds()
 } // namespace
 
 bool isKnownKind(const QString &kind) { return playerKinds().contains(kind) || creatorKinds().contains(kind); }
+
+QString currentPlatform()
+{
+#if defined(Q_OS_WIN)
+    const auto system = u"windows"_s;
+#elif defined(Q_OS_MACOS)
+    const auto system = u"macos"_s;
+#else
+    const auto system = u"linux"_s;
+#endif
+    return system + u'-' + QSysInfo::buildCpuArchitecture();
+}
 
 bool isInstallableKind(const QString &kind) { return kind == u"game"_s || kind == u"asset-pack"_s; }
 
@@ -631,15 +697,15 @@ QList<CatalogItem> Catalog::formatOneItems() const
 
 bool isValidItemId(const QString &id)
 {
-    static const QRegularExpression pattern(u"^[a-z][a-z0-9]*(\\.[a-z0-9][a-z0-9-]*){2,}$"_s);
+    static const QRegularExpression pattern(u"^[a-z][a-z0-9]*(\\.[a-z0-9][a-z0-9-]*){2,}\\z"_s);
     // Named like what an update leaves beside an item for a moment, it could be taken for one and cleared away.
-    static const QRegularExpression leftover(u"\\.old-[0-9a-f]{32}$"_s);
+    static const QRegularExpression leftover(u"\\.old-[0-9a-f]{32}\\z"_s);
     return id.size() <= 128 && pattern.match(id).hasMatch() && !leftover.match(id).hasMatch();
 }
 
 bool isValidVersion(const QString &version)
 {
-    static const QRegularExpression pattern(u"^\\d{1,5}\\.\\d{1,5}\\.\\d{1,5}$"_s);
+    static const QRegularExpression pattern(u"^\\d{1,5}\\.\\d{1,5}\\.\\d{1,5}\\z"_s);
     return pattern.match(version).hasMatch();
 }
 
@@ -665,7 +731,7 @@ bool isVersionInRange(const QString &version, const QString &min, const QString 
 QString parseLicence(const QJsonValue &value, Licence *licence)
 {
     static const QSet<QString> keys { u"spdx"_s, u"file"_s };
-    static const QRegularExpression spdx(u"^[A-Za-z0-9.+()\\- ]{1,128}$"_s);
+    static const QRegularExpression spdx(u"^[A-Za-z0-9.+()\\- ]{1,128}\\z"_s);
     const QJsonObject object = value.toObject();
     licence->spdx = object.value(u"spdx"_s).toString();
     licence->file = object.value(u"file"_s).toString();
@@ -684,10 +750,31 @@ QString parseDependencies(const QJsonValue &value, QList<VersionRange> *dependen
     return why.isEmpty() ? QString() : u"its dependencies: %1"_s.arg(why);
 }
 
+QString parseEngines(const QJsonValue &value, QList<VersionRange> *engines)
+{
+    const QString why = parseRanges(value, isValidEngineId, engines);
+    if (!why.isEmpty())
+        return u"its engines: %1"_s.arg(why);
+    return engines->isEmpty() ? u"it names no engine it works with"_s : QString();
+}
+
+QString parsePlatforms(const QJsonValue &value, QStringList *platforms)
+{
+    static const QRegularExpression name(u"^[a-z0-9][a-z0-9_-]{0,31}\\z"_s);
+    if (!value.isArray() || value.toArray().isEmpty() || value.toArray().size() > kMaximumPlatforms)
+        return u"it names no platform it runs on"_s;
+    for (const QJsonValue &element : value.toArray()) {
+        if (!name.match(element.toString()).hasMatch())
+            return u"a platform it names is not the name of one"_s;
+        platforms->append(element.toString());
+    }
+    return {};
+}
+
 QString parseEdition(const QJsonValue &value, const QString &kind, Edition *edition)
 {
     static const QSet<QString> keys { u"group"_s, u"role"_s };
-    static const QRegularExpression group(u"^[a-z0-9][a-z0-9.-]{0,127}$"_s);
+    static const QRegularExpression group(u"^[a-z0-9][a-z0-9.-]{0,127}\\z"_s);
     const QJsonObject object = value.toObject();
     edition->group = object.value(u"group"_s).toString();
     edition->role = object.value(u"role"_s).toString();
@@ -718,45 +805,68 @@ InstallPlan resolveDependencies(const Catalog &catalog, const QString &id,
     walk.installed = &installed;
     for (const CatalogItem &item : catalog.items)
         walk.items.insert(item.id, &item);
-    if (!walk.visit(*root)) {
+    if (walk.visit(*root) < 0) {
         plan.error = walk.error;
         return plan;
     }
-
-    // What would stand afterwards: everything anything needs must still hold, including what is installed already and
-    // not being touched. One item's update must not take another's dependency out of its range.
-    QMap<QString, QString> versions;
-    for (auto it = installed.cbegin(); it != installed.cend(); ++it)
-        versions.insert(it.key(), it->version);
-    for (const QString &step : std::as_const(walk.order))
-        versions.insert(step, walk.items.value(step)->version);
-    const auto holds = [&versions](const VersionRange &range) {
-        const auto version = versions.constFind(range.id);
-        return version != versions.cend() && isVersionInRange(*version, range.min, range.below);
-    };
-    const auto broken = [&plan](const QString &owner, const VersionRange &range) {
-        plan.error = u"%1 needs %2 from %3 and below %4, which this would not leave it."_s.arg(owner, range.id,
-                                                                                               range.min, range.below);
-    };
-    for (const QString &step : std::as_const(walk.order))
-        for (const VersionRange &range : walk.items.value(step)->dependencies)
-            if (!holds(range)) {
-                broken(step, range);
-                return plan;
-            }
-    for (auto it = installed.cbegin(); it != installed.cend(); ++it) {
-        if (walk.order.contains(it.key()))
-            continue;
-        for (const VersionRange &range : it->dependencies)
-            if (!holds(range)) {
-                broken(it.key(), range);
-                return plan;
-            }
+    // Asked of the catalogue's edges and not only what this plan would fetch: holding the other edition is no way round
+    // it.
+    EditionWalk editions;
+    editions.items = walk.items;
+    for (const CatalogItem &item : catalog.items)
+        if (!item.edition.group.isEmpty())
+            editions.groups.insert(item.id, item.edition.group);
+    DependencyWalk everything;
+    everything.items = walk.items;
+    for (const QString &step : std::as_const(walk.order)) {
+        const CatalogItem &item = *walk.items.value(step);
+        if (everything.visit(item) >= 0 && editions.reachesItself(item)) {
+            plan.error = u"%1 reaches another of its editions, and editions are held apart."_s.arg(item.id);
+            return plan;
+        }
     }
+
+    QMap<QString, InstalledVersion> incoming;
+    for (const QString &step : std::as_const(walk.order))
+        incoming.insert(step, { walk.items.value(step)->version, walk.items.value(step)->dependencies });
+    plan.error = refusalOfOutcome(installed, incoming);
+    if (!plan.error.isEmpty())
+        return plan;
 
     plan.order = walk.order;
     plan.ok = true;
     return plan;
+}
+
+QString refusalOfOutcome(const QMap<QString, InstalledVersion> &installed,
+                         const QMap<QString, InstalledVersion> &incoming)
+{
+    const auto versionAfter = [&](const QString &id) {
+        const auto arriving = incoming.constFind(id);
+        if (arriving != incoming.cend())
+            return arriving->version;
+        const auto present = installed.constFind(id);
+        return present != installed.cend() ? present->version : QString();
+    };
+    const auto broken = [](const QString &owner, const VersionRange &range) {
+        return u"%1 needs %2 from %3 and below %4, which this would not leave it."_s.arg(owner, range.id, range.min,
+                                                                                         range.below);
+    };
+    for (auto it = incoming.cbegin(); it != incoming.cend(); ++it)
+        for (const VersionRange &range : it->dependencies)
+            if (!isVersionInRange(versionAfter(range.id), range.min, range.below))
+                return broken(it.key(), range);
+    for (auto it = installed.cbegin(); it != installed.cend(); ++it) {
+        if (incoming.contains(it.key()))
+            continue;
+        for (const VersionRange &range : it->dependencies) {
+            const QString before = installed.value(range.id).version;
+            if (isVersionInRange(before, range.min, range.below)
+                && !isVersionInRange(versionAfter(range.id), range.min, range.below))
+                return broken(it.key(), range);
+        }
+    }
+    return {};
 }
 
 QString printable(QStringView text)
@@ -795,6 +905,10 @@ CatalogResult parseCatalog(const QByteArray &json, const QByteArray &signature, 
         result.error = why;
         return result;
     }
+    if (!root.value(u"items"_s).isArray()) {
+        result.error = u"The catalogue has no list of items."_s;
+        return result;
+    }
 
     for (const QJsonValue &value : root.value(u"items"_s).toArray()) {
         const QJsonObject entry = value.toObject();
@@ -829,7 +943,8 @@ CatalogResult parseCatalog(const QByteArray &json, const QByteArray &signature, 
         const bool known = item.kind == u"theme"_s || item.kind == u"widget"_s;
         if (!isValidItemId(item.id) || !known || item.name.isEmpty() || !isValidVersion(item.version)
             || !catalog.developers.contains(item.developer) || item.packageSha256.size() != 32
-            || !isSafePackagePath(item.packageFile) || catalog.item(item.id)) {
+            || !isSafePackagePath(item.packageFile) || item.packageSize < 1 || item.packageSize > kMaximumPackageArchive
+            || catalog.item(item.id)) {
             result.error = kInvalidEntry.arg(item.id.isEmpty() ? u"?"_s : printable(item.id));
             result.catalog = {};
             return result;

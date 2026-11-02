@@ -20,9 +20,10 @@ inline constexpr qint64 kMaximumPackageArchive = kMaximumPackageContent + 4 * 10
 //   the files the manifest lists, and nothing else.
 //
 // A format 1 manifest is a theme's or a widget's, and those packages are never signed again. A format 2 manifest is for
-// the kinds of a format 2 catalogue, and mirrors what identifies them there (the stores it is placed in, its edition,
-// licence and dependencies), so the developer's signature covers them as well as the store's. A placement's category is
-// the store's to change, and is not mirrored.
+// the kinds of a format 2 catalogue, and mirrors what identifies them there and what they claim to work with (the
+// stores it is placed in, its edition, licence, dependencies, platforms and engines), so the developer's signature
+// covers them as well as the store's, and a store cannot list a package for a system its developer never said it runs
+// on. A placement's category is the store's to change, and is not mirrored.
 struct PackageManifest
 {
     int format = 1;
@@ -38,6 +39,8 @@ struct PackageManifest
     Edition edition;
     Licence licence;
     QList<VersionRange> dependencies;
+    QStringList platforms;
+    QList<VersionRange> engines;
 };
 
 struct PackageResult
@@ -62,6 +65,7 @@ PackageResult openPackage(const QByteArray &archive, const QByteArray &developer
 // beside them over the manifest, every listed file against it, and no other file. An install is verified once; what
 // runs is verified each time it is loaded, since anything running as this user can write there. On success, `manifest`
 // says which package it is, as its developer signed it: a signature alone does not say it is the version installed.
+// Anything else in the folder fails it: a file, a folder, even an empty one, or a link of any kind.
 bool verifyInstalled(const QString &folder, const QByteArray &developerKey, PackageManifest *manifest = nullptr);
 
 // Whether a path is a plain relative one, safe to write under a folder on every system a package may reach: no
