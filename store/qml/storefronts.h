@@ -43,6 +43,7 @@ class Storefronts : public QObject
     Q_PROPERTY(bool creatorFeatures READ creatorFeatures NOTIFY creatorFeaturesChanged FINAL)
     Q_PROPERTY(QVariantList library READ library NOTIFY libraryChanged FINAL)
     Q_PROPERTY(int updateCount READ updateCount NOTIFY libraryChanged FINAL)
+    Q_PROPERTY(int waitingUpdateCount READ waitingUpdateCount NOTIFY libraryChanged FINAL)
     // What a binding reads beside a call below, to ask again when the answer may have changed. Kept apart so a
     // download's progress moves a button and does not rebuild a page.
     Q_PROPERTY(int listingsRevision READ listingsRevision NOTIFY listingsChanged FINAL)
@@ -68,6 +69,8 @@ public:
     bool creatorFeatures() const;
     QVariantList library() const;
     int updateCount() const;
+    // Updates of what only the creator store carries, while creator features are off.
+    int waitingUpdateCount() const;
     int listingsRevision() const { return m_listingsRevision; }
     int statusRevision() const { return m_statusRevision; }
     int previewRevision() const { return m_previewRevision; }
@@ -108,6 +111,9 @@ Q_SIGNALS:
     void libraryChanged();
     void statusChanged();
     void previewsChanged();
+    // What was fetched is gone: a picture on the page asks again, if it may still be had. Unlike previewsChanged, this
+    // is not sent when memory's bound lets an older one go, which asking again would only repeat.
+    void previewsForgotten();
     void licencesChanged();
     void creatorFeaturesChanged();
     void finished(const QString &id, bool ok, const QString &message);

@@ -562,6 +562,7 @@ Item {
                     text: qsTr("Library")
                     subtitle: Store.library.length + Storefronts.library.length === 0 ? qsTr("What you get from the Store appears here.")
                               : app.updates > 0 ? qsTr("%n update(s) available", "", app.updates)
+                              : Storefronts.waitingUpdateCount > 0 ? qsTr("%n update(s) waiting until creator features are on", "", Storefronts.waitingUpdateCount)
                               : qsTr("Everything is up to date.")
                 }
                 Button {
@@ -1587,6 +1588,12 @@ Item {
         }
         onItemChanged: fetch()
         Component.onCompleted: fetch()
+        Connections {
+            target: Storefronts
+            function onPreviewsForgotten() {
+                listingArt.fetch();
+            }
+        }
         radius: compact ? 8 : Tokens.radius.l
         color: Theme.surfaceRaised
         strokeColor: Theme.windowStroke

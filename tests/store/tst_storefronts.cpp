@@ -573,6 +573,7 @@ private Q_SLOTS:
         QVERIFY(!fronts.status(pack).value(u"updateAvailable"_s).toBool());
         QVERIFY(fronts.status(pack).value(u"updateWaits"_s).toBool());
         QCOMPARE(fronts.updateCount(), 0);
+        QCOMPARE(fronts.waitingUpdateCount(), 1);
         QVERIFY(idsOf(fronts.library()).contains(pack));
         QVERIFY(all.engine.isIntact(pack));
         all.finished->clear();
@@ -590,6 +591,8 @@ private Q_SLOTS:
         QVERIFY2(all.finished->at(0).at(1).toBool(), qPrintable(all.finished->at(0).at(2).toString()));
         QCOMPARE(fronts.status(pack).value(u"installedVersion"_s).toString(), u"1.1.0"_s);
         QCOMPARE(fronts.updateCount(), 0);
+
+        QCOMPARE(fronts.waitingUpdateCount(), 0);
 
         // Off for good: removing what was installed needs nothing of the store it came from.
         all.engine.setCreatorFeatures(false);
@@ -960,26 +963,36 @@ private Q_SLOTS:
         options.silent = true;
         QVERIFY(m_services->start(options));
 
+        SettingsReplica *settings = nullptr;
+        {
+            TwoStores stores;
+            Fronts all(stores.shop.store.publicKey(), { stores.shop.publish() });
+            Storefronts &fronts = *all.fronts;
+            QTRY_VERIFY(fronts.isReady());
+            QVERIFY(!all.engine.creatorFeatures());
+
+            // The storefront was there before the services, as on a slow start.
+            QVERIFY(qor::Services::instance()->connectTo(m_services->url(), 5000));
+            settings = qor::Services::instance()->settings();
+            QVERIFY(settings);
+            QVERIFY(!settings->creatorFeatures());
+            QVERIFY(!all.engine.creatorFeatures());
+
+            settings->setCreatorFeatures(true);
+            QTRY_VERIFY(all.engine.creatorFeatures());
+            QCOMPARE(idsOf(fronts.listings(u"creator"_s)), QStringList { stores.pack.id });
+            settings->setCreatorFeatures(false);
+            QTRY_VERIFY(!all.engine.creatorFeatures());
+            QVERIFY(fronts.listings(u"creator"_s).isEmpty());
+            QVERIFY(!fronts.install(stores.pack.id));
+
+            settings->setCreatorFeatures(true);
+            QTRY_VERIFY(all.engine.creatorFeatures());
+        }
+        // A storefront that starts with it already on, as after a restart, is on from its first moment.
         TwoStores stores;
-        Fronts all(stores.shop.store.publicKey(), { stores.shop.publish() });
-        Storefronts &fronts = *all.fronts;
-        QTRY_VERIFY(fronts.isReady());
-        QVERIFY(!all.engine.creatorFeatures());
-
-        // The storefront was there before the services, as on a slow start.
-        QVERIFY(qor::Services::instance()->connectTo(m_services->url(), 5000));
-        SettingsReplica *settings = qor::Services::instance()->settings();
-        QVERIFY(settings);
-        QVERIFY(!settings->creatorFeatures());
-        QVERIFY(!all.engine.creatorFeatures());
-
-        settings->setCreatorFeatures(true);
-        QTRY_VERIFY(all.engine.creatorFeatures());
-        QCOMPARE(idsOf(fronts.listings(u"creator"_s)), QStringList { stores.pack.id });
-        settings->setCreatorFeatures(false);
-        QTRY_VERIFY(!all.engine.creatorFeatures());
-        QVERIFY(fronts.listings(u"creator"_s).isEmpty());
-        QVERIFY(!fronts.install(stores.pack.id));
+        Fronts again(stores.shop.store.publicKey(), { stores.shop.publish() });
+        QVERIFY(again.engine.creatorFeatures());
     }
 };
 

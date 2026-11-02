@@ -293,6 +293,8 @@ Item {
             storeApp.show("library");
             tryVerify(() => find("libraryItem:" + packId) !== null);
             verify(find("libraryVersion:" + packId).text.indexOf("waits") >= 0);
+            compare(Storefronts.waitingUpdateCount, 1);
+            compare(Storefronts.updateCount, 0);
             compare(find("libraryAction:" + packId).text, "Installed");
             compare(find("libraryAction:" + packId).enabled, false);
 
@@ -331,6 +333,21 @@ Item {
             compare(Storefronts.status(packId).installed, false);
             tryVerify(() => find("libraryItem:" + packId) === null);
             verify(find("libraryItem:" + gameId) !== null);
+        }
+
+        // A page that stays when the switch goes has lost nothing it may still show.
+        function test_ll_aPictureOnAPageThatStaysComesBack() {
+            storeApp.show("games");
+            tryVerify(() => find("storeListing:" + gameId) !== null);
+            mouseClick(find("storeListing:" + gameId), 20, 20);
+            tryVerify(() => find("storeListingArt") !== null);
+            const art = find("storeListingArt");
+            tryVerify(() => String(art.picture).length > 0);
+            setCreatorFeatures(true);
+            setCreatorFeatures(false);
+            // Forgotten as the switch went, and fetched again, since a game is the player store's.
+            tryVerify(() => String(art.picture).indexOf("data:image/png;base64,") === 0);
+            find("storeBack").clicked();
         }
 
         // Themes and widgets carry on beside it, on their own engine.

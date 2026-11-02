@@ -217,6 +217,7 @@ void Storefronts::forgetFetched()
     ++m_licenceRevision;
     Q_EMIT previewsChanged();
     Q_EMIT licencesChanged();
+    Q_EMIT previewsForgotten();
 }
 
 bool Storefronts::isAvailable() const { return engine() != nullptr; }
@@ -359,6 +360,21 @@ int Storefronts::updateCount() const
 {
     const StoreEngine *store = engine();
     return store ? store->updateCount() : 0;
+}
+
+int Storefronts::waitingUpdateCount() const
+{
+    const StoreEngine *store = engine();
+    int count = 0;
+    if (store) {
+        for (const StoreEngine::Installed &installed : store->installed()) {
+            const CatalogItem *item = store->catalog().item(installed.id);
+            count += item && compareVersions(installed.version, item->version) < 0 && !store->hasUpdate(installed.id)
+                         ? 1
+                         : 0;
+        }
+    }
+    return count;
 }
 
 void Storefronts::refresh()

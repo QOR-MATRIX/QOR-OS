@@ -1,6 +1,7 @@
 {
   "description": "The Store in an ordinary build: no second engine, whatever the environment says, and the pages say what they said. Run with the demonstration's URL set, which must be read by nothing.",
   "steps": [
+    { "wait": 800 },
     { "log": "No second engine, and the Store as it always was" },
     { "expect": { "path": "storefronts.available", "equals": false } },
     { "call": "launch", "args": ["store", { "page": "games" }] },

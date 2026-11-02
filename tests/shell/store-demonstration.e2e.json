@@ -1,6 +1,7 @@
 {
   "description": "A person's walk through a demonstration build's two storefronts: the game for a player, its licence and where it came from; creator features on, the art pack, its update; creator features off, and the pack stays.",
   "steps": [
+    { "wait": 800 },
     { "log": "The Store opens, on its own engine and beside themes and widgets" },
     { "expect": { "path": "storefronts.available", "equals": true } },
     { "call": "launch", "args": ["store", { "page": "games" }] },
