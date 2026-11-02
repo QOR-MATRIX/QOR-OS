@@ -471,10 +471,8 @@ bool Storefronts::fetchLicence(const QString &id)
 
 void Storefronts::takeLicence(const QString &id, bool ok, const QString &text, const QString &error)
 {
-    const StoreEngine *store = engine();
-    const CatalogItem *item = store->catalog().item(id);
-    // The switch or the catalogue may have moved on while this was on its way, and forgotten what was asked.
-    if (!m_licences.contains(id) || !item || !isWithinReach(store, *item))
+    // Forgotten while it was on its way, as the switch went off or the catalogue moved on: that is no longer asked for.
+    if (!m_licences.contains(id))
         return;
     m_licences.insert(id, ok ? QVariantMap { { u"asked"_s, true }, { u"text"_s, text } }
                              : QVariantMap { { u"asked"_s, true }, { u"error"_s, error } });

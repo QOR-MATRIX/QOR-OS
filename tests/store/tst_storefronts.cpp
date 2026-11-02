@@ -940,9 +940,11 @@ private Q_SLOTS:
         if (name == u"missing"_s)
             QVERIFY(QFile::remove(path));
         if (name == u"swapped"_s) {
-            // Signed by the right developer and whole, with a licence that says something else.
+            // Signed by the right developer and whole, with a licence that says something else in as many bytes, so
+            // that it is the same size the catalogue lists.
             Pack other = game;
-            other.files.insert(u"LICENSE.txt"_s, QByteArrayLiteral("Do as you like.\n"));
+            other.files.insert(u"LICENSE.txt"_s, QByteArrayLiteral("Use it as is\n"));
+            QCOMPARE(other.files.value(u"LICENSE.txt"_s).size(), kLicence.size());
             writeFile(path, other.package(shop.developer));
         }
         Q_UNUSED(listing)
