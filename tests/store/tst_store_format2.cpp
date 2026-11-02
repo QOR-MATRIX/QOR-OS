@@ -1368,6 +1368,13 @@ private Q_SLOTS:
             << QByteArray("<abcdefghijklmnopqrstuvwxyz style=color:red>y");
         QTest::newRow("a value after plain words") << QByteArray("<one line to give style=color:red>");
         QTest::newRow("a value after a stray <= before it") << QByteArray("a <= b, then <x style=color:red>y");
+        // With no value to give it away, the name alone, read as Qt's parser reads it.
+        QTest::newRow("a browser's name, with no value") << QByteArray("<plaintext>y");
+        QTest::newRow("a browser's name, with no value, in capitals") << QByteArray("<PLAINTEXT>y");
+        QTest::newRow("a browser's name, with no value, then U+00A0") << QByteArray("<plaintext\xc2\xa0y>");
+        QTest::newRow("a browser's name, with no value, then a slash") << QByteArray("<plaintext/y>");
+        QTest::newRow("a name in quotes, with no value") << QByteArray("<\"b\">bold");
+        QTest::newRow("a name with an entity, and no value") << QByteArray("<&#98;>bold");
     }
     void aLicenceHoldsNoMarkup()
     {
