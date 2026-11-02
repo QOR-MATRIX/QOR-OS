@@ -206,7 +206,12 @@ int main(int argc, char *argv[])
             auto *launcher = new qq::LauncherLink(window);
             if (parser.isSet(channel)) {
                 launcher->connectTo(parser.value(channel), qq::LauncherLink::readToken());
-                QObject::connect(launcher, &qq::LauncherLink::lost, &app, &QCoreApplication::quit);
+                // It goes without asking (ADR-046): Qt's quit closes the window first, and the window would otherwise stop to ask
+                // about unsaved work with nobody there to answer. What is unsaved stays in its recovery copy.
+                QObject::connect(launcher, &qq::LauncherLink::lost, &app, [window] {
+                    window->setProperty("closingUnasked", true);
+                    QCoreApplication::quit();
+                });
             } else {
                 launcher->unavailable(QObject::tr("Open QQ Studio from the launcher to publish: the launcher signs "
                                                   "what you publish, and this Studio holds no key."));

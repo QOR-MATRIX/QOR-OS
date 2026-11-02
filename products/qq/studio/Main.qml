@@ -129,6 +129,8 @@ ApplicationWindow {
     property var askingFor: null
     /// The window may go: its unsaved work has been answered for.
     property bool closeSettled: false
+    /// The launcher closed this Studio (main.cpp, ADR-046): it goes without asking, and what is unsaved stays in its recovery copy.
+    property bool closingUnasked: false
     /// A recovery copy on the screen as a question: what was found, until it is answered.
     property var recoveryOffer: null
     /// A recovery copy is there that nobody has answered for yet: it may be all there is of some work, so nothing is written over it.
@@ -715,9 +717,9 @@ ApplicationWindow {
     }
 
     // The window closing is a way of leaving too, so it asks first, and goes once that is answered. What it was left as is
-    // kept by release(), as the application quits.
+    // kept by release(), as the application quits. Closed by the launcher, it asks nothing.
     onClosing: (close) => {
-        if (closeSettled)
+        if (closeSettled || closingUnasked)
             return
         close.accepted = false
         settleThen({ scene: true, logic: true }, () => {
