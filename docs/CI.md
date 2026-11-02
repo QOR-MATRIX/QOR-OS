@@ -222,11 +222,12 @@ Test-Path -LiteralPath X:\qor-ci-vm, "$env:ProgramData\qor-ci-vm", "$env:LOCALAP
 ```
 
 If one prints `True`, nothing of a real Create is there yet, so it is a leftover or someone else's: look at it and remove it as below
-before Create. On 2 November 2026 `X:\qor-ci-vm` was there, left by a run of the script against its test stand-ins (its disk and
-image are the suite's test files), which then had nothing to keep them inside the test's own folder; they refuse anything outside it
-now. It holds five items, all this account's: `.made-by-qor-ci-vm` (90 bytes), `disk\`, `disk\qor-ci-vm.vhdx` (2,097,664 bytes, a
-2 MB test disk), `image\`, and `image\ubuntu-24.04-server-cloudimg-amd64-20261017.img` (199,605 bytes, a test image, not Ubuntu's).
-Create refuses it, because it is not owned by Administrators.
+before Create. On the morning of 2 November 2026 an `X:\qor-ci-vm` was there, left by a run of the script against its test stand-ins
+(its disk and image were the suite's test files), which then had nothing to keep them inside the test's own folder; they refuse
+anything outside it now. It held five items, all this account's: `.made-by-qor-ci-vm` (90 bytes), `disk\`, `disk\qor-ci-vm.vhdx`
+(2,097,664 bytes, a 2 MB test disk), `image\`, and `image\ubuntu-24.04-server-cloudimg-amd64-20261017.img` (199,605 bytes, a test
+image, not Ubuntu's). Create refuses a folder like that, because it is not owned by Administrators. It was gone by 10:42 that day,
+removed outside the script; the check above says whether anything has come back.
 
 **To remove a leftover `X:\qor-ci-vm` that holds no VM,** in PowerShell 7, one command at a time, reading each answer before the next:
 
@@ -237,9 +238,9 @@ Get-ChildItem -LiteralPath X:\qor-ci-vm -Recurse -Force | Format-Table FullName,
 Remove-Item -LiteralPath X:\qor-ci-vm -Recurse -Force
 ```
 
-If `Get-VM` prints a VM, stop: that is a real one, and `-Action Remove` is the way to take it and its folder. The leftovers there now
-are this account's, so an ordinary terminal can remove them; one that belongs to Administrators needs an administrator's. The same four
-steps, with the path changed, do for a leftover `%ProgramData%\qor-ci-vm` (it should hold at most `record.json`) or
+If `Get-VM` prints a VM, stop: that is a real one, and `-Action Remove` is the way to take it and its folder. Leftovers that belong to
+this account, as the stand-ins' did, an ordinary terminal can remove; one that belongs to Administrators needs an administrator's.
+The same four steps, with the path changed, do for a leftover `%ProgramData%\qor-ci-vm` (it should hold at most `record.json`) or
 `%LOCALAPPDATA%\qor-ci-vm` (at most `ssh\` and `prove-*.txt`).
 
 **Create.** Open PowerShell 7 as administrator from the Start menu, then run `pwsh -NoProfile` (the script refuses an elevated run that
