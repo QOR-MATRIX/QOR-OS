@@ -29,6 +29,11 @@ qt_add_resources(qq-player "playground"
 
 target_link_libraries(qq-player PRIVATE Qt6::Gui Qt6::Quick Qt6::Quick3D qqruntime qqruntimeplugin)
 
+# Changed for QOR OS: --measure says what drew it, and only Qt's private headers can ask.
+set(QT_NO_PRIVATE_MODULE_WARNING ON)
+find_package(Qt6 6.12 REQUIRED COMPONENTS GuiPrivate)
+target_link_libraries(qq-player PRIVATE Qt6::GuiPrivate)
+
 if(EMSCRIPTEN)
     # The browser build: a page that fills its window, and the QQ-MEASURE line on the console.
     set_target_properties(qq-player PROPERTIES QT_WASM_INITIAL_MEMORY "256MB")
