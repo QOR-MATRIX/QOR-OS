@@ -44,7 +44,8 @@ target_compile_definitions(tst_store_format2 PRIVATE
     QOR_STORE_CATALOG="${CMAKE_SOURCE_DIR}/store/catalog"
     QOR_STORE_PUB="${CMAKE_SOURCE_DIR}/store/keys/store.pub"
     QOR_STORE_FIXTURES="${CMAKE_CURRENT_SOURCE_DIR}/store/fixtures"
-    QOR_STORE_DEMO="${CMAKE_CURRENT_SOURCE_DIR}/store/fixtures-demo")
+    QOR_STORE_DEMO="${CMAKE_CURRENT_SOURCE_DIR}/store/fixtures-demo"
+    QOR_STORE_LICENCES="${CMAKE_CURRENT_SOURCE_DIR}/store/licences")
 # Prism's side of the QOR host protocol (prism/shell/producthost.h), against
 # a product with no window that tst_producthost_product stands in for.
 qt_add_executable(tst_producthost_product prism/producthost_product.cpp)

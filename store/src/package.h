@@ -68,6 +68,10 @@ PackageResult openPackage(const QByteArray &archive, const QByteArray &developer
 // Anything else in the folder fails it: a file, a folder, even an empty one, or a link of any kind.
 bool verifyInstalled(const QString &folder, const QByteArray &developerKey, PackageManifest *manifest = nullptr);
 
+// What the manifest installed in `folder` claims, read with no signature checked: for keeping an id's version,
+// developer and kind when the record of what is installed is lost, and for nothing that is run or trusted.
+bool readInstalledManifest(const QString &folder, PackageManifest *manifest);
+
 // Whether a path is a plain relative one, safe to write under a folder on every system a package may reach: no
 // climbing, no drive or scheme, no backslash, no name Windows keeps for a device (CON, NUL, COM1...), with or without
 // an extension, and no name ending in a dot, which Windows would drop.
