@@ -29,8 +29,8 @@
 //
 // Changed for QOR OS: the home is chosen from by the d-pad and the arrows, a game played by the pad's A or Return, and
 // put away by the pad's Back, the focus coming back to its card. Ever Rift, QOR OS's own game (its QOR-0017), is
-// played too, by tests/ever-rift-pilot.js. A sound is checked as it begins (PlacedVoices), not by looking for it after.
-// In software, Darkveil's pilot decides once a tick, as it does on a GPU (pilotTurn).
+// played too, by tests/ever-rift-pilot.js. Drawn in software alone, by the renderer's own name: a sound is checked as it
+// begins (PlacedVoices), Darkveil's pilot decides once a tick (pilotTurn), and Rift Survivor's hull has longer than two minutes.
 //
 // It opens a real window, so it needs a desktop session. With ARQADE_SHOT set to a folder, it saves what it drew there;
 // with ARQADE_RUN set to a folder, it writes each run it played there, as <game>-run.json (how the fixtures were made).
@@ -437,9 +437,9 @@ public:
 
 }  // namespace
 
-// The sounds a scene has placed in the world, kept as each begins. QQ's placed voices, Qt's SpatialSound, alone have a
-// reach (`distanceCutoff`); a sound heard everywhere has none. Looking only at what sounds now can miss one: a timer puts a
-// short sound away, and in software that timer is due by the time a frame's drawing lets anything else look.
+// In software alone: the sounds a scene has placed in the world, kept as each begins. Looking only at what sounds now can miss
+// one there: a timer puts a short sound away, and that timer is due by the time a frame's drawing lets anything else look.
+// So in software a sound is known to have begun where it should, and not to have gone on sounding for as long as it should.
 class PlacedVoices : public QObject
 {
     Q_OBJECT
@@ -492,7 +492,7 @@ class TestGames : public QObject
     ArqadeServer *server = nullptr;
     QQuickWindow *window = nullptr;
     qq::Input *input = nullptr;
-    PlacedVoices voices;
+    PlacedVoices placed;
     Arcade *arcade = nullptr;
     fakes::Launcher *launcher = nullptr;
     QStringList warnings;
@@ -541,20 +541,45 @@ class TestGames : public QObject
         return nullptr;
     }
 
-    // A sound whose file ends `file` has begun from a place in the world, since the game opened or `voices.heard` was
-    // last cleared.
+    // The sounds playing now from a place in the world, whose file ends `file`: QQ's placed voices, Qt's SpatialSound,
+    // which alone have a reach (`distanceCutoff`). A sound heard everywhere has none.
+    QList<QObject *> placedVoices(const QString &file) const
+    {
+        QList<QObject *> found;
+        QObject *voices = scene() ? scene()->property("_voices").value<QObject *>() : nullptr;
+        if (!voices)
+            return found;
+        for (const QVariant &v : asList(voices->property("active"))) {
+            QObject *voice = v.value<QObject *>();
+            if (voice && voice->property("distanceCutoff").isValid()
+                && voice->property("source").toUrl().toString().endsWith(file))
+                found << voice;
+        }
+        return found;
+    }
+
+    // A sound of `file` is playing from a place in the world. In software alone: has begun, since the game opened or
+    // `placed.heard` was last cleared (PlacedVoices).
     bool heardPlaced(const QString &file) const
     {
-        for (const PlacedVoices::Voice &voice : voices.heard)
+        if (!drawnInSoftware())
+            return !placedVoices(file).isEmpty();
+        for (const PlacedVoices::Voice &voice : placed.heard)
             if (voice.source.endsWith(file))
                 return true;
         return false;
     }
 
-    // And from within `within` of `where`, in the scene.
+    // A sound of `file` is playing from within `within` of `where`, in the scene. In software alone: has begun.
     bool heardNear(const QString &file, const QVector3D &where, double within) const
     {
-        for (const PlacedVoices::Voice &voice : voices.heard)
+        if (!drawnInSoftware()) {
+            for (QObject *voice : placedVoices(file))
+                if ((voice->property("position").value<QVector3D>() - where).length() <= within)
+                    return true;
+            return false;
+        }
+        for (const PlacedVoices::Voice &voice : placed.heard)
             if (voice.source.endsWith(file) && (voice.position - where).length() <= within)
                 return true;
         return false;
@@ -606,7 +631,8 @@ class TestGames : public QObject
         QCOMPARE(game()->property("problem").toString(), QString());
         QCOMPARE(QUrl(game()->property("file").toUrl()), file);
         QTRY_VERIFY(logic());
-        voices.listenTo(scene()->property("_voices").value<QObject *>());
+        if (drawnInSoftware())
+            placed.listenTo(scene()->property("_voices").value<QObject *>());
         if (!phase.isEmpty())
             QTRY_COMPARE(state().value("phase").toString(), phase);
         QTRY_COMPARE(screenText(QStringLiteral("Title")), title);
@@ -865,14 +891,19 @@ class TestGames : public QObject
 
     // One turn of a pilot's play, by `decide`, which plays what it would do next, unless `stop` says the turn is over.
     // On a GPU that is a decision, and a moment for the frame the next tick comes with. In software a frame takes over a
-    // second and pays eight ticks at most, and a pilot deciding once in eight ticks plays another game: Darkveil's walked
-    // into what it steers round, and was home with the healer before it ever met the Elder. So there the ticks are paid
-    // here, as a frame would, one to each decision, with a frame drawn every half second of the game's time. The hands
-    // reach the scene as ever (a tick takes what the keys and the pad did), and the run is kept and replayed the same.
-    void pilotTurn(const std::function<void()> &decide, const std::function<bool()> &stop)
+    // second and pays eight ticks at most, and a pilot deciding once in eight ticks plays a rougher game: of two such runs
+    // of Darkveil's, one was home with the healer before it ever met the Elder, which fails the case, and one was not. So
+    // there the ticks are paid here, as a frame would, one to each decision, with a frame drawn every half second of the
+    // game's time. The hands reach the scene as ever (a tick takes what the keys and the pad did), and the run is kept and
+    // replayed the same. So in software these two cases no longer show that frames pay the game's ticks at the right rate.
+    // `look` is what the case looks for after each decision, on a GPU, and after the turn's, in software.
+    void pilotTurn(const std::function<void()> &decide, const std::function<bool()> &stop,
+                   const std::function<void()> &look = {})
     {
         if (!drawnInSoftware()) {
             decide();
+            if (look)
+                look();
             QTest::qWait(4);
             return;
         }
@@ -882,6 +913,8 @@ class TestGames : public QObject
             decide();
             QMetaObject::invokeMethod(playing, "tick");
         }
+        if (look)
+            look();
         QTest::qWait(4);
         playing->setProperty("autoAdvance", true);
     }
@@ -1280,7 +1313,7 @@ private slots:
                                      10000);
             QObject *satellite = entityNamed(QStringLiteral("Satellite"));
             QVERIFY(satellite);
-            // Where it was as the lock was asked for: however few frames there are, it has gone on by the time this looks.
+            // In software, where it was as the lock was asked for: with so few frames it has gone on by the time this looks.
             const QVector3D wasAt = satellite->property("scenePosition").value<QVector3D>();
             lock(locks % 2 == 0);
             QTRY_COMPARE(state().value("locks").toInt(), locks);
@@ -1288,7 +1321,10 @@ private slots:
                 QTRY_COMPARE(screenText(QStringLiteral("Message")), QStringLiteral("ORBIT LOCKED"));
                 save(window, "orbital-locked.png");
                 // The lock is heard from the satellite.
-                QTRY_VERIFY(heardNear(QStringLiteral("lock.wav"), wasAt, 1.0));
+                const auto satelliteNow = [&] {
+                    return drawnInSoftware() ? wasAt : satellite->property("scenePosition").value<QVector3D>();
+                };
+                QTRY_VERIFY(heardNear(QStringLiteral("lock.wav"), satelliteNow(), 1.0));
             }
         }
         QTRY_COMPARE(state().value("phase").toString(), QStringLiteral("over"));
@@ -1491,7 +1527,7 @@ private slots:
             const QVariantList signal = asList(state().value("signal"));
             QCOMPARE(signal.size(), round);
             for (int i = 0; i < signal.size(); ++i) {
-                voices.heard.clear();
+                placed.heard.clear();
                 node(signal[i].toInt(), way++ % 3);
                 // Each node's note is heard from the node.
                 const int n = signal[i].toInt();
@@ -1605,15 +1641,17 @@ private slots:
     {
         QVERIFY(logic());
         int frame = 0;
-        voices.heard.clear();
+        bool killHeard = false;
+        placed.heard.clear();
         while (state().value("phase").toString() == QLatin1String("playing") && state().value("steps").toInt() < 3600) {
             steer(riftWay(state()));
             if (++frame == 400)
                 save(window, "rift-running.png");
+            // A kill is heard from where the enemy was.
+            killHeard = killHeard || heardPlaced(QStringLiteral("kill.wav"));
             QTest::qWait(4);
         }
-        // A kill is heard from where the enemy was.
-        QVERIFY2(heardPlaced(QStringLiteral("kill.wav")), "no kill was heard from a place in the arena");
+        QVERIFY2(killHeard, "no kill was heard from a place in the arena");
         steer({0, 0});
         QCOMPARE(state().value("phase").toString(), QStringLiteral("choosing"));
         QVERIFY(state().value("hull").toInt() > 0);
@@ -1638,8 +1676,8 @@ private slots:
         QElapsedTimer waited;
         waited.start();
         while (state().value("phase").toString() != QLatin1String("over")) {
-            // A limit on the wall's time, for a game that has hung. The run's own length, below, is the check on the game.
-            QVERIFY2(waited.elapsed() < playingLimit(), "the time ran out and the hull held");
+            // In software alone, this takes longer than two minutes: 13½ of them, on the owner's laptop.
+            QVERIFY2(waited.elapsed() < (drawnInSoftware() ? playingLimit() : 120000), "the time ran out and the hull held");
             if (state().value("phase").toString() == QLatin1String("choosing"))
                 QTest::keyClick(window, Qt::Key_1);
             if (state().value("hull").toInt() == 3 && state().value("hold").toInt() > 80)
@@ -1744,10 +1782,12 @@ private slots:
         QElapsedTimer waited;
         waited.start();
         int frame = 0;
-        voices.heard.clear();
+        bool fallHeard = false;
+        placed.heard.clear();
         while (everRift().property("floor").toInt() == 1 && everRift().property("phase").toString() == QLatin1String("playing")) {
             QVERIFY2(waited.elapsed() < 300000, "five minutes passed on the first floor");
             playEverRift(everRiftChoice(false));
+            fallHeard = fallHeard || heardPlaced(QStringLiteral("kill.wav"));
             if (++frame == 600)
                 save(window, "ever-rift-fighting.png");
             QTest::qWait(4);
@@ -1758,7 +1798,7 @@ private slots:
         QCOMPARE(everRift().property("floor").toInt(), 2);
         QVERIFY(everRift().property("kills").toInt() >= 5);
         QVERIFY(everRift().property("level").toInt() >= 2);
-        QVERIFY2(heardPlaced(QStringLiteral("kill.wav")), "no fall was heard from a place on the floor");
+        QVERIFY2(fallHeard, "no fall was heard from a place on the floor");
         QTRY_COMPARE(screenText(QStringLiteral("Depth")), QStringLiteral("FLOOR 2 OF 3"));
         QTest::qWait(400);
         save(window, "ever-rift-floor-2.png");
@@ -1898,8 +1938,8 @@ private slots:
         QVERIFY(logic());
         QElapsedTimer waited;
         waited.start();
-        bool talked = false, fightShot = false;
-        voices.heard.clear();
+        bool talked = false, fallHeard = false, fightShot = false;
+        placed.heard.clear();
         const auto lit = [this] { return darkveil().property("world").property("beacons").property(0).toBool(); };
         const auto playing = [this] { return darkveil().property("phase").toString() == QLatin1String("playing"); };
         const auto toldToTalk = [&] { return !talked && !darkveilHero().property("talk").isNull(); };
@@ -1920,7 +1960,8 @@ private slots:
                 continue;
             }
             pilotTurn([this] { playDarkveil(darkveilChoice(QJSValue(false))); },
-                      [&] { return lit() || !playing() || toldToTalk(); });
+                      [&] { return lit() || !playing() || toldToTalk(); },
+                      [&] { fallHeard = fallHeard || heardPlaced(QStringLiteral("kill.wav")); });
             if (!fightShot && darkveilHero().property("swing").toInt() > 0) {
                 save(window, "darkveil-fighting.png");
                 fightShot = true;
@@ -1933,7 +1974,7 @@ private slots:
         QVERIFY(darkveil().property("world").property("wardens").property(0).toBool());
         QVERIFY(darkveilHero().property("kills").toInt() >= 5);
         QVERIFY(darkveilHero().property("level").toInt() >= 2);
-        QVERIFY2(heardPlaced(QStringLiteral("kill.wav")), "no fall was heard from a place in the valley");
+        QVERIFY2(fallHeard, "no fall was heard from a place in the valley");
         QTRY_VERIFY(screenText(QStringLiteral("Objective")).contains(QStringLiteral("Ashen Hold")));
         QTest::qWait(600);
         save(window, "darkveil-beacon.png");
@@ -2060,7 +2101,7 @@ private slots:
         rang([this] { QTest::keyClick(window, Qt::Key_K); });
         save(window, "bellwick-ring.png");
         rang([this] { pad(QStringLiteral("B")); });
-        voices.heard.clear();
+        placed.heard.clear();
         rang([this] { click(QStringLiteral("Ring")); });
         QVERIFY(heardPlaced(QStringLiteral("ring.wav")));
         QVERIFY2(warnings.isEmpty(), qPrintable(warnings.join('\n')));
@@ -2073,11 +2114,12 @@ private slots:
         QVERIFY(logic());
         QElapsedTimer waited;
         waited.start();
-        bool airShot = false, belled = false;
-        voices.heard.clear();
+        bool airShot = false, belled = false, noteHeard = false;
+        placed.heard.clear();
         while (bellwick().property("level").toInt() == 0 && bellwick().property("phase").toString() == QLatin1String("playing")) {
             QVERIFY2(waited.elapsed() < playingLimit(), "the time ran out and Tam was still running");
             playBellwick(bellwickChoice(false));
+            noteHeard = noteHeard || heardPlaced(QStringLiteral("note0.wav"));
             if (!airShot && !tam().property("ground").toBool() && tam().property("x").toNumber() > 800) {
                 save(window, "bellwick-jump.png");
                 airShot = true;
@@ -2096,7 +2138,7 @@ private slots:
         QCOMPARE(bellwick().property("level").toInt(), 1);
         QCOMPARE(bellwick().property("levels").toInt(), 1);
         QVERIFY(bellwick().property("notes").toInt() >= 3);
-        QVERIFY2(heardPlaced(QStringLiteral("note0.wav")), "no note was heard from a place in the level");
+        QVERIFY2(noteHeard, "no note was heard from a place in the level");
         QTRY_COMPARE(screenText(QStringLiteral("Level name")), QStringLiteral("2 OF 8  ·  OVER THE HEDGES"));
         QTest::qWait(600);
         save(window, "bellwick-hedges.png");
@@ -2267,7 +2309,7 @@ private slots:
         const int landed[] = {39, 32, 25, 18};
         for (int k = 0; k < 4; ++k) {
             QTRY_COMPARE(screenText(QStringLiteral("Turn")), QStringLiteral("YOUR MOVE"));
-            voices.heard.clear();
+            placed.heard.clear();
             ways[k]();
             QTRY_COMPARE(match().value("moves").toInt(), 2 * k + 1);
             QCOMPARE(match().value("placed").toInt(), landed[k]);
@@ -2411,7 +2453,7 @@ private slots:
         const int next = sorted[(sorted.indexOf(was) + 1) % sorted.size()];
         QTRY_COMPARE(cursor(), next);
         save(window, "reversi-aimed.png");
-        voices.heard.clear();
+        placed.heard.clear();
         QTest::keyClick(window, Qt::Key_Space);
         QTRY_COMPARE(match().value("placed").toInt(), next);
         const QVariantList flipped = asList(match().value("flipped"));
