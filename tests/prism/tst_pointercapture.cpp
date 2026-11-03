@@ -508,6 +508,7 @@ private Q_SLOTS:
     void aKeyIsAnActionAndAModifierOrARepeatIsNot();
     void anOldActionDoesNotCount();
     void aWindowAppearingUnderThePointerDoesNotCapture();
+    void aSurfaceWithNothingOnItTakesNothing();
     void onlyTheSurfaceWithTheKeyboardMayLock();
     void onlyTheSurfaceWithTheKeyboardHearsMotion();
     void losingTheKeyboardEndsTheLock();
@@ -996,6 +997,26 @@ void TestPointerCapture::aWindowAppearingUnderThePointerDoesNotCapture()
     DO(click(waiting + QPoint(4, 4)));
     QVERIFY(client.roundtrip());
     QCOMPARE(lock->started, 1);
+}
+
+void TestPointerCapture::aSurfaceWithNothingOnItTakesNothing()
+{
+    // A window that takes its picture away just after a person's click on it.
+    std::unique_ptr<Game> game = open(u"Blank"_s);
+    DO(game);
+    Client &client = *game->client;
+    const QPoint p = game->centre();
+    DO(click(p));
+    wl_surface_attach(game->window->surface, nullptr, 0, 0);
+    wl_surface_commit(game->window->surface);
+    QVERIFY(client.roundtrip());
+    pump(300);
+    Capture *lock = client.lock(game->window->surface);
+    QVERIFY(client.roundtrip());
+    DO(moveTo(p + QPoint(2, 2)));
+    QVERIFY(client.roundtrip());
+    QCOMPARE(lock->started, 0);
+    QVERIFY(client.isAlive());
 }
 
 void TestPointerCapture::onlyTheSurfaceWithTheKeyboardMayLock()
@@ -1613,6 +1634,20 @@ void TestPointerCapture::theShellOverAWindowKeepsThePointerFromIt()
     QVERIFY(client.roundtrip());
     QVERIFY(client.seen.motions.size() > said.motions.size());
     QCOMPARE(client.seen.heardSince(back), QPointF(3, 2));
+    // A button pressed on the client keeps the pointer the client's until let go, over the
+    // volume as anywhere: a drag in a game's own window is the game's.
+    DO(key(u"Volume Up"_s));
+    DO(press(offHud));
+    said = client.seen;
+    DO(moveTo(hud));
+    QVERIFY(client.roundtrip());
+    QCOMPARE(client.seen.motions.size(), said.motions.size() + 1);
+    DO(release(hud));
+    DO(moveTo(hud + QPoint(6, 2)));
+    QVERIFY(client.roundtrip());
+    QCOMPARE(client.seen.motions.size(), said.motions.size() + 1);
+    QCOMPARE(client.seen.buttonsUp.size(), said.buttonsUp.size() + 1);
+    DO(moveTo(offHud));
 
     // A notification over it, the same.
     const QPoint card(kOutput.width() - 180, 110);
@@ -1643,6 +1678,8 @@ void TestPointerCapture::theShellOverAWindowKeepsThePointerFromIt()
     const QList<Way> ways {
         { u"Home"_s, [this] { return call(u"openHome"_s, uR"(["home"])"_s); } },
         { u"Beam"_s, [this] { return key(u"Ctrl+Space"_s); } },
+        // Its panel is at the side, and nothing of it lies over the window's middle.
+        { u"Control Center"_s, [this] { return call(u"setSurface"_s, uR"(["control-center"])"_s); } },
     };
     for (const bool captured : { false, true }) {
         for (const Way &way : ways) {
