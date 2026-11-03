@@ -562,10 +562,6 @@ private:
         return run(u"{\"scroll\":{\"at\":[%1,%2],\"notches\":1}}"_s.arg(point.x()).arg(point.y()));
     }
     bool state(QJsonObject *out);
-    // The pointer on the game's window at `point`, with nothing of the shell's over it there:
-    // the simulated session posts banners of its own as time goes by, and one stays while
-    // the pointer is over it.
-    bool uncoveredAt(Game *game, QPoint point);
     bool windowState(const QString &title, QJsonObject *out);
     bool settled(Game *game);
     void pump(int milliseconds);
@@ -742,26 +738,6 @@ bool TestPointerCapture::state(QJsonObject *out)
     file.close();
     file.remove();
     return true;
-}
-
-bool TestPointerCapture::uncoveredAt(Game *game, QPoint point)
-{
-    QElapsedTimer clock;
-    clock.start();
-    while (clock.elapsed() < 12000) {
-        if (!moveTo(game->centre()) || !game->client->roundtrip())
-            return false;
-        const qsizetype heard = game->client->seen.motions.size();
-        if (!moveTo(point) || !game->client->roundtrip())
-            return false;
-        if (game->client->seen.motions.size() > heard)
-            return true;
-        if (!moveTo(game->centre()))
-            return false;
-        pump(1000);
-    }
-    m_problem = u"something stayed over %1"_s.arg(game->title);
-    return false;
 }
 
 bool TestPointerCapture::windowState(const QString &title, QJsonObject *out)
@@ -1591,13 +1567,17 @@ void TestPointerCapture::aNotificationUnderAHeldPointerChangesNothing()
     Client &client = *game->client;
     const QPoint corner(kOutput.width() - 180, 110);
     QVERIFY(game->area.contains(corner));
+    // Held away from the column the simulated session posts its own banners in, then taken
+    // there: held, the pointer is the client's wherever it goes.
     client.listenToMotion();
     QVERIFY(client.roundtrip());
-    DO(uncoveredAt(game.get(), corner));
+    DO(settleOn(game->centre()));
     Capture *lock = client.lock(game->window->surface);
-    DO(click(corner));
+    DO(click(game->centre()));
     QVERIFY(client.roundtrip());
     QCOMPARE(lock->started, 1);
+    DO(moveTo(corner));
+    QVERIFY(client.roundtrip());
     const Seen said = client.seen;
 
     DO(call(u"runAction"_s, uR"(["notify.test",{}])"_s));
