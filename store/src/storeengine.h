@@ -187,7 +187,8 @@ private:
     };
 
     using Done = std::function<void(bool ok, const QByteArray &data, const QString &error)>;
-    void fetch(const QString &job, const QUrl &url, qint64 maximumSize, const Done &done);
+    // A download for a job, or one that is `held` whole, as a licence's package is, counts against heldBytesLimit().
+    void fetch(const QString &job, const QUrl &url, qint64 maximumSize, const Done &done, bool held = false);
     bool countReceived(QNetworkReply *reply, qint64 bytes);
     void setState(State state, const QString &error = {});
     void takeCatalog(Catalog catalog);

@@ -215,7 +215,7 @@ void StoreEngine::setState(State state, const QString &error)
 
 // Local catalogues (qrc:, file:) are read directly; anything else goes
 // through the network. Either way the result arrives asynchronously.
-void StoreEngine::fetch(const QString &job, const QUrl &url, qint64 maximumSize, const Done &done)
+void StoreEngine::fetch(const QString &job, const QUrl &url, qint64 maximumSize, const Done &done, bool held)
 {
     if (url.scheme() == u"qrc"_s || url.isLocalFile()) {
         const QString path = url.scheme() == u"qrc"_s ? u":"_s + url.path() : url.toLocalFile();
@@ -241,7 +241,7 @@ void StoreEngine::fetch(const QString &job, const QUrl &url, qint64 maximumSize,
     }
     // A package on its way is held in memory as it comes, so it counts against what every plan may hold together, and
     // a download that would take more than is left stops there.
-    const bool counted = !job.isEmpty();
+    const bool counted = held || !job.isEmpty();
     connect(reply, &QNetworkReply::readyRead, this, [this, reply, maximumSize, counted] {
         if (reply->bytesAvailable() > maximumSize)
             return reply->abort();
@@ -860,12 +860,15 @@ bool StoreEngine::fetchLicence(const QString &id)
     const CatalogItem *item = m_catalog.item(id);
     if (!item || item->format != 2 || catalogueHasExpired() || (!item->isPlacedIn(View::Player) && !m_creatorFeatures))
         return false;
-    fetch({}, m_catalogUrl.resolved(QUrl(item->packageFile)), item->packageSize,
-          [this, id](bool ok, const QByteArray &data, const QString &error) {
-              QString text;
-              const QString why = ok ? licenceIn(id, data, &text) : error;
-              Q_EMIT licenceFetched(id, why.isEmpty(), text, why);
-          });
+    // The whole package comes, so it is counted as an install's would be.
+    fetch(
+        {}, m_catalogUrl.resolved(QUrl(item->packageFile)), item->packageSize,
+        [this, id](bool ok, const QByteArray &data, const QString &error) {
+            QString text;
+            const QString why = ok ? licenceIn(id, data, &text) : error;
+            Q_EMIT licenceFetched(id, why.isEmpty(), text, why);
+        },
+        true);
     return true;
 }
 

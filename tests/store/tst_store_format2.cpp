@@ -4039,6 +4039,42 @@ private Q_SLOTS:
         QVERIFY(store.isIntact(pack.id));
     }
 
+    // A licence is only in its package, so fetching one brings the whole package, and it counts against what every plan
+    // may hold together as an install's download does.
+    void aLicenceOnItsWayCountsAgainstTheLimit()
+    {
+        QNetworkProxy::setApplicationProxy(QNetworkProxy::NoProxy);
+        const Pack pack;
+        Shop shop;
+        TinyServer server;
+        const QByteArray bytes = pack.package(shop.developer);
+        shop.addPackage(pack, bytes);
+        server.files.insert(u"packages/%1-1.0.0.qorpkg"_s.arg(pack.id), bytes);
+        const QByteArray json = shop.json();
+        server.files.insert(u"catalog.json"_s, json);
+        server.files.insert(u"catalog.json.sig"_s, shop.store.sign(json));
+
+        QTemporaryDir data;
+        PlantedEngine store(data.path(), shop.store.publicKey());
+        store.setCreatorFeatures(true);
+        QCOMPARE(refreshed(store, server.url(u"catalog.json"_s)), StoreEngine::State::Ready);
+        QSignalSpy fetched(&store, &StoreEngine::licenceFetched);
+        store.heldLimit = bytes.size() - 1;
+        QVERIFY(store.fetchLicence(pack.id));
+        QTRY_COMPARE(fetched.count(), 1);
+        QVERIFY(!fetched.at(0).at(1).toBool());
+        QVERIFY2(fetched.at(0).at(3).toString().contains(u"Too much is on its way at once"_s),
+                 qPrintable(fetched.at(0).at(3).toString()));
+
+        // Room for exactly the download: what the refused one held was let go.
+        store.heldLimit = bytes.size();
+        QVERIFY(store.fetchLicence(pack.id));
+        QTRY_COMPARE(fetched.count(), 2);
+        QVERIFY2(fetched.at(1).at(1).toBool(), qPrintable(fetched.at(1).at(3).toString()));
+        QCOMPARE(fetched.at(1).at(2).toString(), QString::fromUtf8(kLicence));
+        QVERIFY(store.installed().isEmpty());
+    }
+
     // What moves is made durable at each moment it must be, where the system can: what was staged before the journal
     // says it is there, the journal before anything moves, the swap before the record, and the record before the old
     // versions go. The same for a removal, and for the memory of a catalogue's sequence.

@@ -356,8 +356,9 @@ Everything from a catalogue is someone else's text, in a `Text` that sets `textF
 
 **A licence's text is only in its package.** "Read the Licence" fetches the whole package and checks it as an install would, signature
 and all, and installs nothing. So reading a licence before getting a large item costs what getting it costs: a catalogue that wants
-better would carry the text beside itself, as it does a preview. Longer than 256 KB it is not shown, and the page says it comes with
-the package.
+better would carry the text beside itself, as it does a preview. The package on its way counts against the 128 MB every install
+under way shares, and may stop with "Too much is on its way at once" as an install's would. Longer than 256 KB the licence is not
+shown, and the page says it comes with the package.
 
 **Starting again over the same folder.** A person who has reached `v2` and starts over finds `v1` refused as older, in plain words,
 with Next Catalogue beside the refusal. That is the sequence working. A fresh `QOR_STORE_DIR` starts the walk again.
