@@ -6,6 +6,8 @@
 // installed version when it is newer than the project's. What the project uses that the Store no longer has is listed as such,
 // and its copies stay. Everything here came from someone else, so it is text, never markup. Nothing here moves or animates.
 
+pragma ComponentBehavior: Bound
+
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Controls.Material
@@ -16,7 +18,7 @@ ColumnLayout {
     id: panel
 
     /// The Studio's window: what using a pack asks of it.
-    required property QtObject studio
+    required property var studio
     /// What AssetLibrary.state() says of the project.
     property var library: ({ packs: [], missing: [], refused: [], lockProblem: "" })
 
@@ -67,7 +69,7 @@ ColumnLayout {
         delegate: ColumnLayout {
             id: pack
             required property var modelData
-            width: list.width
+            width: ListView.view.width
             spacing: 2
             RowLayout {
                 Layout.fillWidth: true
@@ -136,8 +138,8 @@ ColumnLayout {
                         }
                         Rectangle {
                             visible: file.modelData.kind !== "picture"
-                            width: 9
-                            height: 9
+                            implicitWidth: 9
+                            implicitHeight: 9
                             radius: 5
                             color: file.modelData.kind === "model" ? "#8ec5ff" : file.modelData.kind === "sound" ? "#c79bff"
                                  : file.modelData.kind === "sky" ? "#f2a35e" : Look.inkMuted
