@@ -328,8 +328,8 @@ unpublished builds stay out of reach.
 - [x] The Player Store's pages: find, licence and provenance as plain text, install, update and remove, with refusals said
   plainly, in a demonstration build only (`1892e30`, after an independent review)
 - [x] Play, and Store games in the Library, checked rather than scanned: listed from the engine's record, checked whole as each is
-  played, started on the scene its `game.json` names; in a demonstration build (`214ca91`). The real QQ Player on a Store install
-  is still to be shown
+  played, started on the scene its `game.json` names; in a demonstration build (`214ca91`). The real QQ Player plays a Store install
+  in QQ's own `tst_storegame` (`2fbfc2a`), walled, from the scene its `game.json` names
 - [x] The creator-features switch in Settings, off by default and enforced by the engine, and the Creator Store's pages; turning
   it off closes them and keeps what is installed
 - [ ] QQ Studio's asset library: browse, preview, copy into the project with a lock file, update safely
