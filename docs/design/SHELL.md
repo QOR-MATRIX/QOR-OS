@@ -184,7 +184,8 @@ desktop's frosted glass.
 - **Home** has three rows: **Continue** (what was played or opened last, a
   film or song with how far it got), **Games**, and the newest **Media**.
 - **The Library** shows everything, chosen by **Everything**, **Games**,
-  **ARQADE**, **Made by you** or **Media**.
+  **ARQADE**, **Made by you** or **Media**. **Made by you** is the person's projects
+  as they stand; a game they built from one is among the **Games**, as any game is.
 - Every card's art is drawn from its hue (Kit's `Artwork`) until it has its
   own, with its glyph.
 - **Moving:** the d-pad or the arrow keys go from card to card, along a row or
@@ -200,6 +201,14 @@ The Library (`qor::Library`) finds what it shows until the QOR core's index
 
 - **QOR OS's QQ games:** folders that have scenes in `QOR_GAMES`, else in
   `share/qor-os/games` beside Prism and in the data folder.
+  - **A game built in QQ Studio** is such a folder in the data folder's
+    `qor-os/games`, with a `game.json` (`products/qq/studio/gamebuild.h`). Its
+    title, its first scene and how many times it was built are taken from there,
+    read as a stranger's file: not through a link or a junction, not past 32 MB,
+    and only a plain scene directly in its `scenes/`. Anything wrong with it and
+    the folder is listed as any folder of scenes is. A folder whose name starts
+    with a dot is a build under way, or an old copy being replaced, and is not
+    listed. What it plays is the copy, never the project it was built from.
 - **The person's own:** such folders in Documents, two deep, that QQ Studio made or
   they trusted (`qor-os/own-projects.json` in their data folder). A folder that is
   merely there, a download unpacked, is not listed as theirs.

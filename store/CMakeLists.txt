@@ -26,7 +26,9 @@ qt_add_qml_module(qor_store
         qml/ThemePreview.qml
     SOURCES
         qml/store.h qml/store.cpp
+        src/archive.h src/archive.cpp
         src/catalog.h src/catalog.cpp
+        src/filerules.h src/filerules.cpp
         src/package.h src/package.cpp
         src/signature.h
         src/storeengine.h src/storeengine.cpp

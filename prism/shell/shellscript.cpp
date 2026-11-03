@@ -1188,19 +1188,32 @@ private:
         return toast ? toast->property("text").toString() : QString();
     }
 
-    // The Library and Home: the ids of its games, how much media it holds,
-    // what was played last, its first, and the page Home shows.
+    // The Library and Home: the ids of its games, and of each where it came from
+    // and what it is called, those that are the person's own projects, how much
+    // media it holds, what was played last, its first, and the page Home shows.
     QJsonObject libraryState() const
     {
         auto *library = m_engine ? m_engine->singletonInstance<Library *>("QOR.Shell", "Library") : nullptr;
         if (!library)
             return {};
         QJsonArray games;
-        for (const QVariant &game : library->games())
-            games.append(game.toMap().value(u"id"_s).toString());
+        QJsonArray sources;
+        QJsonArray titles;
+        QJsonArray mine;
+        for (const QVariant &game : library->games()) {
+            const QVariantMap item = game.toMap();
+            games.append(item.value(u"id"_s).toString());
+            sources.append(item.value(u"source"_s).toString());
+            titles.append(item.value(u"title"_s).toString());
+            if (item.value(u"source"_s) == u"mine"_s)
+                mine.append(item.value(u"id"_s).toString());
+        }
         const QVariantList recent = library->recent();
         QObject *home = m_desktop->findChild<QObject *>(u"home"_s);
         return { { u"games"_s, games },
+                 { u"gameSources"_s, sources },
+                 { u"gameTitles"_s, titles },
+                 { u"mine"_s, mine },
                  { u"media"_s, int(library->media().size()) },
                  { u"recent"_s, recent.isEmpty() ? QString() : recent.first().toMap().value(u"id"_s).toString() },
                  { u"scanning"_s, library->scanning() },

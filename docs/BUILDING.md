@@ -182,6 +182,35 @@ on the RTX through switcheroo-control.
 Booted into Fedora, the laptop's Windows CI runners are offline, so CI waits
 until Windows is running again ([CI.md](CI.md)).
 
+#### What to check there
+
+This is the least the native-Linux milestone needs: the SSD and the stick above,
+and nothing else. The internal drive is neither repartitioned nor erased, and
+erasing the two external drives is the owner's act. Each result goes in the
+[roadmap's table](ROADMAP.md#alongside-the-phases--engines) as passed, failed or
+blocked, with the commit. A suite passing in WSL settles none of this.
+
+1. **Record the configuration:** the commit, `uname -r`, `nvidia-smi`, Mesa's
+   version, the display path, and `tools/dev/setup-fedora.sh check`.
+2. **The product suites on real hardware:** `tools/dev/products.sh --qt
+   ~/Qt/6.12.0/gcc_64 --build-root ~/qor-build/products --attempts 1`. Note the
+   QQ Player's frame rate against its floor of 20, and the Player's wall working
+   with a real graphics card, which has only been tested in software.
+3. **QQ Studio in Prism** (`tools/dev/setup-fedora.sh play`, on the Intel GPU, then
+   with `QOR_PLAY_GPU=discrete`): it opens, and its menus, dialogs, focus, clipboard,
+   scaling and fullscreen work.
+4. **The first journey:** with two small projects, import an authorised asset, edit,
+   save, build, run the packaged game from the Library, switch, restart and reopen.
+   Unsaved work survives, and nothing crosses between them. Editor play and the
+   packaged game are separate results.
+5. **Sound:** Orb Run is heard, through the laptop and through a headset plugged in
+   while it plays.
+6. **A DualSense:** by USB and by Bluetooth, listed by `qor-gamepads`, playing
+   Orb Run, with Guide bringing Overview.
+7. **Pointer capture:** a first-person view holds the mouse, Prism's way out still
+   works, and losing focus or locking the screen lets go.
+8. **Displays,** if another is attached: each at its own rate, and hot-plug.
+
 ## 2. Configure and build
 
 The Ninja presets need the MSVC environment. `tools\dev\Enter-QorShell.ps1`
@@ -443,14 +472,32 @@ tools/dev/products.sh --gpu                           # under WSL, on the GPU, w
   user manager runs (`systemd=true` in `/etc/wsl.conf`), the run is also
   held to half the processors and three quarters of WSL's memory, so the PC
   stays usable. It needs unprivileged user namespaces, which WSL's kernel
-  allows. In software, QQ's walk and the QQ Player's floor of 20 frames a
-  second fail. `--gpu` draws on the GPU through Direct3D 12 as before, and
-  can freeze the PC.
+  allows. In software the QQ Player's floor of 20 frames a second fails, and
+  a pass says nothing of a real GPU, sound or controller
+  ([CI.md](CI.md#what-linux-runs)). `--gpu` draws on the GPU through
+  Direct3D 12 as before, and can freeze the PC.
 - **Sound:** with `--display session` and no PipeWire daemon (WSLg), it sets
   `QT_AUDIO_BACKEND=pulseaudio`, as the shell's audio engine does.
 - **Programs:** on Linux QQ's programs sit in their target folders
   (`studio/qq-studio`, `player/qq-player`, `agent/qq-mcp`, `tests/tst_*`);
   ARQADE's and QOR Media's sit in the build folder.
+- **The first journey** (`first_journey`, `tools/dev/first-journey.py`) is the
+  one place QQ and Prism meet: a project built by the real `qq-studio --build`,
+  found in real Prism's Library and played by the real Player. Its Prism steps
+  need a build of Prism with its stand-ins for the products, named by
+  `QOR_PRISM_BUILD`; without it the run skips them and the test is reported
+  as skipped (exit 77), which is not a pass. To run all of it:
+
+  ```bash
+  cmake --preset linux-asan
+  cmake --build build/linux-asan --target prism prism-test-qq-player \
+      prism-test-qq-studio prism-test-arqade prism-test-media
+  QOR_PRISM_BUILD=$PWD/build/linux-asan tools/dev/products.sh --product qq \
+      --tests '^first_journey$'
+  ```
+
+  Any Linux build of Prism will do; that one is what the security bar runs
+  its suites under.
 
 The samples are QQ scenes you can open in QQ Studio, for example
 `products/qq/samples/orb-run`. Running them inside Prism, with Prism placing

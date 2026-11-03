@@ -639,6 +639,7 @@ The detail, with every item, is [docs/ROADMAP.md](docs/ROADMAP.md).
 | Money | 1.0 moves no money; free items and test CGT | [QOR-0006](docs/decisions/QOR-0006-qor-os-1-0-moves-no-money.md) |
 | 1.0 scope | Shell, Home and Library, QQ, ARQADE, QOR Media, Social, the vault, Steam | [QOR-0007](docs/decisions/QOR-0007-what-1-0-ships.md) |
 | Unreal Engine | Epic's own Linux builds, unchanged, never carried by QOR OS; a plugin joins them to the ecosystem | [QOR-0020](docs/decisions/QOR-0020-unreal-engine-on-qor-os.md) |
+| Projects, engines, stores | A workspace for every project; engines through small adapters; two stores on shared services | [QOR-0021](docs/decisions/QOR-0021-projects-engines-and-two-stores.md) |
 | Public release | Release gates the owner holds | [QOR-0008](docs/decisions/QOR-0008-before-a-public-release.md) |
 | The name | QOR OS in prose; `qor-os`, `qor`, `QOR.*`, `QOR_*` and `dev.qorsync.*` where a space cannot go | [QOR-0009](docs/decisions/QOR-0009-the-name-is-qor-os.md) |
 | License posture | Commercial Qt Enterprise; private, proprietary repository | [QTOS-0004](docs/decisions/qtos/QTOS-0004-commercial-qt-and-proprietary-repository.md) |

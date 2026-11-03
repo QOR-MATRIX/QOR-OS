@@ -6,9 +6,12 @@
 // It drinks when wounded below half, whirls among three enemies, dashes away from the warden's slam, strikes at what
 // is near, and otherwise heads for the nearest enemy awake, what lies on the floor once none is, or the stairs once
 // strong enough for the floor below, finding its way along the floor's tiles. Calm, it never strikes or uses a skill,
-// and walks to the nearest enemy, awake or not.
+// and walks to the enemy the shortest walk away, awake or not.
+//
+// What it goes to it chooses by the walk, not by eye. What is nearest by eye, or just in reach by eye, can lie behind a
+// wall: the way to it leads off until something else looks better and leads back, and the pilot paces for ever.
 (function () {
-    const TILE = 40, COLS = 44, ROWS = 32, SWING_REACH = 56, WHIRL_COST = 35, POTIONS_MOST = 5, WARDEN = 4
+    const TILE = 40, COLS = 44, ROWS = 32, SWING_REACH = 56, WHIRL_COST = 35, POTIONS_MOST = 5, WARDEN = 4, ITEM_WALK = 6
     const RADIUS = [13, 10, 20, 12, 30]
     const DIRS = [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [1, -1], [-1, 1], [-1, -1]]
     const rock = (g, c, r) => c < 0 || r < 0 || c >= COLS || r >= ROWS || g.map[r * COLS + c] === 0
@@ -53,6 +56,17 @@
         return to
     }
 
+    // How many tiles' walk from here a thing is.
+    function walkFromHere(g) {
+        const far = walking(g, Math.floor(g.x / TILE), Math.floor(g.y / TILE))
+        return (e) => {
+            const steps = far[Math.floor(e.y / TILE) * COLS + Math.floor(e.x / TILE)]
+            return steps < 0 ? Infinity : steps
+        }
+    }
+
+    const shortestWalk = (list, walk) => list.reduce((a, b) => walk(a) <= walk(b) ? a : b)
+
     function wayTo(g, x, y) {
         const dx = x - g.x, dy = y - g.y
         if (dx * dx + dy * dy < 9)
@@ -71,9 +85,12 @@
     return function (g, calm) {
         const out = { way: [0, 0], attack: false, whirl: false, dash: false, potion: false }
         const nearest = (list) => list.reduce((a, b) => apart(a, g) < apart(b, g) ? a : b)
+        const walk = walkFromHere(g)
         if (calm) {
-            if (g.enemies.length)
-                out.way = wayTo(g, ...nextTo(g, nearest(g.enemies).x, nearest(g.enemies).y))
+            if (g.enemies.length) {
+                const goal = shortestWalk(g.enemies, walk)
+                out.way = wayTo(g, ...nextTo(g, goal.x, goal.y))
+            }
             return out
         }
         const awake = g.enemies.filter((e) => e.awake)
@@ -90,14 +107,14 @@
             out.attack = true
             return out
         }
-        const items = g.items.filter((i) => (i.what !== "potion" || g.potions < POTIONS_MOST) && apart(i, g) < 220)
+        const items = g.items.filter((i) => (i.what !== "potion" || g.potions < POTIONS_MOST) && walk(i) <= ITEM_WALK)
         let goal = null
         if (items.length && !awake.length)
-            goal = nearest(items)
+            goal = shortestWalk(items, walk)
         else if (awake.length)
             goal = nearest(awake)
         else if (g.enemies.length && (!g.stairs || g.level < g.floor + 1))
-            goal = nearest(g.enemies)
+            goal = shortestWalk(g.enemies, walk)
         else if (g.stairs)
             goal = g.stairs
         if (goal)

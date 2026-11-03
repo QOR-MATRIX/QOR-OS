@@ -1,6 +1,6 @@
 # QQ, the QOR Engine
 
-<!-- Changed for QOR OS: on Linux the Studio keeps the provider's key in the Secret Service (QOR OS's QOR-0011); gamepads come from QOR OS's controller service, QOR.Input, in place of XInput. -->
+<!-- Changed for QOR OS: on Linux the Studio keeps the provider's key in the Secret Service (QOR OS's QOR-0011); gamepads come from QOR OS's controller service, QOR.Input, in place of XInput; each project's workspace in the Studio. -->
 
 An engine for virtual worlds and experiences, built on **Qt 6** under the owner's commercial licence
 ([ADR-083](../../docs/decisions/ADR-083-qq-on-qt.md)). The blueprint is [`docs/blueprints/qq.md`](../../docs/blueprints/qq.md);
@@ -138,6 +138,55 @@ it; the QQ Player plays a scene on its own, natively and in a browser.
   keys, so a scene that is playing picks it up at once; a Behaviour's **Edit logic** opens its file there. **F3**
   (or Stats) shows what the world costs (`studio/StatsOverlay.qml`): frames a second and a frame's time, draw calls
   and the graphics API, entities and bodies, and in play every body drawn as its collider.
+  **Workspaces (QOR OS, 1 November 2026):** each project comes back as it was left, across a switch and across a restart:
+  its open scene, its open logic file, its panels, the camera and the window (`studio/projectworkspace.h`). What is kept is the
+  person's, never in the project's folder: `<AppDataLocation>/workspaces/<SHA-256 of the project's real path>.json`, read
+  back as a stranger's file would be. **Change…** and **Recent** both go through `switchProject()`: unsaved work is asked
+  about first (Save, Discard or Cancel, and Cancel leaves everything, a playing scene included, as it was); then nothing
+  of the old project stays, not undo, the selection, the logic editor, the agent's run or what it was allowed; then the
+  project goes past the same trust check as anything else that runs its files, and only then are they opened. New, another
+  scene or logic file, Close in the editor and closing the window ask about unsaved work too. `--project` always wins;
+  with nothing on the command line the Studio goes back to the last project; a capture keeps nothing. Launched by the
+  launcher, a Studio that the launcher closes exits without asking (ADR-046).
+  **Unsaved work survives a crash (QOR OS, 1 November 2026).** Once editing pauses for a second, what is unsaved (the scene's
+  text and name, the logic file's text) is copied to `<AppDataLocation>/workspaces/<SHA-256 of the project's real
+  path>.recovery-<session>.json`, beside the workspace and never in the project, written whole or not at all; only an edit starts
+  that pause, so an idle Studio has no timer running. Each Studio keeps its own copy, named by a session of its own and locked
+  while it runs, and keeps it whatever is still to be answered, so two Studios on one project never write over or remove each
+  other's. It goes once the work is saved or discarded, and a launcher's close keeps it as it stands. Arriving in the project,
+  past the trust check, the person is asked to **Restore** or **Discard** a copy that a Studio no longer running left, newest
+  first, and told if a file has changed or gone since the copy was made; Restore changes no file, and what comes back is in
+  this Studio's own copy before the old one goes. It is read back as a stranger's, as the workspace is, and a project's copy
+  reaches no other. A copy also records which folder it was made for (its device and inode on Linux and macOS, its creation time
+  on Windows), so another project put later where that one was is not offered it, and is told so. A project moved or renamed
+  has a new real path, so its copies are not found there; moved back, they are offered again. A scene in no project has none.
+- **Building a game (QOR OS, 1 November 2026):** **Build** brings in what the scene names from outside the project, saves what
+  is on the screen, and checks that the project's scenes, logic and prefabs build: at most 2,000 QML files of 16 MB each, since
+  the window waits for it, and past that it says so and builds nothing. Then it copies the project's `scenes/`,
+  `logic/`, `prefabs/` and `assets/` into a folder of the game's own, `<GenericDataLocation>/qor-os/games/<name>-<hash of the
+  project's real path>/`, with a `game.json` of what it holds and the digest of each file (`studio/gamebuild.h`). Play here runs the
+  project as it stands, and the Library plays this copy, which changes only when built again and plays with the project gone. What a
+  game cannot carry refuses the build, with the file and the reason: a link, a pipe, a name a system would read as more, a folder or
+  file it cannot read, compiled QML, more than 8 GB or 50,000 files, and anything a scene, logic file, glTF or OBJ model, OBJ
+  material library or Tiled map or tileset names that the game would not hold. That last is a scan of the text, which reads a
+  path in logic from the logic's own folder and from the scene's, as `play()` and `spawn()` do, so a string in logic that only
+  looks like a path can be taken for one, and the reason says so. It does not see a path a game puts together as it runs
+  (strings joined, or what a template's `${...}` holds), a tileset saved as `.json`, or what any other model format names: a
+  game that needs one of those finds it missing only when it plays. Dot-files and anything else in the project stay behind. A new build replaces the
+  old only once it is whole, one build of a game runs at a time, and a build that dies at any step loses no game; a power cut
+  can still leave files short behind a whole `game.json`, since only that is synced. While one runs, the Studio saves nothing
+  and stays in its project. A project just opened, showing a new scene nobody has touched, asks for the scene the game starts in.
+  `qq-studio --project <folder> --build <scenes/x.qml>` makes the same copy with no window and no display. It builds only a
+  project already on the person's trusted list, and refuses any other, since nobody is there to be asked; the build asks that of
+  the real folder it goes on to copy, so a link changed meanwhile changes nothing. It compiles nothing,
+  as its answer says (`"compiled": false`). It prints `QQ-BUILD` and its result as JSON on standard output and exits 0 built, 3
+  refused; on Windows the Studio is a windowed program, so a shell sees that only with its output piped or redirected.
+  Importing a file records no permission for it: that waits for the asset library
+  ([QOR-0021](../../docs/decisions/QOR-0021-projects-engines-and-two-stores.md)). A game is QML and JavaScript that QQ's runtime
+  runs behind the Player's walls, with Qt's disk cache off (the Studio uses only the cache compiled into it). No native program
+  is made, and none runs: a native library among the assets (an `.so`, say) is carried as a file like any other, and the Player
+  refuses a `qmldir` in a game, which is how QML would load one, and imports only Qt's and QQ's own modules. Each project folder
+  has one game: moved or renamed, it builds a second, and the first stays in the Library as it was.
 - **The files:** a scene is `scenes/<name>.qml` in the project, in one canonical layout: read and written back it is
   the same bytes, and one changed value is one changed line in Projects. Models and sounds are copied into `assets/`
   and logic into `logic/`, so the project is whole on its own; a Tiled map brings its tileset and image, and one whose
@@ -173,10 +222,10 @@ description with no human edit, made by whoever runs it with their own key.
 | Path | What it is |
 | --- | --- |
 | `runtime/` | The QML module `QQ`: `World` (the viewport, its sky, light, look and hearing), `Scene` (the root a file holds), `Game` (a world playing one scene file: what the Player shows), the entities `Sun`, `Lamp`, `Ground`, `Shape`, `Prop`, `Player`, `Emitter`, `Sound`, `Behaviour`, `Trigger` (a volume that hears what enters and leaves it, P3.7), the screen kinds `ScreenText`, `ScreenBar`, `ScreenButton`, `ScreenImage` and `ScreenPanel` (the game's interface, drawn over the world on the World's overlay, each in a named screen; built on `ScreenPart`, P3.8), `Music` (a scene's music, fading from track to track, P3.13), `Spotlight` (a cone of light, P3.14), `Group` and `Prefab` (entities kept together, and a group kept in a file of its own and placed as often as wanted, P3.15), `InputAction` (an action a player can take, with its keys, mouse buttons and pad buttons, P3.9), the 2D kinds `Sprite`, `TileMap` and `Player2D` (P3.10), and `Logic` (what a logic file is, with the gameplay API of P3.7: `onStarted`, `onContact`, `onEntered`, `onExited`, `ray`, `spawn`, `remove`, `after`, `every`, `cancel`; and for the interface, P3.8, `onClicked`, `showScreen`, `hideScreen`, `onlyScreen`, `pause` and `resume`; and for actions, P3.9, `onPressed`, `onReleased`, `held`, `rebind`, `bindingOf` and `pointing`; and for steps and runs, P3.11, `onStep`, `steps`, `random`, `randomInt`, `overlaps` and `outcome`; and for animation, P3.12, `tween` and `machine`; and for sound, P3.13, `play`, `setVolume` and `volumeOf`; and since P3.15 `spawn` places a prefab, or puts what it makes in a group, and `remove` takes a group or a prefab away whole; and for saving, P3.16, `saved`, `save` and `forget`; and for a game played inside another application, ADR-117, `askHost` and `onTold`, the host hearing `asked` and answering with `tell` on the `Game` or `Scene`, what it tells heard at the next tick and kept in the run). `Look` is the style of the Studio and of a game's screens, Demiurge's one look (ADR-108): every colour, face, size, corner and duration from `runtime/tokens.h`, which `docs/design/tokens.mjs` generates from `docs/design/tokens.json`; the faces Cinzel and Barlow Semi Condensed carried in `runtime/fonts/` (and Barlow and IBM Plex Mono in the Studio's own `studio/fonts/`), under the SIL Open Font License; and reduced motion as the launcher passes it on (`QOR_REDUCED_MOTION`) or the system says. In C++: `SceneIO` (canonical writing, loading, saving, playing a copy, adopting files, importing 2D scenes, and the editing operations the Studio uses and the agent will, P3.3), `Input` (keyboard, mouse and gamepad as intentions), `LogicFile` (builds a logic file and rebuilds it on each save), `tilemap` (Tiled's maps read, their solid tiles merged into colliders, and `TileGeometry`, a layer as one mesh), `kinematics` (QQ's own: boxes swept against boxes, P3.11), `run` (`Random`, seeded and the same everywhere; `RunRecord`, a run kept; `replayRun`, a run played again with no window), `clips` (a glTF model's animations, taken from Qt's own wall-clock playing and posed on the game's steps, P3.12), `Mixer` (the volume groups, and a sound file's length, P3.13), `GameStore` (a game's one store, kept between plays, P3.16), `shaders/surface.vert` and `surface.frag` (a Shape's pictured surface, P3.14), `SoftDot` (the particles' sprite, made in memory) `gpu` (draw with the faster of two GPUs), `Confinement` (what a game may reach in the Player, ADR-087) and `WebVoice` (a sound in a browser, on the page's Web Audio and panned, so a game never needs Qt Multimedia's QML) |
-| `studio/` | QQ Studio. `qq-studio [model.gltf] [--project <folder>] [--capture <frame.png>] [--launcher-channel <name>]`; `LauncherLink`, its side of the QOR host protocol (publishing through the launcher that started it, ADR-088); `History.qml` (undo and redo), `ProjectPanel.qml` (the project's files), `LogicEditor.qml` with `LogicHighlighter` (the logic editor) and `StatsOverlay.qml` (F3), P3.15 |
+| `studio/` | QQ Studio. `qq-studio [model.gltf] [--project <folder>] [--capture <frame.png>] [--launcher-channel <name>]`; `LauncherLink`, its side of the QOR host protocol (publishing through the launcher that started it, ADR-088); `History.qml` (undo and redo), `ProjectPanel.qml` (the project's files), `LogicEditor.qml` with `LogicHighlighter` (the logic editor) and `StatsOverlay.qml` (F3), P3.15; `ProjectWorkspace`, what is kept of each project, outside it |
 | `agent/` | The agent's side of the Studio (P3.3): `McpServer` (MCP's JSON-RPC, served on a local pipe only this user can open), `StudioTools` (the fourteen tools, working the Studio's own window functions, and `StudioLog`, what the Studio has said), `DesignLoop` (a description designed, built, played and judged by Claude through those tools; ADR-085), `keychain` (the provider's key in Windows Credential Manager, or the Secret Service on Linux) and `qq-mcp` (the program an MCP client starts, relaying its standard input and output to the running Studio) |
 | `player/` | The QQ Player. `qq-player [scene.qml] [--capture <frame.png>] [--measure <result.json>] [--seed <n>] [--record <run.json> [--ticks <n>]] [--replay <run.json>]` (a replay has no window and exits 0 when it reaches the outcome kept, 4 when it does not); its playground (a small game with everything P3.2 plays, which counts its visits in its store) bundled inside it, and its measurement lists any of the scene's logic that did not build; `measure-web.mjs`, which plays the browser build in a headless browser, measures it, and loads it again to find the playground's store kept |
-| `tests/` | `tst_world` (rendering, judged by pixels), `tst_scene` (scene files), `tst_studio` (the real Studio window, worked by clicks, drags and keys), `tst_play` (physics, the player, input, particles, sound, logic and gameplay in logic, 2D pixel for pixel, in real frames, and the Orb Run and Ember Climb samples played), `tst_player` (the real Player executable, its runs and its stores across starts), `tst_lockdown` (what a game's logic may reach in the Player, its one store among it, ADR-087), `tst_publish` (publishing through a stand-in launcher, P3.4), `tst_agent` (the tools over MCP, in the real Studio and through the real `qq-mcp`) |
+| `tests/` | `tst_world` (rendering, judged by pixels), `tst_scene` (scene files), `tst_studio` (the real Studio window, worked by clicks, drags and keys), `tst_play` (physics, the player, input, particles, sound, logic and gameplay in logic, 2D pixel for pixel, in real frames, and the Orb Run and Ember Climb samples played), `tst_player` (the real Player executable, its runs and its stores across starts), `tst_lockdown` (what a game's logic may reach in the Player, its one store among it, ADR-087), `tst_publish` (publishing through a stand-in launcher, P3.4), `tst_agent` (the tools over MCP, in the real Studio and through the real `qq-mcp`), `tst_workspace` (projects switched and reopened in the real Studio, with nothing mixed up, unsaved work through a crash and a launcher's close, and what is kept of them read back from the hostile side), `tst_gamebuild` (a project built into a game by the real Studio and the command line, from the hostile side too, a build stopped dead by a real process at each step, and what was built played by the real Player), and `first_journey` (`tools/dev/first-journey.py`: the build, Prism's Library and the Player, the real programs, run where `QOR_PRISM_BUILD` names a build of Prism) |
 | `tests/fixtures/` | `orb.gltf` (written by `make_orb.py`), `chime.wav` (written by `make_chime.py`), `logic/spin.qml`, `scenes/sample.qml` (every entity type, canonical), `first-light.qq.json` (the 2D preview's starter scene), and the 2D fixtures `make_2d.py` writes: `tiles.png`, `tiles.tsj`, `level.tmj` (a Tiled map with a mirrored tile and two layers) and `sheet.png` (eight frames), and `rig.gltf` (written by `make_rig.py`: a bar skinned to two joints that "bend" turns, and a box whose morph target "puff" doubles) |
 | `samples/` | Games made only from kinds and logic files, each proving a step of P3 and played by the suites (ADR-105): `orb-run/` for P3.7 to P3.9 and P3.12 to P3.16, and `ember-climb/`, a pixel-art platformer, for P3.10 and P3.11 ([`samples/README.md`](samples/README.md)) |
 | `build.ps1` | Builds with the owner's Qt, MSVC 2022 and Ninja and runs every test; `-Deploy` makes a self-contained Studio; `-Web` builds the Player for the browser and measures it |
@@ -491,7 +540,8 @@ the web has no audio, so in a browser sound is QQ's own, on the page's Web Audio
   can still do, once trusted, is what a person's own code can do.
 - **What an agent writes** runs only once the creator allows it in the Agent panel.
 - **The Player's walls (QOR-0018).** QQ's own checks (`runtime/confinement.h`) everywhere, and on Linux the kernel's
-  (`player/sandbox.h`): Landlock for files and programs, seccomp for the network. Natively on Windows, Qt Quick's `Canvas`
+  (`player/sandbox.h`): Landlock for files and programs, seccomp for the network, by any route to a socket
+  (`tests/tst_playerwall.cpp`). Natively on Windows, Qt Quick's `Canvas`
   and `grabToImage` and Qt Multimedia's types get past the first, which is why a stranger's game plays only in a browser.
 - **2D, as built in P3.10:** a Tiled map is read one tile layer per TileMap, from its first tileset, which must be one
   image (a collection of images is refused, with the reason); object layers, tile animations, one-way platforms and

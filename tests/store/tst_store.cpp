@@ -32,7 +32,8 @@ const QString kCatalog = QStringLiteral(QOR_STORE_CATALOG);
 const QString kFixtures = QStringLiteral(QOR_STORE_FIXTURES);
 const QString kStorePub = QStringLiteral(QOR_STORE_PUB);
 
-// Rewrites a package with `edit` applied to its entries.
+// Rewrites a package with `edit` applied to its entries. Stored, as a package is: the Store refuses a compressed entry
+// before it looks at anything else, and each case below is about something else.
 QByteArray rezip(const QByteArray &archive, const std::function<void(QMap<QString, QByteArray> &)> &edit)
 {
     QBuffer in;
@@ -46,6 +47,7 @@ QByteArray rezip(const QByteArray &archive, const std::function<void(QMap<QStrin
     QBuffer out;
     out.open(QIODevice::WriteOnly);
     QZipWriter writer(&out);
+    writer.setCompressionPolicy(QZipWriter::NeverCompress);
     for (auto it = entries.cbegin(); it != entries.cend(); ++it)
         writer.addFile(it.key(), it.value());
     writer.close();

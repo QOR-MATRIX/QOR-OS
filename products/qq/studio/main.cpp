@@ -16,11 +16,26 @@
 // qq-mcp, which relays to it (agent/). One Studio at a time serves the pipe; QQ_MCP_PIPE names another.
 //
 // Changed for QOR OS: the watchdog for logic that never returns (QOR-0018).
+//
+// Changed for QOR OS: each project's workspace (projectworkspace.h). --project always wins. With nothing at all on the
+// command line, the Studio goes back to the last project, by the same way and past the same trust check as any other
+// change of project: only a person starting it directly does that, since the launcher names its project. A model given
+// on the command line asks for a new scene, and a capture is a look at what was asked for, which keeps no workspace.
+//
+// Changed for QOR OS: qq-studio --project <folder> --build <scene> makes a game of the project (gamebuild.h) with no window
+// and no display, prints "QQ-BUILD {json}" on standard output and exits: 0 built, 3 refused. Nobody is there to be asked, so it
+// builds only a project already on the person's trusted list, and it compiles nothing, as its answer says.
+//
+// Changed for QOR OS: Qt's QML disk cache only as it is compiled into the Studio, never a .qmlc or .jsc on disk.
 
 #include <QCommandLineParser>
+#include <QCoreApplication>
 #include <QDir>
+#include <QFileInfo>
 #include <QGuiApplication>
 #include <QImage>
+#include <QJsonDocument>
+#include <QJsonObject>
 #include <QQmlApplicationEngine>
 #include <QQuickStyle>
 #include <QQuickWindow>
@@ -28,8 +43,10 @@
 #include <QUrl>
 #include <QtQml/qqmlextensionplugin.h>
 
+#include <cstdio>
 #include <memory>
 
+#include "gamebuild.h"
 #include "gpu.h"
 #include "launcherlink.h"
 #include "mcpserver.h"
@@ -67,10 +84,58 @@ void captureWhenSettled(QQuickWindow *window, const QString &file)
     poll->start(50);
 }
 
+/// A build asks for no window, so it needs no display: it starts no graphical application.
+int buildAndExit(int argc, char *argv[])
+{
+    QCoreApplication app(argc, argv);
+    QCoreApplication::setApplicationName(QStringLiteral("QQ Studio"));
+    QCoreApplication::setOrganizationName(QStringLiteral("Demiurge"));
+    QCommandLineParser parser;
+    const QCommandLineOption project(QStringLiteral("project"), QStringLiteral("The project folder."), QStringLiteral("folder"));
+    const QCommandLineOption build(QStringLiteral("build"), QStringLiteral("The scene the game starts in."), QStringLiteral("scene"));
+    parser.addHelpOption();
+    parser.addOption(project);
+    parser.addOption(build);
+    parser.process(app);
+    const QString folder = parser.value(project);
+    // What is built is one press from playing in the Library. The Studio asks about a project from elsewhere, and here there is
+    // nobody to ask, so this takes only what is on the person's list, and adds nothing to it, however empty the folder. It is
+    // asked by the build, of the real folder the build then copies, so a link changed meanwhile builds nothing it was not asked.
+    qq::GameBuild::Limits limits;
+    limits.trusted = [](const QString &real) { return qq::SceneIO::realFolderOnTrustedList(real); };
+    QVariantMap result = qq::GameBuild::make(folder.isEmpty() ? folder : QDir().absoluteFilePath(folder), parser.value(build),
+                                             qq::GameBuild::gamesFolder(), limits);
+    if (result.value(QStringLiteral("ok")).toBool()) {
+        result.insert(QStringLiteral("compiled"), false);
+        result.insert(QStringLiteral("note"), QObject::tr("Nothing was compiled: this copies the project's files. Code in it that does not "
+                                                          "build is found when the game plays, or by building in QQ Studio."));
+    }
+    // Its answer, on standard output: what asked for it reads that, with nothing else to set.
+    const QByteArray line = "QQ-BUILD " + QJsonDocument(QJsonObject::fromVariantMap(result)).toJson(QJsonDocument::Compact) + '\n';
+    std::fwrite(line.constData(), 1, size_t(line.size()), stdout);
+    std::fflush(stdout);
+    return result.value(QStringLiteral("ok")).toBool() ? 0 : 3;
+}
+
 }  // namespace
 
 int main(int argc, char *argv[])
 {
+    // Either way of writing it: nothing that asks for a build opens a window.
+    for (int i = 1; i < argc; ++i) {
+        if (qstrcmp(argv[i], "--") == 0)
+            break;
+        if (qstrcmp(argv[i], "--build") == 0 || qstrncmp(argv[i], "--build=", 8) == 0)
+            return buildAndExit(argc, argv);
+    }
+
+    // Before any engine exists, which reads these once. What Qt compiled into the Studio itself, and no compiled unit kept on
+    // disk: one beside a project's file, or one Qt kept of it before, would be mapped in as code in place of the source that is
+    // shown and checked (SceneIO::brokenCode compiles a project's QML before a build looks for units). The Player keeps the
+    // cache off altogether.
+    qputenv("QML_DISK_CACHE", "aot");
+    qunsetenv("QML_FORCE_DISK_CACHE");
+
     // Before the application exists: the GPU is chosen when the first window is shown.
     const QString gpu = qq::preferHighPerformanceGpu();
     QGuiApplication app(argc, argv);
@@ -95,6 +160,7 @@ int main(int argc, char *argv[])
     parser.addOption(project);
     parser.addOption(capture);
     parser.addOption(channel);
+    parser.addOption({QStringLiteral("build"), QStringLiteral("Make a game of the project, starting in <scene>, and exit."), QStringLiteral("scene")});
     parser.process(app);
 
     const QStringList positional = parser.positionalArguments();
@@ -103,8 +169,13 @@ int main(int argc, char *argv[])
     const QUrl folder = parser.isSet(project) ? QUrl::fromLocalFile(QDir().absoluteFilePath(parser.value(project)))
                                               : QUrl();
 
+    const bool bareStart = !parser.isSet(project) && positional.isEmpty() && !parser.isSet(capture) && !parser.isSet(channel);
+
     QQmlApplicationEngine engine;
-    engine.setInitialProperties({{QStringLiteral("model"), model}, {QStringLiteral("project"), folder}});
+    engine.setInitialProperties({{QStringLiteral("model"), model},
+                                 {QStringLiteral("project"), folder},
+                                 {QStringLiteral("reopenLast"), bareStart},
+                                 {QStringLiteral("remembers"), !parser.isSet(capture)}});
     QObject::connect(
         &engine, &QQmlApplicationEngine::objectCreationFailed, &app, [] { QCoreApplication::exit(1); },
         Qt::QueuedConnection);
@@ -141,7 +212,12 @@ int main(int argc, char *argv[])
             auto *launcher = new qq::LauncherLink(window);
             if (parser.isSet(channel)) {
                 launcher->connectTo(parser.value(channel), qq::LauncherLink::readToken());
-                QObject::connect(launcher, &qq::LauncherLink::lost, &app, &QCoreApplication::quit);
+                // It goes without asking (ADR-046): Qt's quit closes the window first, and the window would otherwise stop to ask
+                // about unsaved work with nobody there to answer. What is unsaved stays in its recovery copy.
+                QObject::connect(launcher, &qq::LauncherLink::lost, &app, [window] {
+                    window->setProperty("closingUnasked", true);
+                    QCoreApplication::quit();
+                });
             } else {
                 launcher->unavailable(QObject::tr("Open QQ Studio from the launcher to publish: the launcher signs "
                                                   "what you publish, and this Studio holds no key."));

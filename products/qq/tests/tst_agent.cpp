@@ -8,11 +8,14 @@
 //
 // Changed for QOR OS: a warning from QQ's own QML (an undefined name, a failed binding) fails the case it happens in.
 // Changed for QOR OS: what an agent writes runs only when allowed (QOR-0018).
+// Changed for QOR OS: drawn in software alone, what play does to bodies is waited for on the physics world's clock.
+// Changed for QOR OS: an agent writes no logic while a game of the project is being built.
 
 #include <QColor>
 #include <QDir>
 #include <QElapsedTimer>
 #include <QFile>
+#include <QFileInfo>
 #include <QImage>
 #include <QJsonArray>
 #include <QJsonDocument>
@@ -25,8 +28,11 @@
 #include <QQuickWindow>
 #include <QRandomGenerator>
 #include <QRegularExpression>
+#include <QScopeGuard>
+#include <QSemaphore>
 #include <QSet>
 #include <QSignalSpy>
+#include <QStandardPaths>
 #include <QTcpServer>
 #include <QTcpSocket>
 #include <QHostAddress>
@@ -36,6 +42,8 @@
 #include <QtQml/qqmlextensionplugin.h>
 
 #include "designloop.h"
+#include "drawnin.h"
+#include "gamebuild.h"
 #include "gpu.h"
 #include "keychain.h"
 #include "mcpserver.h"
@@ -128,7 +136,11 @@ struct Studio {
         if (!window || !QTest::qWaitForWindowExposed(window))
             return false;
         tools = std::make_unique<qq::StudioTools>(window, &engine, &server);
-        return QTest::qWaitFor([this] { return window->property("settled").toBool(); }, 15000);
+        if (!QTest::qWaitFor([this] { return window->property("settled").toBool(); }, 15000))
+            return false;
+        // Says what draws it, and stops the suite if products.sh expected otherwise.
+        [[maybe_unused]] const bool software = qq::drawnInSoftware(window);
+        return true;
     }
 
     ~Studio()
@@ -292,6 +304,8 @@ private slots:
     {
         QQuickStyle::setStyle(QStringLiteral("Material"));
         qq::StudioLog::install();
+        // Everything kept goes to the test's own folders, never a person's: their recent projects gain no temporary folder.
+        QStandardPaths::setTestModeEnabled(true);
     }
 
     // QQ's own QML says nothing is wrong with it.
@@ -559,6 +573,48 @@ private slots:
         QVERIFY2(r.value(QStringLiteral("text")).toString().contains(QStringLiteral("outside the project")), qPrintable(r.value(QStringLiteral("text")).toString()));
     }
 
+    // While a game of the project is being built, the agent writes no logic into it, and is told why: what is built is what
+    // was on the disk when it began.
+    void anAgentWritesNoLogicWhileAGameIsBuilt()
+    {
+        Studio s;
+        QVERIFY(s.open());
+        // Trusted as new when it was opened; now with a scene saved, for a build to start in.
+        const QDir project(s.project.path());
+        QVERIFY(project.mkpath(QStringLiteral("scenes")));
+        QFile scene(project.filePath(QStringLiteral("scenes/level.qml")));
+        QVERIFY(scene.open(QIODevice::WriteOnly));
+        scene.write("import QQ\n\nScene {\n    name: \"level\"\n}\n");
+        scene.close();
+
+        auto *builder = s.window->findChild<qq::GameBuild *>(QStringLiteral("gameBuild"));
+        QVERIFY(builder);
+        QSemaphore reached;
+        QSemaphore go;
+        qq::GameBuild::Limits limits;
+        limits.step = [&reached, &go](const char *at) {
+            if (qstrcmp(at, "walked") == 0) {
+                reached.release();
+                go.acquire();
+            }
+        };
+        builder->setLimits(limits);
+        const auto letItFinish = qScopeGuard([&go, builder] {
+            go.release();
+            QTRY_VERIFY(!builder->busy());
+            QDir(qq::GameBuild::gamesFolder()).removeRecursively();
+        });
+        QVERIFY(builder->start(QUrl::fromLocalFile(project.path()), QUrl::fromLocalFile(scene.fileName())));
+        QVERIFY(reached.tryAcquire(1, 60000));
+
+        const QJsonObject r = s.client.tool(QStringLiteral("behaviour_write"),
+                                            {{QStringLiteral("file"), QStringLiteral("spin")},
+                                             {QStringLiteral("code"), QStringLiteral("import QQ\nLogic {}\n")}});
+        QVERIFY(r.value(QStringLiteral("isError")).toBool());
+        QVERIFY2(r.value(QStringLiteral("text")).toString().contains(QStringLiteral("being built")), qPrintable(r.value(QStringLiteral("text")).toString()));
+        QVERIFY(!QFileInfo::exists(project.filePath(QStringLiteral("logic/spin.qml"))));
+    }
+
     void anAgentPlaysLooksAndStopsAndTheSceneComesBack()
     {
         Studio s;
@@ -580,8 +636,31 @@ private slots:
                                                              {QStringLiteral("fields"), QJsonObject{{QStringLiteral("mass"), 2}}}})
                     .value(QStringLiteral("isError")).toBool());
 
+        // On a GPU, one wait of `ms`, so what follows checks too that the world keeps up with real time. The tool waits by the
+        // wall's clock, and bodies move by the physics world's, which frames drawn in software leave behind: there alone, the
+        // agent's waits, short ones, until `ms` of the world's time has passed. Its last answer is where things stand then. A
+        // limit on the wall's time stops a game that has hung (docs/CI.md#what-linux-runs).
+        const bool software = qq::drawnInSoftware(s.window);
+        QSignalSpy steps(s.window->property("playScene").value<QObject *>()->property("physicsWorld").value<QObject *>(),
+                         SIGNAL(frameDone(float)));
+        const auto waitForPlay = [&](int ms) {
+            if (!software)
+                return s.client.tool(QStringLiteral("wait"), {{QStringLiteral("ms"), ms}});
+            double done = 0;
+            QJsonObject answer;
+            QElapsedTimer guard;
+            guard.start();
+            while (done < ms && guard.elapsed() < 30000 + 30 * ms) {
+                answer = s.client.tool(QStringLiteral("wait"), {{QStringLiteral("ms"), 50}});
+                for (const QList<QVariant> &step : std::as_const(steps))
+                    done += step.at(0).toDouble();
+                steps.clear();
+            }
+            return done >= ms ? answer : QJsonObject();
+        };
+
         // Wait: the crate has fallen to the ground, as the agent is told.
-        r = s.client.tool(QStringLiteral("wait"), {{QStringLiteral("ms"), 2500}});
+        r = waitForPlay(2500);
         const QJsonArray crate = r.value(QStringLiteral("json")).toObject().value(QStringLiteral("dynamicBodies")).toObject()
                                      .value(QStringLiteral("Crate")).toArray();
         QVERIFY2(crate.size() == 3 && qAbs(crate[1].toDouble() - 0.5) < 0.1, qPrintable(r.value(QStringLiteral("text")).toString()));
@@ -591,7 +670,7 @@ private slots:
                                          .value(QStringLiteral("feet")).toArray();
         QVERIFY(!s.client.tool(QStringLiteral("input_set"), {{QStringLiteral("move"), QJsonArray{0, 1}}})
                      .value(QStringLiteral("isError")).toBool());
-        r = s.client.tool(QStringLiteral("wait"), {{QStringLiteral("ms"), 1000}});
+        r = waitForPlay(1000);
         s.client.tool(QStringLiteral("input_set"), {{QStringLiteral("move"), QJsonArray{0, 0}}});
         const QJsonArray feet = r.value(QStringLiteral("json")).toObject().value(QStringLiteral("player")).toObject()
                                     .value(QStringLiteral("feet")).toArray();
@@ -616,6 +695,19 @@ private slots:
         QCOMPARE(s.sceneText(), before);
         QVERIFY(s.client.tool(QStringLiteral("input_set"), {{QStringLiteral("move"), QJsonArray{0, 1}}})
                     .value(QStringLiteral("isError")).toBool());
+    }
+
+    // A wait lasts what it was asked for, by the wall's clock, however frames come: an agent reads the game by it. A lower
+    // bound, so slow frames cannot make it fail. Under two seconds, which is what a timer keeps to exactly.
+    void aLongWaitLastsWhatItWasAskedFor()
+    {
+        Studio s;
+        QVERIFY(s.open());
+        QElapsedTimer waited;
+        waited.start();
+        const QJsonObject r = s.client.tool(QStringLiteral("wait"), {{QStringLiteral("ms"), 1500}});
+        QVERIFY2(!r.value(QStringLiteral("isError")).toBool(), qPrintable(r.value(QStringLiteral("text")).toString()));
+        QVERIFY2(waited.elapsed() >= 1500, qPrintable(QStringLiteral("it lasted %1 ms").arg(waited.elapsed())));
     }
 
     void logicThatThrowsInPlayIsInTheLog()
@@ -945,6 +1037,9 @@ private slots:
         const QString pipe = QStringLiteral("qq-test-%1").arg(QRandomGenerator::global()->generate());
         QProcessEnvironment env = QProcessEnvironment::systemEnvironment();
         env.insert(QStringLiteral("QQ_MCP_PIPE"), pipe);
+        // The real programs keep what they keep in a folder of the test's too.
+        QTemporaryDir kept;
+        env.insert(QStringLiteral("XDG_DATA_HOME"), kept.path());
 
         QProcess bridge;
         bridge.setProcessEnvironment(env);

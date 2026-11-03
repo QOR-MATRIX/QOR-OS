@@ -23,6 +23,7 @@
 *.sig             binary
 store/catalog/catalog.json            -text
 tests/store/fixtures/**/catalog.json  -text
+tests/store/fixtures-demo/**/catalog.json  -text
 
 # Generated files: collapse in diffs, exclude from language stats
 kit/Tokens.qml                  linguist-generated=true
@@ -31,6 +32,7 @@ docs/design/tokens.md           linguist-generated=true
 
 # Vendored third-party assets
 kit/fonts/**      linguist-vendored=true
+tests/store/licences/**  linguist-vendored=true
 kit/icons/*.svg   linguist-vendored=true
 prism/compositor/protocols/*.xml  linguist-vendored=true
 

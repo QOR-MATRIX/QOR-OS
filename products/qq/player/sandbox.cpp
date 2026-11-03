@@ -167,7 +167,9 @@ bool raiseLandlock(const PlayerWall &wall)
     return raised;
 }
 
-/// No socket but a local one. What is not a socket call, or is on another machine's calls, carries on.
+/// No socket but a local one, by any route. Besides socket() there are three: a 32-bit call, which any x86-64 process may
+/// make with int 0x80 and the filter sees as another machine's; an x32 call, which it sees as this machine's under another
+/// number; and io_uring, which makes a socket with no call for a filter to see. Tried in tst_playerwall.
 bool raiseSeccomp()
 {
 #if defined(__x86_64__)
@@ -178,13 +180,16 @@ bool raiseSeccomp()
     const quint32 arch = 0;
     return false;
 #endif
+    constexpr quint32 x32Calls = 0x40000000;
     sock_filter program[] = {
         BPF_STMT(BPF_LD | BPF_W | BPF_ABS, offsetof(seccomp_data, arch)),
-        BPF_JUMP(BPF_JMP | BPF_JEQ | BPF_K, arch, 1, 0),
-        BPF_STMT(BPF_RET | BPF_K, SECCOMP_RET_ALLOW),
+        BPF_JUMP(BPF_JMP | BPF_JEQ | BPF_K, arch, 0, 9),
         BPF_STMT(BPF_LD | BPF_W | BPF_ABS, offsetof(seccomp_data, nr)),
-        BPF_JUMP(BPF_JMP | BPF_JEQ | BPF_K, SYS_socket, 1, 0),
-        BPF_STMT(BPF_RET | BPF_K, SECCOMP_RET_ALLOW),
+        BPF_JUMP(BPF_JMP | BPF_JGE | BPF_K, x32Calls, 7, 0),
+        BPF_JUMP(BPF_JMP | BPF_JEQ | BPF_K, SYS_io_uring_setup, 6, 0),
+        BPF_JUMP(BPF_JMP | BPF_JEQ | BPF_K, SYS_io_uring_enter, 5, 0),
+        BPF_JUMP(BPF_JMP | BPF_JEQ | BPF_K, SYS_io_uring_register, 4, 0),
+        BPF_JUMP(BPF_JMP | BPF_JEQ | BPF_K, SYS_socket, 0, 2),
         BPF_STMT(BPF_LD | BPF_W | BPF_ABS, offsetof(seccomp_data, args[0])),
         BPF_JUMP(BPF_JMP | BPF_JEQ | BPF_K, AF_UNIX, 0, 1),
         BPF_STMT(BPF_RET | BPF_K, SECCOMP_RET_ALLOW),

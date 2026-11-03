@@ -7,7 +7,8 @@
 //   Landlock: the game's package, QOR OS's runtime and the system's own folders may be read; nothing else, so nothing in
 //     the person's home but what fonts and sound need. Only the game's store, a cache of the Player's own, what the
 //     command line names and the devices it draws with may be written. Nothing may be executed.
-//   seccomp: no network socket can be made. Local sockets stay, for the display and sound.
+//   seccomp: no network socket can be made, by socket() or any other route (sandbox.cpp). Local sockets stay, for the
+//     display and sound.
 //
 // A kernel without Landlock plays the game behind QQ's own checks alone, and says so. QQ_PLAYER_SANDBOX=off plays it with
 // neither of these: for finding out whether the wall is what broke something.
