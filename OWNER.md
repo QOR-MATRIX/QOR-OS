@@ -6,44 +6,43 @@ For Andrew, 3 November 2026. One page, rewritten every session (`AGENTS.md` §2)
 
 The operating system for players, game developers and game designers: the Prism shell (*the compositor and desktop in
 one*) and Lumen design, with QQ, ARQADE and QOR Media, on Linux. Code: `QOR-MATRIX/qor-os`, private, at `X:\Repoz\QOR-OS`.
-The work is on the branch `integration/owner-brief`, at `064c3d8`; `main` has only your merge of pull request #2.
+The work is on the branch `integration/owner-brief`, at `0cb81f9`; `main` has only your merge of pull request #2.
 
 ## Shown working, and where
 
-1. **The first journey, in software.** Open a QQ project, bring in a model, edit, save, build a game, and play that copy from
-   Prism's Library; two projects kept apart; a restart; unsaved work kept through a crash. After an independent review and its
-   recheck, every gap it found is fixed and tested except paths a game makes as it runs. At `72945fe`, hidden, under WSL
-   (*Linux inside Windows*), drawn in software: `tst_gamebuild` 195 passed, `tst_workspace` 241, `first_journey` passed,
-   `tst_library` 32 under the memory checkers. **Not yet:** native Linux, a graphics card, Windows. Prism there starts a stand-in
-   for the Player, and the real Player plays what it asked for. An import records no permission.
-2. **The Store's engine**, format 2: player and creator views kept apart, free items only, installs all or nothing, after a
-   review and two rechecks. 604 cases under the memory checkers and 597 on Windows at `811d192`. No pages yet.
-3. **CI** (*the automatic build machines, both this laptop*): both runners stopped, no isolation setting made. A replacement VM
-   (*a separate machine inside this one, with its own kernel*) is written, reviewed twice, and has never run. Pull request #3
-   was reviewed today; its findings are fixed and its tests catch eight planted faults.
-4. **ARQADE's and QQ's suites in software:** ARQADE 4 of 4; QQ 9 of 10, the one failure the Player's floor of 20 frames a
-   second, at 6.1 to 6.3.
+Everything here ran hidden, under WSL (*Linux inside Windows*), drawn in software. **Not yet:** native Linux, a graphics card,
+Windows.
 
-The machine restarted overnight and took this work's scratch files with it; they were rebuilt from the session records, and
-no committed work was lost.
+1. **The first journey.** Open a QQ project, bring in a model, edit, save, build a game, and play that copy from Prism's
+   Library; two projects kept apart; a restart; unsaved work kept through a crash. Reviewed and rechecked; at `72945fe`.
+2. **The second journey, the two stores, in a demonstration build** (*one made with a throwaway key, never a release*):
+   - Ember Climb found in the Player Store, installed, and played from the Library by the real QQ Player, checked whole first.
+   - Creator features turned on in Settings, the art pack installed from the Creator Store, then copied into a QQ project by
+     its new asset library with `assets.lock.json` (*a record in the project of what came from where, and under which
+     licence*), updated without touching what you changed, reopened, and named in the built game. A broken lock refuses a build,
+     as you chose.
+   - The Store's engine and pages reviewed and fixed; the asset library's review is under way.
+3. **Prism lets a game capture the mouse** (*two of the three interfaces gamescope needs*), after a review; real hardware waits.
+4. **CI** (*the automatic build machines, both this laptop*): both runners stopped, no isolation setting made. A replacement VM
+   (*a separate machine inside this one*) is written, reviewed twice, and has never run. Pull request #3 was reviewed today and
+   its findings fixed.
+5. **The suites in software:** QQ passes all but the Player's floor of 20 frames a second (5.6 to 6.3 here).
 
 ## Needs you
 
 1. **Merge pull request #3** (*a request to change `main`*), at `a31154c`: Build then fails while nothing was built, which is
-   the truth. Readiness is a signal, not a control: a pull request can edit the workflow that judges it.
+   the truth. It is a signal, not a lock: a pull request can edit the workflow that judges it.
 2. **Run the VM's first Create and Prove** (`docs/CI.md`, "The owner's first run", at `c9513c6`). Tell me first: I pause builds.
 3. **Decide the floor and the eased software checks** (`docs/CI.md`, "What Linux runs"). I recommend letting them stand in
-   software only, with a graphics-card run required before a release. Also: should the suites that draw on WSL's display count
-   only on a graphics card too? Today only the products are held to that.
+   software only, with a graphics-card run required before a release, and holding the drawing suites to that too.
 4. **A Windows test run** of `tools/dev/products.ps1` while you are away from the screen: the only graphics-card evidence here.
 5. **Send the Qt letter** (`docs/release/QT.md`), question 15 on CI. No Qt kit goes on the VM before the answer.
 6. **Move the Store's signing keys and their backup off this PC**, and **limit the Vercel and Render GitHub Apps.**
 7. **The Linux machine:** a USB-C SSD of 500 GB or more and a USB stick of 8 GB or more, then `docs/BUILDING.md`.
-8. **Later, when that work starts:** your accepted Unreal licence version, a Fab export and your Claude data setting, the Unity
-   question, and Bellwick's name.
+8. **Later:** your accepted Unreal licence version, a Fab export and your Claude data setting, the Unity question, Bellwick's
+   name, and whether a catalogue should carry a licence's text so reading one doesn't download its whole package.
 
 ## Next
 
-The Store's pages (resumed today, on the final engine); an independent review of Prism's pointer capture (under way); then
-the asset library that brings a pack from the Store into a project, which with the pages finishes the second journey. Workers
-run two at a time: four at once reached the usage limit three times.
+The asset library's review and its fixes; a pack's provenance carried into what the Store installs; Prism's `--script` kept to
+test builds. After that, milestone 4's groundwork that needs no graphics card. Workers run two at a time.
