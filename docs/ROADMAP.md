@@ -326,7 +326,7 @@ unpublished builds stay out of reach.
   turning creator features off keeps what is installed
 - [x] A separate demonstration catalogue with a throwaway key, never in a release; today's fixtures not re-signed
 - [x] The Player Store's pages: find, licence and provenance as plain text, install, update and remove, with refusals said
-  plainly, in a demonstration build only (`25e54a7`)
+  plainly, in a demonstration build only (`1892e30`, after an independent review)
 - [ ] Play, and Store games in the Library, checked rather than scanned
 - [x] The creator-features switch in Settings, off by default and enforced by the engine, and the Creator Store's pages; turning
   it off closes them and keeps what is installed
