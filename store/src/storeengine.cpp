@@ -43,6 +43,9 @@ constexpr qint64 kMaximumPreviewSize = 4 * 1024 * 1024;
 // A plan's packages are held in memory until all of them are verified, so what every plan under way may come to,
 // together, is bounded.
 constexpr qint64 kMaximumHeldBytes = 128 * 1024 * 1024;
+constexpr char kReceivedProperty[] = "qorReceived"; // what a download has been counted as holding
+constexpr char kTooMuchProperty[] = "qorTooMuch";   // a download stopped because everything together would not fit
+constexpr QStringView kTooMuchOnItsWay = u"Too much is on its way at once. Try this again when the rest has finished.";
 constexpr int kTransferTimeoutMs = 30000;
 constexpr int kLockTimeoutMs = 5000;
 
@@ -234,16 +237,38 @@ void StoreEngine::fetch(const QString &job, const QUrl &url, qint64 maximumSize,
             Q_EMIT progressChanged(job);
         });
     }
-    connect(reply, &QNetworkReply::readyRead, reply, [reply, maximumSize] {
+    // A package on its way is held in memory as it comes, so it counts against what every plan may hold together, and
+    // a download that would take more than is left stops there.
+    const bool counted = !job.isEmpty();
+    connect(reply, &QNetworkReply::readyRead, this, [this, reply, maximumSize, counted] {
         if (reply->bytesAvailable() > maximumSize)
+            return reply->abort();
+        if (counted && !countReceived(reply, reply->bytesAvailable())) {
+            reply->setProperty(kTooMuchProperty, true);
             reply->abort();
+        }
     });
-    connect(reply, &QNetworkReply::finished, this, [reply, done] {
+    connect(reply, &QNetworkReply::finished, this, [this, reply, done, counted] {
         reply->deleteLater();
+        const bool tooMuch =
+            reply->property(kTooMuchProperty).toBool()
+            || (counted && reply->error() == QNetworkReply::NoError && !countReceived(reply, reply->bytesAvailable()));
+        if (counted)
+            countReceived(reply, 0); // let go: what arrived is the plan's to count now
+        if (tooMuch)
+            return done(false, {}, kTooMuchOnItsWay.toString());
         if (reply->error() != QNetworkReply::NoError)
             return done(false, {}, reply->errorString());
         done(true, reply->readAll(), {});
     });
+}
+
+// Counts what a download holds now, and says whether every plan's holdings and every download's still fit together.
+bool StoreEngine::countReceived(QNetworkReply *reply, qint64 bytes)
+{
+    m_receivedBytes += bytes - reply->property(kReceivedProperty).toLongLong();
+    reply->setProperty(kReceivedProperty, bytes);
+    return m_heldBytes + m_receivedBytes <= heldBytesLimit();
 }
 
 void StoreEngine::refresh()
@@ -528,7 +553,7 @@ void StoreEngine::stepArrived(const PlanPtr &plan, const QString &id, const QByt
     if (plan->bytes + package.unpacked > heldBytesLimit())
         return failPlan(plan, id, u"This install would take too much at once."_s);
     if (m_heldBytes + package.unpacked > heldBytesLimit())
-        return failPlan(plan, id, u"Too much is on its way at once. Try this again when the rest has finished."_s);
+        return failPlan(plan, id, kTooMuchOnItsWay.toString());
     plan->bytes += package.unpacked;
     m_heldBytes += package.unpacked;
 

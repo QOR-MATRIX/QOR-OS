@@ -40,6 +40,8 @@
 #include <QtTest/QSignalSpy>
 #include <QtTest/QTest>
 
+#include <algorithm>
+
 #ifdef Q_OS_UNIX
 #include <sys/resource.h>
 #endif
@@ -4333,16 +4335,24 @@ private Q_SLOTS:
         server.files.insert(u"catalog.json"_s, json);
         server.files.insert(u"catalog.json.sig"_s, shop.store.sign(json));
         QMap<QString, qint64> unpacked;
-        for (const QJsonObject &listing : std::as_const(shop.items))
-            unpacked.insert(listing.value(u"id"_s).toString(),
-                            listing.value(u"package"_s).toObject().value(u"unpacked"_s).toInteger());
+        QMap<QString, qint64> sent; // what each download holds as it arrives: the package itself, a little larger
+        for (const QJsonObject &listing : std::as_const(shop.items)) {
+            const QString id = listing.value(u"id"_s).toString();
+            unpacked.insert(id, listing.value(u"package"_s).toObject().value(u"unpacked"_s).toInteger());
+            sent.insert(id, server.files.value(u"packages/%1-1.0.0.qorpkg"_s.arg(id)).size());
+        }
 
         QTemporaryDir data;
         PlantedEngine store(data.path(), shop.store.publicKey());
         store.setCreatorFeatures(true);
-        // Room for either plan whole, and for both first packages, and not for three packages at once.
-        store.heldLimit =
-            std::max(unpacked.value(a1.id) + unpacked.value(a.id), unpacked.value(b1.id) + unpacked.value(b.id));
+        // Room for either plan whole, each package counted as it arrives and then as it unpacks, and for both first
+        // packages on their way at once, and not for both plans' first packages and a second on its way.
+        const auto u = [&unpacked](const Pack &pack) { return unpacked.value(pack.id); };
+        const auto s = [&sent](const Pack &pack) { return sent.value(pack.id); };
+        store.heldLimit = std::max(
+            { u(a1) + u(a), u(b1) + u(b), u(a1) + s(a), u(b1) + s(b), s(a1) + s(b1), u(a1) + s(b1), u(b1) + s(a1) });
+        QVERIFY2(u(a1) + u(b1) + std::min(s(a), s(b)) > store.heldLimit,
+                 "The packages are too small beside their headers for this test to say anything.");
         QCOMPARE(refreshed(store, server.url(u"catalog.json"_s)), StoreEngine::State::Ready);
         server.held = { u"packages/org.example.pack.a-1.0.0.qorpkg"_s, u"packages/org.example.pack.b-1.0.0.qorpkg"_s };
         QSignalSpy finished(&store, &StoreEngine::finished);
@@ -4372,6 +4382,41 @@ private Q_SLOTS:
         // What both held is let go: the one that stopped installs now, on its own.
         const Outcome again = installAndWait(store, aFailed ? a.id : b.id);
         QVERIFY2(again.ok, qPrintable(again.error));
+    }
+
+    // A package on its way counts as it arrives, so a download that would take more than is left stops there, before
+    // it is held whole beside everything else. What it held is let go when it stops.
+    void aDownloadCountsAgainstTheLimitAsItArrives()
+    {
+        QNetworkProxy::setApplicationProxy(QNetworkProxy::NoProxy);
+        const Pack pack;
+        Shop shop;
+        TinyServer server;
+        const QByteArray bytes = pack.package(shop.developer);
+        shop.addPackage(pack, bytes);
+        server.files.insert(u"packages/%1-1.0.0.qorpkg"_s.arg(pack.id), bytes);
+        const QByteArray json = shop.json();
+        server.files.insert(u"catalog.json"_s, json);
+        server.files.insert(u"catalog.json.sig"_s, shop.store.sign(json));
+        const qint64 unpacked = shop.items.constFirst().value(u"package"_s).toObject().value(u"unpacked"_s).toInteger();
+        QVERIFY(bytes.size() > unpacked);
+
+        QTemporaryDir data;
+        PlantedEngine store(data.path(), shop.store.publicKey());
+        store.setCreatorFeatures(true);
+        QCOMPARE(refreshed(store, server.url(u"catalog.json"_s)), StoreEngine::State::Ready);
+        // Room for what it unpacks to, and not for the download itself.
+        store.heldLimit = unpacked;
+        const Outcome refused = installAndWait(store, pack.id);
+        QVERIFY(!refused.ok);
+        QVERIFY2(refused.error.contains(u"Too much is on its way at once"_s), qPrintable(refused.error));
+        QVERIFY(!store.installed().contains(pack.id));
+
+        // Room for exactly the download: what the refused one held was let go.
+        store.heldLimit = bytes.size();
+        const Outcome installed = installAndWait(store, pack.id);
+        QVERIFY2(installed.ok, qPrintable(installed.error));
+        QVERIFY(store.isIntact(pack.id));
     }
 
     // What moves is made durable at each moment it must be, where the system can: what was staged before the journal
