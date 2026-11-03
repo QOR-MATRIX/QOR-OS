@@ -247,8 +247,9 @@ repository, the image or an assistant's context, and nobody here downloads it un
   the rule above stands
 - [ ] **Stage 1 · A game plays in Prism.** Exit: Epic's Third Person template, packaged for Linux from the Windows editor,
   plays in gamescope in Prism on the owner's machine, with mouse look, a DualSense and sound, at the display's rate.
-  - [ ] `zwp_relative_pointer_manager_v1` and `zwp_pointer_constraints_v1` in Prism, tested from a hostile client's side
-    (Phase 3's Steam needs these too)
+  - [x] `zwp_relative_pointer_manager_v1` and `zwp_pointer_constraints_v1` in Prism, tested from a hostile client's side
+    (`tst_pointercapture`, offscreen; holding the real pointer and unaccelerated motion wait for the KMS backend; Phase 3's
+    Steam needs these too)
   - [ ] `zwp_linux_dmabuf_v1` on a real graphics card
   - [ ] gamescope running a Vulkan program in Prism on the RTX 4060: the first test of NVIDIA nested
 - [ ] **Stage 2 · A native game is in the Library, in a sandbox.** Exit: a game installed by hand appears from its manifest,

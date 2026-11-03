@@ -125,6 +125,9 @@ Say so if you find a way past one; these are the walls we know are low.
   Until games and apps are sandboxed (Phase 3), a process running as the person can
   crash whatever hosts the bus: Prism, with the simulator. Qt Remote Objects'
   decoder trusts what it is sent. So: nothing sandboxed is ever given the bus.
+- **An installed Prism honours `--script`,** which reads input steps from a file and can call the shell's own methods. Only
+  the scripted tests need it, and the image's unit does not pass it, so it is open only to whoever controls Prism's command
+  line. It is to be refused outside a test build before an image ships.
 - **Prism's clipboard is Qt's**: any client may set the selection. Reading it takes
   the keyboard, which a client no longer gets unseen.
 - **A format 1 Store catalogue has no sequence or expiry.** Replaying an older one can
