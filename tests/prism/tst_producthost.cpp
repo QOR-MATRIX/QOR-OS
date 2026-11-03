@@ -26,6 +26,10 @@
 
 #include <memory>
 
+#if defined(Q_OS_LINUX)
+#include <unistd.h>
+#endif
+
 using namespace Qt::StringLiterals;
 using qor::HostSession;
 using qor::ProductHost;
@@ -757,6 +761,7 @@ private slots:
             // A file of that name that is not a socket is no daemon either.
             QVERIFY(QFile(runtime.filePath(u"pipewire-0"_s)).open(QIODevice::WriteOnly));
         const QByteArray runtimeBefore = qgetenv("XDG_RUNTIME_DIR");
+        const bool hadRuntime = qEnvironmentVariableIsSet("XDG_RUNTIME_DIR");
         const QByteArray backendBefore = qgetenv("QT_AUDIO_BACKEND");
         const bool hadBackend = qEnvironmentVariableIsSet("QT_AUDIO_BACKEND");
         qputenv("XDG_RUNTIME_DIR", runtime.path().toUtf8());
@@ -778,7 +783,10 @@ private slots:
         host->stop(u"test-started"_s);
         QTRY_COMPARE_WITH_TIMEOUT(exited.size(), 1, 10000);
 
-        qputenv("XDG_RUNTIME_DIR", runtimeBefore);
+        if (hadRuntime)
+            qputenv("XDG_RUNTIME_DIR", runtimeBefore);
+        else
+            qunsetenv("XDG_RUNTIME_DIR");
         if (hadBackend)
             qputenv("QT_AUDIO_BACKEND", backendBefore);
         else
@@ -787,6 +795,20 @@ private slots:
             QVERIFY2(backend.isNull(), qPrintable(backend.toString()));
         else
             QCOMPARE(backend.toString(), given);
+    }
+#endif
+
+#if defined(Q_OS_LINUX)
+    // An empty XDG_RUNTIME_DIR is an unset one, as the shell's :- has it: the socket looked for is the user's own.
+    void an_empty_runtime_folder_is_an_unset_one()
+    {
+        QProcessEnvironment environment;
+        environment.insert(u"XDG_RUNTIME_DIR"_s, QString());
+        QCOMPARE(qor::pipewireSocketFor(environment), u"/run/user/%1/pipewire-0"_s.arg(::getuid()));
+        QProcessEnvironment unset;
+        QCOMPARE(qor::pipewireSocketFor(unset), u"/run/user/%1/pipewire-0"_s.arg(::getuid()));
+        environment.insert(u"XDG_RUNTIME_DIR"_s, u"/run/elsewhere"_s);
+        QCOMPARE(qor::pipewireSocketFor(environment), u"/run/elsewhere/pipewire-0"_s);
     }
 #endif
 

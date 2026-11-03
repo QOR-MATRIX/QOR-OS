@@ -904,6 +904,11 @@ QVariantMap GameBuild::make(const QString &project, const QString &scene, const 
                            ? tr("This game is already being built, here or in another Studio. When that has finished, build again.")
                            : tr("%1 could not be written to, so this game could not be built.").arg(gamesPath));
     }
+    // Not while the project's assets are being changed, here or in another Studio sharing this person's store: what is copied is
+    // the project as one change left it.
+    const AssetLibrary::Hold assets(root);
+    if (!assets.held())
+        return refused(assets.problem());
     const QString target = gamesDir.filePath(name);
     putBackWhatDied(gamesDir, name, target);
     clearLeftovers(gamesDir, name);

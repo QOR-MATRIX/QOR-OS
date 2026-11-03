@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: LicenseRef-QOR-OS-Proprietary
 //
 // The asset library (QOR-0021): the packs the Store installed, as the Studio's own checks find them (AssetLibrary), each with its
-// name, version, developer, licence and where it came from, and its files, a picture shown as itself. Use copies the whole pack
+// name, version, developer (not checked here), licence and where it came from, and, on asking, its files, a picture shown by a
+// thumbnail drawn from its checked bytes (AssetThumbnails), only as many rows made as are in view. Use copies the whole pack
 // into the project, and a click on a file copies that one, with the pack's licence and notice either way; Update offers the
 // installed version when it is newer than the project's. What the project uses that the Store no longer has is listed as such,
 // and its copies stay. Everything here came from someone else, so it is text, never markup. Nothing here moves or animates.
@@ -109,13 +110,26 @@ ColumnLayout {
                 text: qsTr("%1 · %2 · %3").arg(pack.modelData.developer).arg(pack.modelData.licence).arg(pack.modelData.provenance)
                       + (pack.modelData.used !== "" ? "\n" + qsTr("In this project: %1").arg(pack.modelData.used) : "")
             }
-            Repeater {
-                model: pack.modelData.files
+            StudioButton {
+                id: filesToggle
+                objectName: "files:" + pack.modelData.id
+                property bool open: false
+                flat: true
+                text: (open ? qsTr("Hide its files") : qsTr("Its files")) + " (" + pack.modelData.files.length + ")"
+                onClicked: open = !open
+            }
+            ListView {
+                objectName: "fileList:" + pack.modelData.id
+                visible: filesToggle.open
+                Layout.fillWidth: true
+                Layout.preferredHeight: visible ? Math.min(count, 8) * 26 : 0
+                clip: true
+                model: visible ? pack.modelData.files : []
                 delegate: ItemDelegate {
                     id: file
                     required property var modelData
                     objectName: "useFile:" + pack.modelData.id + "/" + modelData.path
-                    Layout.fillWidth: true
+                    width: ListView.view.width
                     implicitHeight: 26
                     enabled: pack.modelData.used === "" || pack.modelData.used === pack.modelData.version
                     ToolTip.visible: hovered
@@ -135,6 +149,7 @@ ColumnLayout {
                             fillMode: Image.PreserveAspectFit
                             smooth: false
                             asynchronous: true
+                            cache: false
                         }
                         Rectangle {
                             visible: file.modelData.kind !== "picture"

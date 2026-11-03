@@ -1,53 +1,41 @@
 # Where QOR OS stands
 
-For Andrew, 3 November 2026. One page, rewritten every session (`AGENTS.md` §2). Checkpoint, mid-session.
+For Andrew, 3 November 2026. Recovery continued; the zero-warning gate remains open.
 
-## What QOR OS is
+QOR OS joins Prism (desktop and compositor), Lumen (design language), QQ, ARQADE and QOR Media. This session owns implementation;
+you confirmed the other recovery sessions are idle. Integration was clean at `f65c90d` on `integration/owner-brief`.
 
-The operating system for players, game developers and game designers: the Prism shell (*the compositor and desktop in
-one*) and Lumen design, with QQ, ARQADE and QOR Media, on Linux. Code: `QOR-MATRIX/qor-os`, private, at `X:\Repoz\QOR-OS`.
-The work is on the branch `integration/owner-brief`; `main` has your merges of pull requests #2 and #3.
+## What this change carries
 
-## Shown working, and where
+W10's recovery commit `6e495d2` and its six unfinished files were preserved and continued in its existing worktree,
+`.claude/worktrees/agent-a3d662eca31450d64`. The original patch is saved. Git cannot inspect unsaved editor buffers.
 
-Everything here ran hidden, under WSL (*Linux inside Windows*), drawn in software. **Not yet:** native Linux, a graphics card,
-Windows.
+Recovery checks the project folder and placed bytes, leaves files alone when staging is gone, and gives each lock a distinct tag.
+Update passes the project's trust check; outside titles stay plain; thumbnails use checked bytes. Copy and Update run in the
+background; Save, Build and changing project wait. Signed-listing provenance (where a pack came from) is kept within the existing
+8 MiB lock limit. Listing and planning still run on the window's thread.
 
-1. **The first journey.** Open a QQ project, bring in a model, edit, save, build a game, and play that copy from Prism's
-   Library; two projects kept apart; a restart; unsaved work kept through a crash. Reviewed and rechecked; at `72945fe`.
-2. **The second journey, the two stores, in a demonstration build** (*one made with a throwaway key, never a release*):
-   - Ember Climb found in the Player Store, installed, and played from the Library by the real QQ Player, checked whole first.
-   - Creator features turned on in Settings, the art pack installed from the Creator Store, then copied into a QQ project by
-     its new asset library with `assets.lock.json` (*a record in the project of what came from where, and under which
-     licence*), updated without touching what you changed, reopened, and named in the built game. A broken lock refuses a build,
-     as you chose.
-   - The Store's engine and pages reviewed and fixed. The asset library's review found two ways crash recovery can lose files,
-     a pack's name shown as rich text, and Update skipping the trust check: being fixed.
-3. **Prism lets a game capture the mouse** (*two of the three interfaces gamescope needs*), after a review; real hardware waits.
-4. **CI** (*the automatic build machines, both this laptop*): both runners offline, no isolation setting made. You merged pull
-   request #3 on 3 November as `4c620c2` (its tree is exactly the reviewed `a31154c`). On it, Lint and Security passed on GitHub's
-   machines; Build failed only at Release readiness, as it should: both kit jobs were skipped as not isolated, so every required
-   step reads "not run". Nothing was built, and nothing failed to build. A replacement VM (*a separate machine inside this one*) is
-   written, reviewed twice, and has never run.
-5. **The suites in software:** QQ passes all but the Player's floor of 20 frames a second (5.6 to 6.3 here).
+## Evidence and limits
 
-## Needs you
+All runs used commercial Qt 6.12 under WSL (Linux inside Windows), hidden, drawn in software and fenced from the graphics
+processor. The existing shared lock kept builds serial, with four compiler and Mesa rendering workers.
 
-1. **Run the VM's first Create and Prove** (`docs/CI.md`, "The owner's first run"; the script is unchanged since `c9513c6`).
-   Tell me first: it needs about 7 GB free, so I hold the build lock and the workers' builds wait.
-2. **Readiness is a signal, not a lock:** a pull request can edit the workflow that judges it, and the Free plan has no branch
-   protection.
-3. **Decide the floor and the eased software checks** (`docs/CI.md`, "What Linux runs"). I recommend letting them stand in
-   software only, with a graphics-card run required before a release, and holding the drawing suites to that too.
-4. **A Windows test run** of `tools/dev/products.ps1` while you are away from the screen: the only graphics-card evidence here.
-5. **Send the Qt letter** (`docs/release/QT.md`), question 15 on CI. No Qt kit goes on the VM before the answer.
-6. **Move the Store's signing keys and their backup off this PC**, and **limit the Vercel and Render GitHub Apps.**
-7. **The Linux machine:** a USB-C SSD of 500 GB or more and a USB stick of 8 GB or more, then `docs/BUILDING.md`.
-8. **Later:** your accepted Unreal licence version, a Fab export and your Claude data setting, the Unity question, Bellwick's
-   name, and whether a catalogue should carry a licence's text so reading one doesn't download its whole package.
+- Release (optimized) asset-library suite: **88 passed, none failed, one opt-in benchmark skipped**.
+- AddressSanitizer and UBSan (memory and undefined-behavior checks): **195 game-build and 88 asset-library cases passed**;
+  only that benchmark skipped. An earlier Release game-build run passed 195 cases before the final Build guard.
+- Prism's product-host suite passed under sanitizers. Hardening (exploit-mitigation checks) passed 16 programs in each QQ build.
+- Root QML lint (Qt's interface-language checker): no QML diagnostics; its build emitted **12 Wayland type-registration warnings**.
+  QQ lint: **439 warnings**, the same texts and counts as untouched `f65c90d`. **The zero-warning bar is not met.**
+- Pre-commit (change checks) passed. GitHub's `main` remains `4c620c2`, the merge of pull request #3, matching reviewed `a31154c`'s
+  tree. Lint and Security passed; Build failed at readiness because both Qt jobs skipped. Nothing was built by those jobs.
 
-## Next
+Commands, source fingerprints, failures and logs: `build/recovery-2026-11-03/` in the integration checkout, also
+`~/qor-work/recovery-2026-11-03/` in WSL. The stale Store helper and outdated text assertion were corrected and rechecked.
+Full OS/core and all-product suites, Windows, native Linux hardware and new before/after shell benchmarks were not run.
 
-The asset library's review fixes (W10). Done today besides: a pack's provenance kept by the Store and recorded in a project's lock,
-and Prism's test-only options (`--script`, `--unlocked` and more) gone from a build without the simulator, as an image is; they had
-let a device's Prism start past its lock screen. After that, milestone 4's groundwork that needs no graphics card.
+## Next and owner decisions
+
+Resolve the warning gate, then the roadmap's work that needs no graphics card. Nothing was pushed or published; no VM (virtual
+machine) was started and no runner setting changed. The decisions in `docs/ROADMAP.md` and `docs/CI.md` stand: your separate go-ahead
+and about 7 GB free for the VM's first Create and Prove; Qt's licensing answer before any kit enters it; the software frame-rate
+floor and eased checks; a Windows run while you are away; and the release, signing-key, outside-app access, engine-licence and naming decisions.

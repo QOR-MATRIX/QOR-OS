@@ -671,6 +671,17 @@ void ProductHost::stop(const QString &id)
     endLater(it->process, it->session ? 5000 : 0);
 }
 
+QString pipewireSocketFor(const QProcessEnvironment &environment)
+{
+    // Empty is unset, as the shell's ${XDG_RUNTIME_DIR:-...} has it.
+    QString runtime = environment.value(u"XDG_RUNTIME_DIR"_s);
+#if defined(Q_OS_LINUX)
+    if (runtime.isEmpty())
+        runtime = u"/run/user/%1"_s.arg(::getuid());
+#endif
+    return runtime + u"/pipewire-0"_s;
+}
+
 bool ProductHost::start(const ProductRecord &record, const QString &file, const QString &activationToken)
 {
     if (m_runs.contains(record.id))
@@ -717,9 +728,8 @@ bool ProductHost::start(const ProductRecord &record, const QString &file, const 
     // as tools/dev/products.sh decides it: only when nothing has chosen a
     // backend and there is no PipeWire socket.
     if (environment.value(u"QT_AUDIO_BACKEND"_s).isEmpty()) {
-        const QString runtime = environment.value(u"XDG_RUNTIME_DIR"_s, u"/run/user/%1"_s.arg(::getuid()));
         struct stat seen {};
-        const QByteArray socket = QFile::encodeName(runtime + u"/pipewire-0"_s);
+        const QByteArray socket = QFile::encodeName(pipewireSocketFor(environment));
         if (::stat(socket.constData(), &seen) != 0 || !S_ISSOCK(seen.st_mode))
             environment.insert(u"QT_AUDIO_BACKEND"_s, u"pulseaudio"_s);
     }

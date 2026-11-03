@@ -1,22 +1,25 @@
 // SPDX-License-Identifier: LicenseRef-QOR-OS-Proprietary
 #include "assetlibrary.h"
 
+#include <QBuffer>
 #include <QCryptographicHash>
 #include <QDir>
 #include <QDirIterator>
 #include <QFile>
 #include <QFileInfo>
+#include <QImageReader>
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QLockFile>
+#include <QMutex>
+#include <QQmlEngine>
 #include <QRegularExpression>
 #include <QSaveFile>
 #include <QSet>
 #include <QStringDecoder>
 #include <QUrl>
 #include <QUuid>
-#include <QtEndian>
 
 #include <algorithm>
 #include <memory>
@@ -79,15 +82,26 @@ bool isValidSpdx(const QString &spdx)
     return pattern.match(spdx).hasMatch() && spdx != QStringLiteral("NOASSERTION") && spdx != QStringLiteral("NONE");
 }
 
-/// Plain text a person reads: a string, short, with no control characters.
+/// Text that says what it looks like: in NFC, so one name is one file, and with no control or format characters (Unicode's
+/// Cc and Cf: no right-to-left override, no zero-width joiner), which could make a name, a developer or a path look like another.
+bool plainUnicode(const QString &text)
+{
+    if (text != text.normalized(QString::NormalizationForm_C))
+        return false;
+    const QList<uint> points = QStringView(text).toUcs4();
+    return std::none_of(points.cbegin(), points.cend(), [](uint c) {
+        const QChar::Category category = QChar::category(char32_t(c));
+        return category == QChar::Other_Control || category == QChar::Other_Format;
+    });
+}
+
+/// Plain text a person reads: a string, short, plain Unicode.
 bool isPlainText(const QJsonValue &value, qsizetype longest)
 {
     if (!value.isString())
         return false;
     const QString text = value.toString();
-    if (text.size() > longest)
-        return false;
-    return std::none_of(text.cbegin(), text.cend(), [](QChar c) { return c.unicode() < 0x20 || c.unicode() == 0x7f; });
+    return text.size() <= longest && plainUnicode(text);
 }
 
 QByteArray fromHex(const QJsonValue &value)
@@ -106,7 +120,7 @@ QByteArray sha256(const QByteArray &bytes)
 /// keeps for a device, nothing named with a dot.
 bool safePackPath(const QString &path)
 {
-    if (!ProjectWorkspace::plainRelative(path) || path.size() > 512)
+    if (!ProjectWorkspace::plainRelative(path) || path.size() > 512 || !plainUnicode(path))
         return false;
     static const QRegularExpression device(QStringLiteral("^(con|prn|aux|nul|com[0-9]|lpt[0-9])(\\..*)?\\z"),
                                            QRegularExpression::CaseInsensitiveOption);
@@ -233,23 +247,32 @@ void syncFolder([[maybe_unused]] const QString &path)
 #endif
 }
 
-/// Every folder under `root`, and `root`, durable.
-void syncTree(const QString &root)
+/// Everything written under `root` so far, durable: on Linux by one syncfs() of the file system it is on, which takes every file
+/// and folder at once; elsewhere on POSIX by an fsync() of every folder under it (each file is synced as it is written).
+void makeDurable(const QString &root)
 {
+#ifdef Q_OS_LINUX
+    const int folder = ::open(QFile::encodeName(root).constData(), O_RDONLY | O_DIRECTORY | O_CLOEXEC);
+    if (folder >= 0) {
+        ::syncfs(folder);
+        ::close(folder);
+        return;
+    }
+#endif
     QDirIterator folders(root, QDir::Dirs | QDir::Hidden | QDir::NoDotAndDotDot, QDirIterator::Subdirectories);
     while (folders.hasNext())
         syncFolder(folders.next());
     syncFolder(root);
 }
 
-bool writeDurably(const QString &path, const QByteArray &bytes)
+bool writeNew(const QString &path, const QByteArray &bytes)
 {
     if (!QDir().mkpath(QFileInfo(path).path()))
         return false;
     QFile file(path);
     if (!file.open(QIODevice::WriteOnly | QIODevice::NewOnly) || file.write(bytes) != bytes.size() || !file.flush())
         return false;
-#ifdef Q_OS_UNIX
+#if defined(Q_OS_UNIX) && !defined(Q_OS_LINUX)
     if (::fsync(file.handle()) != 0)
         return false;
 #endif
@@ -327,10 +350,14 @@ QString modelProblem(const QString &path, const QByteArray &bytes, const QSet<QS
     QByteArray json = bytes;
     if (path.endsWith(QStringLiteral(".glb"), Qt::CaseInsensitive)) {
         // A binary glTF: a header of 12 bytes, then its JSON chunk first.
-        if (bytes.size() < 20 || qFromLittleEndian<quint32>(bytes.constData() + 4) != 2)
+        if (bytes.size() < 20)
             return tr("%1 is not a glTF 2.0 model.").arg(path);
-        const quint32 length = qFromLittleEndian<quint32>(bytes.constData() + 12);
-        if (qFromLittleEndian<quint32>(bytes.constData() + 16) != 0x4E4F534Au || length > quint32(bytes.size() - 20))
+        const auto word = [&bytes](qsizetype offset) {
+            return quint32(quint8(bytes.at(offset))) | (quint32(quint8(bytes.at(offset + 1))) << 8)
+                   | (quint32(quint8(bytes.at(offset + 2))) << 16) | (quint32(quint8(bytes.at(offset + 3))) << 24);
+        };
+        const quint32 length = word(12);
+        if (word(4) != 2 || word(16) != 0x4E4F534Au || length > quint32(bytes.size() - 20))
             return tr("%1 is not a glTF 2.0 model.").arg(path);
         json = bytes.mid(20, qsizetype(length));
     }
@@ -365,6 +392,50 @@ QString modelProblem(const QString &path, const QByteArray &bytes, const QSet<QS
 QString packProblem(const QString &id, const QString &reason)
 {
     return QStringLiteral("%1: %2").arg(id, reason);
+}
+
+/// What the files of a pack are on disk, each by device, inode, size, and modification and change times (a change time cannot be
+/// set back), the manifest and its signature among them; or empty where that cannot be told, and then nothing is remembered.
+QByteArray diskSignature(const QString &folder, QStringList files)
+{
+#ifdef Q_OS_LINUX
+    files.sort();
+    files << QStringLiteral("manifest.json") << QStringLiteral("manifest.sig");
+    QByteArray signature;
+    signature.reserve(files.size() * 48);
+    for (const QString &file : std::as_const(files)) {
+        struct stat seen {};
+        if (::lstat(QFile::encodeName(folder + QLatin1Char('/') + file).constData(), &seen) != 0)
+            return {};
+        const qint64 fields[] = {qint64(seen.st_dev), qint64(seen.st_ino), qint64(seen.st_size), qint64(seen.st_mtim.tv_sec),
+                                 qint64(seen.st_mtim.tv_nsec), qint64(seen.st_ctim.tv_sec), qint64(seen.st_ctim.tv_nsec)};
+        signature.append(reinterpret_cast<const char *>(fields), sizeof fields);
+        signature.append(file.toUtf8()).append('\0');
+    }
+    return signature;
+#else
+    Q_UNUSED(folder)
+    Q_UNUSED(files)
+    return {};
+#endif
+}
+
+struct Checked {
+    QByteArray signature;
+    AssetLibrary::Pack pack;
+};
+
+QMutex &checkedMutex()
+{
+    static QMutex mutex;
+    return mutex;
+}
+
+/// Packs checked whole, by their folder. Read on the window's thread and the thumbnails', so under the mutex above.
+QHash<QString, Checked> &checked()
+{
+    static QHash<QString, Checked> packs;
+    return packs;
 }
 
 /// One installed pack, checked from nothing: its record's entry, its folder, its manifest and every file.
@@ -408,8 +479,8 @@ bool readPack(const QString &items, const QString &id, const QJsonObject &entry,
     if (!isValidSpdx(licence.value(QStringLiteral("spdx")).toString()))
         return fail(tr("its manifest names no licence."));
 
-    QByteArray signature;
-    if (!readPlain(folder, QStringLiteral("manifest.sig"), 1024, &signature, &reason) || signature.size() != 64)
+    QByteArray developerSignature;
+    if (!readPlain(folder, QStringLiteral("manifest.sig"), 1024, &developerSignature, &reason) || developerSignature.size() != 64)
         return fail(tr("its signature is not there."));
 
     const QJsonObject listed = manifest.value(QStringLiteral("files")).toObject();
@@ -427,17 +498,27 @@ bool readPack(const QString &items, const QString &id, const QJsonObject &entry,
         return fail(tr("its licence's text is not among its files."));
 
     // Exactly what the manifest lists, and nothing else: not a file, a folder that leads to none, a link of any kind, a pipe.
+    // The folders its files are in are the only folders it may hold, and the walk stops at as many entries as those and the files.
+    QSet<QString> implied;
+    for (auto it = digests.cbegin(); it != digests.cend(); ++it) {
+        for (qsizetype slash = it.key().lastIndexOf(QLatin1Char('/')); slash > 0; slash = it.key().lastIndexOf(QLatin1Char('/'), slash - 1))
+            implied.insert(it.key().left(slash));
+    }
+    const qsizetype mostEntries = digests.size() + implied.size() + 2;
+    qsizetype entries = 0;
     QSet<QString> seen;
-    QSet<QString> folders;
     QDirIterator walk(folder, QDir::AllEntries | QDir::Hidden | QDir::System | QDir::NoDotAndDotDot, QDirIterator::Subdirectories);
     while (walk.hasNext()) {
         walk.next();
+        if (++entries > mostEntries)
+            return fail(tr("it holds more than its manifest lists."));
         const QFileInfo found = walk.fileInfo();
         const QString relative = QDir(folder).relativeFilePath(found.filePath());
         if (found.isSymLink() || found.isJunction() || found.isShortcut())
             return fail(tr("it holds a link, %1.").arg(relative.left(200)));
         if (found.isDir()) {
-            folders.insert(relative);
+            if (!implied.contains(relative))
+                return fail(tr("it holds a folder its manifest does not list, %1.").arg(relative.left(200)));
             continue;
         }
         if (!found.isFile())
@@ -447,13 +528,18 @@ bool readPack(const QString &items, const QString &id, const QJsonObject &entry,
         if (!digests.contains(relative))
             return fail(tr("it holds %1, which its manifest does not list.").arg(relative.left(200)));
         seen.insert(relative);
-        if (seen.size() > AssetLibrary::mostFilesInAPack)
-            return fail(tr("it holds more than a pack may."));
     }
-    for (const QString &each : std::as_const(folders)) {
-        const QString under = each + QLatin1Char('/');
-        if (std::none_of(seen.cbegin(), seen.cend(), [&under](const QString &file) { return file.startsWith(under); }))
-            return fail(tr("it holds a folder its manifest does not list, %1.").arg(each.left(200)));
+
+    // Checked whole before, and nothing of it changed on disk since: what was found then stands. What is copied or shown is read
+    // and its digest checked again whatever this says.
+    const QByteArray signature = diskSignature(folder, digests.keys()) + QJsonDocument(entry).toJson(QJsonDocument::Compact);
+    if (!signature.isEmpty()) {
+        const QMutexLocker locker(&checkedMutex());
+        const auto cached = checked().constFind(folder);
+        if (cached != checked().cend() && cached->signature == signature) {
+            *pack = cached->pack;
+            return true;
+        }
     }
 
     QSet<QString> held;
@@ -487,14 +573,25 @@ bool readPack(const QString &items, const QString &id, const QJsonObject &entry,
     pack->licenceFile = licenceFile;
     pack->folder = Confinement::realPath(folder);
     pack->manifestSha256 = sha256(manifestBytes);
-    pack->signature = signature;
+    pack->signature = developerSignature;
     pack->files = files;
-    // Where the Store says it came from, if its record says: text, and nothing else.
-    const QJsonObject provenance = entry.value(QStringLiteral("provenance")).toObject();
-    for (const char *key : {"origin", "author", "source", "permission"}) {
-        const QJsonValue value = provenance.value(QLatin1String(key));
-        if (isPlainText(value, 1024) && !value.toString().isEmpty())
-            pack->provenance.insert(QLatin1String(key), value.toString());
+    for (qsizetype i = 0; i < files.size(); ++i)
+        pack->index.insert(files.at(i).path, i);
+    // Where the Store says it came from, only as the Store's engine believes it, from the signed listing ("provenanceFrom":
+    // "listing"), not from a record rebuilt out of manifests: text, as long as the catalogue allows, and nothing else.
+    if (entry.value(QStringLiteral("provenanceFrom")).toString() == QStringLiteral("listing")) {
+        const QJsonObject provenance = entry.value(QStringLiteral("provenance")).toObject();
+        for (const char *key : {"origin", "author", "source", "permission"}) {
+            const QJsonValue value = provenance.value(QLatin1String(key));
+            if (isPlainText(value, AssetLibrary::longestProvenance) && !value.toString().isEmpty())
+                pack->provenance.insert(QLatin1String(key), value.toString());
+        }
+    }
+    if (!signature.isEmpty()) {
+        const QMutexLocker locker(&checkedMutex());
+        if (checked().size() > AssetLibrary::mostPacks)
+            checked().clear();
+        checked().insert(folder, {signature, *pack});
     }
     return true;
 }
@@ -531,12 +628,17 @@ struct Change {
     QStringList put;                   ///< project paths written
     QHash<QString, QByteArray> bytes;  ///< what each holds
     QStringList remove;                ///< project paths removed
+    /// What a file there now must still hold when it is set aside, raw SHA-256: what was planned to be replaced or removed. A
+    /// target there that is not in this was not there when it was planned, and is not set aside either.
+    QHash<QString, QByteArray> expect;
 };
 
-/// The journal, read back as a stranger's file would be: { tag, put, remove, lock }, or why not.
+/// The journal, read back as a stranger's file would be.
 struct Journal {
     QString tag;
+    QString identity;  ///< the folder it was written for: ProjectWorkspace::folderIdentity
     QStringList put, remove;
+    QHash<QString, QByteArray> placed;  ///< raw SHA-256 of what each put holds
     QByteArray lock;  ///< the digest the lock will have once it is written
     QString problem;
 };
@@ -553,6 +655,7 @@ Journal readJournal(const QString &realProject)
     const QJsonObject object = QJsonDocument::fromJson(bytes).object();
     static const QRegularExpression tag(QStringLiteral("^[0-9a-f]{32}\\z"));
     journal.tag = object.value(QStringLiteral("tag")).toString();
+    journal.identity = object.value(QStringLiteral("identity")).toString();
     journal.lock = fromHex(object.value(QStringLiteral("lock")));
     if (object.value(QStringLiteral("format")).toInt() != journalFormat || object.value(QStringLiteral("project")).toString() != realProject
         || !tag.match(journal.tag).hasMatch() || journal.lock.isEmpty()) {
@@ -569,70 +672,151 @@ Journal readJournal(const QString &realProject)
             (qstrcmp(list, "put") == 0 ? journal.put : journal.remove).append(each);
         }
     }
+    const QJsonObject placed = object.value(QStringLiteral("placed")).toObject();
+    for (const QString &each : std::as_const(journal.put)) {
+        const QByteArray digest = fromHex(placed.value(each));
+        if (digest.isEmpty()) {
+            journal.problem = tr("what it left does not say what it placed");
+            return journal;
+        }
+        journal.placed.insert(each, digest);
+    }
     return journal;
 }
 
+/// What putting a cut-short change right came to.
+struct Settled {
+    bool finished = false;  ///< its lock was written, and it was finished
+    QString stuck;          ///< it could not go on, and why: the journal stays, to be tried again
+    QString refused;        ///< it moved nothing, and why: the journal goes
+    QStringList kept;       ///< placed files that no longer held what was placed, left where they are
+    QString leftAside;      ///< what was set aside and could not go back stays here
+};
+
 /// Put a cut-short change back, or finish it, by its journal and what is on disk. Every step looks before it moves, so this can
-/// be cut short too and run again. "" once there is nothing left of it.
-QString settle(const QString &realProject, const Journal &journal, bool *finished)
+/// be cut short too and run again.
+Settled settle(const QString &realProject, const Journal &journal)
 {
-    const QString staging = realProject + QLatin1Char('/') + stagingPrefix + journal.tag;
+    Settled settled;
+    const QString stagingName = stagingPrefix + journal.tag;
+    const QString staging = realProject + QLatin1Char('/') + stagingName;
+    const auto drop = [&realProject] {
+        QFile::remove(AssetLibrary::journalFor(realProject));
+    };
+    // Another folder where that one was, or that one with what the change wrote beside it gone: nothing here is the change's.
+    if (!journal.identity.isEmpty() && ProjectWorkspace::folderIdentity(realProject) != journal.identity) {
+        settled.refused = tr("this is not the folder it was made in, so nothing was moved.");
+        drop();
+        return settled;
+    }
     const QFileInfo stagingInfo(staging);
-    if (stagingInfo.isSymLink() || stagingInfo.isJunction())
-        return tr("%1 is a link, and was left alone.").arg(stagingInfo.fileName());
+    if (stagingInfo.isSymLink() || stagingInfo.isJunction() || !stagingInfo.isDir()) {
+        settled.refused = stagingInfo.isSymLink() || stagingInfo.isJunction()
+                              ? tr("%1 is a link, so nothing was moved.").arg(stagingName)
+                              : tr("what it had written beside the project, %1, is gone, so nothing was moved.").arg(stagingName);
+        drop();
+        return settled;
+    }
     QByteArray lock;
-    const bool locked = readPlain(realProject, QLatin1String(AssetLibrary::lockName), AssetLibrary::largestLock, &lock)
-                        && sha256(lock) == journal.lock;
-    *finished = locked;
-    if (!locked) {
-        // What was put in place goes back where it waited, then what was set aside comes back: each only if it is there to move.
+    settled.finished = readPlain(realProject, QLatin1String(AssetLibrary::lockName), AssetLibrary::largestLock, &lock)
+                       && sha256(lock) == journal.lock;
+    if (!settled.finished) {
+        // What was put in place goes back where it waited, if it still holds what was placed; then what was set aside comes back,
+        // each only where nothing now is.
         for (const QString &path : journal.put) {
             const QString target = realProject + QLatin1Char('/') + path;
             const QString waiting = staging + QStringLiteral("/new/") + path;
             const QFileInfo there(target);
-            if (!exists(waiting) && there.isFile() && !there.isSymLink() && wayProblem(realProject, path).isEmpty()) {
-                if (!QDir().mkpath(QFileInfo(waiting).path()) || !QFile::rename(target, waiting))
-                    return tr("%1 could not be put back.").arg(path);
+            if (exists(waiting) || !there.isFile() || there.isSymLink() || !wayProblem(realProject, path).isEmpty())
+                continue;
+            if (digestOf(realProject, path) != journal.placed.value(path)) {
+                settled.kept.append(path);
+                continue;
+            }
+            if (!QDir().mkpath(QFileInfo(waiting).path()) || !QFile::rename(target, waiting)) {
+                settled.stuck = tr("%1 could not be put back.").arg(path);
+                return settled;
             }
         }
         for (const QString &path : journal.put + journal.remove) {
             const QString target = realProject + QLatin1Char('/') + path;
             const QString aside = staging + QStringLiteral("/old/") + path;
             if (exists(aside) && !exists(target) && wayProblem(realProject, path).isEmpty()) {
-                if (!QDir().mkpath(QFileInfo(target).path()) || !QFile::rename(aside, target))
-                    return tr("%1 could not be put back.").arg(path);
+                if (!QDir().mkpath(QFileInfo(target).path()) || !QFile::rename(aside, target)) {
+                    settled.stuck = tr("%1 could not be put back.").arg(path);
+                    return settled;
+                }
             }
         }
-        syncFolder(realProject + QStringLiteral("/assets"));
+        makeDurable(realProject);
     }
-    if (stagingInfo.isDir() && !QDir(staging).removeRecursively())
-        return tr("%1 could not be cleared away.").arg(stagingInfo.fileName());
-    syncFolder(realProject);
-    QFile::remove(AssetLibrary::journalFor(realProject));
-    return {};
+    // What was written new goes. What was set aside goes once the change stands; if it does not, anything that could not go back
+    // stays where it is, for the person.
+    QDir(staging + QStringLiteral("/new")).removeRecursively();
+    bool holdsFiles = false;
+    if (!settled.finished) {
+        QDirIterator left(staging + QStringLiteral("/old"), QDir::Files | QDir::Hidden | QDir::System, QDirIterator::Subdirectories);
+        holdsFiles = left.hasNext();
+    }
+    if (holdsFiles)
+        settled.leftAside = stagingName;
+    else if (!QDir(staging).removeRecursively()) {
+        settled.stuck = tr("%1 could not be cleared away.").arg(stagingName);
+        return settled;
+    }
+    makeDurable(realProject);
+    drop();
+    return settled;
+}
+
+/// What settle() came to, for a person.
+QString said(const Settled &settled)
+{
+    if (!settled.stuck.isEmpty())
+        return tr("A change to this project's assets was cut short, and putting it right stopped: %1 It will be tried again.").arg(settled.stuck);
+    if (!settled.refused.isEmpty())
+        return tr("A change to this project's assets was cut short, but %1").arg(settled.refused);
+    if (settled.finished)
+        return tr("A change to this project's assets that was cut short after it was made has been finished.");
+    QString text = tr("A change to this project's assets was cut short, and what it had moved has been put back.");
+    if (!settled.kept.isEmpty())
+        text += QLatin1Char(' ') + tr("%1 changed since, and was kept as it is.").arg(settled.kept.join(QStringLiteral(", ")).left(400));
+    if (!settled.leftAside.isEmpty())
+        text += QLatin1Char(' ') + tr("What could not go back is in %1.").arg(settled.leftAside);
+    return text;
 }
 
 /// Make the change, all of it or none: see assetlibrary.h. "" when done, or why not, with nothing changed.
-QString apply(const QString &realProject, const Change &change, const QByteArray &lock, const AssetLibrary::Steps &steps)
+QString apply(const QString &realProject, const Change &change, const QList<AssetLibrary::LockedPack> &packs,
+              const AssetLibrary::Steps &steps)
 {
     const QString tag = QUuid::createUuid().toString(QUuid::Id128);
+    const QByteArray lock = AssetLibrary::lockBytes(packs, tag);
+    // The lock it would write is one this Studio could read back, or nothing is done.
+    if (const AssetLibrary::Lock check = AssetLibrary::parseLock(lock, realProject); !check.problem.isEmpty())
+        return tr("The project's new lock would not be one this Studio can read (%1), so nothing was changed.").arg(check.problem);
+
     const QString staging = realProject + QLatin1Char('/') + stagingPrefix + tag;
+    QJsonObject placed;
     for (const QString &path : change.put) {
-        if (!writeDurably(staging + QStringLiteral("/new/") + path, change.bytes.value(path))) {
+        const QByteArray bytes = change.bytes.value(path);
+        if (!writeNew(staging + QStringLiteral("/new/") + path, bytes)) {
             QDir(staging).removeRecursively();
             return tr("%1 could not be written into the project.").arg(path);
         }
+        placed.insert(path, QString::fromLatin1(sha256(bytes).toHex()));
     }
     QDir().mkpath(staging + QStringLiteral("/old"));
-    syncTree(staging);
-    syncFolder(realProject);
+    makeDurable(staging);
 
     const QString journalPath = AssetLibrary::journalFor(realProject);
     QDir().mkpath(QFileInfo(journalPath).path());
     const QJsonObject journal{{QStringLiteral("format"), journalFormat},
                               {QStringLiteral("project"), realProject},
+                              {QStringLiteral("identity"), ProjectWorkspace::folderIdentity(realProject)},
                               {QStringLiteral("tag"), tag},
                               {QStringLiteral("put"), QJsonArray::fromStringList(change.put)},
+                              {QStringLiteral("placed"), placed},
                               {QStringLiteral("remove"), QJsonArray::fromStringList(change.remove)},
                               {QStringLiteral("lock"), QString::fromLatin1(sha256(lock).toHex())}};
     QSaveFile written(journalPath);
@@ -645,24 +829,31 @@ QString apply(const QString &realProject, const Change &change, const QByteArray
         steps("staged");
 
     const auto putBack = [&](const QString &why) {
-        bool finished = false;
         const Journal left = readJournal(realProject);
-        const QString stuck = left.problem.isEmpty() ? settle(realProject, left, &finished) : left.problem;
-        return stuck.isEmpty() ? why + QLatin1Char(' ') + tr("Nothing was changed.")
-                               : why + QLatin1Char(' ') + tr("Putting it back stopped: %1 It will be tried again.").arg(stuck);
+        if (!left.problem.isEmpty())
+            return why + QLatin1Char(' ') + tr("Putting it back stopped: %1 It will be tried again.").arg(left.problem);
+        const Settled settled = settle(realProject, left);
+        if (!settled.stuck.isEmpty())
+            return why + QLatin1Char(' ') + tr("Putting it back stopped: %1 It will be tried again.").arg(settled.stuck);
+        QString text = why + QLatin1Char(' ') + tr("Nothing was changed.");
+        if (!settled.kept.isEmpty() || !settled.leftAside.isEmpty())
+            text += QLatin1Char(' ') + said(settled);
+        return text;
     };
+    // Each is looked at again just before it is set aside: one that is no longer what was planned is someone's, now.
     for (const QString &path : change.put + change.remove) {
         const QString target = realProject + QLatin1Char('/') + path;
         if (const QString way = wayProblem(realProject, path); !way.isEmpty())
             return putBack(way);
         if (!exists(target))
             continue;
+        if (!change.expect.contains(path) || digestOf(realProject, path) != change.expect.value(path))
+            return putBack(tr("%1 changed while this was on its way, so it is kept as it is.").arg(path));
         const QString aside = staging + QStringLiteral("/old/") + path;
         if (!QDir().mkpath(QFileInfo(aside).path()) || !QFile::rename(target, aside))
             return putBack(tr("%1 could not be set aside.").arg(path));
     }
-    syncTree(staging);
-    syncTree(realProject + QStringLiteral("/assets"));
+    makeDurable(realProject);
     if (steps)
         steps("aside");
 
@@ -670,14 +861,16 @@ QString apply(const QString &realProject, const Change &change, const QByteArray
         const QString target = realProject + QLatin1Char('/') + path;
         if (const QString way = wayProblem(realProject, path); !way.isEmpty())
             return putBack(way);
+        if (exists(target))
+            return putBack(tr("%1 appeared while this was on its way, so it is kept as it is.").arg(path));
         if (!QDir().mkpath(QFileInfo(target).path()) || !QFile::rename(staging + QStringLiteral("/new/") + path, target))
             return putBack(tr("%1 could not be put in place.").arg(path));
     }
-    syncTree(realProject + QStringLiteral("/assets"));
+    makeDurable(realProject);
     if (steps)
         steps("placed");
 
-    // The moment it happens.
+    // The moment it happens. Its tag makes it like no lock before it, so whether it was written is never in doubt.
     const QString lockPath = realProject + QLatin1Char('/') + QLatin1String(AssetLibrary::lockName);
     const QFileInfo lockInfo(lockPath);
     if (lockInfo.isSymLink() || lockInfo.isJunction() || (lockInfo.exists() && !lockInfo.isFile()))
@@ -689,32 +882,16 @@ QString apply(const QString &realProject, const Change &change, const QByteArray
     if (steps)
         steps("locked");
 
-    bool finished = false;
-    const QString stuck = settle(realProject, readJournal(realProject), &finished);
-    Q_UNUSED(stuck)  // done either way: what is left goes the next time the project is looked at
+    // Done either way: what is left goes the next time the project is looked at.
+    settle(realProject, readJournal(realProject));
     return {};
 }
-
-/// The one change to a project's assets at a time, across Studios.
-struct Busy {
-    std::unique_ptr<QLockFile> lock;
-    explicit Busy(const QString &realProject)
-    {
-        const QString path = AssetLibrary::journalFor(realProject) + QStringLiteral(".lock");
-        QDir().mkpath(QFileInfo(path).path());
-        lock = std::make_unique<QLockFile>(path);
-        lock->setStaleLockTime(0);
-        if (!lock->tryLock(0))
-            lock.reset();
-    }
-    bool held() const { return lock != nullptr; }
-};
 
 /// What every operation starts with: the project's real folder, the one change at a time, anything cut short put right, and a
 /// lock that can be used.
 struct Opened {
     QString real;
-    std::unique_ptr<Busy> busy;
+    std::unique_ptr<AssetLibrary::Hold> hold;
     AssetLibrary::Lock lock;
     QString problem;
     QString recovered;
@@ -728,9 +905,9 @@ Opened open(const QString &project)
         opened.problem = tr("There is no project folder at %1.").arg(project);
         return opened;
     }
-    opened.busy = std::make_unique<Busy>(opened.real);
-    if (!opened.busy->held()) {
-        opened.problem = tr("Another QQ Studio is changing this project's assets. When it has finished, try again.");
+    opened.hold = std::make_unique<AssetLibrary::Hold>(opened.real);
+    if (!opened.hold->held()) {
+        opened.problem = opened.hold->problem();
         return opened;
     }
     opened.recovered = AssetLibrary::recover(opened.real);
@@ -767,7 +944,7 @@ QString refusalOf(const QStringList &refusedPacks, const QString &id)
     return tr("%1 is not installed.").arg(id);
 }
 
-/// A name for the new version of `path` beside it that nothing has: hero.png → hero-1.1.0.png.
+/// A name for the new version of `path` beside it that nothing has or will have: hero.png → hero-1.1.0.png.
 QString besideName(const QString &realProject, const QString &path, const QString &version, const QSet<QString> &taken)
 {
     const QFileInfo info(path);
@@ -789,6 +966,7 @@ struct Plan {
     QStringList replaced, added, removed, same, gone;
     QList<std::pair<QString, QString>> changed;  ///< a changed copy, and where the new version of it would go, or ""
     QHash<QString, QString> sources;             ///< project path → path in the new pack, for what it writes or keeps as new
+    QHash<QString, QByteArray> expect;           ///< project path → what it holds now, as planned
 };
 
 Plan planFor(const Opened &opened, const QString &packs, const QString &id)
@@ -816,18 +994,30 @@ Plan planFor(const Opened &opened, const QString &packs, const QString &id)
     }
     plan.pack = *pack;
     plan.locked = *locked;
+    // Every name the new version has, and every name the project's lock has, is taken for a beside copy.
     QSet<QString> taken;
+    for (const AssetLibrary::PackFile &file : pack->files)
+        taken.insert(inProject(id, file.path));
     QSet<QString> sources;
     for (const AssetLibrary::LockedFile &copy : locked->files) {
-        sources.insert(copy.source);
+        taken.insert(copy.path);
+        if (!copy.beside)
+            sources.insert(copy.source);
+    }
+    for (const AssetLibrary::LockedFile &copy : locked->files) {
+        // A new version put beside a changed copy is the person's: no update touches it.
+        if (copy.beside)
+            continue;
         if (const QString way = wayProblem(opened.real, copy.path); !way.isEmpty()) {
             plan.problem = way + QLatin1Char(' ') + tr("Nothing was changed.");
             return plan;
         }
         const AssetLibrary::PackFile *next = pack->file(copy.source);
+        const QByteArray now = digestOf(opened.real, copy.path);
         if (!exists(opened.real + QLatin1Char('/') + copy.path)) {
             plan.gone.append(copy.path);
-        } else if (digestOf(opened.real, copy.path) == copy.sha256) {
+        } else if (now == copy.sha256) {
+            plan.expect.insert(copy.path, now);
             if (!next)
                 plan.removed.append(copy.path);
             else {
@@ -889,14 +1079,27 @@ QVariantMap planAnswer(const Plan &plan)
             {QStringLiteral("changed"), changed}};
 }
 
+/// The folder the thumbnails read, as the library was last told.
+QMutex &thumbnailMutex()
+{
+    static QMutex mutex;
+    return mutex;
+}
+
+QString &thumbnailFolder()
+{
+    static QString folder;
+    return folder;
+}
+
 }  // namespace
 
 // ── The class ──
 
 const AssetLibrary::PackFile *AssetLibrary::Pack::file(const QString &path) const
 {
-    const auto it = std::find_if(files.cbegin(), files.cend(), [&path](const PackFile &each) { return each.path == path; });
-    return it == files.cend() ? nullptr : &*it;
+    const auto it = index.constFind(path);
+    return it == index.cend() ? nullptr : &files.at(*it);
 }
 
 const AssetLibrary::LockedPack *AssetLibrary::Lock::pack(const QString &id) const
@@ -905,10 +1108,74 @@ const AssetLibrary::LockedPack *AssetLibrary::Lock::pack(const QString &id) cons
     return it == packs.cend() ? nullptr : &*it;
 }
 
+AssetLibrary::Hold::Hold(const QString &realProject)
+{
+    const QString path = AssetLibrary::journalFor(realProject) + QStringLiteral(".lock");
+    if (!QDir().mkpath(QFileInfo(path).path())) {
+        m_problem = tr("This person's own store, %1, cannot be written, so nothing was changed.").arg(QFileInfo(path).path());
+        return;
+    }
+    auto lock = std::make_unique<QLockFile>(path);
+    lock->setStaleLockTime(0);
+    if (lock->tryLock(0)) {
+        m_lock = std::move(lock);
+        return;
+    }
+    m_problem = lock->error() == QLockFile::LockFailedError
+                    ? tr("Another QQ Studio is changing or building this project now. When it has finished, try again.")
+                    : tr("This person's own store, %1, cannot be written, so nothing was changed.").arg(QFileInfo(path).path());
+}
+
+AssetLibrary::Hold::~Hold() = default;
+
 AssetLibrary::AssetLibrary(QObject *parent) : QObject(parent) {}
+
+AssetLibrary::~AssetLibrary()
+{
+    if (m_thread)
+        m_thread->wait();
+}
+
+bool AssetLibrary::startWork(const QString &operation, std::function<QVariantMap()> work)
+{
+    if (m_thread || !available())
+        return false;
+    const auto result = std::make_shared<QVariantMap>();
+    QThread *thread = QThread::create([result, work] { *result = work(); });
+    thread->setParent(this);
+    connect(thread, &QThread::finished, this, [this, thread, operation, result] {
+        m_thread = nullptr;
+        thread->deleteLater();
+        emit busyChanged();
+        emit finished(operation, *result);
+    });
+    m_thread = thread;
+    thread->start();
+    emit busyChanged();
+    return true;
+}
+
+bool AssetLibrary::startUse(const QUrl &project, const QString &id, const QStringList &files, bool replace)
+{
+    if (!project.isLocalFile())
+        return false;
+    const QString folder = project.toLocalFile();
+    const QString packs = m_folder;
+    return startWork(QStringLiteral("use"), [=] { return usePack(folder, packs, id, files, replace); });
+}
+
+bool AssetLibrary::startUpdate(const QUrl &project, const QString &id, const QStringList &beside)
+{
+    if (!project.isLocalFile())
+        return false;
+    const QString folder = project.toLocalFile();
+    const QString packs = m_folder;
+    return startWork(QStringLiteral("update"), [=] { return updatePack(folder, packs, id, beside); });
+}
 
 void AssetLibrary::setFolder(const QString &folder)
 {
+    AssetThumbnails::setFolder(folder);
     if (folder == m_folder)
         return;
     m_folder = folder;
@@ -953,9 +1220,15 @@ QList<AssetLibrary::Pack> AssetLibrary::readInstalled(const QString &packs, QStr
             refuse(QStringLiteral("installed.json"), why);
         return found;
     }
-    const QJsonObject items = QJsonDocument::fromJson(bytes).object().value(QStringLiteral("items")).toObject();
+    // The folder of every item is the Store's own, never a link to somewhere else.
+    const QFileInfo items(real + QStringLiteral("/items"));
+    if (items.isSymLink() || items.isJunction() || items.isShortcut()) {
+        refuse(QStringLiteral("items"), tr("the Store's folder of items is a link."));
+        return found;
+    }
+    const QJsonObject records = QJsonDocument::fromJson(bytes).object().value(QStringLiteral("items")).toObject();
     int looked = 0;
-    for (auto it = items.begin(); it != items.end(); ++it) {
+    for (auto it = records.begin(); it != records.end(); ++it) {
         const QJsonObject entry = it.value().toObject();
         // A game, a theme or anything else the Store installs is not a pack.
         if (entry.value(QStringLiteral("kind")).toString() != QStringLiteral("asset-pack"))
@@ -986,10 +1259,8 @@ AssetLibrary::Lock AssetLibrary::readLock(const QString &realProject)
     if (!info.exists() && !info.isSymLink())
         return lock;
     lock.found = true;
-    const QString name = QLatin1String(lockName);
-    const auto broken = [&lock, &name](const QString &why) {
-        lock.problem = tr("%1 cannot be used: %2").arg(name, why);
-        lock.packs.clear();
+    const auto broken = [&lock](const QString &why) {
+        lock.problem = tr("%1 cannot be used: %2").arg(QLatin1String(lockName), why);
         return lock;
     };
     if (info.isSymLink() || info.isJunction() || info.isShortcut())
@@ -998,8 +1269,22 @@ AssetLibrary::Lock AssetLibrary::readLock(const QString &realProject)
         return broken(tr("it is larger than a lock may be"));
     QByteArray bytes;
     QString why;
-    if (!readPlain(realProject, name, largestLock, &bytes, &why))
+    if (!readPlain(realProject, QLatin1String(lockName), largestLock, &bytes, &why))
         return broken(tr("it cannot be read"));
+    return parseLock(bytes, realProject);
+}
+
+AssetLibrary::Lock AssetLibrary::parseLock(const QByteArray &bytes, const QString &realProject)
+{
+    Lock lock;
+    lock.found = true;
+    const auto broken = [&lock](const QString &why) {
+        lock.problem = tr("%1 cannot be used: %2").arg(QLatin1String(lockName), why);
+        lock.packs.clear();
+        return lock;
+    };
+    if (bytes.size() > largestLock)
+        return broken(tr("it is larger than a lock may be"));
     QJsonParseError error{};
     const QJsonDocument document = QJsonDocument::fromJson(bytes, &error);
     if (error.error != QJsonParseError::NoError || !document.isObject())
@@ -1007,6 +1292,10 @@ AssetLibrary::Lock AssetLibrary::readLock(const QString &realProject)
     const QJsonObject root = document.object();
     if (root.value(QStringLiteral("format")).toInt(-1) != lockFormat || !root.value(QStringLiteral("format")).isDouble())
         return broken(tr("it is of a format this Studio does not know"));
+    static const QRegularExpression tag(QStringLiteral("^[0-9a-f]{32}\\z"));
+    if (root.contains(QStringLiteral("change")) && !tag.match(root.value(QStringLiteral("change")).toString()).hasMatch())
+        return broken(tr("its change is not one"));
+    lock.change = root.value(QStringLiteral("change")).toString();
     const QJsonValue packsValue = root.value(QStringLiteral("packs"));
     if (!packsValue.isArray() || packsValue.toArray().size() > mostPacks)
         return broken(tr("its list of packs is not one"));
@@ -1037,7 +1326,7 @@ AssetLibrary::Lock AssetLibrary::readLock(const QString &realProject)
         if (!provenanceValue.isObject() || provenance.size() > 8)
             return broken(tr("what it says of %1 is not valid").arg(pack.id));
         for (auto it = provenance.begin(); it != provenance.end(); ++it) {
-            if (!isPlainText(it.value(), 1024))
+            if (!isPlainText(it.value(), longestProvenance))
                 return broken(tr("what it says of %1 is not valid").arg(pack.id));
             pack.provenance.insert(it.key(), it.value().toString());
         }
@@ -1051,12 +1340,13 @@ AssetLibrary::Lock AssetLibrary::readLock(const QString &realProject)
             copy.source = file.value(QStringLiteral("source")).toString();
             copy.version = file.value(QStringLiteral("version")).toString();
             copy.sha256 = fromHex(file.value(QStringLiteral("sha256")));
+            copy.beside = file.value(QStringLiteral("beside")).toBool();
             if (++files > mostLockedFiles)
                 return broken(tr("it names more files than a lock may"));
             const QString folder = QStringLiteral("assets/%1/").arg(pack.id);
             if (!each.isObject() || !ProjectWorkspace::plainRelative(copy.path) || !copy.path.startsWith(folder)
                 || !safePackPath(copy.source) || !safePackPath(copy.path.mid(folder.size())) || copy.sha256.isEmpty()
-                || !isValidVersion(copy.version))
+                || !isValidVersion(copy.version) || (file.contains(QStringLiteral("beside")) && !file.value(QStringLiteral("beside")).isBool()))
                 return broken(tr("it names %1, which is not plainly a file of %2 in assets/%2/").arg(copy.path.left(200), pack.id));
             if (paths.contains(copy.path))
                 return broken(tr("it names %1 twice").arg(copy.path.left(200)));
@@ -1075,7 +1365,7 @@ AssetLibrary::Lock AssetLibrary::readLock(const QString &realProject)
     return lock;
 }
 
-QByteArray AssetLibrary::lockBytes(const QList<LockedPack> &packs)
+QByteArray AssetLibrary::lockBytes(const QList<LockedPack> &packs, const QString &change)
 {
     QList<LockedPack> sorted = packs;
     std::sort(sorted.begin(), sorted.end(), [](const LockedPack &a, const LockedPack &b) { return a.id < b.id; });
@@ -1083,11 +1373,15 @@ QByteArray AssetLibrary::lockBytes(const QList<LockedPack> &packs)
     for (LockedPack &pack : sorted) {
         std::sort(pack.files.begin(), pack.files.end(), [](const LockedFile &a, const LockedFile &b) { return a.path < b.path; });
         QJsonArray files;
-        for (const LockedFile &file : std::as_const(pack.files))
-            files.append(QJsonObject{{QStringLiteral("path"), file.path},
-                                     {QStringLiteral("source"), file.source},
-                                     {QStringLiteral("sha256"), QString::fromLatin1(file.sha256.toHex())},
-                                     {QStringLiteral("version"), file.version}});
+        for (const LockedFile &file : std::as_const(pack.files)) {
+            QJsonObject entry{{QStringLiteral("path"), file.path},
+                              {QStringLiteral("source"), file.source},
+                              {QStringLiteral("sha256"), QString::fromLatin1(file.sha256.toHex())},
+                              {QStringLiteral("version"), file.version}};
+            if (file.beside)
+                entry.insert(QStringLiteral("beside"), true);
+            files.append(entry);
+        }
         list.append(QJsonObject{{QStringLiteral("id"), pack.id},
                                 {QStringLiteral("name"), pack.name},
                                 {QStringLiteral("version"), pack.version},
@@ -1097,7 +1391,10 @@ QByteArray AssetLibrary::lockBytes(const QList<LockedPack> &packs)
                                 {QStringLiteral("whole"), pack.whole},
                                 {QStringLiteral("files"), files}});
     }
-    return QJsonDocument(QJsonObject{{QStringLiteral("format"), lockFormat}, {QStringLiteral("packs"), list}}).toJson(QJsonDocument::Indented);
+    QJsonObject root{{QStringLiteral("format"), lockFormat}, {QStringLiteral("packs"), list}};
+    if (!change.isEmpty())
+        root.insert(QStringLiteral("change"), change);
+    return QJsonDocument(root).toJson(QJsonDocument::Indented);
 }
 
 QString AssetLibrary::recover(const QString &realProject)
@@ -1109,12 +1406,7 @@ QString AssetLibrary::recover(const QString &realProject)
         QFile::remove(journalFor(realProject));
         return tr("A change to this project's assets was cut short, and %1, so it was left as it is.").arg(journal.problem);
     }
-    bool finished = false;
-    const QString stuck = settle(realProject, journal, &finished);
-    if (!stuck.isEmpty())
-        return tr("A change to this project's assets was cut short, and putting it right stopped: %1").arg(stuck);
-    return finished ? tr("A change to this project's assets that was cut short after it was made has been finished.")
-                    : tr("A change to this project's assets was cut short, and everything it had moved has been put back.");
+    return said(settle(realProject, journal));
 }
 
 QVariantMap AssetLibrary::usePack(const QString &project, const QString &packs, const QString &id, const QStringList &files,
@@ -1132,7 +1424,7 @@ QVariantMap AssetLibrary::usePack(const QString &project, const QString &packs, 
     if (locked && locked->version != pack->version)
         return refused(tr("This project has %1 %2, and %3 is installed: update it first.").arg(locked->name, locked->version, pack->version));
 
-    QStringList chosen = files.isEmpty() ? QStringList() : files;
+    QStringList chosen = files;
     if (files.isEmpty()) {
         for (const PackFile &file : pack->files)
             chosen.append(file.path);
@@ -1156,6 +1448,9 @@ QVariantMap AssetLibrary::usePack(const QString &project, const QString &packs, 
     entry.licence = pack->licence;
     entry.provenance = provenanceOf(*pack).toVariantMap();
     entry.whole = entry.whole || files.isEmpty();
+    QHash<QString, LockedFile> lockedFiles;
+    for (const LockedFile &file : std::as_const(entry.files))
+        lockedFiles.insert(file.path, file);
     for (const QString &source : std::as_const(chosen)) {
         const PackFile *file = pack->file(source);
         const QString path = inProject(id, source);
@@ -1163,7 +1458,8 @@ QVariantMap AssetLibrary::usePack(const QString &project, const QString &packs, 
             return refused(way + QLatin1Char(' ') + tr("Nothing was changed."));
         copied.append(path);
         const bool there = exists(opened.real + QLatin1Char('/') + path);
-        if (!there || digestOf(opened.real, path) != file->sha256) {
+        const QByteArray now = there ? digestOf(opened.real, path) : QByteArray();
+        if (!there || now != file->sha256) {
             if (there && !replace) {
                 conflicts.append(path);
                 continue;
@@ -1174,9 +1470,10 @@ QVariantMap AssetLibrary::usePack(const QString &project, const QString &packs, 
                 return refused(why + QLatin1Char(' ') + tr("Nothing was changed."));
             change.put.append(path);
             change.bytes.insert(path, bytes);
+            if (there)
+                change.expect.insert(path, now);
         }
-        entry.files.removeIf([&path](const LockedFile &each) { return each.path == path; });
-        entry.files.append({path, source, pack->version, file->sha256});
+        lockedFiles.insert(path, {path, source, pack->version, file->sha256, false});
     }
     if (!conflicts.isEmpty()) {
         QVariantMap answer = refused(tr("%n file(s) of %1 are already in the project and differ from the pack's. Nothing was changed: "
@@ -1184,10 +1481,11 @@ QVariantMap AssetLibrary::usePack(const QString &project, const QString &packs, 
         answer.insert(QStringLiteral("conflicts"), conflicts);
         return answer;
     }
+    entry.files = lockedFiles.values();
     QList<LockedPack> next = opened.lock.packs;
     next.removeIf([&id](const LockedPack &each) { return each.id == id; });
     next.append(entry);
-    if (const QString problem = apply(opened.real, change, lockBytes(next), steps); !problem.isEmpty())
+    if (const QString problem = apply(opened.real, change, next, steps); !problem.isEmpty())
         return refused(problem);
     return {{QStringLiteral("ok"), true}, {QStringLiteral("problem"), QString()}, {QStringLiteral("copied"), copied},
             {QStringLiteral("conflicts"), QStringList()}, {QStringLiteral("recovered"), opened.recovered}};
@@ -1219,6 +1517,7 @@ QVariantMap AssetLibrary::updatePack(const QString &project, const QString &pack
         kept.insert(copy.path, copy);
 
     Change change;
+    change.expect = plan.expect;
     QStringList besideDone;
     const auto write = [&](const QString &path) -> QString {
         const PackFile *file = plan.pack.file(plan.sources.value(path));
@@ -1230,23 +1529,23 @@ QVariantMap AssetLibrary::updatePack(const QString &project, const QString &pack
         change.bytes.insert(path, bytes);
         return {};
     };
-    const auto record = [&](const QString &path) {
+    const auto record = [&](const QString &path, bool besideCopy) {
         const PackFile *file = plan.pack.file(plan.sources.value(path));
-        kept.insert(path, {path, file->path, plan.pack.version, file->sha256});
+        kept.insert(path, {path, file->path, plan.pack.version, file->sha256, besideCopy});
     };
     for (const QString &path : plan.replaced + plan.added) {
         if (const QString why = write(path); !why.isEmpty())
             return refused(why + QLatin1Char(' ') + tr("Nothing was changed."));
-        record(path);
+        record(path, false);
     }
     for (const QString &path : plan.same)
-        record(path);
+        record(path, false);
     for (const auto &[path, besidePath] : plan.changed) {
         if (besidePath.isEmpty() || !beside.contains(path))
             continue;
         if (const QString why = write(besidePath); !why.isEmpty())
             return refused(why + QLatin1Char(' ') + tr("Nothing was changed."));
-        record(besidePath);
+        record(besidePath, true);
         besideDone.append(besidePath);
     }
     for (const QString &path : plan.removed + plan.gone)
@@ -1257,7 +1556,7 @@ QVariantMap AssetLibrary::updatePack(const QString &project, const QString &pack
     QList<LockedPack> next = opened.lock.packs;
     next.removeIf([&id](const LockedPack &each) { return each.id == id; });
     next.append(entry);
-    if (const QString problem = apply(opened.real, change, lockBytes(next), steps); !problem.isEmpty())
+    if (const QString problem = apply(opened.real, change, next, steps); !problem.isEmpty())
         return refused(problem);
     QVariantMap answer = planAnswer(plan);
     answer.insert(QStringLiteral("beside"), besideDone);
@@ -1270,14 +1569,16 @@ QVariantMap AssetLibrary::state(const QUrl &project)
 {
     if (!available())
         return {{QStringLiteral("available"), false}};
+    if (QQmlEngine *engine = qmlEngine(this); engine && !engine->imageProvider(QStringLiteral("qqassets")))
+        engine->addImageProvider(QStringLiteral("qqassets"), new AssetThumbnails);
     const QString real = project.isLocalFile() ? Confinement::realPath(project.toLocalFile()) : QString();
     QVariantMap answer{{QStringLiteral("available"), true}, {QStringLiteral("lockProblem"), QString()},
                        {QStringLiteral("recovered"), QString()}};
     Lock lock;
     if (!real.isEmpty() && QFileInfo(real).isDir()) {
-        // A change cut short is put right first, unless another Studio is making one now.
-        const Busy busy(real);
-        if (busy.held())
+        // A change cut short is put right first, unless another Studio is changing or building it now.
+        const Hold hold(real);
+        if (hold.held())
             answer.insert(QStringLiteral("recovered"), recover(real));
         lock = readLock(real);
         answer.insert(QStringLiteral("lockProblem"), lock.problem.isEmpty() ? QString() : tr("%1. The Studio changes nothing it names until it is "
@@ -1288,24 +1589,31 @@ QVariantMap AssetLibrary::state(const QUrl &project)
     QVariantList packs;
     for (const Pack &pack : installed) {
         const LockedPack *locked = lock.pack(pack.id);
+        QSet<QString> lockedPaths;
+        if (locked) {
+            for (const LockedFile &each : locked->files)
+                lockedPaths.insert(each.path);
+        }
         QVariantList files;
         for (const PackFile &file : pack.files) {
             const QString there = inProject(pack.id, file.path);
-            const bool copied = locked && std::any_of(locked->files.cbegin(), locked->files.cend(),
-                                                      [&there](const LockedFile &each) { return each.path == there; });
+            // A thumbnail from the checked bytes, never the file as it is now; named by the version, so an update is drawn anew.
+            const QString thumbnail = QStringLiteral("image://qqassets/")
+                                      + QString::fromLatin1(QUrl::toPercentEncoding(pack.id + QLatin1Char('/') + pack.version + QLatin1Char('/') + file.path, "/"));
             files.append(QVariantMap{{QStringLiteral("path"), file.path},
                                      {QStringLiteral("kind"), file.kind},
                                      {QStringLiteral("size"), file.size},
-                                     {QStringLiteral("url"), QUrl::fromLocalFile(pack.folder + QLatin1Char('/') + file.path)},
-                                     {QStringLiteral("inProject"), copied ? there : QString()}});
+                                     {QStringLiteral("url"), file.kind == QStringLiteral("picture") ? thumbnail : QString()},
+                                     {QStringLiteral("inProject"), lockedPaths.contains(there) ? there : QString()}});
         }
         QStringList from;
         for (const char *key : {"author", "origin"}) {
             if (pack.provenance.contains(QLatin1String(key)))
                 from.append(pack.provenance.value(QLatin1String(key)).toString());
         }
-        const QString provenance = from.isEmpty() ? tr("From the Store, as %1 signed it").arg(pack.developer)
-                                                  : tr("From %1, through the Store").arg(from.join(QStringLiteral(", ")));
+        const QString provenance = from.isEmpty()
+                                       ? tr("Developer (not checked here): %1").arg(pack.developer)
+                                       : tr("From %1, through the Store. Developer (not checked here): %2").arg(from.join(QStringLiteral(", ")), pack.developer);
         packs.append(QVariantMap{{QStringLiteral("id"), pack.id},
                                  {QStringLiteral("name"), pack.name},
                                  {QStringLiteral("version"), pack.version},
@@ -1356,6 +1664,57 @@ QVariantMap AssetLibrary::update(const QUrl &project, const QString &id, const Q
     if (!available() || !project.isLocalFile())
         return refused(tr("There is no asset library here."));
     return updatePack(project.toLocalFile(), m_folder, id, beside);
+}
+
+// ── Thumbnails ──
+
+AssetThumbnails::AssetThumbnails() : QQuickImageProvider(QQuickImageProvider::Image, QQuickImageProvider::ForceAsynchronousImageLoading) {}
+
+void AssetThumbnails::setFolder(const QString &folder)
+{
+    const QMutexLocker locker(&thumbnailMutex());
+    thumbnailFolder() = folder;
+}
+
+QImage AssetThumbnails::requestImage(const QString &id, QSize *size, const QSize &requestedSize)
+{
+    QString folder;
+    {
+        const QMutexLocker locker(&thumbnailMutex());
+        folder = thumbnailFolder();
+    }
+    // <pack id>/<version>/<path in the pack>
+    const QString decoded = QUrl::fromPercentEncoding(id.toUtf8());
+    const QStringList parts = decoded.split(QLatin1Char('/'));
+    if (folder.isEmpty() || parts.size() < 3)
+        return {};
+    const QString path = parts.mid(2).join(QLatin1Char('/'));
+    static const QHash<QString, QByteArray> formats{{QStringLiteral("png"), "png"}, {QStringLiteral("jpg"), "jpeg"},
+                                                    {QStringLiteral("jpeg"), "jpeg"}, {QStringLiteral("webp"), "webp"}};
+    const QByteArray format = formats.value(QFileInfo(path).suffix().toLower());
+    if (format.isEmpty())
+        return {};
+    const QList<AssetLibrary::Pack> packs = AssetLibrary::readInstalled(folder);
+    const AssetLibrary::Pack *pack = findPack(packs, parts.at(0));
+    const AssetLibrary::PackFile *file = pack && pack->version == parts.at(1) ? pack->file(path) : nullptr;
+    QByteArray bytes;
+    QString why;
+    if (!file || !bytesOf(*pack, *file, &bytes, &why))
+        return {};
+    QBuffer buffer(&bytes);
+    buffer.open(QIODevice::ReadOnly);
+    QImageReader reader(&buffer, format);
+    reader.setAutoDetectImageFormat(false);
+    reader.setDecideFormatFromContent(false);
+    const QSize whole = reader.size();
+    if (!whole.isValid() || whole.width() > largestSide || whole.height() > largestSide)
+        return {};
+    if (requestedSize.isValid() && (whole.width() > requestedSize.width() || whole.height() > requestedSize.height()))
+        reader.setScaledSize(whole.scaled(requestedSize, Qt::KeepAspectRatio));
+    const QImage image = reader.read();
+    if (size)
+        *size = image.size();
+    return image;
 }
 
 }  // namespace qq
