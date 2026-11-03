@@ -386,6 +386,8 @@ to what that writes: a plain file directly in the game's `scenes/`. Nothing is g
 `game.json` does not play. A game that has changed, or names a scene anywhere else, does not play, and says why in plain words; it
 stays installed, for the Store to remove. The Player plays it behind the walls every QQ game has (`tst_playerwall`), and nothing of
 it is trusted more than a game built here. The demonstration's Ember Climb carries the `game.json` a build would.
+QQ's own `tst_storegame` lays its signed package out as the Store installs it and has the real QQ Player play it, walled, from
+that scene to its first frame.
 
 ## Building the catalogue
 

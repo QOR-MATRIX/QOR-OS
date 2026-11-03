@@ -2,6 +2,7 @@
 #
 # Changed for QOR OS: every suite is built with virtualpads.cpp, so no controller on the machine joins in.
 # Changed for QOR OS: tst_workspace.
+# Changed for QOR OS: tst_storegame, a game from the Store played by the real Player.
 
 qt_add_executable(tst_world tst_world.cpp)
 
@@ -66,6 +67,16 @@ target_link_libraries(tst_player PRIVATE Qt6::Test Qt6::Gui Qt6::Qml qqruntime)
 add_dependencies(tst_player qq-player)
 
 add_test(NAME tst_player COMMAND tst_player)
+
+# Changed for QOR OS: the demonstration's Ember Climb, laid out from its signed package as QOR OS's Store installs it, played
+# by the real Player behind its walls from the scene its game.json names. The package is QOR OS's, read and never signed.
+qt_add_executable(tst_storegame tst_storegame.cpp)
+target_compile_definitions(tst_storegame PRIVATE
+    QQ_PLAYER="$<TARGET_FILE:qq-player>"
+    QOR_STORE_DEMO_GAME="${CMAKE_CURRENT_SOURCE_DIR}/../../../tests/store/fixtures-demo/v1/packages/org.example.demo.game.ember-climb-1.0.0.qorpkg")
+target_link_libraries(tst_storegame PRIVATE Qt6::Test Qt6::Gui)
+add_dependencies(tst_storegame qq-player)
+add_test(NAME tst_storegame COMMAND tst_storegame)
 
 # Changed for QOR OS: the kernel's wall around a game, from the hostile side (QOR-0018). The Linux wall needs Linux.
 if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
