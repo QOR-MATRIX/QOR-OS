@@ -319,8 +319,8 @@ unpublished builds stay out of reach.
   and base-game dependencies, licence, provenance, previews; sequence and expiry; `price` refused, and format 1's unchecked `price`
   closed. Unclassified or contradictory listings stay drafts. Hostile cases under `linux-asan`: archive bombs, duplicate and device
   names, executable files in a pack, climbing glTF paths, an older signed copy swapped in, dependency cycles, markup in a licence.
-  Installs and removals all or nothing, across a crash. `tst_store_format2` 550 cases under `linux-asan` and MSVC at `421c2da`, 166
-  planted faults caught; an independent recheck of its fixes is under way
+  Installs and removals all or nothing, across a crash. `tst_store_format2` 604 cases under `linux-asan` and 597 under MSVC at
+  `811d192`, after an independent review and two rechecks, each check proven by a planted fault
 - [x] Explicit views in the query layer, with no fallback between stores; a utility in both stores is one package, installed once;
   turning creator features off keeps what is installed
 - [x] A separate demonstration catalogue with a throwaway key, never in a release; today's fixtures not re-signed
