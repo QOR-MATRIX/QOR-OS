@@ -301,7 +301,20 @@ struct Studio {
     }
     QVariant get(const char *name) const { return window->property(name); }
     QVariantMap assets() const { return get("assetState").toMap(); }
-    QObject *child(const QString &name) const { return window->findChild<QObject *>(name); }
+    /// By its name: a view's delegates are found through the items they are drawn in, which owns them; anything else as a child.
+    QObject *child(const QString &name) const
+    {
+        if (QObject *found = window->findChild<QObject *>(name))
+            return found;
+        QList<QQuickItem *> items{window->contentItem()};
+        while (!items.isEmpty()) {
+            QQuickItem *item = items.takeFirst();
+            if (item->objectName() == name)
+                return item;
+            items += item->childItems();
+        }
+        return nullptr;
+    }
     QString notice() const { return get("notice").toString(); }
     bool shown(const QString &name) const
     {
@@ -311,7 +324,7 @@ struct Studio {
     bool opened(const char *dialog) const { return child(QLatin1String(dialog)) && child(QLatin1String(dialog))->property("opened").toBool(); }
     void click(const QString &name)
     {
-        auto *item = window->findChild<QQuickItem *>(name);
+        auto *item = qobject_cast<QQuickItem *>(child(name));
         QVERIFY2(item, qPrintable(name));
         QTest::mouseClick(window, Qt::LeftButton, {}, item->mapToScene(QPointF(item->width() / 2, item->height() / 2)).toPoint());
     }

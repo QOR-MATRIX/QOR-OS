@@ -1001,8 +1001,9 @@ AssetLibrary::Lock AssetLibrary::readLock(const QString &realProject)
     const QJsonValue packsValue = root.value(QStringLiteral("packs"));
     if (!packsValue.isArray() || packsValue.toArray().size() > mostPacks)
         return broken(tr("its list of packs is not one"));
-    if (const QString way = wayProblem(realProject, QStringLiteral("assets")); !way.isEmpty())
-        return broken(way);
+    const QFileInfo assets(realProject + QStringLiteral("/assets"));
+    if (assets.isSymLink() || assets.isJunction() || assets.isShortcut() || (assets.exists() && !assets.isDir()))
+        return broken(tr("assets is a link, or not a folder"));
     QSet<QString> ids;
     QSet<QString> paths;
     int files = 0;
