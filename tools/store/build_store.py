@@ -551,6 +551,11 @@ def demo(out: Path = DEMO) -> None:
     game_files = {path.relative_to(EMBER_CLIMB).as_posix(): path.read_bytes()
                   for folder in ("assets", "logic", "scenes") for path in sorted((EMBER_CLIMB / folder).rglob("*"))
                   if path.is_file()}
+    # What a game QQ Studio builds says of itself (products/qq/studio/gamebuild.cpp): its title, the scene it starts in,
+    # and its build. The Library reads the scene from here, and from nothing else.
+    game_manifest = {"format": 1, "kind": "game", "title": "Ember Climb", "scene": "scenes/ember-climb.qml",
+                     "build": 1, "engine": {"id": "qq", "version": "0.1.0"}}
+    game_files["game.json"] = (json.dumps(game_manifest, indent=2) + "\n").encode("utf-8")
     edition_group = "org.example.demo.ember-climb"
     game = Format2Item("game", {**common, "id": "org.example.demo.game.ember-climb", "name": "Ember Climb",
                                 "placements": [{"store": "player", "category": "Platformers"}],

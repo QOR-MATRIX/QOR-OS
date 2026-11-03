@@ -80,6 +80,19 @@ class Demo(unittest.TestCase):
         self.assertEqual((game["edition"]["role"], project["edition"]["role"]), ("game", "editable-project"))
         self.assertEqual(game["dependencies"], [])
 
+    def test_the_game_says_which_scene_it_starts_in_as_qq_studios_builds_do(self):
+        for name, catalog in self.stores():
+            entry = next(e for e in self.packaged(catalog) if e["id"] == "org.example.demo.game.ember-climb")
+            with zipfile.ZipFile(self.out / name / entry["package"]["file"]) as archive:
+                game = json.loads(archive.read("game.json"))
+                manifest = json.loads(archive.read("manifest.json"))
+                scenes = [n for n in archive.namelist() if n.startswith("scenes/")]
+            self.assertEqual((game["format"], game["kind"], game["engine"]["id"]), (1, "game", "qq"))
+            self.assertEqual(game["title"], manifest["name"])
+            self.assertEqual(scenes, [game["scene"]])
+            self.assertIn("game.json", manifest["files"])
+            self.assertGreaterEqual(game["build"], 1)
+
     def test_each_package_is_stored_listed_exactly_and_mirrors_its_listing_in_the_manifest(self):
         for name, catalog in self.stores():
             for entry in self.packaged(catalog):

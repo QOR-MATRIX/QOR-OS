@@ -7,7 +7,7 @@
     "org.example.demo": {
       "name": "A demonstration, not a publisher",
       "verified": false,
-      "key": "BG5Vw1VukuEhzF8ShRciqdal1jtuZ/UfY0mtVFbHXobnzHQ9yOjVUag/VOzec2hEXo1oph3odsMXzRRgesHV4ds="
+      "key": "BJ/2NN4lI+3xP9WxEQs+LpPecdFGS9IDcj8UhvUsmKeTBu89CiuWpL5J2UzWEBFUlqGxHuHA7vpRn1ZVMFjLEz4="
     }
   },
   "items": [
@@ -66,7 +66,7 @@
       "package": {
         "file": "packages/org.example.demo.pack.ember-climb-art-1.0.0.qorpkg",
         "size": 14428,
-        "sha256": "44d2781c5a24779df24c00bb542c5cada77b2323350c3078330ef57c82b41c0f",
+        "sha256": "c5f255db6aa44602a487b945007650cfcd0cc46bf45aa83de7e427ee6daf0771",
         "unpacked": 13808
       }
     },
@@ -128,9 +128,9 @@
       ],
       "package": {
         "file": "packages/org.example.demo.game.ember-climb-1.0.0.qorpkg",
-        "size": 33210,
-        "sha256": "35ad7cae9b17fdd71ec4e37ce4494b772842563134dade83fb346ea6d907e00d",
-        "unpacked": 31920
+        "size": 33560,
+        "sha256": "793d4423a3d4d2318f0b4843adde6783172e6aaa94efecd087e1df9eb93ebf91",
+        "unpacked": 32176
       }
     },
     {
