@@ -252,8 +252,11 @@ private slots:
         QTemporaryDir games;
         QTemporaryDir outside;
         const QString folder = games.filePath(u"orb-run"_s);
+        // A title of its own, which no folder's name gives, so a manifest believed would show.
+        QJsonObject planted = builtManifest();
+        planted.insert(u"title"_s, u"Believed Through A Link"_s);
         touch(outside.filePath(u"scenes/level.qml"_s));
-        writeManifest(outside.path(), builtManifest());
+        writeManifest(outside.path(), planted);
         if (what == u"folder"_s) {
             QVERIFY(QFile::link(outside.path(), folder));
         } else {
@@ -267,10 +270,10 @@ private slots:
         } else if (what == u"scene"_s) {
             QDir(folder).mkpath(u"scenes"_s);
             QVERIFY(QFile::link(outside.filePath(u"scenes/level.qml"_s), QDir(folder).filePath(u"scenes/level.qml"_s)));
-            writeManifest(folder, builtManifest());
+            writeManifest(folder, planted);
         } else {
             QVERIFY(QFile::link(outside.filePath(u"scenes"_s), QDir(folder).filePath(u"scenes"_s)));
-            writeManifest(folder, builtManifest());
+            writeManifest(folder, planted);
         }
 
         // Found as any folder of scenes is, and not as a game built here, whatever it says of itself. There is one: a
@@ -278,7 +281,7 @@ private slots:
         const QVariantList found = Library::scan({ games.path() }, {}, {}).games;
         QCOMPARE(found.size(), 1);
         QCOMPARE(found.first().toMap().value(u"source"_s).toString(), u"qq"_s);
-        QVERIFY(found.first().toMap().value(u"title"_s).toString() != u"Orb Run (planted)"_s);
+        QVERIFY(found.first().toMap().value(u"title"_s).toString() != u"Believed Through A Link"_s);
     }
 #endif
 

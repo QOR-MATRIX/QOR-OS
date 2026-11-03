@@ -10,8 +10,10 @@
 
 #include <QCoreApplication>
 #include <QCryptographicHash>
+#include <QDateTime>
 #include <QDir>
 #include <QDirIterator>
+#include <QElapsedTimer>
 #include <QFile>
 #include <QFileInfo>
 #include <QGuiApplication>
@@ -23,6 +25,7 @@
 #include <QMap>
 #include <QProcess>
 #include <QQmlApplicationEngine>
+#include <QQmlEngine>
 #include <QQuickItem>
 #include <QQuickStyle>
 #include <QQuickWindow>
@@ -50,6 +53,7 @@
 #include "confinement.h"
 #include "gamebuild.h"
 #include "gpu.h"
+#include "projectworkspace.h"
 #include "sceneio.h"
 #include "store.h"
 
@@ -326,41 +330,79 @@ struct Studio {
     /// Build is pressed, and has finished.
     void pressBuild()
     {
-        call("say", QString());
+        call("say", QString(), false);
         click("buildButton");
         QTRY_VERIFY2_WITH_TIMEOUT(notice().startsWith(QStringLiteral("Built")) || get("noticeIsProblem").toBool(),
                                   qPrintable(notice()), 60000);
         QTRY_VERIFY(!building());
     }
 
-    /// The middle of the world, as the window shows it now: a tenth of it each way.
-    QImage middleShown()
+    /// A part of the world, as the window shows it now, by its share of the viewport across and down.
+    QImage shown(const QRectF &part)
     {
         auto *view = window->findChild<QQuickItem *>(QStringLiteral("viewport"));
         if (!view)
             return {};
         window->update();
         QTest::qWait(200);
-        const QRectF middle = view->mapRectToScene(QRectF(view->width() * 0.45, view->height() * 0.45, view->width() / 10, view->height() / 10));
-        return window->grabWindow().copy(middle.toRect());
+        const QRectF there = view->mapRectToScene(QRectF(view->width() * part.x(), view->height() * part.y(),
+                                                         view->width() * part.width(), view->height() * part.height()));
+        return window->grabWindow().copy(there.toRect());
     }
+    static QRectF middle() { return {0.45, 0.45, 0.1, 0.1}; }
+    static QRectF top() { return {0, 0, 1, 1.0 / 6}; }
 
-    /// Whether the middle of the world comes to be mostly of this channel (shareOf) within half a minute. If not, the last look
+    /// Whether that part of the world comes to be mostly of this channel (shareOf) within half a minute. If not, the last look
     /// is kept in the temporary folder and named, with its shares, so a failure can be looked at.
-    void waitForMiddleShown(int channel)
+    void waitForShown(const QRectF &part, int channel)
     {
         QImage last;
         for (int tries = 0; tries < 60; ++tries) {
-            last = middleShown();
+            last = shown(part);
             if (shareOf(last, channel) > 0.5)
                 return;
         }
-        const QString kept = QDir::temp().filePath(QStringLiteral("tst_gamebuild-middle-shown.png"));
+        const QString kept = QDir::temp().filePath(QStringLiteral("tst_gamebuild-shown.png"));
         last.save(kept);
         QFAIL(qPrintable(QStringLiteral("The world does not show it: red %1, green %2, blue %3, as kept in %4")
                              .arg(shareOf(last, 0)).arg(shareOf(last, 1)).arg(shareOf(last, 2)).arg(kept)));
     }
 };
+
+QString qmlcachegen()
+{
+    return QDir(QLibraryInfo::path(QLibraryInfo::LibraryExecutablesPath)).filePath(QStringLiteral("qmlcachegen"));
+}
+
+/// A compiled unit made by Qt's own tool from `unitText`, beside `file`, which then says `sourceText` and still looks as it did to
+/// anything that goes by its time: "" once it is there, or what went wrong.
+QString plantUnit(const QString &file, const QByteArray &unitText, const QByteArray &sourceText)
+{
+    if (!writeFile(file, unitText))
+        return QStringLiteral("could not write %1").arg(file);
+    QProcess compile;
+    compile.setProcessChannelMode(QProcess::MergedChannels);
+    compile.start(qmlcachegen(), {QStringLiteral("--only-bytecode"), file, QStringLiteral("-o"), file + QLatin1Char('c')});
+    if (!compile.waitForFinished(60000) || compile.exitCode() != 0 || !QFile::exists(file + QLatin1Char('c')))
+        return QString::fromUtf8(compile.readAll());
+    const QDateTime when = QFileInfo(file).lastModified();
+    if (!writeFile(file, sourceText))
+        return QStringLiteral("could not write %1").arg(file);
+    QFile touched(file);
+    if (!touched.open(QIODevice::ReadWrite) || !touched.setFileTime(when, QFileDevice::FileModificationTime))
+        return QStringLiteral("could not set the time of %1").arg(file);
+    return {};
+}
+
+/// What may be in the environment to ask Qt for its cache, whatever a program then does about it.
+void cacheAsked_data()
+{
+    QTest::addColumn<QByteArray>("variable");
+    QTest::addColumn<QByteArray>("value");
+    QTest::newRow("as the environment is") << QByteArray() << QByteArray();
+    QTest::newRow("with the cache forced on") << QByteArray("QML_FORCE_DISK_CACHE") << QByteArray("1");
+    QTest::newRow("with compiled units asked for") << QByteArray("QML_DISK_CACHE") << QByteArray("qmlc,aot");
+}
 
 }  // namespace
 
@@ -916,6 +958,59 @@ private slots:
         const auto word = [](quint32 value) { return QByteArray(reinterpret_cast<const char *>(&value), 4); };
         glb += word(2) + word(quint32(20 + json.size())) + word(quint32(json.size())) + "JSON" + json;
         row("a binary model's buffer", QStringLiteral("assets/m.glb"), glb, QStringLiteral("../../x.bin"));
+        // A first chunk that says it is longer than the file: read as it says, it would run past the end of what was mapped.
+        QByteArray overlong("glTF");
+        overlong += word(2) + word(quint32(20 + json.size())) + word(quint32(json.size() + 4096)) + "JSON" + json;
+        row("a binary model longer than its file", QStringLiteral("assets/m.glb"), overlong, QStringLiteral("not a whole model"));
+
+        // Escapes JavaScript reads that the scan once did not, and a string longer than it once kept.
+        row("an ES2015 escape's way of climbing", level, scene("\\u{2e}\\u{2E}/\\u{00002e}\\u{2e}/tree.glb"), QStringLiteral("tree.glb"));
+        row("a legacy octal escape's way of climbing", level, scene("\\56\\056/\\56\\56/tree.glb"), QStringLiteral("tree.glb"));
+        row("a line joined by a backslash", QStringLiteral("logic/rule.qml"),
+            "import QQ\n\nLogic {\n    property string p: \"..\\\r\n/../outside.png\"\n}\n", QStringLiteral("outside.png"));
+        row("a climb past the first 4096 characters", QStringLiteral("logic/rule.qml"),
+            "import QQ\n\nLogic {\n    property string p: \"" + QByteArray(5000, 'a') + "/../../../outside.png\"\n}\n",
+            QStringLiteral("outside.png"));
+        row("a model's name longer than any path", model, gltf(QByteArray(5000, 'a')), QStringLiteral("longer than 4096"));
+
+        // Logic in a folder of its own is read from the scene too, and what neither of them holds is still refused.
+        row("logic in a folder, naming what neither it nor the scene has", QStringLiteral("logic/enemies/boss.qml"),
+            "import QQ\n\nLogic {\n    onStarted: play(\"../../assets/roar.wav\")\n}\n", QStringLiteral("../../assets/roar.wav"));
+        // An import is QML's to read, from the file's own folder, whatever is beside the scene.
+        row("an import of what only the scene's folder has", QStringLiteral("logic/rule.qml"),
+            "import QQ\nimport \"level.qml\" as L\n\nLogic {\n}\n", QStringLiteral("level.qml"));
+
+        // Tiled maps and tilesets, as TileMap reads them.
+        const QString map = QStringLiteral("assets/map.tmj");
+        row("a map's tileset picture above", map, "{\"tilesets\":[{\"firstgid\":1,\"image\":\"../../shared/tiles.png\"}]}",
+            QStringLiteral("../../shared/tiles.png"));
+        row("a map's tileset file above", map, "{\"tilesets\":[{\"firstgid\":1,\"source\":\"../../shared/tiles.tsj\"}]}",
+            QStringLiteral("../../shared/tiles.tsj"));
+        row("a map's tileset not there", map, "{\"tilesets\":[{\"firstgid\":1,\"source\":\"gone.tsj\"}]}", QStringLiteral("gone.tsj"));
+        row("a map's picture by its full path", map, "{\"layers\":[{\"type\":\"imagelayer\",\"image\":\"/usr/share/sky.png\"}]}",
+            QStringLiteral("/usr/share/sky.png"));
+        row("a tileset's picture above", QStringLiteral("assets/tiles.tsj"), "{\"image\":\"../../shared/tiles.png\",\"tilecount\":4}",
+            QStringLiteral("../../shared/tiles.png"));
+        row("an XML tileset's picture above", QStringLiteral("assets/tiles.tsx"),
+            "<?xml version=\"1.0\"?>\n<tileset name=\"t\" tilewidth=\"8\" tileheight=\"8\">\n <image source=\"../../shared/tiles.png\"/>\n</tileset>\n",
+            QStringLiteral("../../shared/tiles.png"));
+        row("an XML tileset's picture by character references", QStringLiteral("assets/tiles.tsx"),
+            "<tileset><image source=\"&#46;&#46;/&#x2e;&#x2e;/tiles.png\"/></tileset>", QStringLiteral("tiles.png"));
+
+        // An OBJ model and its material library, as Assimp reads them.
+        row("a model's material library above", QStringLiteral("assets/m.obj"), "# a model\nv 0 0 0\nmtllib ../../shared/m.mtl\n",
+            QStringLiteral("../../shared/m.mtl"));
+        row("a model's material library not there", QStringLiteral("assets/m.obj"), "mtllib gone.mtl\r\n", QStringLiteral("gone.mtl"));
+        row("a material's picture above", QStringLiteral("assets/m.mtl"), "newmtl a\nKd 1 1 1\nmap_Kd ../../shared/wood.png\n",
+            QStringLiteral("../../shared/wood.png"));
+        row("a material's picture after its options", QStringLiteral("assets/m.mtl"),
+            "newmtl a\nmap_Kd -o 0 0 0 -s 2 2 2 -clamp on -bm 0.5 ../../shared/wood.png\n", QStringLiteral("../../shared/wood.png"));
+        row("a material's picture by a drive's path", QStringLiteral("assets/m.mtl"), "newmtl a\n  MAP_KD C:\\textures\\wood.png\n",
+            QStringLiteral("C:"));
+        row("a material's bump map above", QStringLiteral("assets/m.mtl"), "newmtl a\nbump -bm 1 ../../n.png\n", QStringLiteral("../../n.png"));
+        row("a material's reflection above", QStringLiteral("assets/m.mtl"), "newmtl a\nrefl -type sphere ../../r.png\n",
+            QStringLiteral("../../r.png"));
+        row("a material's picture not there", QStringLiteral("assets/m.mtl"), "newmtl a\nmap_d gone.png\n", QStringLiteral("gone.png"));
     }
     void whatAGameNamesMustBeInIt()
     {
@@ -1003,6 +1098,33 @@ private slots:
         row("no binary model at all", QStringLiteral("assets/m.glb"), "not one");
         row("an empty file", rule, "");
         row("an empty model", model, "");
+
+        // Logic in a folder of its own, as play() and spawn() read it: from the scene playing it (Logic.qml).
+        const QString boss = QStringLiteral("logic/enemies/boss.qml");
+        row("logic in a folder plays a sound by the scene's path", boss, "import QQ\n\nLogic {\n    onStarted: play(\"../assets/b.bin\")\n}\n");
+        row("logic in a folder places a prefab by the scene's path", boss,
+            "import QQ\n\nLogic {\n    onStarted: spawn(\"Prefab\", { source: \"../prefabs/crate.qml\" })\n}\n");
+        row("logic in a folder names its own by its own path", boss, "import QQ\n\nLogic {\n    property string p: \"../sub/x.qml\"\n}\n");
+        row("logic played by a scene in a folder of scenes", rule, "import QQ\n\nLogic {\n    onStarted: play(\"../../assets/b.bin\")\n}\n");
+        // Escapes that name nothing that climbs.
+        row("escapes that climb nowhere", rule,
+            "import QQ\n\nLogic {\n    property string a: \"\\u{41}\\u{1F600}\\101\\8\\0\"\n    property string b: \"\\u{110000}\\u{}\\u{zz}\"\n}\n");
+        row("a model's long data URI", model, "{\"buffers\":[{\"uri\":\"data:application/octet-stream;base64," + QByteArray(8192, 'A') + "\"}]}");
+
+        // Maps, tilesets and OBJ models naming their own.
+        row("a map's own", QStringLiteral("assets/map.tmj"),
+            "{\"tilesets\":[{\"firstgid\":1,\"source\":\"tiles.tsj\"},{\"firstgid\":9,\"image\":\"sub/tile.png\"}],"
+            "\"layers\":[{\"type\":\"imagelayer\",\"image\":\"b.bin\"},{\"type\":\"imagelayer\",\"image\":\"\"}],"
+            "\"properties\":[{\"name\":\"source\",\"type\":\"string\",\"value\":\"../../not a file\"}],\"name\":\"../../x\",\"image\":7}");
+        row("a tileset's own", QStringLiteral("assets/more.tsj"), "{\"image\":\"sub/tile.png\",\"tilecount\":4}");
+        row("an XML tileset's own", QStringLiteral("assets/more.tsx"),
+            "<?xml version=\"1.0\"?>\n<tileset name=\"../../a name\"><image source=\"tile one.png\" width=\"8\" height=\"8\"/></tileset>\n");
+        row("what is not XML", QStringLiteral("assets/more.tsx"), "<tileset><image source=\"../../x.png\"");
+        row("a model's own library", QStringLiteral("assets/two.obj"), "# mtllib ../../comment.mtl\nmtllib m.mtl\nusemtl a\nv 0 0 0\nmtllib\n");
+        row("a library's own pictures", QStringLiteral("assets/m.mtl"),
+            "# map_Kd ../../comment.png\nnewmtl a\nKd 1 1 1\nmap_Kd -o 1 1 1 -s 2 2 2 -clamp on sub/tile.png\nbump -bm 0.5 tile one.png\n"
+            "map_Ka\nmapping ../../not a map.png\n");
+        row("a library's pictures from its model's folder", QStringLiteral("assets/mats/m.mtl"), "newmtl a\nmap_Kd tile one.png\n");
     }
     void whatAGameNamesOfItsOwnIsCarried()
     {
@@ -1013,8 +1135,14 @@ private slots:
         QVERIFY(writeFile(project.file(QStringLiteral("logic/helper.js")), "var x = 1\n"));
         QVERIFY(writeFile(project.file(QStringLiteral("logic/n.mjs")), "export const a = 1, b = 2\n"));
         QVERIFY(writeFile(project.file(QStringLiteral("logic/sub/x.qml")), "import QQ\n\nLogic {\n}\n"));
+        QVERIFY(writeFile(project.file(QStringLiteral("logic/enemies/sub/x.qml")), "import QQ\n\nLogic {\n}\n"));
         QVERIFY(writeFile(project.file(QStringLiteral("assets/b.bin")), "a buffer"));
         QVERIFY(writeFile(project.file(QStringLiteral("assets/tile one.png")), "a tile"));
+        QVERIFY(writeFile(project.file(QStringLiteral("assets/tiles.tsj")), "{\"image\":\"sub/tile.png\"}"));
+        QVERIFY(writeFile(project.file(QStringLiteral("assets/m.obj")), "mtllib m.mtl\nv 0 0 0\n"));
+        QVERIFY(writeFile(project.file(QStringLiteral("assets/m.mtl")), "newmtl a\nmap_Kd sub/tile.png\n"));
+        // A scene in a folder of scenes, which a game may go on to: logic it plays reads paths from there.
+        QVERIFY(writeFile(project.file(QStringLiteral("scenes/levels/two.qml")), "import QQ\n\nScene {\n    name: \"two\"\n}\n"));
         QVERIFY(writeFile(project.file(file), text));
         QTemporaryDir games;
         const QVariantMap built = build(project, games.path());
@@ -1064,7 +1192,8 @@ private slots:
         HeldBuild first;
         first.start(project.path(), QStringLiteral("scenes/level.qml"), games.path(), "walked");
         QVERIFY(first.hasReachedIt());
-        // Held for an hour, as a large game's build may be: a lock is never stale by its age while its holder lives.
+        // Held for an hour, as a large game's build may be, and still held. That is the system's own lock keeping it here: this
+        // does not show setStaleLockTime(0) doing anything, which matters only where the file system cannot lock (gamebuild.cpp).
         const QStringList locks = QDir(games.path()).entryList({QStringLiteral(".lock-*")}, QDir::Files | QDir::Hidden);
         QCOMPARE(locks.size(), 1);
         std::error_code aged;
@@ -1177,19 +1306,51 @@ private slots:
         const QVariantMap first = build(project, games.path());
         const QString folder = first.value(QStringLiteral("folder")).toString();
         const QString name = QFileInfo(folder).fileName();
-        if (!makeLink(outside.path(), games.filePath(QStringLiteral(".old-%1-link").arg(name))))
+        if (!makeLink(outside.path(), games.filePath(QStringLiteral(".old-%1-linked").arg(name))))
             QSKIP("This system would not let that be made here.");
-        QVERIFY(makeLink(outside.path(), games.filePath(QStringLiteral(".building-%1-link").arg(name))));
+        QVERIFY(makeLink(outside.path(), games.filePath(QStringLiteral(".building-%1-linked").arg(name))));
 
         // With the game there, and with it gone: a link is never put back as the game.
         QVERIFY(build(project, games.path()).value(QStringLiteral("ok")).toBool());
         QCOMPARE(readBytes(outside.filePath(QStringLiteral("keep.txt"))), QByteArray("keep"));
+        // Taken for this game's leftovers, and taken away themselves.
+        QVERIFY2(leftovers(games.path()).isEmpty(), qPrintable(leftovers(games.path()).join(QLatin1Char(' '))));
         QVERIFY(QDir(folder).removeRecursively());
-        QFile::remove(games.filePath(QStringLiteral(".old-%1-link").arg(name)));
-        QVERIFY(makeLink(outside.path(), games.filePath(QStringLiteral(".old-%1-link").arg(name))));
+        QVERIFY(makeLink(outside.path(), games.filePath(QStringLiteral(".old-%1-linked").arg(name))));
         QVERIFY(!build(project, games.path(), QStringLiteral("scenes/gone.qml")).value(QStringLiteral("ok")).toBool());
         QVERIFY(!QFileInfo(folder).isSymLink());
         QCOMPARE(readBytes(outside.filePath(QStringLiteral("keep.txt"))), QByteArray("keep"));
+    }
+
+    /// Another game's leftovers are not this game's, however its name begins: a project named after this game's folder has a
+    /// folder whose name starts with this one's, and its staging and its game set aside start so too.
+    void anotherGamesLeftoversAreLeftAlone()
+    {
+        Project project;
+        project.fill();
+        QTemporaryDir games;
+        const QVariantMap first = build(project, games.path());
+        QVERIFY(first.value(QStringLiteral("ok")).toBool());
+        const QString name = QFileInfo(first.value(QStringLiteral("folder")).toString()).fileName();
+
+        Project other;
+        other.name = name;  // its folder is "<this game's name>-<its own hash>"
+        other.fill();
+        const QString otherName = qq::GameBuild::folderNameFor(qq::Confinement::realPath(other.path()));
+        QVERIFY2(otherName.startsWith(name + QLatin1Char('-')), qPrintable(otherName));
+        // As that game's own build leaves them, mid-copy and set aside.
+        const QString staging = games.filePath(QStringLiteral(".building-%1-Ab12Cd").arg(otherName));
+        const QString aside = games.filePath(QStringLiteral(".old-%1-Ab12Cd").arg(otherName));
+        QVERIFY(writeFile(QDir(staging).filePath(QStringLiteral("scenes/level.qml")), "theirs, half copied"));
+        QVERIFY(writeFile(QDir(aside).filePath(QStringLiteral("scenes/level.qml")), "theirs, set aside"));
+
+        // This game built again, and built with its own game gone: neither takes the other's.
+        QVERIFY(build(project, games.path()).value(QStringLiteral("ok")).toBool());
+        QVERIFY(QDir(first.value(QStringLiteral("folder")).toString()).removeRecursively());
+        QVERIFY(!build(project, games.path(), QStringLiteral("scenes/gone.qml")).value(QStringLiteral("ok")).toBool());
+        QVERIFY(!QFileInfo::exists(first.value(QStringLiteral("folder")).toString()));
+        QCOMPARE(readBytes(QDir(staging).filePath(QStringLiteral("scenes/level.qml"))), QByteArray("theirs, half copied"));
+        QCOMPARE(readBytes(QDir(aside).filePath(QStringLiteral("scenes/level.qml"))), QByteArray("theirs, set aside"));
     }
 
     /// What the last game says is read for a number, and never through a link or from a pipe.
@@ -1287,34 +1448,32 @@ private slots:
 
     /// A real compiled unit, made by Qt's own tool, beside a source that says something else: a script, which a game's logic
     /// imports (a scene's own types beside it are not types to a confined Player). Were the unit read, what ran behind the wall
-    /// would be the unit and not the source, and a unit is not checked as source is: the Player keeps to the source.
+    /// would be the unit and not the source, and a unit is not checked as source is: the Player keeps to the source, whatever
+    /// the environment asks of Qt, and says what Qt does.
+    void thePlayerRunsNoCompiledUnit_data() { cacheAsked_data(); }
     void thePlayerRunsNoCompiledUnit()
     {
-        const QString tool = QDir(QLibraryInfo::path(QLibraryInfo::LibraryExecutablesPath)).filePath(QStringLiteral("qmlcachegen"));
-        if (!QFile::exists(tool))
+        QFETCH(QByteArray, variable);
+        QFETCH(QByteArray, value);
+        if (!QFile::exists(qmlcachegen()))
             QSKIP("This kit has no qmlcachegen to make a compiled unit with.");
         QTemporaryDir game;
         const QString helper = game.filePath(QStringLiteral("logic/helper.js"));
-        QVERIFY(writeFile(helper, "function word() { return \"THE-COMPILED-UNIT-RAN\" }\n"));
+        const QString planted = plantUnit(helper, "function word() { return \"THE-COMPILED-UNIT-RAN\" }\n",
+                                          "function word() { return \"THE-SOURCE-RAN\" }\n");
+        QVERIFY2(planted.isEmpty(), qPrintable(planted));
         QVERIFY(writeFile(game.filePath(QStringLiteral("logic/rule.qml")),
                           "import QQ\nimport \"helper.js\" as Helper\n\nLogic {\n    onStarted: console.log(\"SAID: \" + Helper.word())\n}\n"));
         QVERIFY(writeFile(game.filePath(QStringLiteral("scenes/level.qml")),
                           "import QQ\n\nScene {\n    name: \"level\"\n    Behaviour { name: \"Rule\"; source: \"../logic/rule.qml\" }\n}\n"));
-        QProcess compile;
-        compile.setProcessChannelMode(QProcess::MergedChannels);
-        compile.start(tool, {QStringLiteral("--only-bytecode"), helper, QStringLiteral("-o"), helper + QLatin1Char('c')});
-        QVERIFY(compile.waitForFinished(60000));
-        QVERIFY2(compile.exitCode() == 0 && QFile::exists(helper + QLatin1Char('c')), compile.readAll().constData());
-
-        // The source says something else now, and still looks as it did to anything that goes by its time.
-        const QDateTime when = QFileInfo(helper).lastModified();
-        QVERIFY(writeFile(helper, "function word() { return \"THE-SOURCE-RAN\" }\n"));
-        QFile touched(helper);
-        QVERIFY(touched.open(QIODevice::ReadWrite));
-        QVERIFY(touched.setFileTime(when, QFileDevice::FileModificationTime));
-        touched.close();
 
         qputenv("QT_FORCE_STDERR_LOGGING", "1");
+        if (!variable.isEmpty())
+            qputenv(variable.constData(), value);
+        const auto unset = qScopeGuard([variable] {
+            if (!variable.isEmpty())
+                qunsetenv(variable.constData());
+        });
         QTemporaryDir out;
         const QString measure = out.filePath(QStringLiteral("measure.json"));
         QByteArray said;
@@ -1322,9 +1481,81 @@ private slots:
         QVERIFY2(code == 0, qPrintable(QStringLiteral("exit %1: %2").arg(code).arg(QString::fromUtf8(said))));
         QVERIFY2(!said.contains("THE-COMPILED-UNIT-RAN"), said.constData());
         QVERIFY2(said.contains("SAID: THE-SOURCE-RAN"), said.constData());
-        // And it says so, for a check that does not plant a unit.
+        // And it says so, as Qt's engine has it, for a check that does not plant a unit.
         const QJsonObject measured = QJsonDocument::fromJson(readBytes(measure)).object();
         QCOMPARE(measured.value(QStringLiteral("qmlDiskCache")).toBool(true), false);
+    }
+
+    /// What the Player says of its cache is Qt's engine's own answer, not a guess from the environment: an engine left to Qt's
+    /// own defaults reads compiled units, and says so.
+    void whatIsSaidOfTheCacheIsQtsOwn()
+    {
+        for (const char *variable : {"QML_DISABLE_DISK_CACHE", "QML_FORCE_DISK_CACHE", "QML_DISK_CACHE"}) {
+            if (qEnvironmentVariableIsSet(variable))
+                QSKIP("This suite was started with Qt's cache set by its environment.");
+        }
+        QQmlEngine engine;
+        QVERIFY(qq::Confinement::readsCompiledUnits(&engine));
+        QVERIFY(!qq::Confinement::readsCompiledUnits(nullptr));
+    }
+
+    /// The Studio, too, runs a project's source and no unit compiled from it: a project's scene imports a script kept beside it,
+    /// and a unit beside that script says something else. Whatever the environment asks of Qt's cache.
+    void theStudioRunsNoCompiledUnit_data() { cacheAsked_data(); }
+    void theStudioRunsNoCompiledUnit()
+    {
+#ifndef Q_OS_LINUX
+        QSKIP("Its store is set here by XDG_DATA_HOME, Linux's.");
+#else
+        QFETCH(QByteArray, variable);
+        QFETCH(QByteArray, value);
+        if (!QFile::exists(qmlcachegen()))
+            QSKIP("This kit has no qmlcachegen to make a compiled unit with.");
+        Project project;
+        const QString helper = project.file(QStringLiteral("scenes/helper.js"));
+        const QString planted = plantUnit(helper, "function word() { return \"THE-COMPILED-UNIT-RAN\" }\n",
+                                          "function word() { return \"THE-SOURCE-RAN\" }\n");
+        QVERIFY2(planted.isEmpty(), qPrintable(planted));
+        QVERIFY(writeFile(project.file(QStringLiteral("scenes/level.qml")),
+                          "import QtQml\nimport QQ\nimport \"helper.js\" as Helper\n\nScene {\n    name: \"level\"\n"
+                          "    Component.onCompleted: console.log(\"SAID: \" + Helper.word())\n}\n"));
+
+        // The person's own: the project trusted, and left last with that scene open.
+        QTemporaryDir data;
+        QTemporaryDir cache;
+        const QString real = qq::Confinement::realPath(project.path());
+        listAsTrusted(data.path(), project.path());
+        const QString kept = QDir(data.path()).filePath(QStringLiteral("Demiurge/QQ Studio/workspaces/")
+                                                        + QFileInfo(qq::ProjectWorkspace::fileFor(real)).fileName());
+        QVERIFY(writeFile(kept, QJsonDocument(QJsonObject{{QStringLiteral("version"), qq::ProjectWorkspace::schemaVersion},
+                                                          {QStringLiteral("project"), real},
+                                                          {QStringLiteral("scene"), QStringLiteral("scenes/level.qml")}})
+                                    .toJson()));
+
+        QTemporaryDir out;
+        QProcess studio;
+        QProcessEnvironment environment = QProcessEnvironment::systemEnvironment();
+        environment.insert(QStringLiteral("XDG_DATA_HOME"), data.path());
+        environment.insert(QStringLiteral("XDG_CACHE_HOME"), cache.path());
+        environment.insert(QStringLiteral("QT_FORCE_STDERR_LOGGING"), QStringLiteral("1"));
+        environment.insert(QStringLiteral("QQ_MCP_PIPE"), QStringLiteral("qq-unit-test-%1").arg(QCoreApplication::applicationPid()));
+        environment.insert(QStringLiteral("ASAN_OPTIONS"), environment.value(QStringLiteral("ASAN_OPTIONS")) + QStringLiteral(":detect_leaks=0"));
+        if (!variable.isEmpty())
+            environment.insert(QString::fromLatin1(variable), QString::fromLatin1(value));
+        studio.setProcessEnvironment(environment);
+        studio.setProcessChannelMode(QProcess::MergedChannels);
+        studio.start(QStringLiteral(QQ_STUDIO), {QStringLiteral("--project"), project.path(), QStringLiteral("--capture"),
+                                                 out.filePath(QStringLiteral("frame.png"))});
+        const bool finished = studio.waitForFinished(120000);
+        if (!finished) {
+            studio.kill();
+            studio.waitForFinished();
+        }
+        const QByteArray said = studio.readAll();
+        QVERIFY2(finished && studio.exitCode() == 0, said.constData());
+        QVERIFY2(!said.contains("THE-COMPILED-UNIT-RAN"), said.constData());
+        QVERIFY2(said.contains("SAID: THE-SOURCE-RAN"), said.constData());
+#endif
     }
 
     /// The first journey, as far as the Studio and the Player go: open a project, import a model, edit, save, build, play
@@ -1370,10 +1601,7 @@ private slots:
             QCOMPARE(skyOf(QDir(firstFolder).filePath(relative)), 0);
 
             // Edit, and do not build. Play is pressed: it runs the project as it stands, edit and all, and the world on the
-            // screen shows it, while what was built plays as it was built. What shows it is a glowing wall where the eye
-            // looks: the Studio's world, unlike the Player's, keeps the sky it was first drawn with in software (W9 saw
-            // it stay so through three changes of colour, on the code before and after this change), so the sky is
-            // checked by what the play holds and the pixels by the wall.
+            // screen shows it, its sky and a glowing wall where the eye looks, while what was built plays as it was built.
             studio.paintSky(QStringLiteral("#00ff00"));
             QVERIFY(studio.call("add", QStringLiteral("Shape"),
                                 QVariantMap{{QStringLiteral("name"), QStringLiteral("Wall")},
@@ -1388,7 +1616,10 @@ private slots:
             QObject *playing = studio.get("playScene").value<QObject *>();
             QVERIFY(playing);
             QCOMPARE(playing->property("skyTop").value<QColor>(), QColor(QStringLiteral("#00ff00")));
-            studio.waitForMiddleShown(1);
+            studio.waitForShown(Studio::middle(), 1);
+            if (QTest::currentTestFailed())
+                return;
+            studio.waitForShown(Studio::top(), 1);
             if (QTest::currentTestFailed())
                 return;
             QCOMPARE(skyOf(QDir(firstFolder).filePath(relative)), 0);
@@ -1427,6 +1658,34 @@ private slots:
             QVERIFY2(studio.notice().contains(QStringLiteral("build 2")), qPrintable(studio.notice()));
             QCOMPARE(skyOf(QDir(firstFolder).filePath(QStringLiteral("scenes/untitled.qml"))), 1);
         }
+    }
+
+    /// The world in the Studio shows each sky it is given, as it is given, and draws nothing while nothing changes. Qt keeps
+    /// a light probe by its data and lights by it only the first time, so a world that lives on kept its first sky.
+    void theStudiosWorldShowsEachSkyItIsGiven()
+    {
+        Project project;
+        QVERIFY(QDir().mkpath(project.path()));
+        qq::SceneIO().trustProject(project.url());
+        Studio studio;
+        QVERIFY(studio.open(project.url()));
+        const QStringList skies{QStringLiteral("#ff0000"), QStringLiteral("#00ff00"), QStringLiteral("#0000ff"), QStringLiteral("#00ff00")};
+        const int channels[] = {0, 1, 2, 1};
+        for (qsizetype i = 0; i < skies.size(); ++i) {
+            studio.paintSky(skies.at(i));
+            studio.waitForShown(Studio::top(), channels[i]);
+            if (QTest::currentTestFailed())
+                return;
+        }
+
+        // Left alone, it draws nothing: render on demand.
+        int frames = 0;
+        const QMetaObject::Connection counting = connect(studio.window, &QQuickWindow::frameSwapped, this, [&frames] { ++frames; });
+        QTest::qWait(1500);
+        frames = 0;
+        QTest::qWait(1500);
+        disconnect(counting);
+        QCOMPARE(frames, 0);
     }
 
     /// The owner's "edit, save, build": a scene that was saved, edited, and Build pressed. The game has the edit.
@@ -1541,6 +1800,48 @@ private slots:
         QVERIFY(!QDir(qq::GameBuild::gamesFolder()).exists(qq::GameBuild::folderNameFor(qq::Confinement::realPath(project.path()))));
     }
 
+    /// The check before a Studio build compiles on the window's thread, so it is bounded: past so many files, or a file past so
+    /// large, it says so and nothing is built. Within them, it is timed: what the window waits for at most.
+    void theCheckBeforeABuildIsBounded()
+    {
+        Project project;
+        project.fill();  // a scene, a logic file and a prefab: three of the most there may be
+        qq::SceneIO().trustProject(project.url());
+        for (int i = 3; i < qq::SceneIO::mostCodeChecked; ++i)
+            QVERIFY(writeFile(project.file(QStringLiteral("logic/many/rule-%1.qml").arg(i)), "import QQ\n\nLogic {\n}\n"));
+        Studio studio;
+        QVERIFY(studio.open(project.url()));
+        QVERIFY(studio.call("openScene", QStringLiteral("level")).toBool());
+        auto *io = studio.engine.singletonInstance<qq::SceneIO *>("QQ", "SceneIO");
+        QVERIFY(io);
+        QElapsedTimer timer;
+        timer.start();
+        const QVariantMap none = io->brokenCode(project.url());
+        const qint64 took = timer.elapsed();
+        QVERIFY2(none.isEmpty(), qPrintable(none.value(QStringLiteral("message")).toString()));
+        qInfo("The check before a build looked at %d QML files in %lld ms, on the window's thread.", qq::SceneIO::mostCodeChecked, took);
+
+        const QString game = qq::GameBuild::folderNameFor(qq::Confinement::realPath(project.path()));
+        // One file more than it looks at: said, and nothing built.
+        QVERIFY(writeFile(project.file(QStringLiteral("logic/many/one-more.qml")), "import QQ\n\nLogic {\n}\n"));
+        studio.pressBuild();
+        QVERIFY(studio.get("noticeIsProblem").toBool());
+        QVERIFY2(studio.notice().contains(QString::number(qq::SceneIO::mostCodeChecked)), qPrintable(studio.notice()));
+        QVERIFY(!QDir(qq::GameBuild::gamesFolder()).exists(game));
+
+        // As many as it looks at, one of them larger than it reads: said, by its name, and nothing built.
+        QVERIFY(QFile::remove(project.file(QStringLiteral("logic/many/one-more.qml"))));
+        QVERIFY(writeFile(project.file(QStringLiteral("logic/many/rule-3.qml")),
+                          "import QQ\n\nLogic {\n}\n//" + QByteArray(qq::SceneIO::largestCodeChecked, 'x') + "\n"));
+        studio.pressBuild();
+        QVERIFY(studio.get("noticeIsProblem").toBool());
+        QVERIFY2(studio.notice().contains(QStringLiteral("logic/many/rule-3.qml")), qPrintable(studio.notice()));
+        QVERIFY2(studio.notice().contains(QStringLiteral("16 MB")), qPrintable(studio.notice()));
+        // Said by the check, before the build, which would refuse it too, but only after reading the rest.
+        QVERIFY2(studio.notice().contains(QStringLiteral("checked before a build")), qPrintable(studio.notice()));
+        QVERIFY(!QDir(qq::GameBuild::gamesFolder()).exists(game));
+    }
+
     /// Typed and not built: Build saves it, as it saves anything, then says what is wrong with it, and does not say "Built".
     void logicTypedThatDoesNotBuildIsSavedAndRefused()
     {
@@ -1632,7 +1933,7 @@ private slots:
 
         // Saving the scene: no, and why.
         studio.paintSky(QStringLiteral("#00ff00"));
-        studio.call("say", QString());
+        studio.call("say", QString(), false);
         QVERIFY(!studio.call("saveScene").toBool());
         QVERIFY(studio.get("noticeIsProblem").toBool());
         QVERIFY2(studio.notice().contains(QStringLiteral("being built")), qPrintable(studio.notice()));
@@ -1640,7 +1941,7 @@ private slots:
 
         // Saving the logic: no, and why.
         studio.child("logicText")->setProperty("text", QStringLiteral("// typed\n"));
-        studio.call("say", QString());
+        studio.call("say", QString(), false);
         QVariant saved;
         QVERIFY(QMetaObject::invokeMethod(studio.child("logicEditor"), "save", Q_RETURN_ARG(QVariant, saved)));
         QVERIFY(!saved.toBool());
@@ -1648,6 +1949,29 @@ private slots:
         QVERIFY2(studio.notice().contains(QStringLiteral("being built")), qPrintable(studio.notice()));
         QCOMPARE(readBytes(project.file(QStringLiteral("logic/rule.qml"))), logicOnDisk);
         QVERIFY(studio.child("logicEditor")->property("dirty").toBool());
+
+        // Saving into another project: no, and why. It stays where it is, and nothing is written there.
+        const QByteArray otherScene = readBytes(other.file(QStringLiteral("scenes/level.qml")));
+        studio.call("say", QString(), false);
+        QVERIFY(!studio.call("saveInto", other.url()).toBool());
+        QCOMPARE(studio.get("project").toUrl(), project.url());
+        QVERIFY2(studio.notice().contains(QStringLiteral("being built")), qPrintable(studio.notice()));
+        QCOMPARE(readBytes(other.file(QStringLiteral("scenes/level.qml"))), otherScene);
+
+        // Making a prefab of a group, which writes a file: no, and why.
+        auto *group = studio.call("add", QStringLiteral("Group"), QVariantMap()).value<QObject *>();
+        QVERIFY(group);
+        studio.window->setProperty("selection", QVariant::fromValue(group));
+        studio.call("say", QString(), false);
+        QVERIFY(!studio.call("makePrefab").value<QObject *>());
+        QVERIFY2(studio.notice().contains(QStringLiteral("being built")), qPrintable(studio.notice()));
+        QCOMPARE(QDir(project.file(QStringLiteral("prefabs"))).entryList(QDir::Files), QStringList{QStringLiteral("crate.qml")});
+
+        // Adding a behaviour, which writes its logic: no, and why.
+        studio.call("say", QString(), false);
+        QVERIFY(!studio.call("addBehaviour").value<QObject *>());
+        QVERIFY2(studio.notice().contains(QStringLiteral("being built")), qPrintable(studio.notice()));
+        QCOMPARE(QDir(project.file(QStringLiteral("logic"))).entryList(QDir::Files), QStringList{QStringLiteral("rule.qml")});
 
         // It ends where it began, saying so there, with what was on the disk when it was pressed.
         held.go.release();
@@ -1806,6 +2130,49 @@ private slots:
         QTRY_VERIFY2(studio.child("trustDialog")->property("opened").toBool(), "the trust question was not asked");
         QVERIFY(!studio.building());
         QVERIFY(!QDir(qq::GameBuild::gamesFolder()).exists(game));
+    }
+
+    /// What `qq-studio --build` asks about is what it builds: the build asks, of the real folder it goes on to copy, so a link
+    /// that leads elsewhere by the time the copy starts changes nothing.
+    void whatIsAskedAboutIsWhatIsBuilt()
+    {
+        Project trusted;
+        trusted.fill();
+        Project other;
+        other.name = QStringLiteral("not-trusted");
+        other.fill();
+        QVERIFY(writeFile(other.file(QStringLiteral("assets/theirs.txt")), "not the trusted project's"));
+        QTemporaryDir links;
+        const QString link = links.filePath(QStringLiteral("project"));
+        if (!makeLink(trusted.path(), link))
+            QSKIP("This system would not let that be made here.");
+        const QString real = qq::Confinement::realPath(trusted.path());
+        QTemporaryDir games;
+
+        QStringList asked;
+        qq::GameBuild::Limits limits;
+        limits.trusted = [&](const QString &folder) {
+            asked << folder;
+            // Between the asking and the copying, the link is made to lead to another project.
+            QFile::remove(link);
+            makeLink(other.path(), link);
+            return folder == real;
+        };
+        const QVariantMap built = qq::GameBuild::make(link, QStringLiteral("scenes/level.qml"), games.path(), limits);
+        QVERIFY2(built.value(QStringLiteral("ok")).toBool(), qPrintable(built.value(QStringLiteral("problem")).toString()));
+        QCOMPARE(asked, QStringList{real});
+        const QString folder = built.value(QStringLiteral("folder")).toString();
+        QCOMPARE(QFileInfo(folder).fileName(), qq::GameBuild::folderNameFor(real));
+        QVERIFY(!QFileInfo::exists(QDir(folder).filePath(QStringLiteral("assets/theirs.txt"))));
+        QVERIFY(QFileInfo::exists(QDir(folder).filePath(QStringLiteral("assets/sub/tile.png"))));
+
+        // Not trusted: refused, in words, with nothing made.
+        QTemporaryDir none;
+        limits.trusted = [](const QString &) { return false; };
+        const QVariantMap refused = qq::GameBuild::make(trusted.path(), QStringLiteral("scenes/level.qml"), none.path(), limits);
+        QCOMPARE(refused.value(QStringLiteral("ok")), QVariant(false));
+        QVERIFY2(refused.value(QStringLiteral("problem")).toString().contains(QStringLiteral("trust")), qPrintable(refused.value(QStringLiteral("problem")).toString()));
+        QVERIFY(QDir(none.path()).isEmpty());
     }
 
     /// With no display at all, as a build machine has none: it starts nothing graphical. Its answer is on standard output, with

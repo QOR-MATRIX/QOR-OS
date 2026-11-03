@@ -16,12 +16,19 @@
 //     pipe hangs; a name a system would read as more; a folder or a file that cannot be read; a first scene named with a dot
 //   compiled QML (.qmlc, .jsc, .mjsc), wherever it is. Qt would map it straight into the Player as code, past every check
 //     on source, so the Player keeps Qt's disk cache off as well
-//   what a file names that the game would not hold. In a .qml, .mjs or .js: an import of anything not in the game, and a
-//     string that starts ../ or climbs and leads out of the game or to what it does not hold, or that is a full path or a file:
-//     URL. In a .gltf or a .glb: every uri that is not data:. These are linear scans, of the copy and not the project, no QML
-//     engine involved, of at most 16 MB of code and 1 GB of model. So a string in logic that only looks like a path can be
-//     taken for one, and the reason says so; and a path a game puts together as it runs is not seen. That is what the
-//     Player's walls are for: this is about a game being whole, and they are about keeping it in
+//   what a file names that the game would not hold. In a .qml, .mjs or .js: an import of anything not in the game, read
+//     from the file's folder; and a string that starts ../ or climbs and leads out of the game or to what it does not hold,
+//     read from the file's folder and from the folders of the game's scenes (at most eight), since play() and spawn() read a
+//     path from the scene; or a full path or a file: URL. Strings are read whole, with JavaScript's escapes. In a .gltf or a
+//     .glb: every uri that is not data:. In a Tiled map or tileset (.tmj, .tsj, .tsx): every image and source. In an .obj:
+//     every mtllib; in an .mtl, the picture of every map_, bump, disp, decal, refl and norm line, after its options, read from
+//     its folder and from the folders of the game's .obj models. A name in a model or a map longer than 4096 characters that
+//     is not data: is refused. These are linear scans, of the copy and not the project, no QML engine involved, of at most
+//     16 MB of code, tileset or material and 1 GB of model or map. So a string in logic that only looks like a path can be
+//     taken for one, and the reason says so. Not seen: a path a game puts together as it runs (joined strings, what a
+//     template's ${...} holds), a tileset saved as .json, a material library whose name does not end .mtl, and every other
+//     model format (FBX among them). That is what the Player's walls are for: this is about a game being whole, and they are
+//     about keeping it in
 //   more than 8 GB or 50,000 files
 //
 // A build compiles nothing here: the Studio asks SceneIO::brokenCode before it starts one, and `qq-studio --build` says in its
@@ -29,7 +36,9 @@
 //
 // The copy is made beside the game it replaces, in a folder the Library does not list, and moved into place when complete.
 // One build of a game runs at a time, by a QLockFile in the games folder held for all of make(): a second is refused in plain
-// words, and a lock left by a build that died goes by QLockFile's own check of whether its holder is alive. Dying between the
+// words, and a lock left by a build that died goes by QLockFile's own check of whether its holder is alive. Never by its age:
+// on a local disk the system's own lock keeps it while its holder lives anyway, and setStaleLockTime(0) matters only where the
+// file system cannot lock (FUSE, some network shares), which no test here has, so that is unproven. Dying between the
 // two renames leaves the old game aside: the next build of it, under that lock, puts it back before anything else. A power
 // cut can still leave short files behind a whole game.json: only the manifest is synced.
 //
@@ -73,6 +82,10 @@ public:
         /// "copied", once they and the manifest are in the staging folder; "moved-aside", between the two renames; and
         /// "in-place", before the old game is deleted. Nothing but a test sets this: no command line or setting reaches it.
         std::function<void(const char *)> step;
+        /// If set, asked with the real path of the project folder, the one make() then copies and no other, before anything is
+        /// made; false refuses the build. `qq-studio --build` asks the person's list of trusted projects this way, so a link
+        /// changed between the asking and the copying changes nothing.
+        std::function<bool(const QString &realProject)> trusted;
     };
 
     explicit GameBuild(QObject *parent = nullptr);

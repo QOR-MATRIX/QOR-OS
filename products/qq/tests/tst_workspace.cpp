@@ -33,6 +33,7 @@
 #include <QStandardPaths>
 #include <QTcpServer>
 #include <QTcpSocket>
+#include <QScopeGuard>
 #include <QTemporaryDir>
 #include <QTest>
 #include <QVector3D>
@@ -102,7 +103,22 @@ struct Project {
     QUrl url() const { return QUrl::fromLocalFile(dir.path()); }
     QString file(const QString &relative) const { return QDir(dir.path()).filePath(relative); }
     QString keptFile() const { return qq::ProjectWorkspace::fileFor(real()); }
-    QString recoveryFile() const { return qq::ProjectWorkspace::recoveryFileFor(real()); }
+    /// Every session's recovery copy of this project, newest first.
+    QStringList copies() const
+    {
+        const QString prefix = QFileInfo(qq::ProjectWorkspace::recoveryFileFor(real(), QStringLiteral("x"))).fileName().chopped(6);
+        QStringList found;
+        for (const QFileInfo &entry : QDir(qq::ProjectWorkspace::storeFolder()).entryInfoList({prefix + QStringLiteral("*.json")},
+                                                                                             QDir::AllEntries | QDir::Hidden | QDir::System, QDir::Time))
+            found << entry.filePath();
+        return found;
+    }
+    /// The newest copy there is, or where a copy planted as another session's would go.
+    QString recoveryFile() const
+    {
+        const QStringList all = copies();
+        return all.isEmpty() ? qq::ProjectWorkspace::recoveryFileFor(real(), QStringLiteral("planted")) : all.first();
+    }
     QJsonObject recovery() const { return QJsonDocument::fromJson(readBytes(recoveryFile())).object(); }
 
     /// scenes/<name>.qml, with one shape in it that says whose it is.
@@ -264,6 +280,8 @@ struct Studio {
         QTRY_VERIFY(!dialog->property("visible").toBool());
     }
     bool keepingSoon() const { return child("recoverLater")->property("running").toBool(); }
+    /// This window's own session, what its recovery copies are named by.
+    QString session() const { return get("workspace").value<QObject *>()->property("session").toString(); }
 
     /// The question is on the screen, and the button with this name is pressed.
     void answer(const char *button)
@@ -376,6 +394,7 @@ struct Hostile {
     {
         return {{QStringLiteral("version"), 1},
                 {QStringLiteral("project"), project.real()},
+                {QStringLiteral("folder"), qq::ProjectWorkspace::folderIdentity(project.real())},
                 {QStringLiteral("scene"), QJsonObject{{QStringLiteral("name"), QStringLiteral("good")},
                                                       {QStringLiteral("file"), QStringLiteral("scenes/good.qml")},
                                                       {QStringLiteral("text"), QString::fromUtf8(markingScene(QStringLiteral("the-recovery-ran")))},
@@ -1528,6 +1547,17 @@ private slots:
         QTest::newRow("written for another folder") << Plant([](const Hostile &h) {
             h.plantCopy(QJsonObject{{QStringLiteral("project"), h.elsewhere.real()}});
         });
+        QTest::newRow("for a folder that was at this place before") << Plant([](const Hostile &h) {
+            h.plantCopy(QJsonObject{{QStringLiteral("folder"), QStringLiteral("0:0")}});
+        });
+        QTest::newRow("for no folder of its own") << Plant([](const Hostile &h) {
+            QJsonObject copy = h.goodCopy();
+            copy.remove(QStringLiteral("folder"));
+            h.plantCopy(QJsonDocument(copy).toJson());
+        });
+        QTest::newRow("named as no session is") << Plant([](const Hostile &h) {
+            QVERIFY(writeFile(qq::ProjectWorkspace::recoveryFileFor(h.project.real(), QStringLiteral("a name!")), QJsonDocument(h.goodCopy()).toJson()));
+        });
         QTest::newRow("for no folder") << Plant([](const Hostile &h) {
             QJsonObject copy = h.goodCopy();
             copy.remove(QStringLiteral("project"));
@@ -1610,9 +1640,11 @@ private slots:
         s.edit();
         QVERIFY2(s.call("saveScene").toBool(), qPrintable(s.notice()));
         // What stands in the copy's place goes with the first copy kept, and is not left to be read again as if it were one.
-        if (QFileInfo(h.project.recoveryFile()).isDir())
-            QDir(h.project.recoveryFile()).removeRecursively();
-        QFile::remove(h.project.recoveryFile());
+        for (const QString &copy : h.project.copies()) {
+            if (QFileInfo(copy).isDir())
+                QDir(copy).removeRecursively();
+            QFile::remove(copy);
+        }
     }
 
     /// One good part is offered, whatever is wrong with the other, and what was wrong is said.
@@ -1637,6 +1669,7 @@ private slots:
         stranger.scene(QStringLiteral("theirs"), QStringLiteral("Theirs"));
         QJsonObject copy = h.goodCopy();
         copy.insert(QStringLiteral("project"), stranger.real());
+        copy.insert(QStringLiteral("folder"), qq::ProjectWorkspace::folderIdentity(stranger.real()));
         QJsonObject scene = copy.value(QStringLiteral("scene")).toObject();
         scene.insert(QStringLiteral("file"), QString());
         scene.insert(QStringLiteral("name"), QStringLiteral("mine"));
@@ -1652,25 +1685,26 @@ private slots:
         QVERIFY(!s.askingAboutRecovery());
         QCOMPARE(QCoreApplication::organizationDomain(), QString());
 
-        // Not trusted: nothing ran, and nothing was thrown away. What is typed meanwhile does not take its place.
+        // Not trusted: nothing ran, and nothing was thrown away. What is typed meanwhile is kept too, in this window's own copy,
+        // beside the old one, which is not touched: nothing typed while the old one waits goes unkept.
+        const QString planted = qq::ProjectWorkspace::recoveryFileFor(stranger.real(), QStringLiteral("planted"));
         s.answerTrust("keepClosed");
         QCOMPARE(QCoreApplication::organizationDomain(), QString());
-        QCOMPARE(readBytes(stranger.recoveryFile()), bytes);
+        QCOMPARE(readBytes(planted), bytes);
         s.edit();
-        QVERIFY(!s.keepingSoon());
-        QTest::qWait(1200);
-        QCOMPARE(readBytes(stranger.recoveryFile()), bytes);
+        QVERIFY(s.keepingSoon());
+        const QString own = qq::ProjectWorkspace::recoveryFileFor(stranger.real(), s.session());
+        QTRY_VERIFY(readBytes(own).contains(" edited"));
+        QCOMPARE(readBytes(planted), bytes);
         // Nor by what the Studio does as it quits with nobody asked, a launcher's close.
         QVERIFY(s.call("keepRecovery").toBool());
-        QCOMPARE(readBytes(stranger.recoveryFile()), bytes);
+        QCOMPARE(readBytes(planted), bytes);
 
-        // Back later, with an answer to the first question: the second is asked, and still nothing has run.
-        QVERIFY(!s.call("switchProject", h.project.url()).toBool());
-        s.answer("unsavedDiscard");
-        QCOMPARE(readBytes(stranger.recoveryFile()), bytes);
-        s.call("switchProject", stranger.url());
+        // Trusted another way, by saving: the save goes on, and then the old copy is asked about. Still nothing of it has run.
+        QVERIFY(!s.call("saveScene").toBool());
         s.answerTrust("trustProject");
         QTRY_VERIFY2(s.askingAboutRecovery(), "the recovery question was not asked");
+        QVERIFY(QFileInfo::exists(stranger.file(QStringLiteral("scenes/untitled.qml"))));
         QVERIFY(s.recoveryQuestion().contains(QStringLiteral("mine")));
         QCOMPARE(QCoreApplication::organizationDomain(), QString());
 
@@ -1714,20 +1748,116 @@ private slots:
         QVERIFY(!QFileInfo::exists(two.b.recoveryFile()));
     }
 
+    /// Two Studios on one project: each keeps its own copy, neither is offered the other's while that one runs, and neither's
+    /// answers touch the other's. Once one has gone, its copy is offered, and no sooner.
+    void twoStudiosOnOneProjectKeepToTheirOwnCopies()
+    {
+        TwoProjects two;
+        auto first = std::make_unique<Studio>();
+        QVERIFY(first->open(two.a.url()));
+        QVERIFY(first->call("openScene", QStringLiteral("alpha")).toBool());
+        first->edit();
+        const QString firsts = qq::ProjectWorkspace::recoveryFileFor(two.a.real(), first->session());
+        QTRY_VERIFY(QFileInfo::exists(firsts));
+        const QByteArray kept = readBytes(firsts);
+        {
+            Studio second;
+            QVERIFY(second.open(two.a.url()));
+            QTest::qWait(500);
+            QVERIFY2(!second.askingAboutRecovery(), qPrintable(second.recoveryQuestion()));
+            second.edit();
+            const QString seconds = qq::ProjectWorkspace::recoveryFileFor(two.a.real(), second.session());
+            QTRY_VERIFY(QFileInfo::exists(seconds));
+            QCOMPARE(readBytes(firsts), kept);
+            // The second leaves with its work thrown away: its own copy goes, and only that.
+            second.window->close();
+            second.answer("unsavedDiscard");
+            QTRY_VERIFY(!second.window->isVisible());
+            second.quit();
+            QVERIFY(!QFileInfo::exists(seconds));
+            QCOMPARE(readBytes(firsts), kept);
+        }
+        // Gone as a launcher closes it, its work kept: the next Studio here is asked about it.
+        first.reset();
+        QVERIFY(QFileInfo::exists(firsts));
+        Studio third;
+        QVERIFY(third.open(two.a.url()));
+        QTRY_VERIFY2(third.askingAboutRecovery(), "the recovery question was not asked");
+        QVERIFY(third.recoveryQuestion().contains(QStringLiteral("alpha")));
+        third.answerRecovery("recoveryRestore");
+        QVERIFY(third.entity(QStringLiteral("Only in alpha edited")));
+        QVERIFY(!QFileInfo::exists(firsts));
+    }
+
+    /// Another folder put where a project was is not offered that project's work, and the project moved is offered nothing:
+    /// its copy stays under its old place.
+    void aCopyIsOfItsFolderAndNotOfItsPlace()
+    {
+        Project p;
+        trust(p.url());
+        {
+            Studio s;
+            QVERIFY(s.open(p.url()));
+            s.edit();
+            QTRY_VERIFY(!p.copies().isEmpty());
+        }
+        const QStringList left = p.copies();
+        QCOMPARE(left.size(), 1);
+        const QByteArray kept = readBytes(left.first());
+        const QString moved = p.path() + QStringLiteral("-moved");
+        QVERIFY(QDir().rename(p.path(), moved));
+        const auto tidy = qScopeGuard([moved] { QDir(moved).removeRecursively(); });
+        QVERIFY(QDir().mkpath(p.path()));
+        p.scene(QStringLiteral("other"), QStringLiteral("Another project's"));
+        Studio s;
+        QVERIFY(s.open(p.url()));
+        QTest::qWait(500);
+        QVERIFY2(!s.askingAboutRecovery(), qPrintable(s.recoveryQuestion()));
+        QVERIFY2(s.notice().contains(QStringLiteral("another folder that was at this place before")), qPrintable(s.notice()));
+        QCOMPARE(readBytes(left.first()), kept);
+        // And the project where it went: nothing waits for it there.
+        QVERIFY(s.call("switchProject", QUrl::fromLocalFile(moved)).toBool());
+        QTest::qWait(500);
+        QVERIFY(!s.askingAboutRecovery());
+    }
+
     /// A copy that could not be kept is said: the person has to know a crash would lose this.
     void aCopyThatCannotBeKeptIsSaid()
     {
         TwoProjects two;
         STUDIO_IN(two.a.url());
         QVERIFY(s.call("openScene", QStringLiteral("alpha")).toBool());
-        // A folder in the way of the file, which writing it whole cannot get past.
-        QVERIFY(QDir().mkpath(two.a.recoveryFile()));
+        // A folder in the way of this window's own copy, which writing it whole cannot get past.
+        const QString own = qq::ProjectWorkspace::recoveryFileFor(two.a.real(), s.session());
+        QVERIFY(QDir().mkpath(own));
         s.edit();
         QTRY_VERIFY2(s.notice().contains(QStringLiteral("recovery copy")), qPrintable(s.notice()));
         QVERIFY(s.get("noticeIsProblem").toBool());
-        QVERIFY(QDir(two.a.recoveryFile()).removeRecursively());
+        QVERIFY(QDir(own).removeRecursively());
         QVERIFY(!s.call("switchProject", two.b.url()).toBool());
         s.answer("unsavedDiscard");
+    }
+
+    /// A copy whose Studio still runs is not another's to throw away, whatever session it is asked for by: its lock says so.
+    void aRunningStudiosCopyIsNotDiscardedByAnother()
+    {
+        TwoProjects two;
+        auto running = std::make_unique<qq::ProjectWorkspace>();
+        qq::ProjectWorkspace other;
+        QVERIFY(running->keepRecovery(two.a.url(), {{QStringLiteral("logic"), QVariantMap{{QStringLiteral("file"), QStringLiteral("logic/spin.qml")},
+                                                                                         {QStringLiteral("text"), QStringLiteral("still being typed")}}}}));
+        const QString session = running->session();
+        const QString copy = qq::ProjectWorkspace::recoveryFileFor(two.a.real(), session);
+        QVERIFY(QFileInfo::exists(copy));
+        other.dropRecoveryOf(two.a.url(), session);
+        QVERIFY2(QFileInfo::exists(copy), "a running Studio's copy was thrown away");
+        QVERIFY(!other.loadRecovery(two.a.url()).value(QStringLiteral("found")).toBool());
+        // Once that Studio has gone, its copy is offered, and may be thrown away.
+        running.reset();
+        QVERIFY(QFileInfo::exists(copy));
+        QVERIFY(other.loadRecovery(two.a.url()).value(QStringLiteral("found")).toBool());
+        other.dropRecoveryOf(two.a.url(), session);
+        QVERIFY(!QFileInfo::exists(copy));
     }
 
     /// Too large to keep is refused, whole: not half a copy.
@@ -1762,7 +1892,10 @@ private slots:
         env.insert(QStringLiteral("XDG_DATA_HOME"), data.path());
         env.insert(QStringLiteral("QQ_MCP_PIPE"), pipeName);
         env.insert(QStringLiteral("ASAN_OPTIONS"), env.value(QStringLiteral("ASAN_OPTIONS")) + QStringLiteral(":detect_leaks=0"));
-        const QString copyThere = QDir(data.path()).filePath(QStringLiteral("Demiurge/QQ Studio/workspaces/%1").arg(QFileInfo(p.recoveryFile()).fileName()));
+        const QDir store(QDir(data.path()).filePath(QStringLiteral("Demiurge/QQ Studio/workspaces")));
+        const QString prefix = QFileInfo(qq::ProjectWorkspace::recoveryFileFor(p.real(), QStringLiteral("x"))).fileName().chopped(6);
+        const auto copiesThere = [&] { return store.entryList({prefix + QStringLiteral("*.json")}, QDir::Files, QDir::Time); };
+        QString copyThere;
 
         QByteArray left;
         {
@@ -1773,7 +1906,8 @@ private slots:
             QLocalSocket pipe;
             QVERIFY(connectToStudio(pipe, pipeName));
             QVERIFY(addEntityThrough(pipe, QStringLiteral("Kept through a crash")));
-            QTRY_VERIFY_WITH_TIMEOUT(readBytes(copyThere).contains("Kept through a crash"), 60000);
+            QTRY_VERIFY_WITH_TIMEOUT(copiesThere().size() == 1 && readBytes(store.filePath(copiesThere().first())).contains("Kept through a crash"), 60000);
+            copyThere = store.filePath(copiesThere().first());
             studio.kill();
             QVERIFY(studio.waitForFinished(30000));
             QCOMPARE(studio.exitStatus(), QProcess::CrashExit);
@@ -1790,7 +1924,8 @@ private slots:
             QLocalSocket pipe;
             QVERIFY(connectToStudio(pipe, pipeName));
             QVERIFY(addEntityThrough(pipe, QStringLiteral("Typed before answering")));
-            QTest::qWait(1500);
+            // What it is given meanwhile is kept too, in a copy of its own, and the crash's is as it was.
+            QTRY_VERIFY_WITH_TIMEOUT(copiesThere().size() == 2, 30000);
             QCOMPARE(readBytes(copyThere), left);
             studio.kill();
             QVERIFY(studio.waitForFinished(30000));
@@ -1798,7 +1933,7 @@ private slots:
         QCOMPARE(readBytes(copyThere), left);
 
         // What it left, restored by the same window.
-        QVERIFY(writeFile(p.recoveryFile(), left));
+        QVERIFY(writeFile(qq::ProjectWorkspace::recoveryFileFor(p.real(), QStringLiteral("crashed")), left));
         Studio s;
         QVERIFY(s.open(p.url()));
         s.answerRecovery("recoveryRestore");
@@ -1820,7 +1955,12 @@ private slots:
         env.insert(QStringLiteral("XDG_DATA_HOME"), data.path());
         env.insert(QStringLiteral("QQ_MCP_PIPE"), pipeName);
         env.insert(QStringLiteral("ASAN_OPTIONS"), env.value(QStringLiteral("ASAN_OPTIONS")) + QStringLiteral(":detect_leaks=0"));
-        const QString copyThere = QDir(data.path()).filePath(QStringLiteral("Demiurge/QQ Studio/workspaces/%1").arg(QFileInfo(p.recoveryFile()).fileName()));
+        const QDir store(QDir(data.path()).filePath(QStringLiteral("Demiurge/QQ Studio/workspaces")));
+        const QString prefix = QFileInfo(qq::ProjectWorkspace::recoveryFileFor(p.real(), QStringLiteral("x"))).fileName().chopped(6);
+        const auto copyThere = [&] {
+            const QStringList found = store.entryList({prefix + QStringLiteral("*.json")}, QDir::Files);
+            return found.isEmpty() ? QString() : store.filePath(found.first());
+        };
 
         // A stand-in for the launcher: it welcomes the hello, as tst_publish's does.
         QLocalServer launcher;
@@ -1862,10 +2002,10 @@ private slots:
             studio.waitForFinished();
         }
         QVERIFY2(ended, qPrintable(QStringLiteral("The Studio did not end. The copy %1 there. It said: %2")
-                                       .arg(QFileInfo::exists(copyThere) ? QStringLiteral("is") : QStringLiteral("is not"))
+                                       .arg(!copyThere().isEmpty() ? QStringLiteral("is") : QStringLiteral("is not"))
                                        .arg(QString::fromUtf8(studio.readAll()))));
         QCOMPARE(studio.exitStatus(), QProcess::NormalExit);
-        QVERIFY2(readBytes(copyThere).contains("Kept through the close"), readBytes(copyThere).constData());
+        QVERIFY2(readBytes(copyThere()).contains("Kept through the close"), readBytes(copyThere()).constData());
     }
 #endif
 

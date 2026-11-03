@@ -35,7 +35,8 @@
 // copy, which changes only by building again. While a build runs nothing is saved and the project does not change, each saying why.
 // Changed for QOR OS: what is unsaved is copied to the person's own store after a short pause in editing (ProjectWorkspace), with
 // no timer running but for that pause, so a crash or a launcher closing the Studio loses none of it: on arriving in the project,
-// past the trust check, a person is asked to Restore or Discard it. The camera is remembered with the rest of a project.
+// past the trust check, a person is asked to Restore or Discard what a Studio that has gone kept. Each Studio keeps its own copy,
+// always, whatever is still to be answered. The camera is remembered with the rest of a project.
 
 import QtQuick
 // Before the Material style: Qt Quick 3D has a type called Material too, and the import that comes later wins.
@@ -131,11 +132,12 @@ ApplicationWindow {
     property bool closeSettled: false
     /// The launcher closed this Studio (main.cpp, ADR-046): it goes without asking, and what is unsaved stays in its recovery copy.
     property bool closingUnasked: false
-    /// A recovery copy on the screen as a question: what was found, until it is answered.
+    /// Another session's recovery copy on the screen as a question: what was found, until it is answered.
     property var recoveryOffer: null
-    /// A recovery copy is there that nobody has answered for yet: it may be all there is of some work, so nothing is written over it.
-    property bool recoveryUnanswered: false
-    /// What the last recovery copy kept, to write nothing when nothing has changed.
+    /// One found on arriving, not asked about yet because the project is not trusted yet: asked about once it is, however
+    /// that comes. Its file stays as it is until it is answered; new work goes to this Studio's own copy meanwhile.
+    property var recoveryWaiting: null
+    /// What this Studio's own copy last kept, to write nothing when nothing has changed.
     property string recoveryKept: "{}"
     /// Toggled to make the Agent panel anew, with nothing typed in it, for the next project.
     property bool agentPanelLive: true
@@ -276,6 +278,9 @@ ApplicationWindow {
         whenTrusted = null
         if (then)
             then()
+        // However trust came (opening, saving, building), what was kept from before is asked about now.
+        if (recoveryWaiting !== null && recoveryOffer === null && askingFor === null)
+            offerRecovery(recoveryWaiting)
     }
 
     /// Do `then` if the project is trusted, or once the person says it is. True if it ran.
@@ -435,13 +440,13 @@ ApplicationWindow {
             designer.forget()
         stop()
         saveWorkspace()
-        // Whatever was unsaved here has been answered for by now: saved, or discarded. A copy nobody has answered for stays.
+        // Whatever was unsaved here has been answered for by now: saved, or discarded, so this Studio's copy goes. Another's,
+        // not answered for, stays as it is.
         recoverLater.stop()
-        if (!recoveryUnanswered)
-            workspace.dropRecovery(project)
-        recoveryUnanswered = false
+        workspace.dropRecovery(project)
         recoveryKept = "{}"
         recoveryOffer = null
+        recoveryWaiting = null
         recoveryDialog.close()
         whenTrusted = null
         trustDialog.close()
@@ -465,7 +470,6 @@ ApplicationWindow {
         projectTrusted = SceneIO.projectTrusted(folder)
         projectInfo = SceneIO.project(folder)
         recoveryKept = "{}"
-        recoveryUnanswered = remembers && workspace.loadRecovery(folder).found
         if (remembers) {
             workspace.noteRecent(folder)
             recentProjects = workspace.recentProjects()
@@ -502,15 +506,14 @@ ApplicationWindow {
         if ((state.scene !== "" && !keptScene) || (state.logic !== "" && !keptLogic))
             problems.push(qsTr("It named a file that does not belong there, which was left closed."))
         // Read as a stranger's, here, where it runs nothing: scene text runs when it is loaded, so it waits for the same check.
-        const copy = remembers ? workspace.loadRecovery(project) : ({ found: false, stale: false, problem: "" })
-        if (copy.problem !== "")
-            problems.push(copy.problem)
-        if (copy.stale)
-            workspace.dropRecovery(project)
-        recoveryUnanswered = copy.found
+        const kept = remembers ? workspace.loadRecovery(project) : ({ found: false, problem: "", more: 0 })
+        if (kept.problem !== "")
+            problems.push(kept.problem)
+        const copy = kept.found ? kept.copy : null
+        recoveryWaiting = copy
         if (problems.length > 0)
             say(problems.join(" "), true)
-        if (!keptScene && !keptLogic && !copy.found)
+        if (!keptScene && !keptLogic && copy === null)
             return
         trusting(() => {
             const before = restoring
@@ -527,7 +530,7 @@ ApplicationWindow {
                 say(problems.join(" "), true)
             else if (keptScene || keptLogic)
                 say(qsTr("Back in %1, as you left it.").arg(projectInfo.name))
-            if (copy.found)
+            if (copy !== null && recoveryOffer === null)
                 offerRecovery(copy)
         })
     }
@@ -546,15 +549,15 @@ ApplicationWindow {
     /// Something unsaved may have changed: kept once editing pauses, however many changes that holds. Only a change starts
     /// this, so an idle Studio has nothing waiting and nothing wakes it.
     function keepRecoverySoon() {
-        if (!restoring && remembers && !recoveryUnanswered && String(project) !== "")
+        if (!restoring && remembers && String(project) !== "")
             recoverLater.restart()
     }
 
-    /// Bring the recovery copy up to what is unsaved now. A copy nobody has answered for is not written over. False, and said,
-    /// if it could not be kept.
+    /// Bring this Studio's own recovery copy up to what is unsaved now; another's is never written over. False, and said, if it
+    /// could not be kept.
     function keepRecovery() {
         recoverLater.stop()
-        if (!remembers || recoveryUnanswered || String(project) === "")
+        if (!remembers || String(project) === "")
             return true
         const work = {}
         if (sceneHasWork()) {
@@ -602,14 +605,16 @@ ApplicationWindow {
                 notes.push(qsTr("%1 has changed on the disk since this copy was made: restoring shows this copy, and leaves the file as it is until you save, which would write over that change.").arg(part.file))
         }
         recoveryOffer = copy
+        recoveryWaiting = null
         recoveryText.text = qsTr("QQ Studio stopped before this was saved: %1.").arg(named.join(qsTr(" and ")))
                             + (notes.length > 0 ? "\n\n" + notes.join(" ") : "")
                             + "\n\n" + qsTr("Restore puts it back, still unsaved. Discard throws it away.")
         recoveryDialog.open()
     }
 
-    /// What the question's buttons do: "restore" or "discard". A scene that will not build is said and its copy stays, so that it
-    /// is still there to be asked about, and nothing of what is restored is written anywhere but back to the copy.
+    /// What the question's buttons do: "restore" or "discard". Restored, what came back is in this Studio's own copy before the
+    /// old one goes, so there is no moment with neither. A scene that will not build is said and its copy stays, to be asked
+    /// about again. Discarded, the next copy there is, if any, is asked about.
     function answerRecovery_(answer) {
         const copy = recoveryOffer
         recoveryOffer = null
@@ -617,9 +622,10 @@ ApplicationWindow {
         if (!copy)
             return false
         if (answer !== "restore") {
-            recoveryUnanswered = false
-            recoveryKept = "{}"
-            workspace.dropRecovery(project)
+            workspace.dropRecoveryOf(project, copy.session)
+            const next = workspace.loadRecovery(project)
+            if (next.found)
+                Qt.callLater(() => offerRecovery(next.copy))
             return true
         }
         const before = restoring
@@ -629,12 +635,17 @@ ApplicationWindow {
             logicEditor.restore(copy.logic.name, copy.logic.text)
         viewport.forceActiveFocus()
         restoring = before
-        recoveryUnanswered = !sceneBack
-        if (!sceneBack)
+        if (!sceneBack) {
+            say(qsTr("The scene in the recovery copy does not build, so it was left as it is, to be asked about again: %1").arg(SceneIO.lastError), true)
             return false
+        }
         recoveryKept = ""
-        keepRecovery()
-        say(qsTr("Restored what was not saved. It is still not saved."))
+        if (!keepRecovery())
+            return false
+        workspace.dropRecoveryOf(project, copy.session)
+        const more = workspace.loadRecovery(project)
+        say(more.found ? qsTr("Restored what was not saved. It is still not saved. Another copy from before is kept, and is asked about the next time this project opens.")
+                       : qsTr("Restored what was not saved. It is still not saved."))
         return true
     }
 
@@ -1104,7 +1115,7 @@ ApplicationWindow {
         // was asked, so what is unsaved stays in its copy for the next time.
         if (!closeSettled)
             keepRecovery()
-        else if (!recoveryUnanswered)
+        else
             workspace.dropRecovery(project)
         if (scene)
             SceneIO.discard(scene)
@@ -1213,7 +1224,8 @@ ApplicationWindow {
             return
         const broken = SceneIO.brokenCode(project)
         if (broken.file !== undefined) {
-            say(qsTr("%1 does not build, so no game was made of this project (line %2): %3").arg(broken.file).arg(broken.line).arg(broken.message), true)
+            say(broken.file === "" ? qsTr("No game was made of this project: %1").arg(broken.message)
+                                   : qsTr("%1 does not build, so no game was made of this project (line %2): %3").arg(broken.file).arg(broken.line).arg(broken.message), true)
             return
         }
         say(qsTr("Building %1…").arg(projectInfo.name))

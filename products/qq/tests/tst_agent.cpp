@@ -9,11 +9,13 @@
 // Changed for QOR OS: a warning from QQ's own QML (an undefined name, a failed binding) fails the case it happens in.
 // Changed for QOR OS: what an agent writes runs only when allowed (QOR-0018).
 // Changed for QOR OS: drawn in software alone, what play does to bodies is waited for on the physics world's clock.
+// Changed for QOR OS: an agent writes no logic while a game of the project is being built.
 
 #include <QColor>
 #include <QDir>
 #include <QElapsedTimer>
 #include <QFile>
+#include <QFileInfo>
 #include <QImage>
 #include <QJsonArray>
 #include <QJsonDocument>
@@ -26,6 +28,8 @@
 #include <QQuickWindow>
 #include <QRandomGenerator>
 #include <QRegularExpression>
+#include <QScopeGuard>
+#include <QSemaphore>
 #include <QSet>
 #include <QSignalSpy>
 #include <QStandardPaths>
@@ -39,6 +43,7 @@
 
 #include "designloop.h"
 #include "drawnin.h"
+#include "gamebuild.h"
 #include "gpu.h"
 #include "keychain.h"
 #include "mcpserver.h"
@@ -566,6 +571,48 @@ private slots:
                            {QStringLiteral("fields"), QJsonObject{{QStringLiteral("image"), QUrl::fromLocalFile(fixture(QStringLiteral("tiles.png"))).toString()}}}});
         QVERIFY(r.value(QStringLiteral("isError")).toBool());
         QVERIFY2(r.value(QStringLiteral("text")).toString().contains(QStringLiteral("outside the project")), qPrintable(r.value(QStringLiteral("text")).toString()));
+    }
+
+    // While a game of the project is being built, the agent writes no logic into it, and is told why: what is built is what
+    // was on the disk when it began.
+    void anAgentWritesNoLogicWhileAGameIsBuilt()
+    {
+        Studio s;
+        QVERIFY(s.open());
+        // Trusted as new when it was opened; now with a scene saved, for a build to start in.
+        const QDir project(s.project.path());
+        QVERIFY(project.mkpath(QStringLiteral("scenes")));
+        QFile scene(project.filePath(QStringLiteral("scenes/level.qml")));
+        QVERIFY(scene.open(QIODevice::WriteOnly));
+        scene.write("import QQ\n\nScene {\n    name: \"level\"\n}\n");
+        scene.close();
+
+        auto *builder = s.window->findChild<qq::GameBuild *>(QStringLiteral("gameBuild"));
+        QVERIFY(builder);
+        QSemaphore reached;
+        QSemaphore go;
+        qq::GameBuild::Limits limits;
+        limits.step = [&reached, &go](const char *at) {
+            if (qstrcmp(at, "walked") == 0) {
+                reached.release();
+                go.acquire();
+            }
+        };
+        builder->setLimits(limits);
+        const auto letItFinish = qScopeGuard([&go, builder] {
+            go.release();
+            QTRY_VERIFY(!builder->busy());
+            QDir(qq::GameBuild::gamesFolder()).removeRecursively();
+        });
+        QVERIFY(builder->start(QUrl::fromLocalFile(project.path()), QUrl::fromLocalFile(scene.fileName())));
+        QVERIFY(reached.tryAcquire(1, 60000));
+
+        const QJsonObject r = s.client.tool(QStringLiteral("behaviour_write"),
+                                            {{QStringLiteral("file"), QStringLiteral("spin")},
+                                             {QStringLiteral("code"), QStringLiteral("import QQ\nLogic {}\n")}});
+        QVERIFY(r.value(QStringLiteral("isError")).toBool());
+        QVERIFY2(r.value(QStringLiteral("text")).toString().contains(QStringLiteral("being built")), qPrintable(r.value(QStringLiteral("text")).toString()));
+        QVERIFY(!QFileInfo::exists(project.filePath(QStringLiteral("logic/spin.qml"))));
     }
 
     void anAgentPlaysLooksAndStopsAndTheSceneComesBack()

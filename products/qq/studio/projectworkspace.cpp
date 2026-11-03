@@ -3,6 +3,7 @@
 #include "projectworkspace.h"
 
 #include <QCryptographicHash>
+#include <QDateTime>
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
@@ -10,17 +11,23 @@
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QLockFile>
 #include <QRegularExpression>
 #include <QSaveFile>
 #include <QScreen>
 #include <QStandardPaths>
 #include <QStringView>
+#include <QUuid>
 
 #include <algorithm>
 #include <cmath>
 #include <optional>
 
 #include "confinement.h"
+
+#ifdef Q_OS_UNIX
+#include <sys/stat.h>
+#endif
 
 namespace qq {
 
@@ -184,7 +191,27 @@ QStringList readRecent()
 
 }  // namespace
 
-ProjectWorkspace::ProjectWorkspace(QObject *parent) : QObject(parent) {}
+ProjectWorkspace::ProjectWorkspace(QObject *parent)
+    : QObject(parent), m_session(QUuid::createUuid().toString(QUuid::Id128))
+{
+}
+
+ProjectWorkspace::~ProjectWorkspace() = default;
+
+QString ProjectWorkspace::folderIdentity(const QString &realFolder)
+{
+    if (realFolder.isEmpty())
+        return {};
+#ifdef Q_OS_UNIX
+    struct stat seen{};
+    if (::stat(QFile::encodeName(realFolder).constData(), &seen) != 0)
+        return {};
+    return QStringLiteral("%1:%2").arg(quint64(seen.st_dev)).arg(quint64(seen.st_ino));
+#else
+    const QDateTime made = QFileInfo(realFolder).birthTime();
+    return made.isValid() ? QString::number(made.toMSecsSinceEpoch()) : QString();
+#endif
+}
 
 QString ProjectWorkspace::storeFolder()
 {
@@ -197,10 +224,39 @@ QString ProjectWorkspace::fileFor(const QString &realProject)
     return storeFolder() + QLatin1Char('/') + QString::fromLatin1(hash) + QStringLiteral(".json");
 }
 
-QString ProjectWorkspace::recoveryFileFor(const QString &realProject)
+namespace {
+
+QString recoveryPrefixFor(const QString &realProject)
 {
-    const QByteArray hash = QCryptographicHash::hash(realProject.toUtf8(), QCryptographicHash::Sha256).toHex();
-    return storeFolder() + QLatin1Char('/') + QString::fromLatin1(hash) + QStringLiteral(".recovery.json");
+    return QString::fromLatin1(QCryptographicHash::hash(realProject.toUtf8(), QCryptographicHash::Sha256).toHex())
+           + QStringLiteral(".recovery-");
+}
+
+QString lockFor(const QString &copy)
+{
+    return copy.left(copy.size() - 5) + QStringLiteral(".lock");
+}
+
+/// Whether the Studio that wrote a copy is still running: its lock is held. One that is not is taken and let go at once,
+/// which is what tells.
+bool heldByARunningStudio(const QString &lock)
+{
+    if (!QFileInfo::exists(lock))
+        return false;
+    QLockFile probe(lock);
+    probe.setStaleLockTime(0);
+    if (probe.tryLock(0)) {
+        probe.unlock();
+        return false;
+    }
+    return probe.error() == QLockFile::LockFailedError;
+}
+
+}  // namespace
+
+QString ProjectWorkspace::recoveryFileFor(const QString &realProject, const QString &session)
+{
+    return storeFolder() + QLatin1Char('/') + recoveryPrefixFor(realProject) + session + QStringLiteral(".json");
 }
 
 QString ProjectWorkspace::recentFile()
@@ -397,7 +453,8 @@ bool ProjectWorkspace::keepRecovery(const QUrl &project, const QVariantMap &work
     const QString root = realFolder(project);
     if (root.isEmpty())
         return false;
-    QJsonObject kept{{QStringLiteral("version"), schemaVersion}, {QStringLiteral("project"), root}};
+    QJsonObject kept{{QStringLiteral("version"), schemaVersion}, {QStringLiteral("project"), root},
+                     {QStringLiteral("folder"), folderIdentity(root)}};
     for (const char *key : {"scene", "logic"}) {
         const QVariantMap part = work.value(QLatin1String(key)).toMap();
         if (part.isEmpty())
@@ -408,37 +465,55 @@ bool ProjectWorkspace::keepRecovery(const QUrl &project, const QVariantMap &work
                                                     {QStringLiteral("text"), part.value(QStringLiteral("text")).toString()},
                                                     {QStringLiteral("sha256"), file.isEmpty() ? QString() : digestOf(root, file)}});
     }
-    if (kept.size() == 2) {
+    if (kept.size() == 3) {
         dropRecovery(project);
         return true;
     }
-    return writeStoreFile(recoveryFileFor(root), kept, largestRecovery);
+    // Locked first, and for as long as the copy is there: a Studio opening this project meanwhile leaves it be.
+    const QString copy = recoveryFileFor(root, m_session);
+    if (m_lockedFor != root) {
+        m_lock.reset();
+        m_lockedFor.clear();
+        if (!QDir().mkpath(storeFolder()))
+            return false;
+        auto lock = std::make_unique<QLockFile>(lockFor(copy));
+        lock->setStaleLockTime(0);
+        if (!lock->tryLock(0))
+            return false;
+        m_lock = std::move(lock);
+        m_lockedFor = root;
+    }
+    return writeStoreFile(copy, kept, largestRecovery);
 }
 
-QVariantMap ProjectWorkspace::loadRecovery(const QUrl &project) const
+namespace {
+
+/// One copy, as a stranger's: its parts, checked, or what is wrong with it in `*why`; nothing and no `why` for a copy none of
+/// which is unsaved work any more.
+QVariantMap readCopy(const QString &path, const QString &root, QString *why)
 {
-    QVariantMap out{{QStringLiteral("found"), false}, {QStringLiteral("stale"), false}, {QStringLiteral("problem"), QString()}};
-    const QString root = realFolder(project);
-    if (root.isEmpty())
-        return out;
-    const auto refuse = [&out](const QString &why) {
-        out.insert(QStringLiteral("problem"), tr("This project's recovery copy %1, so it was left alone.").arg(why));
-        return out;
+    why->clear();
+    const auto refuse = [why](const QString &reason) {
+        *why = ProjectWorkspace::tr("A recovery copy of this project %1, so it was left alone.").arg(reason);
+        return QVariantMap();
     };
-    QString why;
-    const std::optional<QByteArray> bytes = readStoreFile(recoveryFileFor(root), &why, largestRecovery);
+    QString unreadable;
+    const std::optional<QByteArray> bytes = readStoreFile(path, &unreadable, ProjectWorkspace::largestRecovery);
     if (!bytes)
-        return why.isEmpty() ? out : refuse(why);
+        return refuse(unreadable.isEmpty() ? ProjectWorkspace::tr("could not be read") : unreadable);
     QJsonParseError error;
     const QJsonDocument document = QJsonDocument::fromJson(*bytes, &error);
     if (error.error != QJsonParseError::NoError || !document.isObject())
-        return refuse(tr("could not be read"));
+        return refuse(ProjectWorkspace::tr("could not be read"));
     const QJsonObject kept = document.object();
     const QJsonValue version = kept.value(QStringLiteral("version"));
-    if (!version.isDouble() || version.toDouble() != schemaVersion)
-        return refuse(tr("is of a version this Studio does not know"));
+    if (!version.isDouble() || version.toDouble() != ProjectWorkspace::schemaVersion)
+        return refuse(ProjectWorkspace::tr("is of a version this Studio does not know"));
     if (kept.value(QStringLiteral("project")).toString() != root)
-        return refuse(tr("was written for another folder"));
+        return refuse(ProjectWorkspace::tr("was written for another folder"));
+    const QString identity = ProjectWorkspace::folderIdentity(root);
+    if (!identity.isEmpty() && kept.value(QStringLiteral("folder")).toString() != identity)
+        return refuse(ProjectWorkspace::tr("was written for another folder that was at this place before"));
 
     static const QRegularExpression aScene(QStringLiteral("^scenes/[^/]+\\.qml$"));
     static const QRegularExpression aLogicFile(QStringLiteral("^logic/.+\\.qml$"));
@@ -453,31 +528,102 @@ QVariantMap ProjectWorkspace::loadRecovery(const QUrl &project) const
     // A logic file is its file. A part with no file to go back to is a scene not saved yet, which is all it can be.
     if (!logic.isEmpty() && logic.value(QStringLiteral("file")).toString().isEmpty()) {
         logic.clear();
-        problems << tr("Part of this project's recovery copy named no file, so that part was left alone.");
+        problems << ProjectWorkspace::tr("Part of this project's recovery copy named no file, so that part was left alone.");
     }
     problems.removeDuplicates();
-    out.insert(QStringLiteral("problem"), problems.join(QLatin1Char(' ')));
+    *why = problems.join(QLatin1Char(' '));
+    QVariantMap copy;
     if (!scene.isEmpty()) {
         if (scene.value(QStringLiteral("name")).toString().trimmed().isEmpty())
             scene.insert(QStringLiteral("name"), QStringLiteral("untitled"));
-        out.insert(QStringLiteral("scene"), scene);
+        copy.insert(QStringLiteral("scene"), scene);
     }
     if (!logic.isEmpty()) {
         const QString file = logic.value(QStringLiteral("file")).toString();
         logic.insert(QStringLiteral("name"), file.mid(6, file.size() - 10));
-        out.insert(QStringLiteral("logic"), logic);
+        copy.insert(QStringLiteral("logic"), logic);
     }
-    const bool any = !scene.isEmpty() || !logic.isEmpty();
-    out.insert(QStringLiteral("found"), any);
-    out.insert(QStringLiteral("stale"), !any && problems.isEmpty());
+    return copy;
+}
+
+}  // namespace
+
+QVariantMap ProjectWorkspace::loadRecovery(const QUrl &project)
+{
+    QVariantMap out{{QStringLiteral("found"), false}, {QStringLiteral("problem"), QString()}, {QStringLiteral("more"), 0}};
+    const QString root = realFolder(project);
+    if (root.isEmpty())
+        return out;
+    // Every session's copy of this project, a pipe or a folder in a copy's place too, so that it is refused and said; newest
+    // first.
+    const QString prefix = recoveryPrefixFor(root);
+    const QFileInfoList found = QDir(storeFolder()).entryInfoList({prefix + QStringLiteral("*.json")},
+                                                                  QDir::AllEntries | QDir::Hidden | QDir::System | QDir::NoDotAndDotDot,
+                                                                  QDir::Time);
+    static const QRegularExpression aSession(QStringLiteral("^[A-Za-z0-9-]{1,64}$"));
+    QStringList problems;
+    QVariantList offered;
+    int looked = 0;
+    for (const QFileInfo &entry : found) {
+        const QString session = entry.fileName().mid(prefix.size(), entry.fileName().size() - prefix.size() - 5);
+        if (session == m_session)
+            continue;
+        if (++looked > mostCopies) {
+            problems << tr("This project has more recovery copies than are looked at, and those were left alone.");
+            break;
+        }
+        if (!aSession.match(session).hasMatch()) {
+            problems << tr("A recovery copy of this project is named as no Studio names one, so it was left alone.");
+            continue;
+        }
+        // Another Studio still at work on this project: its copy is its own, and it has not crashed.
+        if (heldByARunningStudio(lockFor(entry.filePath())))
+            continue;
+        QString why;
+        QVariantMap copy = readCopy(entry.filePath(), root, &why);
+        if (!why.isEmpty())
+            problems << why;
+        if (copy.isEmpty()) {
+            // Whole, and none of it unsaved any more: a crash came between a save and the copy going.
+            if (why.isEmpty())
+                QFile::remove(entry.filePath());
+            continue;
+        }
+        copy.insert(QStringLiteral("session"), session);
+        offered << copy;
+    }
+    problems.removeDuplicates();
+    out.insert(QStringLiteral("problem"), problems.join(QLatin1Char(' ')));
+    if (!offered.isEmpty()) {
+        out.insert(QStringLiteral("found"), true);
+        out.insert(QStringLiteral("copy"), offered.first());
+        out.insert(QStringLiteral("more"), int(offered.size()) - 1);
+    }
     return out;
 }
 
 void ProjectWorkspace::dropRecovery(const QUrl &project)
 {
     const QString root = realFolder(project);
-    if (!root.isEmpty())
-        QFile::remove(recoveryFileFor(root));
+    if (root.isEmpty())
+        return;
+    QFile::remove(recoveryFileFor(root, m_session));
+    if (m_lockedFor == root) {
+        m_lock.reset();
+        m_lockedFor.clear();
+    }
+}
+
+void ProjectWorkspace::dropRecoveryOf(const QUrl &project, const QString &session)
+{
+    static const QRegularExpression aSession(QStringLiteral("^[A-Za-z0-9-]{1,64}$"));
+    const QString root = realFolder(project);
+    if (root.isEmpty() || session == m_session || !aSession.match(session).hasMatch())
+        return;
+    const QString copy = recoveryFileFor(root, session);
+    if (heldByARunningStudio(lockFor(copy)))
+        return;
+    QFile::remove(copy);
 }
 
 bool ProjectWorkspace::isFolder(const QUrl &folder) const

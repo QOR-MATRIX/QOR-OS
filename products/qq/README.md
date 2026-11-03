@@ -150,30 +150,43 @@ it; the QQ Player plays a scene on its own, natively and in a browser.
   launcher, a Studio that the launcher closes exits without asking (ADR-046).
   **Unsaved work survives a crash (QOR OS, 1 November 2026).** Once editing pauses for a second, what is unsaved (the scene's
   text and name, the logic file's text) is copied to `<AppDataLocation>/workspaces/<SHA-256 of the project's real
-  path>.recovery.json`, beside the workspace and never in the project, written whole or not at all; only an edit starts that
-  pause, so an idle Studio has no timer running. It goes once the work is saved or discarded, and a launcher's close keeps it as
-  it stands. Arriving in the project, past the trust check, the person is asked to **Restore** or **Discard** it, and told if a
-  file has changed or gone since the copy was made; Restore changes no file. It is read back as a stranger's, as the workspace
-  is, and a project's copy reaches no other. A scene in no project has none.
+  path>.recovery-<session>.json`, beside the workspace and never in the project, written whole or not at all; only an edit starts
+  that pause, so an idle Studio has no timer running. Each Studio keeps its own copy, named by a session of its own and locked
+  while it runs, and keeps it whatever is still to be answered, so two Studios on one project never write over or remove each
+  other's. It goes once the work is saved or discarded, and a launcher's close keeps it as it stands. Arriving in the project,
+  past the trust check, the person is asked to **Restore** or **Discard** a copy that a Studio no longer running left, newest
+  first, and told if a file has changed or gone since the copy was made; Restore changes no file, and what comes back is in
+  this Studio's own copy before the old one goes. It is read back as a stranger's, as the workspace is, and a project's copy
+  reaches no other. A copy also records which folder it was made for (its device and inode on Linux and macOS, its creation time
+  on Windows), so another project put later where that one was is not offered it, and is told so. A project moved or renamed
+  has a new real path, so its copies are not found there; moved back, they are offered again. A scene in no project has none.
 - **Building a game (QOR OS, 1 November 2026):** **Build** brings in what the scene names from outside the project, saves what
-  is on the screen, and checks that the project's scenes, logic and prefabs build. Then it copies the project's `scenes/`,
+  is on the screen, and checks that the project's scenes, logic and prefabs build: at most 2,000 QML files of 16 MB each, since
+  the window waits for it, and past that it says so and builds nothing. Then it copies the project's `scenes/`,
   `logic/`, `prefabs/` and `assets/` into a folder of the game's own, `<GenericDataLocation>/qor-os/games/<name>-<hash of the
   project's real path>/`, with a `game.json` of what it holds and the digest of each file (`studio/gamebuild.h`). Play here runs the
   project as it stands, and the Library plays this copy, which changes only when built again and plays with the project gone. What a
   game cannot carry refuses the build, with the file and the reason: a link, a pipe, a name a system would read as more, a folder or
-  file it cannot read, compiled QML, more than 8 GB or 50,000 files, and anything a scene, logic file or model names that the game
-  would not hold. That last is a scan of the text, so a string in logic that only looks like a path can be taken for one, and the
-  reason says so. Dot-files and anything else in the project stay behind. A new build replaces the old only once it is whole, one
-  build of a game runs at a time, and a build that dies at any step loses no game. While one runs, the Studio saves nothing and
-  stays in its project. A project just opened, showing a new scene nobody has touched, asks for the scene the game starts in.
+  file it cannot read, compiled QML, more than 8 GB or 50,000 files, and anything a scene, logic file, glTF or OBJ model, OBJ
+  material library or Tiled map or tileset names that the game would not hold. That last is a scan of the text, which reads a
+  path in logic from the logic's own folder and from the scene's, as `play()` and `spawn()` do, so a string in logic that only
+  looks like a path can be taken for one, and the reason says so. It does not see a path a game puts together as it runs
+  (strings joined, or what a template's `${...}` holds), a tileset saved as `.json`, or what any other model format names: a
+  game that needs one of those finds it missing only when it plays. Dot-files and anything else in the project stay behind. A new build replaces the
+  old only once it is whole, one build of a game runs at a time, and a build that dies at any step loses no game; a power cut
+  can still leave files short behind a whole `game.json`, since only that is synced. While one runs, the Studio saves nothing
+  and stays in its project. A project just opened, showing a new scene nobody has touched, asks for the scene the game starts in.
   `qq-studio --project <folder> --build <scenes/x.qml>` makes the same copy with no window and no display. It builds only a
-  project already on the person's trusted list, and refuses any other, since nobody is there to be asked. It compiles nothing,
+  project already on the person's trusted list, and refuses any other, since nobody is there to be asked; the build asks that of
+  the real folder it goes on to copy, so a link changed meanwhile changes nothing. It compiles nothing,
   as its answer says (`"compiled": false`). It prints `QQ-BUILD` and its result as JSON on standard output and exits 0 built, 3
   refused; on Windows the Studio is a windowed program, so a shell sees that only with its output piped or redirected.
   Importing a file records no permission for it: that waits for the asset library
   ([QOR-0021](../../docs/decisions/QOR-0021-projects-engines-and-two-stores.md)). A game is QML and JavaScript that QQ's runtime
-  runs behind the Player's walls, with Qt's disk cache off; no native program is made. Each project folder has one game: moved
-  or renamed, it builds a second, and the first stays in the Library as it was.
+  runs behind the Player's walls, with Qt's disk cache off (the Studio uses only the cache compiled into it). No native program
+  is made, and none runs: a native library among the assets (an `.so`, say) is carried as a file like any other, and the Player
+  refuses a `qmldir` in a game, which is how QML would load one, and imports only Qt's and QQ's own modules. Each project folder
+  has one game: moved or renamed, it builds a second, and the first stays in the Library as it was.
 - **The files:** a scene is `scenes/<name>.qml` in the project, in one canonical layout: read and written back it is
   the same bytes, and one changed value is one changed line in Projects. Models and sounds are copied into `assets/`
   and logic into `logic/`, so the project is whole on its own; a Tiled map brings its tileset and image, and one whose
