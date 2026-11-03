@@ -3912,8 +3912,8 @@ private Q_SLOTS:
             // place stands, rather than a first install that was recorded being deleted.
             const QString lost = work.path() + u'/' + QString::number(copies++);
             copyFolder(snapshot, lost);
-            QFile::remove(lost + u"/installed.json"_s); // a first install has none before its record
-            QVERIFY(!QFile::exists(lost + u"/installed.json"_s));
+            // Every snapshot has a record, a first install's too: one is written before any journal.
+            QVERIFY(QFile::remove(lost + u"/installed.json"_s));
             const bool landed = i >= stages.lastIndexOf(PlantedEngine::Stage::ItemSwapped);
             expectWhole(lost, landed, label + u", its record lost"_s);
             if (QTest::currentTestFailed())

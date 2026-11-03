@@ -597,6 +597,11 @@ void StoreEngine::commitPlan(const PlanPtr &plan)
     if (const QString why = refusalOfOutcome(installedVersions(), incoming); !why.isEmpty())
         return refuse(root, why);
 
+    // A record is there before any journal is, so that one found missing beside a journal was lost, and is not a first
+    // install's that has not been written yet.
+    if (!QFileInfo::exists(m_dataDir + u"/installed.json"_s) && !saveInstalled(m_installed, QString()))
+        return refuse(root, u"The store could not write down what is installed."_s);
+
     // Write everything beside what it replaces.
     const QString items = m_dataDir + u"/items/"_s;
     const QString transaction = QUuid::createUuid().toString(QUuid::Id128);
