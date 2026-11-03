@@ -43,6 +43,9 @@ constexpr qint64 kMaximumPreviewSize = 4 * 1024 * 1024;
 // A plan's packages are held in memory until all of them are verified, so what every plan under way may come to,
 // together, is bounded.
 constexpr qint64 kMaximumHeldBytes = 128 * 1024 * 1024;
+constexpr char kReceivedProperty[] = "qorReceived"; // what a download has been counted as holding
+constexpr char kTooMuchProperty[] = "qorTooMuch";   // a download stopped because everything together would not fit
+constexpr QStringView kTooMuchOnItsWay = u"Too much is on its way at once. Try this again when the rest has finished.";
 constexpr int kTransferTimeoutMs = 30000;
 constexpr int kLockTimeoutMs = 5000;
 
@@ -90,25 +93,45 @@ bool present(const QString &path)
     return info.exists() || isLink(info);
 }
 
+bool removeLinkOrFile(const QString &path, bool link)
+{
+    // A link to a folder on Windows is removed as a folder, and goes without what it points to.
+    return QFile::remove(path) || (link && QDir().rmdir(path));
+}
+
 // Deletes what stands at a path, and never through a link: a link, at the top or anywhere inside, goes itself, and
-// what it points to stays where it is. QDir::removeRecursively follows a link it is given.
+// what it points to stays where it is. QDir::removeRecursively follows a link it is given. It walks a folder at a
+// time, with one listing open and no recursion, so however deep a tree someone plants, it needs neither a handle per
+// level nor a stack frame. False if anything stayed.
 bool removeTree(const QString &path)
 {
     const QFileInfo info(path);
     if (isLink(info))
-        return QFile::remove(path) || QDir().rmdir(path); // a link to a folder on Windows is removed as a folder
+        return removeLinkOrFile(path, true);
     if (!info.exists())
         return true;
     if (!info.isDir())
         return QFile::remove(path);
-    QStringList entries;
-    QDirIterator walk(path, QDir::AllEntries | QDir::Hidden | QDir::System | QDir::NoDotAndDotDot);
-    while (walk.hasNext())
-        entries.append(walk.next());
     bool removed = true;
-    for (const QString &entry : std::as_const(entries))
-        removed = removeTree(entry) && removed;
-    return QDir().rmdir(path) && removed;
+    QStringList folders { path }; // each after the folder that holds it
+    for (qsizetype next = 0; next < folders.size(); ++next) {
+        QStringList entries;
+        {
+            QDirIterator walk(folders.at(next), QDir::AllEntries | QDir::Hidden | QDir::System | QDir::NoDotAndDotDot);
+            while (walk.hasNext())
+                entries.append(walk.next());
+        }
+        for (const QString &entry : std::as_const(entries)) {
+            const QFileInfo found(entry);
+            if (isLink(found) || !found.isDir())
+                removed = removeLinkOrFile(entry, isLink(found)) && removed;
+            else
+                folders.append(entry);
+        }
+    }
+    for (auto folder = folders.crbegin(); folder != folders.crend(); ++folder)
+        removed = QDir().rmdir(*folder) && removed;
+    return removed;
 }
 
 } // namespace
@@ -214,16 +237,38 @@ void StoreEngine::fetch(const QString &job, const QUrl &url, qint64 maximumSize,
             Q_EMIT progressChanged(job);
         });
     }
-    connect(reply, &QNetworkReply::readyRead, reply, [reply, maximumSize] {
+    // A package on its way is held in memory as it comes, so it counts against what every plan may hold together, and
+    // a download that would take more than is left stops there.
+    const bool counted = !job.isEmpty();
+    connect(reply, &QNetworkReply::readyRead, this, [this, reply, maximumSize, counted] {
         if (reply->bytesAvailable() > maximumSize)
+            return reply->abort();
+        if (counted && !countReceived(reply, reply->bytesAvailable())) {
+            reply->setProperty(kTooMuchProperty, true);
             reply->abort();
+        }
     });
-    connect(reply, &QNetworkReply::finished, this, [reply, done] {
+    connect(reply, &QNetworkReply::finished, this, [this, reply, done, counted] {
         reply->deleteLater();
+        const bool tooMuch =
+            reply->property(kTooMuchProperty).toBool()
+            || (counted && reply->error() == QNetworkReply::NoError && !countReceived(reply, reply->bytesAvailable()));
+        if (counted)
+            countReceived(reply, 0); // let go: what arrived is the plan's to count now
+        if (tooMuch)
+            return done(false, {}, kTooMuchOnItsWay.toString());
         if (reply->error() != QNetworkReply::NoError)
             return done(false, {}, reply->errorString());
         done(true, reply->readAll(), {});
     });
+}
+
+// Counts what a download holds now, and says whether every plan's holdings and every download's still fit together.
+bool StoreEngine::countReceived(QNetworkReply *reply, qint64 bytes)
+{
+    m_receivedBytes += bytes - reply->property(kReceivedProperty).toLongLong();
+    reply->setProperty(kReceivedProperty, bytes);
+    return m_heldBytes + m_receivedBytes <= heldBytesLimit();
 }
 
 void StoreEngine::refresh()
@@ -508,7 +553,7 @@ void StoreEngine::stepArrived(const PlanPtr &plan, const QString &id, const QByt
     if (plan->bytes + package.unpacked > heldBytesLimit())
         return failPlan(plan, id, u"This install would take too much at once."_s);
     if (m_heldBytes + package.unpacked > heldBytesLimit())
-        return failPlan(plan, id, u"Too much is on its way at once. Try this again when the rest has finished."_s);
+        return failPlan(plan, id, kTooMuchOnItsWay.toString());
     plan->bytes += package.unpacked;
     m_heldBytes += package.unpacked;
 
@@ -551,6 +596,11 @@ void StoreEngine::commitPlan(const PlanPtr &plan)
     // Something may have been removed, or moved, while this was on its way: by this program or another.
     if (const QString why = refusalOfOutcome(installedVersions(), incoming); !why.isEmpty())
         return refuse(root, why);
+
+    // A record is there before any journal is, so that one found missing beside a journal was lost, and is not a first
+    // install's that has not been written yet.
+    if (!QFileInfo::exists(m_dataDir + u"/installed.json"_s) && !saveInstalled(m_installed, QString()))
+        return refuse(root, u"The store could not write down what is installed."_s);
 
     // Write everything beside what it replaces.
     const QString items = m_dataDir + u"/items/"_s;
@@ -622,8 +672,8 @@ void StoreEngine::commitPlan(const PlanPtr &plan)
     const QString now = QDateTime::currentDateTimeUtc().toString(Qt::ISODate);
     for (const Step &step : std::as_const(plan->verified)) {
         const CatalogItem *item = m_catalog.item(step.id);
-        records.insert(step.id,
-                       { step.id, item->kind, item->name, item->version, item->developer, now, item->dependencies });
+        records.insert(step.id, { step.id, item->kind, item->name, item->version, item->developer, now,
+                                  item->dependencies, false });
     }
     // This write is the moment it happens. A crash before it puts everything back, and one after it finishes the job.
     if (!saveInstalled(records, transaction))
@@ -633,7 +683,9 @@ void StoreEngine::commitPlan(const PlanPtr &plan)
         qCWarning(lcStore) << "An install went ahead past a stage asked to stop it, since it had already happened.";
 
     for (const Move &move : std::as_const(moves)) {
-        if (!move.previous.isEmpty())
+        // An old version goes only once what replaced it is whole, as when clearing up: it may be the only good copy.
+        // What is left of one that cannot all be deleted yet goes when an engine next clears up, since its id is whole.
+        if (!move.previous.isEmpty() && holdsWhatItsManifestLists(items + move.id))
             removeTree(items + move.previous);
         reachedStage(CommitStage::OldRemoved);
     }
@@ -745,8 +797,10 @@ bool StoreEngine::remove(const QString &id)
         return refuse(u"The store could not write down what is installed."_s);
     }
     syncFolder(m_dataDir);
-    removeTree(items + moves.constFirst().previous);
-    removeJournal();
+    // What cannot all be deleted yet keeps its journal, so the next engine finishes deleting it, rather than taking
+    // what is left for an old version to put back.
+    if (removeTree(items + moves.constFirst().previous))
+        removeJournal();
     lock.unlock();
 
     m_installed = records;
@@ -798,36 +852,41 @@ void StoreEngine::removeJournal() const { QFile::remove(journalPath(m_dataDir));
 // a journal that could not be removed, so it decides from what is on disk and never from an absence it may have made
 // itself. The old version set aside is what it looks for: while that is there, whatever stands under the id came in
 // with this transaction and goes, then the old version goes back. Once it is back, the id is not touched again. Where
-// nothing stood under the id before, whatever stands there now came in with this transaction. False if it was cut
-// short, which only a test does.
+// nothing stood under the id before, whatever stands there now came in with this transaction. False if any step did
+// not happen, as when a file being scanned cannot be deleted yet, or if a test cut it short: then the journal stays,
+// and the next try starts again from what is on disk.
 bool StoreEngine::undoMoves(const QList<Move> &moves)
 {
     const QString items = m_dataDir + u"/items/"_s;
     for (auto move = moves.crbegin(); move != moves.crend(); ++move) {
         const QString target = items + move->id;
         if (!move->staging.isEmpty() && present(items + move->staging)) {
-            removeTree(items + move->staging);
-            if (!reachedStage(CommitStage::RecoveryStep))
+            if (!removeTree(items + move->staging) || !reachedStage(CommitStage::RecoveryStep))
                 return false;
         }
         if (!move->previous.isEmpty()) {
             if (!present(items + move->previous))
                 continue; // never set aside, or already back
-            if (present(target)) {
-                removeTree(target);
-                if (!reachedStage(CommitStage::RecoveryStep))
-                    return false;
-            }
-            QDir().rename(items + move->previous, target);
-            if (!reachedStage(CommitStage::RecoveryStep))
+            if (present(target) && (!removeTree(target) || !reachedStage(CommitStage::RecoveryStep)))
+                return false;
+            if (!QDir().rename(items + move->previous, target) || !reachedStage(CommitStage::RecoveryStep))
                 return false;
         } else if (!move->staging.isEmpty() && present(target)) {
-            removeTree(target);
-            if (!reachedStage(CommitStage::RecoveryStep))
+            if (!removeTree(target) || !reachedStage(CommitStage::RecoveryStep))
                 return false;
         }
     }
     return true;
+}
+
+// Whether a move of a plan got all the way: an install's new version in place and whole, from a staging folder that is
+// gone, or a removal's item gone.
+bool StoreEngine::hasLanded(const Move &move) const
+{
+    const QString items = m_dataDir + u"/items/"_s;
+    if (move.staging.isEmpty())
+        return !present(items + move.id);
+    return !present(items + move.staging) && holdsWhatItsManifestLists(items + move.id);
 }
 
 // A crash during an install or a removal. The journal says what was being done and installed.json says whether it
@@ -858,14 +917,24 @@ bool StoreEngine::recoverLocked()
                 moves.append(move);
         }
         QString transaction;
-        const QMap<QString, Installed> records = readInstalled(&transaction);
+        bool recordRead = false;
+        const QMap<QString, Installed> records = readInstalled(&transaction, &recordRead);
         Q_UNUSED(records);
-        if (!transaction.isEmpty() && transaction == object.value(u"transaction"_s).toString()) {
+        // With no record to say whether it happened, what is on disk says: a plan whose every move got all the way
+        // stands, rather than a first install that may have been recorded being deleted for a record that is lost.
+        const bool happened =
+            recordRead
+                ? !transaction.isEmpty() && transaction == object.value(u"transaction"_s).toString()
+                : std::all_of(moves.cbegin(), moves.cend(), [this](const Move &move) { return hasLanded(move); });
+        if (happened) {
             for (const Move &move : std::as_const(moves)) {
                 if (move.previous.isEmpty() || !present(items + move.previous))
                     continue;
-                removeTree(items + move.previous);
-                if (!reachedStage(CommitStage::RecoveryStep))
+                // An old version goes only once what replaced it is whole. If not, it stays, as the sweep below
+                // leaves it.
+                if (!move.staging.isEmpty() && !holdsWhatItsManifestLists(items + move.id))
+                    continue;
+                if (!removeTree(items + move.previous) || !reachedStage(CommitStage::RecoveryStep))
                     return false;
             }
         } else if (!undoMoves(moves)) {
@@ -889,8 +958,11 @@ bool StoreEngine::recoverLocked()
         const QString id = match.captured(1);
         if (isValidItemId(id) && !present(folder.filePath(id)))
             QDir().rename(folder.filePath(name), folder.filePath(id));
-        else
+        // An old version set aside is let go only when what stands under its id is whole: it may be the only good copy.
+        else if (!isValidItemId(id) || holdsWhatItsManifestLists(folder.filePath(id)))
             removeTree(folder.filePath(name));
+        else
+            qCWarning(lcStore) << "An old version of" << id << "is kept, since what stands in its place is not whole.";
     }
     return true;
 }
@@ -926,16 +998,18 @@ QMap<QString, StoreEngine::Installed> StoreEngine::installedFromFolders() const
             continue;
         records.insert(name, { name, manifest.kind, manifest.name, manifest.version, manifest.developer,
                                QFileInfo(folder.filePath(name)).lastModified(QTimeZone::UTC).toString(Qt::ISODate),
-                               manifest.dependencies });
+                               manifest.dependencies, true });
     }
     return records;
 }
 
 // The records on disk now. What cannot be read is set aside and not believed. What the folders hold stands in for it,
 // as it does when there is no record at all: nothing it listed is lost, since a reinstall replaces its folder, and
-// nothing else is kept from working by it.
-QMap<QString, StoreEngine::Installed> StoreEngine::readInstalled(QString *transaction) const
+// nothing else is kept from working by it. `recordRead` says whether there was a record to read.
+QMap<QString, StoreEngine::Installed> StoreEngine::readInstalled(QString *transaction, bool *recordRead) const
 {
+    if (recordRead)
+        *recordRead = false;
     QMap<QString, Installed> records;
     const QString path = m_dataDir + u"/installed.json"_s;
     QFile file(path);
@@ -951,6 +1025,8 @@ QMap<QString, StoreEngine::Installed> StoreEngine::readInstalled(QString *transa
         QFile::rename(path, aside);
         return installedFromFolders();
     }
+    if (recordRead)
+        *recordRead = true;
     if (transaction)
         *transaction = document.object().value(u"transaction"_s).toString();
     const QJsonObject items = document.object().value(u"items"_s).toObject();
@@ -962,7 +1038,8 @@ QMap<QString, StoreEngine::Installed> StoreEngine::readInstalled(QString *transa
                               entry.value(u"version"_s).toString(),
                               entry.value(u"developer"_s).toString(),
                               entry.value(u"installedAt"_s).toString(),
-                              {} };
+                              {},
+                              entry.value(u"claimed"_s).toBool() };
         if (entry.contains(u"dependencies"_s)
             && !parseDependencies(entry.value(u"dependencies"_s), &installed.dependencies).isEmpty())
             continue;
@@ -984,6 +1061,9 @@ bool StoreEngine::saveInstalled(const QMap<QString, Installed> &records, const Q
                             { u"installedAt"_s, installed.installedAt } };
         if (!installed.dependencies.isEmpty())
             entry.insert(u"dependencies"_s, rangesToJson(installed.dependencies));
+        // What a manifest said of itself when the record was lost, and no install has said since.
+        if (installed.claimed)
+            entry.insert(u"claimed"_s, true);
         items.insert(installed.id, entry);
     }
     QSaveFile file(m_dataDir + u"/installed.json"_s);

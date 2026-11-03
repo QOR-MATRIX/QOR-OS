@@ -56,6 +56,9 @@ public:
         QString developer;
         QString installedAt;
         QList<VersionRange> dependencies;
+        // Taken from the installed manifest's own word, unsigned, when the record was lost: kept as an id's pins, and
+        // marked as such in installed.json until the item is installed again.
+        bool claimed = false;
     };
 
     StoreEngine(const QString &dataDir, const QByteArray &storeKey, QObject *parent = nullptr);
@@ -173,6 +176,7 @@ private:
 
     using Done = std::function<void(bool ok, const QByteArray &data, const QString &error)>;
     void fetch(const QString &job, const QUrl &url, qint64 maximumSize, const Done &done);
+    bool countReceived(QNetworkReply *reply, qint64 bytes);
     void setState(State state, const QString &error = {});
     void takeCatalog(Catalog catalog);
 
@@ -192,10 +196,11 @@ private:
     void loadSequence();
 
     QMap<QString, InstalledVersion> installedVersions() const;
-    QMap<QString, Installed> readInstalled(QString *transaction = nullptr) const;
+    QMap<QString, Installed> readInstalled(QString *transaction = nullptr, bool *recordRead = nullptr) const;
     QMap<QString, Installed> installedFromFolders() const;
     bool writeJournal(const QString &transaction, const QList<Move> &moves) const;
     bool undoMoves(const QList<Move> &moves);
+    bool hasLanded(const Move &move) const;
     void removeJournal() const;
     bool recoverLocked();
     void recoverInterrupted();
@@ -216,7 +221,8 @@ private:
     QNetworkAccessManager *m_network = nullptr;
     QHash<QString, QPointer<QNetworkReply>> m_jobs;
     QHash<QString, double> m_progress;
-    qint64 m_heldBytes = 0; // what every plan under way holds in memory, together
+    qint64 m_heldBytes = 0;     // what every plan under way holds in memory, together
+    qint64 m_receivedBytes = 0; // what every package on its way holds in memory so far, together
     int m_generation = 0;
     qint64 m_lastSequence = 0;
     QByteArray m_lastDigest;
