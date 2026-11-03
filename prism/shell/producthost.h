@@ -9,6 +9,7 @@
 #include <QtCore/QList>
 #include <QtCore/QObject>
 #include <QtCore/QPointer>
+#include <QtCore/QProcessEnvironment>
 #include <QtCore/QRect>
 #include <QtCore/QSize>
 #include <QtCore/QStringList>
@@ -25,6 +26,11 @@ class QProcess;
 class QTemporaryDir;
 
 namespace qor {
+
+// Where a PipeWire daemon's socket would be for a product started with
+// `environment`: $XDG_RUNTIME_DIR/pipewire-0, an empty XDG_RUNTIME_DIR taken as
+// unset and /run/user/<uid> used, as tools/dev/products.sh reads it.
+QString pipewireSocketFor(const QProcessEnvironment &environment);
 
 // Prism's record of a product it hosts: how a person knows it, where its
 // program is, and what it speaks. A product is always named and laid out from

@@ -546,6 +546,12 @@ ApplicationWindow {
     function offerUpdate(id) {
         if (refusedWhileBuilding(qsTr("update assets")))
             return false
+        // It writes, replaces and removes files of the project, as saving does: only in a project the person trusts.
+        let done = false
+        return trusting(() => { done = askToUpdate(id) }) && done
+    }
+
+    function askToUpdate(id) {
         const plan = assetLibrary.plan(project, id)
         if (!plan.ok) {
             say(plan.problem, true)
@@ -561,7 +567,7 @@ ApplicationWindow {
         const plan = updateDialog.plan
         updateDialog.plan = null
         updateDialog.close()
-        if (!go || !plan)
+        if (!go || !plan || !projectTrusted)
             return false
         if (refusedWhileBuilding(qsTr("update assets")))
             return false
@@ -1508,7 +1514,17 @@ ApplicationWindow {
         anchors.centerIn: parent
         modal: true
         closePolicy: Popup.CloseOnEscape
-        title: updateDialog.plan ? qsTr("Update %1 to %2?").arg(updateDialog.plan.name).arg(updateDialog.plan.to) : ""
+        // The pack's name is someone else's text: a header of its own, in plain text, never the title's guess at markup.
+        header: Label {
+            objectName: "updateTitle"
+            padding: 24
+            bottomPadding: 0
+            elide: Text.ElideRight
+            textFormat: Text.PlainText
+            font.pixelSize: 18
+            font.weight: Font.Medium
+            text: updateDialog.plan ? qsTr("Update %1 to %2?").arg(updateDialog.plan.name).arg(updateDialog.plan.to) : ""
+        }
         standardButtons: Dialog.NoButton
         width: 560
         contentItem: ColumnLayout {

@@ -192,15 +192,20 @@ it; the QQ Player plays a scene on its own, natively and in a browser.
   installs and the Studio only reads. Prism names the Store's folder of installed items when it starts the Studio (`QOR_ASSET_PACKS`), and
   only where the Store's format 2 engine exists, which is a demonstration build. `--asset-packs <folder>` does the same. With neither,
   there is no library and the Studio is as it was. The **Library** panel under the project's files lists each pack: its name, version,
-  developer, licence (its SPDX id) and where it came from, and its files, a picture shown as itself. **Use** copies the whole pack into
+  developer (said to be not checked here, which it is not), licence (its SPDX id) and where it came from, and on asking its files, a
+  picture by a thumbnail drawn from the bytes whose digest was just checked, as PNG, JPEG or WebP by its name and only up to 4096
+  pixels a side. **Use** copies the whole pack into
   `assets/<pack id>/`, and a click on a file copies only that file. The pack's licence and notice go with it either way. This needs the
-  same trust as saving, and happens neither while a build runs nor over a file already there that differs: that is asked first, and
+  same trust as saving, as Update does, and happens neither while a build runs nor over a file already there that differs: that is asked first, and
   **Leave them** changes nothing. It happens whole or not at all, and writes **`assets.lock.json`** at the project's root. That file
   holds, for each pack, its id, name, version, developer, licence and provenance (the SHA-256 of the manifest the developer signed, that
   signature, and where it came from if the Store recorded it), and each file copied: its path in the project and in the pack, its
   SHA-256 and the version it came from. It is the permission an import does not have. **Update** shows when the installed version is
   newer than the lock's, and says what it would do before it does any of it. A copy the person changed (its digest differs from the
-  lock's) is never written over. It is kept and listed, and the new version is put beside it (`tiles-1.1.0.png`) or not, as they choose.
+  lock's) is never written over: that is looked at when the update is planned and again just before each file is set aside, and a copy
+  changed in between stops the update with nothing changed. It is kept and listed, and the new version is put beside it
+  (`tiles-1.1.0.png`, under a name neither the project nor the new version has) or not, as they choose. A beside copy is the person's
+  from then on: no later update replaces or removes it.
   A copy they deleted is not brought back. Every other copy is replaced, a file the new version drops goes only if unchanged, and new
   files come too if the whole pack was used. Cancel changes nothing. A pack the Store has removed leaves the project's copies and lock
   as they are, and the library says it is no longer installed. A build carries the copies like any other asset, and its `game.json`
@@ -208,17 +213,27 @@ it; the QQ Player plays a scene on its own, natively and in a browser.
   **What is read as a stranger's.** The Store's folder: its `installed.json` and every pack's folder are size-capped, opened a name at a
   time with no link followed, and only `asset-pack` kinds are taken. A pack counts only if its folder holds exactly what its manifest
   lists, every file matching its digest, of a kind a pack may hold (pictures, skies, models, sounds, a model's buffers, plain text) and
-  starting as one, every model naming only files beside it in the pack. The Studio checks this every time, rather than trust the
-  Store's check, and holds no developer's key, so it cannot check the signature: the lock keeps it, so that can be checked later. Each
+  starting as one, every model naming only files beside it in the pack. Names, developers and paths must be NFC with no control or
+  format characters (no right-to-left override, no zero-width joiner), and `items/` itself may not be a link. The Studio checks this
+  itself rather than trust the Store's check. On Linux a pack checked whole is listed again without being read again while none of its files has
+  changed on disk (device, inode, size, modification and change times); what is copied, or drawn as a thumbnail, is read and its digest
+  checked again first. It holds no developer's key, so it cannot check the signature: the lock keeps it, so that can be checked later. Each
   project's `assets.lock.json` is read the same way on every open: too large, not JSON, of another format, or with a path that is not
   plainly a file under `assets/<its pack>/`, that climbs or goes through a link, and none of it is used. Then the project opens, the
   library says why, nothing it names is changed, and a build is refused until the lock is put right or removed. A project with no lock
   is as before.
-  **All or nothing across a crash.** What is new is written beside the project first, in `.qq-assets-<tag>/`, a folder named with a dot
-  that a build leaves behind. A journal in the person's own store, never the project's, says what is to move. Then the old files are
-  set aside, the new ones are moved into place, and the lock is written, which is the moment it happens. A Studio that dies before
-  that has everything put back the next time the project is looked at, and one that dies after has it finished, each file moved only if
-  it is where the journal says. On Linux each step is made durable before the next. One change to a project's assets runs at a time.
+  **Across a crash.** What is new is written beside the project first, in `.qq-assets-<tag>/`, a folder named with a dot that a build
+  leaves behind. A journal in the person's own store, never the project's, says what is to move, the SHA-256 of each file it places, and
+  which folder it is for (its device and inode on Linux and macOS, its creation time on Windows). The new lock is checked as it would be
+  read before anything moves. Then the old files are set aside, the new ones are moved into place, and the lock is written, which is
+  the moment it happens; it carries the change's own tag, so no lock is mistaken for the one before it. The next time the project is
+  looked at, a change whose lock was written is finished and one whose lock was not is put back. Putting back moves a placed file back
+  only while it still holds what was placed, and a set-aside file only where nothing now is. A file the person edited since stays as it
+  is, and what was set aside and could not go back stays in the staging folder, and both are said. A journal for another folder now in
+  that place, or whose staging folder has gone (`git clean`, a restore), moves nothing and is dropped, and that is said. On Linux each
+  step is made durable before the next by one `syncfs` of the project's file system; elsewhere each file and folder is synced. One
+  change to a project's assets, or one build of it, runs at a time, by a lock in the person's own store: that keeps apart the Studios
+  sharing that store, and not another person, a Studio with another store, another computer on a shared folder, or any other program.
   `qq-studio --project <folder> --asset-packs <folder> --use-pack <id> [--pack-file <path>]... [--replace]`, and `--update-pack <id>
   [--beside]`, do the same with no window. They take only a project on the person's trusted list, print `QQ-ASSETS` and their result as
   JSON on standard output, and exit 0 done or 3 refused. **Not yet:** a pack's own pages in the Studio (its description, its previews)
