@@ -563,7 +563,8 @@ private:
     }
     bool state(QJsonObject *out);
     // The pointer on the game's window at `point`, with nothing of the shell's over it there:
-    // the simulated session posts banners of its own as time goes by.
+    // the simulated session posts banners of its own as time goes by, and one stays while
+    // the pointer is over it.
     bool uncoveredAt(Game *game, QPoint point);
     bool windowState(const QString &title, QJsonObject *out);
     bool settled(Game *game);
@@ -747,13 +748,17 @@ bool TestPointerCapture::uncoveredAt(Game *game, QPoint point)
 {
     QElapsedTimer clock;
     clock.start();
-    for (int i = 0; clock.elapsed() < 9000; i = (i + 1) % 2) {
-        const qsizetype heard = game->client->seen.motions.size();
-        if (!moveTo(point + QPoint(i, i)) || !game->client->roundtrip())
+    while (clock.elapsed() < 12000) {
+        if (!moveTo(game->centre()) || !game->client->roundtrip())
             return false;
-        if (game->client->seen.motions.size() > heard && moveTo(point) && game->client->roundtrip())
+        const qsizetype heard = game->client->seen.motions.size();
+        if (!moveTo(point) || !game->client->roundtrip())
+            return false;
+        if (game->client->seen.motions.size() > heard)
             return true;
-        pump(250);
+        if (!moveTo(game->centre()))
+            return false;
+        pump(1000);
     }
     m_problem = u"something stayed over %1"_s.arg(game->title);
     return false;

@@ -29,7 +29,8 @@
 #include <limits>
 #include <utility>
 
-Q_LOGGING_CATEGORY(lcPointerCapture, "qor.prism.pointercapture")
+// Its debug lines come on every motion over the shell: off unless asked for.
+Q_LOGGING_CATEGORY(lcPointerCapture, "qor.prism.pointercapture", QtInfoMsg)
 
 namespace qor::prism {
 
