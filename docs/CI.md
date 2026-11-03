@@ -42,7 +42,11 @@ at a time or away from the GPU changes none of this. So:
   Without it nothing is built or tested, and Release readiness fails.
 - **The job's first step checks that claim** before anything from the repository runs, and a job that can still reach Windows
   or a credential stops there.
-- **What is still open:** the runners are registered, and started again a workflow naming their labels would reach them, so
+- **On Linux it stops if `AF_VSOCK` opens at all.** Under WSL that reaches Windows' file server whatever `wsl.conf` says
+  (measured 1 November 2026). Elsewhere such a socket can open with nothing behind it, and the job still stops: a Linux job must
+  run where `AF_VSOCK` is refused.
+- **What is still open:** the runners are stopped but still registered. Started again, they would be reached by any workflow
+  naming their labels, so
   whatever can write workflows could run code there. That is the owner, and the GitHub Apps installed on the organisation with
   workflow access, until the owner limits them. The check covers the places it names, not everything a job could do.
 
@@ -60,7 +64,7 @@ As for the rest ([QOR-0018](decisions/QOR-0018-the-security-and-quality-bar.md))
   installed by hash from `requirements-dev.txt`, generated from `requirements-dev.in`.
 - **Dependabot's pull requests do not run on the workstation.** Build's Windows and Linux jobs skip them, so a person
   reads the update before its code runs there; a merge runs them as any push does. Lint and Security run on hosted
-  runners, which hold nothing.
+  runners, which hold nothing. So Release readiness never reads ready on a Dependabot pull request, by design.
 - **Anything that downloads a tool to run it goes in Security**, on a hosted runner.
 - **Left to the owner:** the Store's keys off this machine (`OWNER.md`). Until then, a compromised job here can read them.
 
@@ -553,7 +557,7 @@ Set-Content "$([Environment]::GetFolderPath('Startup'))\qor-github-runner-linux.
   "@start `"QOR OS Linux runner`" /min wsl.exe -d Ubuntu --cd ~ --exec /home/$($env:USERNAME.ToLower())/ghr/qtos-linux/run.sh"
 ```
 
-If CI does not run, first check that both runners are online:
+Once a runner is isolated and started again, if CI does not run, first check that it is online:
 `gh api repos/QOR-MATRIX/qor-os/actions/runners` (or
 `orgs/QOR-MATRIX/actions/runners` once they belong to the organisation).
 

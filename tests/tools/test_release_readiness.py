@@ -98,6 +98,26 @@ class ReleaseReadinessTest(unittest.TestCase):
                 self.assertIn("not run: unchanged by this commit", text(unchanged))
                 self.assertFalse(ready({**unchanged, "IS_RELEASE": "true"}))
 
+    def test_unchanged_products_stand_down_only_when_skipped(self):
+        # An unchanged product's step that ran and failed, or was cancelled, is not excused by being unchanged.
+        for side in ("WINDOWS", "LINUX"):
+            for outcome in ("failure", "cancelled", "", "neutral"):
+                with self.subTest(side=side, outcome=outcome):
+                    self.assertFalse(ready({**ALL_PASSED, f"{side}_PRODUCTS": outcome, f"{side}_PRODUCTS_CHANGED": "false"}))
+
+    def test_unchanged_products_stand_down_only_when_said_not_to_be_a_release(self):
+        # Whether this is a release must be said, as false: a missing or malformed word is taken as a release.
+        for side in ("WINDOWS", "LINUX"):
+            unchanged = {**ALL_PASSED, f"{side}_PRODUCTS": "skipped", f"{side}_PRODUCTS_CHANGED": "false"}
+            for word in ("", "True", "FALSE", "0", None):
+                with self.subTest(side=side, word=word):
+                    env = dict(unchanged)
+                    if word is None:
+                        del env["IS_RELEASE"]
+                    else:
+                        env["IS_RELEASE"] = word
+                    self.assertFalse(ready(env))
+
     def test_products_that_changed_and_did_not_run_are_not_ready(self):
         for side in ("WINDOWS", "LINUX"):
             for changed in ("true", "", "FALSE"):
