@@ -363,6 +363,16 @@ shown, and the page says it comes with the package.
 **Starting again over the same folder.** A person who has reached `v2` and starts over finds `v1` refused as older, in plain words,
 with Next Catalogue beside the refusal. That is the sequence working. A fresh `QOR_STORE_DIR` starts the walk again.
 
+**In a project.** QQ Studio's asset library uses what this engine installed (`products/qq/README.md`, "The asset library"). When
+Prism starts QQ Studio it names this engine's folder in `QOR_ASSET_PACKS`, and only where this engine exists, so a build without
+the demonstration says nothing. The Studio reads `installed.json` and `items/<id>/` there as a stranger's would be read. It never
+writes there: installing, updating and removing stay the Store's. It checks each `asset-pack` itself, every time: exactly the files its
+manifest lists, every digest, every kind and first bytes, every model's names. It does not check the developer's signature, since it
+holds no key, and keeps the manifest's digest and signature in the project's `assets.lock.json` so that can be checked later. A
+listing's `provenance` is in the catalogue and not in the package or `installed.json`, so the Studio shows it only if the record of
+what is installed carries it. Today the record does not. `prism-test-store-install` (in `tests/store/`) is this engine on the
+command line, installing or removing one item in a folder, for QQ's `tst_assetlibrary` to join the two builds.
+
 A game cannot be played from here yet: that, and installed games in the Library, are the next step.
 
 ## Building the catalogue

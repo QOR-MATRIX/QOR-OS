@@ -511,7 +511,8 @@ ApplicationWindow {
         }
         if (refusedWhileBuilding(qsTr("bring in assets")))
             return false
-        return trusting(() => copyAssets(id, files, false))
+        let done = false
+        return trusting(() => { done = copyAssets(id, files, false) }) && done
     }
 
     function copyAssets(id, files, replace) {
