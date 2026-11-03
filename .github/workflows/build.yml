@@ -207,6 +207,8 @@ jobs:
       # The products' suites take about ten minutes and drive real windows on
       # the runner's desktop, so they run when the carried code (or how it is
       # built) changed, on tags and on manual runs.
+      # "Changed" means any file the products are built, hardened or checked with, the same list on both platforms;
+      # tests/tools/test_build_workflow.py holds it to what their builds include and their steps run.
       - name: Did the carried products change?
         id: products
         if: vars.QOR_RUN_GPU_TESTS == 'true'
@@ -219,7 +221,7 @@ jobs:
           if ($env:EVENT -in 'push', 'pull_request' -and $env:BEFORE -and $env:BEFORE -notmatch '^0+$' -and -not $env:GITHUB_REF.StartsWith('refs/tags/')) {
             git fetch --quiet --no-tags --depth=1 origin $env:BEFORE
             $changed = git diff --name-only $env:BEFORE HEAD
-            $run = [bool]($changed | Where-Object { $_ -match '^(products/|tools/qor-media/|docs/design/tokens\.json$|tools/dev/products\.ps1$|\.github/workflows/build\.yml$)' })
+            $run = [bool]($changed | Where-Object { $_ -match '^(products/|tools/qor-media/|docs/design/tokens\.json$|cmake/QorHardening\.cmake$|tools/dev/(products\.(ps1|sh)|products-display\.qml|secret-service\.py)$|tools/ci/(check_hardening|with_display)\.py$|\.github/(workflows/build\.yml|qt-packages\.json)$)' })
           }
           "run=$($run.ToString().ToLower())" >> $env:GITHUB_OUTPUT
           "Carried products: $(if ($run) { 'built and tested' } else { 'unchanged, skipped' })" >> $env:GITHUB_STEP_SUMMARY
@@ -273,7 +275,8 @@ jobs:
           done
           if command -v cmd.exe >/dev/null 2>&1; then reachable="$reachable Windows programs on the PATH;"; fi
           if [ -e /proc/sys/fs/binfmt_misc/WSLInterop ]; then reachable="$reachable Windows interop;"; fi
-          # wsl.conf does not close this: a process that opens AF_VSOCK reaches Windows' file server (measured 1 November 2026).
+          # Under WSL, wsl.conf does not close this: a process that opens AF_VSOCK reaches Windows' file server (measured 1 November
+          # 2026). Elsewhere it can open with nothing behind it; the job stops all the same, so it must run where AF_VSOCK is refused.
           opened=0
           python3 -I -c 'import socket; socket.socket(socket.AF_VSOCK, socket.SOCK_STREAM)' 2>/dev/null || opened=$?
           if [ "$opened" -eq 0 ]; then reachable="$reachable AF_VSOCK, the way to Windows' file server;"; fi
@@ -394,6 +397,8 @@ jobs:
       # how it is built) changed, on tags and on manual runs. Only where
       # QOR_RUN_LINUX_PRODUCTS says so: on 28 October their GPU suites under
       # WSL froze the PC the runner shares (docs/CI.md#the-carried-products).
+      # "Changed" means any file the products are built, hardened or checked with, the same list on both platforms;
+      # tests/tools/test_build_workflow.py holds it to what their builds include and their steps run.
       - name: Did the carried products change?
         id: products
         if: vars.QOR_RUN_GPU_TESTS == 'true' && vars.QOR_RUN_LINUX_PRODUCTS == 'true'
@@ -406,7 +411,7 @@ jobs:
               && ! echo "$BEFORE" | grep -qE '^0+$' && [ "${GITHUB_REF#refs/tags/}" = "$GITHUB_REF" ]; then
             git fetch --quiet --no-tags --depth=1 origin "$BEFORE"
             git diff --name-only "$BEFORE" HEAD \
-              | grep -qE '^(products/|tools/qor-media/|docs/design/tokens\.json$|tools/dev/products(\.sh|-display\.qml)$|\.github/workflows/build\.yml$|\.github/qt-packages\.json$)' \
+              | grep -qE '^(products/|tools/qor-media/|docs/design/tokens\.json$|cmake/QorHardening\.cmake$|tools/dev/(products\.(ps1|sh)|products-display\.qml|secret-service\.py)$|tools/ci/(check_hardening|with_display)\.py$|\.github/(workflows/build\.yml|qt-packages\.json)$)' \
               || run=false
           fi
           echo "run=$run" >> "$GITHUB_OUTPUT"
