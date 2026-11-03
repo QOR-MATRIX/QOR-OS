@@ -73,7 +73,11 @@ and through the whole history; the QOR core's dependencies audited weekly.
 - **Prism treats every Wayland client as hostile.** Its name is a claim: a client
   calling itself Settings or ARQADE is kept apart from them. It takes the keyboard
   only when it can be seen and it steals it from nobody, and never on the lock
-  screen. Its title is text, never markup.
+  screen. Its title is text, never markup. It captures the pointer only as the active
+  window with no shell surface open, after a person's action on it, and
+  <kbd>Super</kbd>+<kbd>Esc</kbd>, the lock screen and any shell surface end that. No client
+  hears the pointer while a shell surface is open, nor over anything of the shell's lying
+  over its window ([SHELL.md](docs/design/SHELL.md#capturing-the-pointer)).
 - **The QQ Player keeps a game to its package** by two walls: QQ's own checks
   (`products/qq/runtime/confinement.h`), and on Linux the kernel's
   (`products/qq/player/sandbox.h`): Landlock for files and programs, seccomp for

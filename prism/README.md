@@ -56,11 +56,14 @@ behaviours, from decorations to popups and Shelf identity. See
 | `wp_cursor_shape_manager_v1` (v2) | Prism (`extensions.cpp`) | Named cursors become Qt cursors over the requesting client's surface; tablet tools accepted, not shown yet |
 | `wp_presentation` | Qt (`PresentationTime`), fed by Prism's `PresentationFeedback` | Frames reported at swap time (`CLOCK_MONOTONIC`) |
 | `xdg_activation_v1` | Prism (`extensions.cpp`) | Focus-stealing prevention: tokens issued while the requesting client has keyboard focus (or by Prism for launches) activate; others only mark the window as wanting attention (Shelf hop and accent dot). Nothing is raised over the lock screen, and locking takes the keyboard from every client |
+| `zwp_relative_pointer_manager_v1` | Prism (`pointercapture.cpp`) | Motion apart from position, heard only by the client whose window has the keyboard, with the pointer on it. Nested it is worked out from the output window's positions: see [Capturing the pointer](../docs/design/SHELL.md#capturing-the-pointer) |
+| `zwp_pointer_constraints_v1` | Prism (`pointercapture.cpp`) | Pointer lock and confinement, for the active window only, after a person's action on it, with a way out no client can intercept |
 | `zwp_idle_inhibit_manager_v1` | Qt (`IdleInhibitManagerV1`) | Inhibitors are recorded on surfaces, for the Phase 3 idle and lock policy |
 | `zwp_text_input_manager_v2`/`v3`, `qt_text_input_method_manager_v1` | Qt | Input methods |
 
 Prism's own protocols are generated from the XML in `compositor/protocols/`
-(wayland-protocols 1.47). To verify them on the wire, run:
+(wayland-protocols 1.47), where `xdg-shell.xml` is only for the raw clients of
+`tst_pointercapture`. To verify them on the wire, run:
 
 ```bash
 tools/dev/prism-protocol-check.sh ~/qor-build/linux-release

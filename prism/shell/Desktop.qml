@@ -306,6 +306,18 @@ FocusScope {
     readonly property alias windowLayer: windows
     // Set by Prism: a trusted xdg-activation token for a window it opens.
     property var activationToken: () => ""
+    // Set by Prism: the client's surface that has captured the pointer, or null, and how
+    // to make it let go (prism/compositor/pointercapture.h, QOR-0020).
+    property var pointerCapturedBy: null
+    property var releasePointer: () => {}
+    // A person is told the way out the first time a window takes the pointer.
+    property var pointerCaptureTold: null
+    onPointerCapturedByChanged: {
+        if (pointerCapturedBy !== null && pointerCapturedBy !== pointerCaptureTold) {
+            pointerCaptureTold = pointerCapturedBy;
+            toast.show("keyboard", qsTr("A window has the pointer. Super+Esc lets it go"));
+        }
+    }
 
     // ── Products (ARQADE, QOR Media, QQ Studio, the QQ Player) ─────────────
     // Prism hosts them as Wayland clients (ProductHost, QOR-0010). ARQADE and
@@ -1019,8 +1031,11 @@ FocusScope {
     }
 
     // ── Display simulation (applied by Prism's output pipeline on device) ───
+    // Filters, not something to point at: disabled, so that Prism does not count them as
+    // the shell lying over a window (pointercapture.cpp, coveredByShell).
     Rectangle {
         anchors.fill: parent
+        enabled: false
         color: "#ff8c3a"
         opacity: Services.display.nightLight ? 0.11 : 0
         visible: opacity > 0
@@ -1028,6 +1043,7 @@ FocusScope {
     }
     Rectangle {
         anchors.fill: parent
+        enabled: false
         color: "black"
         opacity: (1 - Services.display.brightness) * 0.72
         visible: opacity > 0.002
@@ -1110,6 +1126,19 @@ FocusScope {
         sequence: "Escape"
         enabled: desktop.surface !== "" || desktop.editingWidgets
         onActivated: desktop.editingWidgets ? desktop.editWidgets(false) : desktop.setSurface("")
+    }
+
+    // The way out of a captured pointer. Like every shortcut here, Qt's shortcut map takes
+    // it before any item, so no client ever hears it or can hold on to it. It only stands
+    // aside when nothing is captured. It works whatever else is held: a person sprinting
+    // or crouching holds Shift or Ctrl. Anything else that brings the shell up (these
+    // shortcuts, or Guide) ends a capture too, by covering the window.
+    Shortcut {
+        context: Qt.ApplicationShortcut
+        sequences: ["Meta+Escape", "Shift+Meta+Escape", "Ctrl+Meta+Escape", "Alt+Meta+Escape",
+            "Ctrl+Shift+Meta+Escape", "Alt+Shift+Meta+Escape", "Ctrl+Alt+Meta+Escape", "Ctrl+Alt+Shift+Meta+Escape"]
+        enabled: desktop.pointerCapturedBy !== null
+        onActivated: desktop.releasePointer()
     }
 
     // Take the active window to the display on the left or right.
