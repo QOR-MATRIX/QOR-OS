@@ -105,12 +105,12 @@ const QQuickItem *windowItemOf(const QQuickItem *item)
 enum class Hit { Nothing, Window, Covered };
 
 // What a person sees at `scene` within `item`, from the top down: `window`, something of
-// the shell's over it, or nothing. Something is an item that draws or takes the pointer,
+// the shell's over it, or nothing. Something is an item that draws or takes hover,
 // visible, enabled and not see-through, whose shape holds the point. Another of the
 // shell's windows is all of its rectangle, and nothing beyond it. Items that only hold
 // others are looked through, as are disabled ones: the screen's own filters (night light,
 // brightness) are, and they lie over everything.
-Hit hitAt(const QQuickItem *item, const QPointF &scene, const QQuickItem *window, int *budget)
+Hit hitAt(const QQuickItem *item, const QPointF &scene, const QQuickItem *window, int *budget, const QQuickItem **by)
 {
     if (item == window)
         return Hit::Window;
@@ -118,16 +118,22 @@ Hit hitAt(const QQuickItem *item, const QPointF &scene, const QQuickItem *window
         return Hit::Covered;
     const QQuickItemPrivate *d = QQuickItemPrivate::get(item);
     const bool onTheWay = item->isAncestorOf(window);
-    if (!item->isVisible() || d->culled || item->opacity() <= 0.0 || (!onTheWay && !item->isEnabled()))
+    // Hidden by an effect that draws it elsewhere (a ShaderEffectSource's hideSource).
+    const bool hiddenByEffect = d->extra.isAllocated() && d->extra->hideRefCount > 0;
+    if (!item->isVisible() || d->culled || hiddenByEffect || item->opacity() <= 0.0
+        || (!onTheWay && !item->isEnabled()))
         return Hit::Nothing;
     const bool inside = item->contains(item->mapFromScene(scene));
-    if (!onTheWay && isShellWindow(item))
+    if (!onTheWay && isShellWindow(item)) {
+        *by = item;
         return inside ? Hit::Covered : Hit::Nothing;
+    }
     if (item->clip() && !inside)
         return Hit::Nothing;
-    const bool takes = inside && !onTheWay
-                       && (item->flags().testFlag(QQuickItem::ItemHasContents) || item->acceptHoverEvents()
-                           || item->acceptedMouseButtons() != Qt::NoButton);
+    // An item that only takes presses and draws nothing (a list with nothing in it, a
+    // click-catcher) is not seen, and Qt's own delivery decides what it takes.
+    const bool takes =
+        inside && !onTheWay && (item->flags().testFlag(QQuickItem::ItemHasContents) || item->acceptHoverEvents());
     // Children of z at or above 0 are drawn over the item, the others under it.
     const QList<QQuickItem *> children = d->paintOrderChildItems();
     bool itself = false;
@@ -135,14 +141,20 @@ Hit hitAt(const QQuickItem *item, const QPointF &scene, const QQuickItem *window
         const QQuickItem *child = children.at(i);
         if (!itself && child->z() < 0) {
             itself = true;
-            if (takes)
+            if (takes) {
+                *by = item;
                 return Hit::Covered;
+            }
         }
-        const Hit hit = hitAt(child, scene, window, budget);
+        const Hit hit = hitAt(child, scene, window, budget, by);
         if (hit != Hit::Nothing)
             return hit;
     }
-    return !itself && takes ? Hit::Covered : Hit::Nothing;
+    if (!itself && takes) {
+        *by = item;
+        return Hit::Covered;
+    }
+    return Hit::Nothing;
 }
 
 // Whether the person sees anything of the shell's, rather than the client's window, at
@@ -153,7 +165,11 @@ bool coveredByShell(const QQuickItem *item, const QPointF &scene)
     if (!item || !item->window())
         return true;
     int budget = kMostItemsLookedAt;
-    return hitAt(item->window()->contentItem(), scene, windowItemOf(item), &budget) != Hit::Window;
+    const QQuickItem *by = nullptr;
+    const Hit hit = hitAt(item->window()->contentItem(), scene, windowItemOf(item), &budget, &by);
+    if (hit != Hit::Window)
+        qCDebug(lcPointerCapture) << "covered at" << scene << "by" << by << (by ? by->parentItem() : nullptr);
+    return hit != Hit::Window;
 }
 
 QPoint pixelAt(const QPointF &position) { return QPoint(int(std::floor(position.x())), int(std::floor(position.y()))); }

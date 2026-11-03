@@ -562,6 +562,9 @@ private:
         return run(u"{\"scroll\":{\"at\":[%1,%2],\"notches\":1}}"_s.arg(point.x()).arg(point.y()));
     }
     bool state(QJsonObject *out);
+    // The pointer on the game's window at `point`, with nothing of the shell's over it there:
+    // the simulated session posts banners of its own as time goes by.
+    bool uncoveredAt(Game *game, QPoint point);
     bool windowState(const QString &title, QJsonObject *out);
     bool settled(Game *game);
     void pump(int milliseconds);
@@ -738,6 +741,22 @@ bool TestPointerCapture::state(QJsonObject *out)
     file.close();
     file.remove();
     return true;
+}
+
+bool TestPointerCapture::uncoveredAt(Game *game, QPoint point)
+{
+    QElapsedTimer clock;
+    clock.start();
+    for (int i = 0; clock.elapsed() < 9000; i = (i + 1) % 2) {
+        const qsizetype heard = game->client->seen.motions.size();
+        if (!moveTo(point + QPoint(i, i)) || !game->client->roundtrip())
+            return false;
+        if (game->client->seen.motions.size() > heard && moveTo(point) && game->client->roundtrip())
+            return true;
+        pump(250);
+    }
+    m_problem = u"something stayed over %1"_s.arg(game->title);
+    return false;
 }
 
 bool TestPointerCapture::windowState(const QString &title, QJsonObject *out)
@@ -1569,7 +1588,7 @@ void TestPointerCapture::aNotificationUnderAHeldPointerChangesNothing()
     QVERIFY(game->area.contains(corner));
     client.listenToMotion();
     QVERIFY(client.roundtrip());
-    DO(settleOn(corner));
+    DO(uncoveredAt(game.get(), corner));
     Capture *lock = client.lock(game->window->surface);
     DO(click(corner));
     QVERIFY(client.roundtrip());
@@ -1605,7 +1624,7 @@ void TestPointerCapture::aNotificationUnderAHeldPointerChangesNothing()
 void TestPointerCapture::theShellOverAWindowKeepsThePointerFromIt()
 {
     // A window as wide as there is, under where notifications and the volume come up.
-    std::unique_ptr<Game> game = open(u"Overlaid"_s, QSize(1500, 800));
+    std::unique_ptr<Game> game = open(u"Overlaid"_s, QSize(1500, 840));
     DO(game);
     Client &client = *game->client;
     client.listenToMotion();
@@ -1616,7 +1635,10 @@ void TestPointerCapture::theShellOverAWindowKeepsThePointerFromIt()
     // there, not even the motion that took the pointer onto it.
     const QPoint hud(kOutput.width() / 2, kOutput.height() - 112 - 25);
     const QPoint offHud = hud - QPoint(0, 200);
-    QVERIFY(game->area.contains(hud));
+    QVERIFY2(
+        game->area.contains(hud),
+        qPrintable(
+            u"%1,%2 %3x%4"_s.arg(game->area.x()).arg(game->area.y()).arg(game->area.width()).arg(game->area.height())));
     DO(settleOn(offHud));
     DO(key(u"Volume Up"_s));
     Seen said = client.seen;
