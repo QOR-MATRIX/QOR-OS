@@ -191,6 +191,7 @@ scale.
 | `{"key": "Escape"}`, `{"key": "Ctrl+Alt+Right"}` | Key press and release. Modifier keys go down first and up last, as on a keyboard, which Prism needs. Wayland clients receive evdev scan codes |
 | `{"keyRepeat": "a"}` | What a key held down sends after its first press |
 | `{"hostFocus": false}` | Nested, what going to another of the host's windows sends; `true` to come back |
+| `{"hostPointer": "left"}` | Nested, the host's pointer leaving Prism's window; `[x, y]` for it coming back in there |
 | `{"follow": folder}` | Steps handed over one at a time, for a test that decides what comes next from what a client saw: `N.json` in the folder, counting from 0, each answered by `N.done` once it has run, until one says `{"stop": true}` |
 | `{"gamepad": {"connect": family \| "tap" \| "press" \| "release": button \| "stick": [x, y], "ms": n \| "disconnect": true}}` | A virtual game controller ([CONTROLLERS.md](CONTROLLERS.md)) |
 | `{"call": "setSurface", "args": [...]}` | Call a `Desktop` method (`launch`, `setSurface`, `switchSpace`, ...) |

@@ -2,13 +2,16 @@
 #include "pointercapture.h"
 
 #include <QtCore/QLoggingCategory>
+#include <QtCore/QSet>
 #include <QtCore/QVarLengthArray>
 #include <QtGui/QGuiApplication>
 #include <QtGui/QMouseEvent>
 #include <QtGui/QWheelEvent>
 #include <QtGui/QWindow>
+#include <QtQuick/QQuickItem>
 #include <QtQuick/QQuickWindow>
 #include <QtQuick/private/qquickdeliveryagent_p_p.h>
+#include <QtQuick/private/qquickitem_p.h>
 #include <QtQuick/private/qquickwindow_p.h>
 #include <QtWaylandCompositor/QWaylandClient>
 #include <QtWaylandCompositor/QWaylandDestroyListener>
@@ -24,6 +27,7 @@
 #include <algorithm>
 #include <cmath>
 #include <limits>
+#include <utility>
 
 Q_LOGGING_CATEGORY(lcPointerCapture, "qor.prism.pointercapture")
 
@@ -40,8 +44,12 @@ constexpr qsizetype kMostObjectsPerClient = 32;
 // A region is walked on every motion of a confined pointer. One this broken up has
 // no honest use, and counts as empty.
 constexpr int kMostRegionRects = 1024;
-// How far down a window's subsurfaces are looked through.
+// How many of a window's subsurfaces are looked through, all told: a client may make
+// as many as it likes, and this is walked on every motion.
 constexpr qsizetype kMostSubsurfaces = 256;
+// How many of the shell's items are looked through to see what lies over a window.
+// Far more than the shell ever shows; past it, the window counts as covered.
+constexpr int kMostItemsLookedAt = 4096;
 // wl_fixed_t's smallest step, the furthest short of a rectangle's edge a position gets.
 constexpr double kFixedStep = 1.0 / 256.0;
 
@@ -49,7 +57,9 @@ constexpr double kFixedStep = 1.0 / 256.0;
 //
 // Walked from the root because Qt keeps a surface's children by QPointer, while a
 // subsurface's link to its parent dangles once a client destroys the parent first.
-// Bounded, because the tree is the client's to make, cycles included.
+// Bounded, because the tree is the client's to make, cycles and fan-outs of thousands
+// included: no more than kMostSubsurfaces children are looked at in all, and a surface
+// past them is not counted as the window's.
 bool inWindow(QWaylandSurface *root, QWaylandSurface *surface)
 {
     if (!root || !surface)
@@ -57,16 +67,93 @@ bool inWindow(QWaylandSurface *root, QWaylandSurface *surface)
     if (root == surface)
         return true;
     QVarLengthArray<QWaylandSurface *, 16> pending { root };
-    for (qsizetype next = 0; next < pending.size() && pending.size() < kMostSubsurfaces; ++next) {
+    QSet<const QWaylandSurface *> seen { root };
+    qsizetype lookedAt = 0;
+    for (qsizetype next = 0; next < pending.size(); ++next) {
         const auto &children = QWaylandSurfacePrivate::get(pending[next])->subsurfaceChildren;
         for (const QPointer<QWaylandSurface> &child : children) {
+            if (++lookedAt > kMostSubsurfaces)
+                return false;
             if (child == surface)
                 return true;
-            if (child && !pending.contains(child.data()))
+            if (child && !seen.contains(child.data())) {
+                seen.insert(child.data());
                 pending.append(child.data());
+            }
         }
     }
     return false;
+}
+
+// Whether an item is one of the shell's windows: AppWindow, the only item with both of
+// these (Qt's ShellSurfaceItem has a shellSurface too).
+bool isShellWindow(const QQuickItem *item)
+{
+    const QMetaObject *type = item->metaObject();
+    return type->indexOfProperty("shellSurface") >= 0 && type->indexOfProperty("isClient") >= 0;
+}
+
+// The shell's window an item of a client's is drawn in, or the item itself.
+const QQuickItem *windowItemOf(const QQuickItem *item)
+{
+    for (const QQuickItem *at = item; at; at = at->parentItem())
+        if (isShellWindow(at))
+            return at;
+    return item;
+}
+
+enum class Hit { Nothing, Window, Covered };
+
+// What a person sees at `scene` within `item`, from the top down: `window`, something of
+// the shell's over it, or nothing. Something is an item that draws or takes the pointer,
+// visible, enabled and not see-through, whose shape holds the point. Another of the
+// shell's windows is all of its rectangle, and nothing beyond it. Items that only hold
+// others are looked through, as are disabled ones: the screen's own filters (night light,
+// brightness) are, and they lie over everything.
+Hit hitAt(const QQuickItem *item, const QPointF &scene, const QQuickItem *window, int *budget)
+{
+    if (item == window)
+        return Hit::Window;
+    if (--*budget < 0)
+        return Hit::Covered;
+    const QQuickItemPrivate *d = QQuickItemPrivate::get(item);
+    const bool onTheWay = item->isAncestorOf(window);
+    if (!item->isVisible() || d->culled || item->opacity() <= 0.0 || (!onTheWay && !item->isEnabled()))
+        return Hit::Nothing;
+    const bool inside = item->contains(item->mapFromScene(scene));
+    if (!onTheWay && isShellWindow(item))
+        return inside ? Hit::Covered : Hit::Nothing;
+    if (item->clip() && !inside)
+        return Hit::Nothing;
+    const bool takes = inside && !onTheWay
+                       && (item->flags().testFlag(QQuickItem::ItemHasContents) || item->acceptHoverEvents()
+                           || item->acceptedMouseButtons() != Qt::NoButton);
+    // Children of z at or above 0 are drawn over the item, the others under it.
+    const QList<QQuickItem *> children = d->paintOrderChildItems();
+    bool itself = false;
+    for (qsizetype i = children.size() - 1; i >= 0; --i) {
+        const QQuickItem *child = children.at(i);
+        if (!itself && child->z() < 0) {
+            itself = true;
+            if (takes)
+                return Hit::Covered;
+        }
+        const Hit hit = hitAt(child, scene, window, budget);
+        if (hit != Hit::Nothing)
+            return hit;
+    }
+    return !itself && takes ? Hit::Covered : Hit::Nothing;
+}
+
+// Whether the person sees anything of the shell's, rather than the client's window, at
+// `scene` on the client's `item`: a notification, a toast, the volume, a controller's
+// prompt or the Rail lying over it. Inside the window Qt's own hover decides.
+bool coveredByShell(const QQuickItem *item, const QPointF &scene)
+{
+    if (!item || !item->window())
+        return true;
+    int budget = kMostItemsLookedAt;
+    return hitAt(item->window()->contentItem(), scene, windowItemOf(item), &budget) != Hit::Window;
 }
 
 QPoint pixelAt(const QPointF &position) { return QPoint(int(std::floor(position.x())), int(std::floor(position.y()))); }
@@ -163,9 +250,14 @@ public:
     void sendMouseMoveEvent(QWaylandView *view, const QPointF &localPos, const QPointF &outputSpacePos) override
     {
         const std::optional<QPointF> allowed =
-            m_capture ? m_capture->allowedPosition(view, localPos) : std::optional(localPos);
-        if (!allowed)
+            m_capture ? m_capture->allowedPosition(view, localPos, outputSpacePos) : std::optional(localPos);
+        if (!allowed) {
+            // Over something of the shell's: as far as the client may know, the pointer
+            // has left it. A held one stays where it is, and says nothing.
+            if (m_capture && !m_capture->capturedBy() && view && mouseFocus() == view)
+                seat()->setMouseFocus(nullptr);
             return;
+        }
         QWaylandPointer::sendMouseMoveEvent(view, *allowed, outputSpacePos);
         if (m_capture)
             m_capture->pointerMoved();
@@ -177,7 +269,7 @@ public:
     {
         const uint serial = QWaylandPointer::sendMousePressEvent(button);
         if (m_capture)
-            m_capture->personActed(mouseFocus() ? mouseFocus()->surface() : nullptr);
+            m_capture->personActed(mouseFocus() ? mouseFocus()->surface() : nullptr, true);
         return serial;
     }
 
@@ -196,13 +288,16 @@ public:
     void sendKeyPressEvent(uint code) override
     {
         QWaylandKeyboard::sendKeyPressEvent(code);
-        if (m_capture && !isModifier(code))
-            m_capture->personActed(focus());
+        // With Super held a key is on its way to the shell, or to a host's shortcut: the
+        // way out pressed again, say, which must not put the person back in.
+        if (m_capture && !isModifier(code) && !QGuiApplication::keyboardModifiers().testFlag(Qt::MetaModifier))
+            m_capture->personActed(focus(), false);
     }
 
 private:
     // A modifier alone is on its way to something else, a shortcut of the shell's most
-    // likely. Codes are evdev's, plus 8.
+    // likely, and a lock key or Compose changes what the next key means. Codes are
+    // evdev's, plus 8.
     static bool isModifier(uint code)
     {
         switch (code) {
@@ -210,10 +305,14 @@ private:
         case 42 + 8:  // left shift
         case 54 + 8:  // right shift
         case 56 + 8:  // left alt
+        case 58 + 8:  // caps lock
+        case 69 + 8:  // num lock
+        case 70 + 8:  // scroll lock
         case 97 + 8:  // right ctrl
         case 100 + 8: // right alt
         case 125 + 8: // left meta
         case 126 + 8: // right meta
+        case 127 + 8: // compose
             return true;
         default: return false;
         }
@@ -274,9 +373,13 @@ public:
     void ended()
     {
         sendEnded();
+        m_hasEnded = true;
         if (m_oneshot)
             makeInert();
     }
+
+    // It has held the pointer before, and let go.
+    bool hasEnded() const { return m_hasEnded; }
 
     void makeInert()
     {
@@ -347,6 +450,7 @@ private:
     bool m_regionPending = false;
     bool m_oneshot;
     bool m_inert = false;
+    bool m_hasEnded = false;
 };
 
 class LockedPointer final : public PointerConstraint, public QtWaylandServer::zwp_locked_pointer_v1
@@ -451,12 +555,20 @@ PointerCapture::PointerCapture(QWaylandCompositor *compositor)
     connect(compositor, &QWaylandCompositor::outputAdded, this, [this](QWaylandOutput *output) {
         if (m_listening && output->window())
             listenTo(output->window(), true);
+        if (m_active)
+            holdSceneHoverOn(qobject_cast<QQuickWindow *>(output->window()), true);
     });
-    // Nested, the host's focus going elsewhere: the person has left, keys and all.
-    connect(qApp, &QGuiApplication::applicationStateChanged, this, [this](Qt::ApplicationState state) {
-        if (state != Qt::ApplicationActive)
-            release();
-    });
+    connect(qApp, &QGuiApplication::applicationStateChanged, this, &PointerCapture::hostFocusChanged);
+}
+
+// Nested, the host's focus going elsewhere: the person has left, keys and all, and what
+// they did before they left stands for nothing.
+void PointerCapture::hostFocusChanged(Qt::ApplicationState state)
+{
+    if (state == Qt::ApplicationActive)
+        return;
+    forgetAction();
+    release();
 }
 
 PointerCapture::~PointerCapture() = default;
@@ -500,19 +612,28 @@ void PointerCapture::setWithheld(bool withheld)
     update();
 }
 
-void PointerCapture::personActed(QWaylandSurface *surface)
+void PointerCapture::personActed(QWaylandSurface *surface, bool pressed)
 {
     m_actedOn = surface;
+    m_actedByPress = pressed;
     m_actedAt.start();
     update();
 }
 
-std::optional<QPointF> PointerCapture::allowedPosition(QWaylandView *view, const QPointF &position) const
+std::optional<QPointF> PointerCapture::allowedPosition(QWaylandView *view, const QPointF &position,
+                                                       const QPointF &scenePosition) const
 {
     if (m_withheld)
         return std::nullopt;
-    if (!m_active)
+    if (!m_active) {
+        // A button pressed on the client keeps the pointer its own until it is let go.
+        if (m_seat && view && m_seat->mouseFocus() == view && m_seat->pointer()->isButtonPressed())
+            return position;
+        const auto *item = view ? qobject_cast<QWaylandQuickItem *>(view->renderObject()) : nullptr;
+        if (coveredByShell(item, scenePosition))
+            return std::nullopt;
         return position;
+    }
     // Locked: no motion. Confined: only on that surface, and never past its region.
     if (m_active->isLock() || !view || view->surface() != m_active->surface())
         return std::nullopt;
@@ -551,8 +672,8 @@ void PointerCapture::forget(PointerConstraint *constraint)
 {
     const bool wasActive = m_active == constraint;
     if (wasActive) {
-        stopHolding();
         forgetAction();
+        stopHolding();
     }
     m_constraints.removeOne(constraint);
     updateListening();
@@ -592,13 +713,17 @@ bool PointerCapture::mayHold(const PointerConstraint *constraint) const
 
 bool PointerCapture::mayStart(const PointerConstraint *constraint) const
 {
-    if (!mayHold(constraint) || !constraint->surface()->hasContent() || !inWindow(m_mayCapture.data(), m_actedOn.data())
+    if (QGuiApplication::applicationState() != Qt::ApplicationActive || !mayHold(constraint)
+        || !constraint->surface()->hasContent() || !inWindow(m_mayCapture.data(), m_actedOn.data())
         || m_actedAt.hasExpired(kActionFreshMs))
         return false;
-    // The pointer must be within its region, which only says anything of its own
-    // surface: over another of the window's, only a lock with no region can start.
+    // Coming back, only for a pointer button pressed on it.
+    if (constraint->hasEnded() && !m_actedByPress)
+        return false;
+    // The protocol promises the client that the surface it constrains has the pointer's
+    // focus when it starts, and the pointer must be within its region there.
     if (m_seat->mouseFocus()->surface() != constraint->surface())
-        return constraint->isLock() && !constraint->hasRegion();
+        return false;
     return constraint->effectiveRegion().contains(pixelAt(m_seat->pointer()->currentLocalPosition()));
 }
 
@@ -613,7 +738,8 @@ bool PointerCapture::pointerStaysOnSurface(const QWindow *window, const QPointF 
         || !inWindow(m_mayCapture.data(), m_seat->keyboardFocus()))
         return false;
     const auto *item = qobject_cast<QWaylandQuickItem *>(under->renderObject());
-    return item && item->window() == window && item->inputRegionContains(item->mapFromScene(scenePosition));
+    return item && item->window() == window && item->inputRegionContains(item->mapFromScene(scenePosition))
+           && !coveredByShell(item, scenePosition);
 }
 
 void PointerCapture::update()
@@ -653,9 +779,10 @@ void PointerCapture::end(PointerConstraint *constraint)
                             std::clamp(constraint->cursorHint()->y(), 0.0, double(std::max(size.height(), 0))));
         m_source->warp(item->window(), item->mapToScene(item->mapFromSurface(local)));
     }
-    stopHolding();
-    // It comes back only after a new action, on any lifetime.
+    // It comes back only after a new action, on any lifetime. Forgotten first: letting go
+    // tells Qt's scene, which may ask again at once.
     forgetAction();
+    stopHolding();
     constraint->ended();
     qCDebug(lcPointerCapture, "let go");
     Q_EMIT capturedByChanged();
@@ -669,14 +796,25 @@ void PointerCapture::end(PointerConstraint *constraint)
 void PointerCapture::holdSceneHover(bool hold)
 {
     const QList<QWaylandOutput *> outputs = m_compositor->outputs();
-    for (QWaylandOutput *output : outputs) {
-        auto *window = qobject_cast<QQuickWindow *>(output->window());
-        if (!window)
-            continue;
-        QQuickDeliveryAgentPrivate *agent = QQuickWindowPrivate::get(window)->deliveryAgentPrivate();
-        if (hold && agent->frameSynchronousHoverInterval >= 0)
-            m_sceneHoverInterval = agent->frameSynchronousHoverInterval;
-        agent->frameSynchronousHoverInterval = hold ? -1 : m_sceneHoverInterval;
+    for (QWaylandOutput *output : outputs)
+        holdSceneHoverOn(qobject_cast<QQuickWindow *>(output->window()), hold);
+    if (!hold)
+        m_sceneHoverIntervals.clear();
+}
+
+// Each window's own interval comes back as it was, whatever it was: a negative one set
+// by QT_QUICK_FRAME_SYNCHRONOUS_HOVER_INTERVAL stays negative.
+void PointerCapture::holdSceneHoverOn(QQuickWindow *window, bool hold)
+{
+    if (!window)
+        return;
+    QQuickDeliveryAgentPrivate *agent = QQuickWindowPrivate::get(window)->deliveryAgentPrivate();
+    if (hold) {
+        if (!m_sceneHoverIntervals.contains(window))
+            m_sceneHoverIntervals.insert(window, agent->frameSynchronousHoverInterval);
+        agent->frameSynchronousHoverInterval = -1;
+    } else if (const auto held = m_sceneHoverIntervals.constFind(window); held != m_sceneHoverIntervals.cend()) {
+        agent->frameSynchronousHoverInterval = *held;
     }
 }
 
@@ -693,9 +831,24 @@ void PointerCapture::stopHolding()
     }
     m_pressedDuring = {};
     m_pressedBefore = {};
+    // The host's pointer went while held, and Qt's scene still thinks it is there: it is
+    // told now, and the client has the pointer's focus no more.
+    const QList<QPointer<QWindow>> left = std::exchange(m_leftWhileHeld, {});
+    if (!left.isEmpty() && m_seat)
+        m_seat->setMouseFocus(nullptr);
+    for (const QPointer<QWindow> &window : left) {
+        if (window) {
+            QEvent leave(QEvent::Leave);
+            QCoreApplication::sendEvent(window.data(), &leave);
+        }
+    }
 }
 
-void PointerCapture::forgetAction() { m_actedOn = nullptr; }
+void PointerCapture::forgetAction()
+{
+    m_actedOn = nullptr;
+    m_actedByPress = false;
+}
 
 void PointerCapture::listenTo(QWindow *window, bool listen)
 {
@@ -748,8 +901,11 @@ bool PointerCapture::eventFilter(QObject *watched, QEvent *event)
 bool PointerCapture::filterWhileHeld(QWindow *window, QEvent *event)
 {
     switch (event->type()) {
-    case QEvent::Enter:
+    case QEvent::Enter: m_leftWhileHeld.removeAll(window); return true;
     case QEvent::Leave:
+        if (!m_leftWhileHeld.contains(window))
+            m_leftWhileHeld.append(window);
+        return true;
     case QEvent::MouseButtonDblClick: return true; // Its press has gone to the client already.
     case QEvent::MouseMove:
         if (!m_active->isLock() && m_seat && m_seat->mouseFocus()) {

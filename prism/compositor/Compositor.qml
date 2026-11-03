@@ -35,9 +35,11 @@ PrismCompositor {
                 && window !== null && window.focused && !window.minimized && !window.closing
                 ? window.shellSurface?.surface ?? null : null;
     }
-    // Locked, no client hears the pointer, from the moment it locks: its window is still
-    // there for a moment, fading out.
-    pointerWithheld: desktop.locked
+    // No client hears the pointer while the shell is in front: locked, from the moment it
+    // locks (its window is still there for a moment, fading out), or with Home, Beam,
+    // Overview, Control Center or the media popover open, or the widgets being edited. A
+    // client learns nothing of what a person points at in the trusted shell.
+    pointerWithheld: desktop.locked || desktop.surface !== "" || desktop.editingWidgets
 
     property var options: ({})
     // [{ width, height, screen?, fullScreen? }]
@@ -214,6 +216,11 @@ PrismCompositor {
                 x: -content.geometry.x
                 y: -content.geometry.y
                 onSurfaceDestroyed: if (content.window) content.window.manager.close(content.window, true)
+                // The surface takes the hover itself, so the window's frame never hears it
+                // here: told, its controls light up over the content too.
+                HoverHandler {
+                    onHoveredChanged: if (content.window) content.window.contentPointerOver = hovered
+                }
                 // Prism, not Qt's built-in integration, handles move, resize,
                 // maximise and fullscreen requests.
                 onShellSurfaceChanged: WindowManagement.takeOver(surfaceItem)

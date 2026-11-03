@@ -2,6 +2,7 @@
 #pragma once
 
 #include <QtCore/QElapsedTimer>
+#include <QtCore/QHash>
 #include <QtCore/QList>
 #include <QtCore/QObject>
 #include <QtCore/QPointF>
@@ -24,6 +25,7 @@ class QWaylandKeyboard;
 class QWaylandPointer;
 class QWaylandSeat;
 class QWaylandView;
+class QQuickWindow;
 class QWindow;
 
 // Pointer lock, confinement and relative motion: what lets a first-person game
@@ -31,19 +33,29 @@ class QWindow;
 // without. Everything a client sends here is hostile (QOR-0018).
 //
 // Who may capture the pointer:
-//   - only the active window, with nothing of the shell over it, and only while
-//     it has the keyboard and the pointer is over it (`mayHold`);
+//   - only the active window, with no shell surface open, and only while it has the
+//     keyboard and the pointer is on the very surface that asks (`mayHold`,
+//     `mayStart`), and Prism has the host's focus;
 //   - only after a person's action on it. That is a pointer button pressed on the
 //     surface or a key other than a modifier reaching it, in the last five seconds,
 //     since it last lost the pointer. Those are what Qt Wayland Compositor delivers
 //     to a client from the output windows' input; no client has a way to send input.
-//     A held key's repeats, and the wheel, are not actions.
-//   - A capture that ends comes back only after a new action, whatever its lifetime.
+//     A held key's repeats, the wheel, and a key pressed with Super held are not
+//     actions.
+//   - A persistent capture that ends comes back only after a new press of a pointer
+//     button on it, never after a key, as mutter does: the person who just let go
+//     with Super+Esc may press Esc again, or anything else, and stay out.
 //
 // What ends a capture: another surface taking the keyboard or the pointer, the
 // lock screen, any shell surface opening, Prism losing the host's focus, and a
-// shortcut no client can intercept (Desktop's "Meta+Escape": Qt's shortcut map
-// takes it before any item, as it does all of Prism's own).
+// shortcut no client can intercept (Desktop's Super+Esc, whatever else is held:
+// Qt's shortcut map takes it before any item, as it does all of Prism's own).
+//
+// Who hears the pointer at all, captured or not: no client while a shell surface is
+// open or the screen is locked (`setWithheld`), and no client while the pointer is
+// over anything of the shell's lying over its window, a notification or a toast say
+// (`coveredByShell`). A button pressed on a client keeps it its own until let go, as
+// on any Wayland compositor.
 //
 // While captured the output windows' pointer events go no further: nothing of the
 // shell is hovered or clicked by a pointer the person cannot see, buttons and the
@@ -113,9 +125,12 @@ public:
     void setWithheld(bool withheld);
 
     // ── The input path (CapturingPointer, WatchedKeyboard) ──────────────────
-    void personActed(QWaylandSurface *surface);
-    // What wl_pointer may say of a motion: where, or nothing at all.
-    std::optional<QPointF> allowedPosition(QWaylandView *view, const QPointF &position) const;
+    // `pressed`: a pointer button, not a key.
+    void personActed(QWaylandSurface *surface, bool pressed);
+    // What wl_pointer may say of a motion at `scenePosition` on `view`: where, or
+    // nothing at all.
+    std::optional<QPointF> allowedPosition(QWaylandView *view, const QPointF &position,
+                                           const QPointF &scenePosition) const;
     void pointerMoved();
 
     // ── The protocol objects ────────────────────────────────────────────────
@@ -145,7 +160,10 @@ private:
     void end(PointerConstraint *constraint);
     void stopHolding();
     void holdSceneHover(bool hold);
+    void holdSceneHoverOn(QQuickWindow *window, bool hold);
     void forgetAction();
+    // Whatever was left of a person's last action: Prism lost the host's focus.
+    void hostFocusChanged(Qt::ApplicationState state);
     void updateListening();
     void listenTo(QWindow *window, bool listen);
     void deliver(const PointerMotion &motion);
@@ -161,11 +179,15 @@ private:
     bool m_listening = false;
     bool m_pointerOnSurface = false;
     bool m_withheld = false;
-    int m_sceneHoverInterval = 0;
+    // Each output window's frame-synchronous hover interval, while held.
+    QHash<QQuickWindow *, int> m_sceneHoverIntervals;
+    // Output windows the host's pointer left while held: Qt's scene never heard it go.
+    QList<QPointer<QWindow>> m_leftWhileHeld;
 
-    // The last action of a person's, and on what.
+    // The last action of a person's, on what, and whether it was a pointer button.
     QPointer<QWaylandSurface> m_actedOn;
     QElapsedTimer m_actedAt;
+    bool m_actedByPress = false;
     // A button pressed before the capture began still has Qt's grab, so its release
     // goes through Qt; one pressed during it went straight to the client, and is
     // released to the client if the capture ends first.

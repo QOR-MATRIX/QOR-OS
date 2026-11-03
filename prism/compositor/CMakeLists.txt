@@ -3,12 +3,13 @@
 # WaylandCompositorPrivate: which configures a client has yet to acknowledge
 # (WindowManagement.configureAcked), and a surface's input region and subsurfaces
 # (pointercapture.cpp), which Qt keeps private. QuickPrivate: the same file stops Qt Quick's
-# frame-synchronous hover while a client has the pointer.
+# frame-synchronous hover while a client has the pointer, and reads the scene in the order
+# it is drawn to see what of the shell's lies over a window.
 find_package(Qt6 ${QOR_QT_MIN_VERSION} QUIET COMPONENTS
     WaylandCompositor WaylandCompositorPrivate WaylandScannerTools QuickPrivate)
-if(NOT Qt6WaylandCompositor_FOUND OR NOT Qt6WaylandCompositorPrivate_FOUND)
-    message(WARNING "Qt Wayland Compositor not found: skipping the prism compositor. "
-                    "Install the Qt Wayland Compositor module for your kit to build it.")
+if(NOT Qt6WaylandCompositor_FOUND OR NOT Qt6WaylandCompositorPrivate_FOUND OR NOT Qt6QuickPrivate_FOUND)
+    message(WARNING "Qt Wayland Compositor, or Qt Quick's private headers, not found: skipping the prism "
+                    "compositor. Install the Qt Wayland Compositor module for your kit to build it.")
     return()
 endif()
 

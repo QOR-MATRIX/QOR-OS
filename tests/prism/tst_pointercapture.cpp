@@ -49,6 +49,8 @@ constexpr QSize kOutput(1600, 1000);
 constexpr int kSeatVersion = 3; // wl_pointer.release, and no frame events to wait for.
 // Past pointercapture.cpp's limit on what a client may keep, whatever it is exactly.
 constexpr int kManyObjects = 64;
+// A window's subsurfaces, side by side: far more than pointercapture.cpp looks through.
+constexpr int kFanOut = 5000;
 
 struct Motion
 {
@@ -512,10 +514,13 @@ private Q_SLOTS:
     void theLockScreenEndsItAndItStaysEnded();
     void aShellSurfaceEndsIt();
     void theHostTakingTheFocusEndsIt();
+    void aPointerThatLeftWhileHeldIsGoneAfter();
+    void anActionBeforeTheShellCameUpIsForgotten();
     void theWayOutCannotBeHeardOrHeldOnTo();
     void guideOnAControllerIsAWayOutToo();
     void whileHeldNothingReachesTheShellOrSaysWhereThePointerIs();
     void aNotificationUnderAHeldPointerChangesNothing();
+    void theShellOverAWindowKeepsThePointerFromIt();
     void aButtonPressedBeforeTheLockIsReleasedToTheClient();
     void aButtonHeldWhenItEndsIsReleased();
     void aOneshotEndsForGoodAndAPersistentComesBack();
@@ -1018,6 +1023,11 @@ void TestPointerCapture::onlyTheSurfaceWithTheKeyboardMayLock()
     DO(moveTo(onBack + QPoint(10, 10)));
     QVERIFY(back->client->roundtrip());
     QCOMPARE(back->client->seen.pointerEnters, 1);
+    // Over its content its controls light up, though it is not in front.
+    DO(windowState(back->title, &window));
+    QVERIFY(window[u"pointerOver"_s].toBool());
+    DO(windowState(front->title, &window));
+    QVERIFY(!window[u"pointerOver"_s].toBool());
     QVERIFY(!back->client->seen.motions.isEmpty());
     QCOMPARE(backLock->started, 0);
     QVERIFY(back->client->seen.relative.isEmpty());
@@ -1274,6 +1284,110 @@ void TestPointerCapture::theHostTakingTheFocusEndsIt()
     DO(click(game->centre()));
     QVERIFY(client.roundtrip());
     QCOMPARE(lock->started, 2);
+    lock->destroy();
+    QVERIFY(client.roundtrip());
+
+    // Away, nothing starts, whatever arrives.
+    DO(run(uR"({"hostFocus":false})"_s));
+    Capture *away = client.lock(game->window->surface);
+    QVERIFY(client.roundtrip());
+    DO(click(game->centre()));
+    QVERIFY(client.roundtrip());
+    QCOMPARE(away->started, 0);
+    away->destroy();
+    QVERIFY(client.roundtrip());
+    DO(run(uR"({"hostFocus":true})"_s));
+
+    // What the person did before they went stands for nothing when they come back.
+    DO(click(game->centre()));
+    DO(run(uR"({"hostFocus":false})"_s));
+    DO(run(uR"({"hostFocus":true})"_s));
+    Capture *back = client.lock(game->window->surface);
+    QVERIFY(client.roundtrip());
+    DO(moveTo(game->centre() + QPoint(2, 2)));
+    QVERIFY(client.roundtrip());
+    QCOMPARE(back->started, 0);
+    DO(click(game->centre()));
+    QVERIFY(client.roundtrip());
+    QCOMPARE(back->started, 1);
+}
+
+void TestPointerCapture::aPointerThatLeftWhileHeldIsGoneAfter()
+{
+    // Nested, the host's pointer can leave Prism's window while a client holds it.
+    std::unique_ptr<Game> game = open(u"Left"_s);
+    DO(game);
+    Client &client = *game->client;
+    Capture *lock = lockedBy(game.get());
+    DO(lock);
+    const Seen said = client.seen;
+    DO(run(uR"({"hostPointer":"left"})"_s));
+    QVERIFY(client.roundtrip());
+    // The capture goes on, and says nothing of it.
+    QCOMPARE(lock->ended, 0);
+    QCOMPARE(client.seen.pointerLeaves, said.pointerLeaves);
+
+    // Let go out there: the pointer is gone from the client, and it is told so.
+    DO(key(u"Meta+Esc"_s));
+    QVERIFY(client.roundtrip());
+    QCOMPARE(lock->ended, 1);
+    QVERIFY(client.seen.pointerLeaves > said.pointerLeaves);
+    // So a lock it asks for now waits for the pointer to come back, whatever key comes.
+    lock->destroy();
+    Capture *fresh = client.lock(game->window->surface);
+    QVERIFY(client.roundtrip());
+    DO(key(u"a"_s));
+    QVERIFY(client.roundtrip());
+    QVERIFY(client.seen.keysDown.contains(KEY_A));
+    QCOMPARE(fresh->started, 0);
+
+    // Back, and a click on it: it does.
+    DO(run(u"{\"hostPointer\":[%1,%2]}"_s.arg(game->centre().x()).arg(game->centre().y())));
+    DO(moveTo(game->centre() + QPoint(1, 1)));
+    DO(click(game->centre()));
+    QVERIFY(client.roundtrip());
+    QCOMPARE(fresh->started, 1);
+}
+
+void TestPointerCapture::anActionBeforeTheShellCameUpIsForgotten()
+{
+    // A click with nothing asked for yet, then the shell in front for a moment, all well
+    // within the time an action stands for: what the client asks for after waits.
+    std::unique_ptr<Game> game = open(u"Before"_s);
+    DO(game);
+    Client &client = *game->client;
+    const QPoint p = game->centre();
+
+    // Beam, opened and closed.
+    DO(click(p));
+    DO(key(u"Ctrl+Space"_s));
+    DO(key(u"Esc"_s));
+    DO(settled(game.get()));
+    Capture *lock = client.lock(game->window->surface);
+    QVERIFY(client.roundtrip());
+    DO(moveTo(p + QPoint(3, 3)));
+    QVERIFY(client.roundtrip());
+    QCOMPARE(lock->started, 0);
+    lock->destroy();
+    QVERIFY(client.roundtrip());
+
+    // A system gesture begun and given up: the keyboard never leaves the window.
+    DO(click(p));
+    DO(run(uR"({"gesture":{"begin":{"fingers":3}}})"_s));
+    DO(run(uR"({"gesture":{"move":[0,-30],"steps":3}})"_s));
+    DO(run(uR"({"gesture":{"end":true,"after":300}})"_s));
+    DO(settled(game.get()));
+    lock = client.lock(game->window->surface);
+    QVERIFY(client.roundtrip());
+    DO(moveTo(p + QPoint(5, 5)));
+    QVERIFY(client.roundtrip());
+    QCOMPARE(lock->started, 0);
+    QCOMPARE(client.seen.keyboardLeaves, 0);
+
+    // A new action does it.
+    DO(click(p));
+    QVERIFY(client.roundtrip());
+    QCOMPARE(lock->started, 1);
 }
 
 void TestPointerCapture::theWayOutCannotBeHeardOrHeldOnTo()
@@ -1303,17 +1417,33 @@ void TestPointerCapture::theWayOutCannotBeHeardOrHeldOnTo()
     QVERIFY(client.seen.motions.size() > motions);
     QCOMPARE(lock->started, 1);
 
-    // With nothing captured the same keys are the client's, as any others are. Esc is not
-    // taken from it for nothing, and that press is not on the way to anything of the
-    // shell's: it is a key reaching the surface, so a person acting on it.
+    // With nothing captured the same keys are the client's, as any others are: Esc is not
+    // taken from it for nothing. But a key pressed with Super held is no action, so the way
+    // out pressed twice, or bouncing, does not put the person back in.
     DO(key(u"Meta+Esc"_s));
     QVERIFY(client.roundtrip());
     QVERIFY(client.seen.keysDown.contains(KEY_ESC));
-    QCOMPARE(lock->started, 2);
-    // That started it again, and the way out still works.
-    DO(key(u"Meta+Esc"_s));
+    QCOMPARE(lock->started, 1);
+    // Nor does any other key: a persistent lock comes back only for a button pressed on it.
+    DO(key(u"a"_s));
     QVERIFY(client.roundtrip());
-    QCOMPARE(lock->ended, 2);
+    QVERIFY(client.seen.keysDown.contains(KEY_A));
+    QCOMPARE(lock->started, 1);
+    DO(click(game->centre()));
+    QVERIFY(client.roundtrip());
+    QCOMPARE(lock->started, 2);
+
+    // The way out works whatever else is held: Shift to sprint, Ctrl to crouch, or all of them.
+    int ended = 1;
+    for (const QString &held : { u"Shift+"_s, u"Ctrl+"_s, u"Alt+"_s, u"Ctrl+Alt+Shift+"_s }) {
+        DO(key(held + u"Meta+Esc"_s));
+        QVERIFY(client.roundtrip());
+        ++ended;
+        QVERIFY2(lock->ended == ended, qPrintable(held));
+        DO(click(game->centre()));
+        QVERIFY(client.roundtrip());
+        QVERIFY2(lock->started == ended + 1, qPrintable(held));
+    }
     QCOMPARE(client.seen.keysDown.count(KEY_ESC), 1);
 }
 
@@ -1416,7 +1546,9 @@ void TestPointerCapture::aNotificationUnderAHeldPointerChangesNothing()
     Client &client = *game->client;
     const QPoint corner(kOutput.width() - 180, 110);
     QVERIFY(game->area.contains(corner));
-    DO(moveTo(corner));
+    client.listenToMotion();
+    QVERIFY(client.roundtrip());
+    DO(settleOn(corner));
     Capture *lock = client.lock(game->window->surface);
     DO(click(corner));
     QVERIFY(client.roundtrip());
@@ -1429,6 +1561,122 @@ void TestPointerCapture::aNotificationUnderAHeldPointerChangesNothing()
     QCOMPARE(lock->ended, 0);
     QCOMPARE(client.seen.pointerLeaves, said.pointerLeaves);
     QCOMPARE(client.seen.motions.size(), said.motions.size());
+
+    // Held, a motion over the card is the client's: the person is playing.
+    DO(moveTo(corner + QPoint(6, 4)));
+    QVERIFY(client.roundtrip());
+    QCOMPARE(client.seen.heardSince(said.relative.size()), QPointF(6, 4));
+    QCOMPARE(client.seen.motions.size(), said.motions.size());
+
+    // Let go over the card: the client hears nothing more of the pointer there.
+    DO(key(u"Meta+Esc"_s));
+    QVERIFY(client.roundtrip());
+    QCOMPARE(lock->ended, 1);
+    const Seen out = client.seen;
+    DO(moveTo(corner + QPoint(12, 8)));
+    DO(moveTo(corner + QPoint(18, 12)));
+    QVERIFY(client.roundtrip());
+    QCOMPARE(client.seen.motions.size(), out.motions.size());
+    QCOMPARE(client.seen.relative.size(), out.relative.size());
+    QCOMPARE(client.seen.pointerEnters, out.pointerEnters);
+}
+
+void TestPointerCapture::theShellOverAWindowKeepsThePointerFromIt()
+{
+    // A window as wide as there is, under where notifications and the volume come up.
+    std::unique_ptr<Game> game = open(u"Overlaid"_s, QSize(1500, 800));
+    DO(game);
+    Client &client = *game->client;
+    client.listenToMotion();
+    QVERIFY(client.roundtrip());
+    const QPoint p = game->centre();
+
+    // The volume over it takes no pointer of its own: still the client hears nothing
+    // there, not even the motion that took the pointer onto it.
+    const QPoint hud(kOutput.width() / 2, kOutput.height() - 112 - 25);
+    const QPoint offHud = hud - QPoint(0, 200);
+    QVERIFY(game->area.contains(hud));
+    DO(settleOn(offHud));
+    DO(key(u"Volume Up"_s));
+    Seen said = client.seen;
+    DO(moveTo(hud));
+    DO(moveTo(hud + QPoint(10, 4)));
+    QVERIFY(client.roundtrip());
+    QCOMPARE(client.seen.motions.size(), said.motions.size());
+    QCOMPARE(client.seen.relative.size(), said.relative.size());
+    QVERIFY(client.seen.pointerLeaves > said.pointerLeaves);
+    // Off it, on the window again, the pointer is the client's.
+    DO(moveTo(offHud));
+    QVERIFY(client.roundtrip());
+    const qsizetype back = client.seen.relative.size();
+    DO(moveTo(offHud + QPoint(3, 2)));
+    QVERIFY(client.roundtrip());
+    QVERIFY(client.seen.motions.size() > said.motions.size());
+    QCOMPARE(client.seen.heardSince(back), QPointF(3, 2));
+
+    // A notification over it, the same.
+    const QPoint card(kOutput.width() - 180, 110);
+    const QPoint offCard(card.x(), game->area.bottom() - 260);
+    QVERIFY(game->area.contains(card));
+    DO(settleOn(offCard));
+    DO(call(u"runAction"_s, uR"(["notify.test",{}])"_s));
+    pump(800);
+    QVERIFY(client.roundtrip());
+    said = client.seen;
+    DO(moveTo(card));
+    DO(moveTo(card + QPoint(8, 6)));
+    QVERIFY(client.roundtrip());
+    QCOMPARE(client.seen.motions.size(), said.motions.size());
+    QCOMPARE(client.seen.relative.size(), said.relative.size());
+    QCOMPARE(client.seen.pointerEnters, said.pointerEnters);
+    DO(moveTo(offCard));
+    QVERIFY(client.roundtrip());
+    QVERIFY(client.seen.motions.size() > said.motions.size());
+
+    // Nothing a person does over Home or Beam reaches the client underneath, whether it held
+    // the pointer before or not: no enter, no position, no motion.
+    struct Way
+    {
+        QString name;
+        std::function<bool()> open;
+    };
+    const QList<Way> ways {
+        { u"Home"_s, [this] { return call(u"openHome"_s, uR"(["home"])"_s); } },
+        { u"Beam"_s, [this] { return key(u"Ctrl+Space"_s); } },
+    };
+    for (const bool captured : { false, true }) {
+        for (const Way &way : ways) {
+            const QByteArray name = (way.name + (captured ? u", captured"_s : QString())).toUtf8();
+            DO(settleOn(p));
+            Capture *lock = captured ? lockedBy(game.get()) : nullptr;
+            if (captured)
+                DO(lock);
+            const int leaves = client.seen.pointerLeaves;
+            DO(way.open());
+            QVERIFY(client.roundtrip());
+            QVERIFY2(!lock || lock->ended == 1, name.constData());
+            QVERIFY2(client.seen.pointerLeaves > leaves, name.constData());
+            said = client.seen;
+            for (int i = 1; i <= 4; ++i)
+                DO(moveTo(p + QPoint(i * 30, i * 20)));
+            QVERIFY(client.roundtrip());
+            QVERIFY2(client.seen.motions.size() == said.motions.size(), name.constData());
+            QVERIFY2(client.seen.pointerEnters == said.pointerEnters, name.constData());
+            QVERIFY2(client.seen.relative.size() == said.relative.size(), name.constData());
+            QVERIFY2(!lock || lock->started == 1, name.constData());
+            QJsonObject now;
+            DO(state(&now));
+            if (!now[u"surface"_s].toString().isEmpty())
+                DO(key(u"Esc"_s));
+            DO(settled(game.get()));
+            if (lock)
+                lock->destroy();
+            // Closed, the pointer is the client's again.
+            DO(moveTo(p + QPoint(3, 3)));
+            QVERIFY(client.roundtrip());
+            QVERIFY2(client.seen.motions.size() > said.motions.size(), name.constData());
+        }
+    }
 }
 
 void TestPointerCapture::aButtonPressedBeforeTheLockIsReleasedToTheClient()
@@ -1654,6 +1902,30 @@ void TestPointerCapture::badRegionsDoNoHarm()
         QCOMPARE(reset->started, 0);
         reset->destroy();
     }
+    // Two regions, each well within bounds, whose meeting is not: forty rows of input, and a
+    // lock on forty columns, meet in 1600 rectangles. That counts as empty too.
+    wl_region *rows = client.region({});
+    for (int i = 0; i < 40; ++i)
+        wl_region_add(rows, 0, i * 12, 640, 6);
+    wl_region *columns = client.region({});
+    for (int i = 0; i < 40; ++i)
+        wl_region_add(columns, i * 16, 0, 8, 480);
+    wl_surface_set_input_region(game->window->surface, rows);
+    Capture *grid = client.lock(game->window->surface, columns);
+    wl_surface_commit(game->window->surface);
+    QVERIFY(client.roundtrip());
+    pump(100);
+    const QPoint cell = game->at(16 * 20 + 2, 12 * 20 + 2);
+    DO(moveTo(cell));
+    DO(click(cell));
+    QVERIFY(client.roundtrip());
+    QCOMPARE(grid->started, 0);
+    grid->destroy();
+    wl_surface_set_input_region(game->window->surface, nullptr);
+    wl_surface_commit(game->window->surface);
+    QVERIFY(client.roundtrip());
+    pump(100);
+
     // A rectangle far larger than the surface is only as large as the surface, and a hint
     // nowhere near it is nothing to worry about.
     wl_region *huge = client.region({});
@@ -1910,9 +2182,14 @@ void TestPointerCapture::subsurfaces()
     QCOMPARE(lock->ended, 1);
     lock->destroy();
 
+    // On the window, with the pointer on the subsurface: the protocol promises the locked
+    // surface has the pointer's focus, so it waits for the pointer to be on it.
     Capture *onParent = client.lock(game->window->surface);
     QVERIFY(client.roundtrip());
     DO(click(onChild));
+    QVERIFY(client.roundtrip());
+    QCOMPARE(onParent->started, 0);
+    DO(click(game->at(40, 40)));
     QVERIFY(client.roundtrip());
     QCOMPARE(onParent->started, 1);
 }
@@ -1966,6 +2243,47 @@ void TestPointerCapture::aHostileSubsurfaceTreeDoesNoHarm()
     QVERIFY(client.roundtrip());
     cyclic.reset();
     DO(moveTo(game->centre() + QPoint(1, 1)));
+    QVERIFY(client.isAlive());
+
+    // Thousands side by side under the window, the pointer over it, the client listening, and
+    // locks waiting on the furthest: every motion looks through the tree, for each of them.
+    client.listenToMotion();
+    QVERIFY(client.roundtrip());
+    const auto tenMoves = [&](QPoint from) -> qint64 {
+        QElapsedTimer clock;
+        clock.start();
+        for (int i = 1; i <= 10; ++i) {
+            if (!moveTo(from + QPoint(i, i)))
+                return -1;
+        }
+        return clock.elapsed();
+    };
+    DO(settleOn(game->centre()));
+    const qint64 before = tenMoves(game->centre());
+    QVERIFY(before > 0);
+    QList<wl_surface *> wide;
+    for (int i = 0; i < kFanOut; ++i) {
+        wl_surface *child = client.keep(wl_compositor_create_surface(client.compositor));
+        client.keep(wl_subcompositor_get_subsurface(client.subcompositor, child, game->window->surface));
+        wide.append(child);
+        if (i % 1000 == 999)
+            QVERIFY(client.roundtrip());
+    }
+    wl_surface_commit(game->window->surface);
+    QList<Capture *> far;
+    for (int i = 0; i < 20; ++i)
+        far.append(client.lock(wide.at(kFanOut - 1 - i)));
+    QVERIFY(client.roundtrip());
+    DO(click(game->centre()));
+    pump(300);
+    QVERIFY(client.roundtrip());
+    const qint64 after = tenMoves(game->centre());
+    QVERIFY(after > 0);
+    qInfo("ten motions: %lld ms with the window alone, %lld ms with %d subsurfaces", before, after, kFanOut);
+    // A step of the script takes 100 ms; what Prism adds is small beside it.
+    QVERIFY2(after < before + 10 * 40, qPrintable(u"%1 ms, against %2"_s.arg(after).arg(before)));
+    for (const Capture *capture : std::as_const(far))
+        QCOMPARE(capture->started, 0);
     QVERIFY(client.isAlive());
 }
 

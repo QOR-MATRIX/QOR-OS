@@ -968,6 +968,22 @@ private:
                     focused ? m_window : nullptr, Qt::ActiveWindowFocusReason);
                 return 100;
             });
+        } else if (step.contains(u"hostPointer"_s)) {
+            // {"hostPointer": "left"} or {"hostPointer": [x, y]}: nested, the host's pointer
+            // leaving Prism's window, or coming back into it at that point.
+            const QJsonValue where = step[u"hostPointer"_s];
+            m_queue.push_back([this, where] {
+                if (where.isArray()) {
+                    const auto p = resolve(where);
+                    if (!p)
+                        return -1;
+                    QWindowSystemInterface::handleEnterEvent<QWindowSystemInterface::SynchronousDelivery>(
+                        m_window, *p, m_window->mapToGlobal(*p));
+                } else {
+                    QWindowSystemInterface::handleLeaveEvent<QWindowSystemInterface::SynchronousDelivery>(m_window);
+                }
+                return 100;
+            });
         } else if (step.contains(u"follow"_s)) {
             enqueueFollow(path(step[u"follow"_s].toString()), 0);
         } else if (step.contains(u"log"_s)) {
@@ -1052,6 +1068,8 @@ private:
             { u"decorated"_s, w->property("decorated").toBool() },
             { u"focused"_s, w->property("focused").toBool() },
             { u"demandsAttention"_s, w->property("demandsAttention").toBool() },
+            // The pointer is over it, its content included: its controls light up.
+            { u"pointerOver"_s, w->property("pointerOver").toBool() },
             { u"awaitingSize"_s, w->property("awaitingSize").toBool() },
             { u"maximized"_s, w->property("maximized").toBool() },
             { u"minimized"_s, w->property("minimized").toBool() },
