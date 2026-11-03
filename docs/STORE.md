@@ -88,7 +88,10 @@ folder: what is recorded is read again, and the plan is checked again against it
 is swapped in beside the old one, then `installed.json` is written. That last write is the moment it happens, and it is atomic.
 A failure before it puts everything back. So does a crash, the next time an engine starts. A crash after it finishes clearing
 up. Putting back or clearing up may itself be cut short and run again over the same journal, and comes to the same end: it
-decides from what is on disk, by whether the old version is still set aside, and never from an absence it made itself. On Linux
+decides from what is on disk, by whether the old version is still set aside, and never from an absence it made itself. A step of
+it that fails, as when a file being scanned cannot be deleted yet, stops it there: the journal stays, the old version stays set
+aside, and the next try starts again. With no record left to say whether a plan happened, what is on disk says: a plan whose every
+new version is in place and whole stands, and anything less goes back. On Linux
 and macOS each step is made durable before the next (`fsync` on the folders): what was staged before the journal says it is
 there, the journal before anything moves, the swap before the record. A removal goes the same way. The lock is never taken from
 a holder that is alive, however long it has held it; one whose holder has died is. An engine that goes away while installs are
@@ -284,7 +287,8 @@ picture is refused, and anything not on the list is too.
   and rich text can fetch a picture. `Qt::mightBeRichText` is asked whether a `Text` would go rich at all. Anywhere in the text, a
   tag is read as Qt's parser reads one, and is markup if Qt's own table of elements or a browser knows its name, and whatever its
   name if it carries a value, an `=` before the `>` that ends it: Qt applies `style` to a tag it does not know, and a browser runs
-  an event handler on any tag. What is left is what licences hold: plain words in angle brackets, as the GPL has them, an address
+  an event handler on any tag. Where a tag ends is read both ways: at any `>`, as a browser ends a tag whose name holds a quote,
+  and as Qt's parser reads it, where a quoted word, `>` and all, is one word. What is left is what licences hold: plain words in angle brackets, as the GPL has them, an address
   or a link. It is one pass over the text, whatever the text is, and cannot fail open, and the GPL, LGPL, MPL, Apache, MIT and BSD
   texts pass it. The page that shows it still sets `textFormat: Text.PlainText`: this is the second wall, not the first.
 
@@ -354,10 +358,12 @@ installed must also be the very package recorded as installed: an older copy, si
 intact. A crash during an install or a removal is put right the next time an engine starts, from the journal, unless another
 program holds the store's lock. A journal is believed only for names inside `items/` of exactly the shapes the engine writes: an
 id, `.staging-<hex>` and `<id>.old-<hex>`. Clearing up deletes nothing through a link: a link where a folder would be goes
-itself. What was left with no journal to say otherwise, by an older version of this code, is cleared too: an old version set
-aside goes back if nothing replaced it, and the rest of it goes. A record that cannot be read is set aside and not believed. Then,
-as when there is no record at all, what each installed folder's manifest claims stands in for it, so an id keeps its version,
-developer and kind against a catalogue that would move it back or hand it to someone else.
+itself, and it walks one folder at a time, however deep a tree it finds. What was left with no journal to say otherwise, by an
+older version of this code, is cleared too: an old version set aside goes back if nothing replaced it, and goes only once what
+stands in its place is whole, since it may be the only good copy. A record that cannot be read is set aside and not believed.
+Then, as when there is no record at all, what each installed folder's manifest claims stands in for it, so an id keeps its
+version, developer and kind against a catalogue that would move it back or hand it to someone else. Those entries are marked
+`"claimed": true` in `installed.json` until the item is installed again, since no signature was checked for them.
 
 ## Roadmap
 

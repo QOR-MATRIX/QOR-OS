@@ -56,6 +56,9 @@ public:
         QString developer;
         QString installedAt;
         QList<VersionRange> dependencies;
+        // Taken from the installed manifest's own word, unsigned, when the record was lost: kept as an id's pins, and
+        // marked as such in installed.json until the item is installed again.
+        bool claimed = false;
     };
 
     StoreEngine(const QString &dataDir, const QByteArray &storeKey, QObject *parent = nullptr);
@@ -192,10 +195,11 @@ private:
     void loadSequence();
 
     QMap<QString, InstalledVersion> installedVersions() const;
-    QMap<QString, Installed> readInstalled(QString *transaction = nullptr) const;
+    QMap<QString, Installed> readInstalled(QString *transaction = nullptr, bool *recordRead = nullptr) const;
     QMap<QString, Installed> installedFromFolders() const;
     bool writeJournal(const QString &transaction, const QList<Move> &moves) const;
     bool undoMoves(const QList<Move> &moves);
+    bool hasLanded(const Move &move) const;
     void removeJournal() const;
     bool recoverLocked();
     void recoverInterrupted();
