@@ -9,7 +9,7 @@ visual language is in [LUMEN.md](LUMEN.md).
 
 ### Lock screen (`LockScreen.qml`)
 
-- Shown at start (unless `--unlocked`) and on lock. Drawn above all windows,
+- Shown at start (unless `--unlocked`, which only a build with the simulator has) and on lock. Drawn above all windows,
   so clients can never cover it.
 - Shows the date (`title3`), a curve-rendered `hero` clock that updates every
   second while visible, the latest three notifications on glass, the user

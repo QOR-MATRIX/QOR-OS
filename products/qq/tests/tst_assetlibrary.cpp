@@ -1200,6 +1200,8 @@ private slots:
             QCOMPARE(pack.value(QStringLiteral("name")).toString(), QStringLiteral("Ember Climb's art"));
             QCOMPARE(pack.value(QStringLiteral("version")).toString(), QStringLiteral("1.0.0"));
             QCOMPARE(pack.value(QStringLiteral("licence")).toString(), QStringLiteral("Apache-2.0"));
+            // Where it came from, as the Store's signed listing says and its engine keeps it in installed.json.
+            QCOMPARE(pack.value(QStringLiteral("provenance")).toString(), QStringLiteral("From Demiurge, QOR-MATRIX/demiurge-chain, through the Store"));
             QVERIFY(s.call("useAssets", kDemoPack, QStringList()).toBool());
 
             // The lock is right: every file as the Store's manifest lists it, and the manifest's own digest.
@@ -1212,6 +1214,13 @@ private slots:
             }
             QCOMPARE(project.lockedPack(kDemoPack).value(QStringLiteral("provenance")).toObject().value(QStringLiteral("manifest")).toString(),
                      hex(readBytes(store.filePath(QStringLiteral("items/%1/manifest.json").arg(kDemoPack)))));
+            const QJsonObject provenance = project.lockedPack(kDemoPack).value(QStringLiteral("provenance")).toObject();
+            const QJsonObject record = QJsonDocument::fromJson(readBytes(store.filePath(QStringLiteral("installed.json")))).object()
+                                           .value(QStringLiteral("items")).toObject().value(kDemoPack).toObject();
+            QCOMPARE(record.value(QStringLiteral("provenanceFrom")).toString(), QStringLiteral("listing"));
+            for (const char *key : {"origin", "author", "source", "permission"})
+                QCOMPARE(provenance.value(QLatin1String(key)).toString(), record.value(QStringLiteral("provenance")).toObject().value(QLatin1String(key)).toString());
+            QCOMPARE(provenance.value(QStringLiteral("origin")).toString(), QStringLiteral("QOR-MATRIX/demiurge-chain"));
 
             // The project is edited with the copy, saved and built.
             QVERIFY(s.call("openScene", QStringLiteral("level")).toBool());

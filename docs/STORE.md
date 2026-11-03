@@ -460,6 +460,14 @@ Then, as when there is no record at all, what each installed folder's manifest c
 version, developer and kind against a catalogue that would move it back or hand it to someone else. Those entries are marked
 `"claimed": true` in `installed.json` until the item is installed again, since no signature was checked for them.
 
+**Where an installed item came from.** A format 2 listing's `provenance` (`origin`, `author`, `source`, `permission`) is kept in
+its `installed.json` entry at install and at each update, from the signed catalogue it was installed from, beside
+`"provenanceFrom": "listing"`: it is the catalogue's word, signed by the store's key, not the developer's. Each field is text of
+at most 8192 characters, as the catalogue caps it, kept as it is and shown as plain text. Read back, it is believed only so
+marked and so shaped. A record rebuilt from the folders has none, and says `"provenanceFrom": "none"`; a format 1 entry says
+nothing of it. An engine that does not know these fields reads the rest of the entry as before. QQ Studio's asset library reads
+it into a project's `assets.lock.json`.
+
 ## Roadmap
 
 **QOR OS 1.0 moves no money**

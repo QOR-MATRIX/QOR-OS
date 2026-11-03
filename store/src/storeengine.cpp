@@ -700,8 +700,11 @@ void StoreEngine::commitPlan(const PlanPtr &plan)
     const QString now = QDateTime::currentDateTimeUtc().toString(Qt::ISODate);
     for (const Step &step : std::as_const(plan->verified)) {
         const CatalogItem *item = m_catalog.item(step.id);
-        records.insert(step.id, { step.id, item->kind, item->name, item->version, item->developer, now,
-                                  item->dependencies, false });
+        Installed installed { step.id, item->kind,         item->name, item->version, item->developer,
+                              now,     item->dependencies, false,      std::nullopt };
+        if (item->format == 2)
+            installed.provenance = item->provenance;
+        records.insert(step.id, installed);
     }
     // This write is the moment it happens. A crash before it puts everything back, and one after it finishes the job.
     if (!saveInstalled(records, transaction))
@@ -1110,6 +1113,23 @@ void StoreEngine::recoverInterrupted()
 // What is installed, read from the folders themselves: each manifest's claims, unchecked. Only for when the record
 // cannot be read or is gone, so that an id still keeps its version, developer and kind against a catalogue that would
 // move it back or hand it to someone else. A same-user process could write a manifest here, as it could the record.
+// The provenance an entry of installed.json keeps, if it says it is a listing's and holds what a listing would: the
+// four fields, each text no longer than a catalogue's. Anything else is not believed, and the entry has none.
+static std::optional<Provenance> provenanceIn(const QJsonObject &entry)
+{
+    const QJsonObject provenance = entry.value(u"provenance"_s).toObject();
+    if (entry.value(u"provenanceFrom"_s).toString() != u"listing"_s || provenance.size() != 4)
+        return std::nullopt;
+    QStringList fields;
+    for (const QString &key : { u"origin"_s, u"author"_s, u"source"_s, u"permission"_s }) {
+        const QJsonValue value = provenance.value(key);
+        if (!value.isString() || value.toString().size() > kMaximumCatalogText)
+            return std::nullopt;
+        fields.append(value.toString());
+    }
+    return Provenance { fields.at(0), fields.at(1), fields.at(2), fields.at(3) };
+}
+
 QMap<QString, StoreEngine::Installed> StoreEngine::installedFromFolders() const
 {
     QMap<QString, Installed> records;
@@ -1121,7 +1141,7 @@ QMap<QString, StoreEngine::Installed> StoreEngine::installedFromFolders() const
             continue;
         records.insert(name, { name, manifest.kind, manifest.name, manifest.version, manifest.developer,
                                QFileInfo(folder.filePath(name)).lastModified(QTimeZone::UTC).toString(Qt::ISODate),
-                               manifest.dependencies, true });
+                               manifest.dependencies, true, std::nullopt });
     }
     return records;
 }
@@ -1162,7 +1182,8 @@ QMap<QString, StoreEngine::Installed> StoreEngine::readInstalled(QString *transa
                               entry.value(u"developer"_s).toString(),
                               entry.value(u"installedAt"_s).toString(),
                               {},
-                              entry.value(u"claimed"_s).toBool() };
+                              entry.value(u"claimed"_s).toBool(),
+                              provenanceIn(entry) };
         if (entry.contains(u"dependencies"_s)
             && !parseDependencies(entry.value(u"dependencies"_s), &installed.dependencies).isEmpty())
             continue;
@@ -1187,6 +1208,16 @@ bool StoreEngine::saveInstalled(const QMap<QString, Installed> &records, const Q
         // What a manifest said of itself when the record was lost, and no install has said since.
         if (installed.claimed)
             entry.insert(u"claimed"_s, true);
+        // The listing's word on where it came from. A rebuilt record says it has none; format 1 says nothing.
+        if (installed.provenance) {
+            entry.insert(u"provenance"_s, QJsonObject { { u"origin"_s, installed.provenance->origin },
+                                                        { u"author"_s, installed.provenance->author },
+                                                        { u"source"_s, installed.provenance->source },
+                                                        { u"permission"_s, installed.provenance->permission } });
+            entry.insert(u"provenanceFrom"_s, u"listing"_s);
+        } else if (installed.claimed) {
+            entry.insert(u"provenanceFrom"_s, u"none"_s);
+        }
         items.insert(installed.id, entry);
     }
     QSaveFile file(m_dataDir + u"/installed.json"_s);

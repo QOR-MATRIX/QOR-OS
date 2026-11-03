@@ -165,7 +165,9 @@ step failed, with the reason on stderr). Input enters through
 therefore takes the same path as a person's: shell handlers, controls, and
 under Prism on to Wayland clients. The runner is
 `prism/shell/shellscript.cpp`; scripts use logical coordinates at any display
-scale.
+scale. Both need a build with the simulator: a device's Prism has no
+`--script`, nor `--unlocked`, `--screenshot`, `--delay`, `--benchmark` or `--benchmark-out`, and refuses each as an
+unknown option ([SECURITY.md](../SECURITY.md)).
 
 ```json
 { "steps": [

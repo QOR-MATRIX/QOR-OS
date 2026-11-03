@@ -23,7 +23,7 @@ namespace qor::store {
 namespace {
 
 constexpr qsizetype kMaximumItems = 4096;
-constexpr qsizetype kMaximumText = 8192;
+constexpr qsizetype kMaximumText = kMaximumCatalogText;
 constexpr qsizetype kMaximumTags = 32;
 constexpr qsizetype kMaximumRanges = 32;
 constexpr qsizetype kMaximumPreviews = 8;
