@@ -48,5 +48,6 @@ Windows.
 
 ## Next
 
-The asset library's review and its fixes; a pack's provenance carried into what the Store installs; Prism's `--script` kept to
-test builds. After that, milestone 4's groundwork that needs no graphics card. Workers run two at a time.
+The asset library's review fixes (W10). Done today besides: a pack's provenance kept by the Store and recorded in a project's lock,
+and Prism's test-only options (`--script`, `--unlocked` and more) gone from a build without the simulator, as an image is; they had
+let a device's Prism start past its lock screen. After that, milestone 4's groundwork that needs no graphics card.
