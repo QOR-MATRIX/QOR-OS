@@ -30,11 +30,18 @@ option(QOR_WARNINGS_AS_ERRORS "Treat compiler warnings as errors" OFF)
 # the tests, which need it: Prism then has the system's own services or none.
 option(QOR_BUILD_SIMULATOR "Build the simulated services (never in anything installed on a device)" ON)
 # The two storefronts, on a catalogue signed with a throwaway key (docs/STORE.md). A choice of a build, never a release:
-# tst_storefronts fails if a CI or release preset turns it on, and a device's image cannot.
+# tst_storefronts fails if a CI or release preset leaves it to a build folder's cache instead of turning it off, a device's
+# image cannot have it, nothing built with it installs, and tools/ci/check_hardening.py fails a build folder that has it.
 option(QOR_STORE_DEMONSTRATION "Compile in the Store's demonstration and its throwaway key (never in a release)" OFF)
 if(QOR_STORE_DEMONSTRATION AND NOT QOR_BUILD_SIMULATOR)
     message(FATAL_ERROR "QOR_STORE_DEMONSTRATION is for development: a device's image is built without the simulator, "
                         "and never holds the demonstration's key.")
+endif()
+if(QOR_STORE_DEMONSTRATION)
+    # Before any other install rule, so that nothing of such a build is installed: a release is what is installed.
+    install(CODE "message(FATAL_ERROR \"This build folder has QOR_STORE_DEMONSTRATION on: it holds the Store's throwaway key, \"
+                  \"and nothing built with it is installed. Configure the folder again with a preset that is not a \"
+                  \"demonstration, which turns it off.\")")
 endif()
 # The QOR core is Rust, built by cargo (core/CMakeLists.txt, QOR-0003): on by
 # default wherever cargo is installed.

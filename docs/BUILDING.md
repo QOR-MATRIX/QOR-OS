@@ -247,7 +247,7 @@ Build options (`-D<option>=ON|OFF`):
 | `QOR_BUILD_CORE` | ON where `cargo` is found | The QOR core and `tst_qorcore` ([UPSTREAM.md](UPSTREAM.md)) |
 | `QOR_BUILD_SIMULATOR` | ON | The simulated services, `qor-simd`, `qor-shell` and the tests. **OFF for a device's image**: Prism then has no simulator built in, and no unlock with nothing behind it |
 | `QOR_HARDENING` | ON | Exploit mitigations on every program ([QOR-0018](decisions/QOR-0018-the-security-and-quality-bar.md)). Off only to compare |
-| `QOR_STORE_DEMONSTRATION` | OFF | The Store's two storefronts on a catalogue signed with a throwaway key, for development (the `linux-demonstration` and `windows-demonstration` presets; [STORE.md](STORE.md#the-demonstration-build)). **Never in a release**, and refused without the simulator |
+| `QOR_STORE_DEMONSTRATION` | OFF | The Store's two storefronts on a catalogue signed with a throwaway key, for development (the `linux-demonstration` and `windows-demonstration` presets; [STORE.md](STORE.md#the-demonstration-build)). **Never in a release**: every other preset sets it off, it is refused without the simulator, nothing built with it installs, and `tools/ci/check_hardening.py` fails a folder that has it |
 | `QOR_SANITIZE` | empty | Sanitizers for the suites, e.g. `address,undefined` (the `linux-asan` preset). The products take it from the environment |
 | `QOR_CORE_SOURCE_DIR` | empty | A local demiurge-chain checkout to build the core from instead: to change the core and QOR OS together, or to try a commit before the pin moves to it |
 

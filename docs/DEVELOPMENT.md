@@ -293,7 +293,8 @@ ctest --preset linux-asan -LE gpu
 QOR_SANITIZE=address,undefined tools/dev/products.sh --product qq --tests tst_lockdown --build-root ~/qor-build/products-asan
 ```
 
-- `tools/ci/check_hardening.py <build folder>` reads back each program's mitigations.
+- `tools/ci/check_hardening.py <build folder>` reads back each program's mitigations, and fails a folder that is the Store's
+  demonstration, by its cache or by the key in what it built ([STORE.md](STORE.md#the-demonstration-build)).
 - `tools/ci/check_secrets.py [--staged]` looks for a secret's shape, and says where, never what. A made-up value in a test
   goes in `tools/ci/secrets-allowed.txt` with its reason.
 - `prism_untrusted` (`tests/prism/untrusted.e2e.json`) runs Prism with clients that lie about themselves.
