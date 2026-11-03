@@ -92,7 +92,8 @@ up, and an old version goes only once the new one stands whole, every file as it
 clearing up may itself be cut short and run again over the same journal, and comes to the same end: it
 decides from what is on disk, by whether the old version is still set aside, and never from an absence it made itself. A step of
 it that fails, as when a file being scanned cannot be deleted yet, stops it there: the journal stays, the old version stays set
-aside, and the next try starts again. With no record left to say whether a plan happened, what is on disk says: a plan whose every
+aside, and the next try starts again. A record is written before any journal, an empty one before a first install, so
+one missing beside a journal was lost. With no record left to say whether a plan happened, what is on disk says: a plan whose every
 new version is in place and whole stands, and anything less goes back. On Linux
 and macOS each step is made durable before the next (`fsync` on the folders): what was staged before the journal says it is
 there, the journal before anything moves, the swap before the record. A removal goes the same way. The lock is never taken from
