@@ -1,6 +1,9 @@
 // SPDX-License-Identifier: LicenseRef-QOR-OS-Proprietary
 #include "producthost.h"
 
+#include "storeengine.h"
+#include "storefronts.h"
+
 #include <QtCore/QCoreApplication>
 #include <QtCore/QDir>
 #include <QtCore/QFileInfo>
@@ -457,6 +460,7 @@ QList<ProductRecord> ProductHost::defaultRecords()
     studio.name = u"QQ Studio"_s;
     studio.variable = u"QOR_QQ_STUDIO"_s;
     studio.fileArgument = u"--project"_s;
+    studio.readsAssetPacks = true;
     studio.glyph = u"layers"_s;
     studio.launchable = true;
     studio.keywords = u"qq engine editor scenes worlds games make create build 3d agent"_s;
@@ -704,6 +708,13 @@ bool ProductHost::start(const ProductRecord &record, const QString &file, const 
         environment.insert(
             u"QOR_THEME_COLORS"_s,
             QString::fromUtf8(QJsonDocument(QJsonObject::fromVariantMap(m_theme)).toJson(QJsonDocument::Compact)));
+    // Where the Store's format 2 engine keeps what it installed, for QQ Studio's
+    // asset library, and only where that engine exists: a demonstration build.
+    environment.remove(u"QOR_ASSET_PACKS"_s);
+    if (record.readsAssetPacks) {
+        if (const store::StoreEngine *engine = store::Storefronts::engine())
+            environment.insert(u"QOR_ASSET_PACKS"_s, engine->dataDir());
+    }
     // A token Prism was started with was for its own window.
     environment.remove(u"XDG_ACTIVATION_TOKEN"_s);
     if (!activationToken.isEmpty())

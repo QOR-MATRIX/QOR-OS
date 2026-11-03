@@ -44,6 +44,8 @@ struct ProductRecord
     bool launchable = false; // opened by itself (ARQADE), or only to show a file (QOR Media)
     bool takesController = false; // a game, which plays with the controller while its window has the focus
                                   // (ARQADE, the QQ Player): the shell's controller interface steps aside
+    bool readsAssetPacks = false; // told where the Store's format 2 engine keeps what it installed (QOR_ASSET_PACKS),
+                                  // where that engine exists: QQ Studio's asset library
     QString keywords;
     QString description;
     int hue = 0;
@@ -156,6 +158,12 @@ private:
 // is for publishing, which Prism does not offer before the vault service
 // (Phase 2), and the QQ Player has none. Their windows open at the size they
 // ask for.
+//
+// QQ Studio is told where the Store's format 2 engine (Storefronts) keeps what
+// it installed, in QOR_ASSET_PACKS, for its asset library: only where that
+// engine exists, which is a demonstration build. Every other product, and QQ
+// Studio anywhere else, is started with no such variable, whatever Prism's own
+// environment holds. The Studio reads that folder as a stranger's.
 //
 // A product ends with Prism: its channel closes and it quits, or, with no
 // channel, it is asked to end. On Linux it is also sent SIGTERM if Prism dies

@@ -37,6 +37,9 @@
 // no timer running but for that pause, so a crash or a launcher closing the Studio loses none of it: on arriving in the project,
 // past the trust check, a person is asked to Restore or Discard what a Studio that has gone kept. Each Studio keeps its own copy,
 // always, whatever is still to be answered. The camera is remembered with the rest of a project.
+// Changed for QOR OS: the asset library (AssetLibrary, LibraryPanel.qml), where the Store's folder of installed items is named:
+// packs the Store installed, each with its files, copied into the project's assets/ with assets.lock.json, and updated without
+// writing over a copy the person changed. With no folder named there is no library, and nothing of it runs.
 
 import QtQuick
 // Before the Material style: Qt Quick 3D has a type called Material too, and the import that comes later wins.
@@ -58,6 +61,8 @@ ApplicationWindow {
     property bool reopenLast: false
     /// False for a one-off look (a capture): it keeps no workspace and joins no recent list.
     property bool remembers: true
+    /// The Store's folder of installed items (QOR_ASSET_PACKS or --asset-packs), or "" for no asset library.
+    property string assetPacks: ""
 
     width: 1600
     height: 960
@@ -450,6 +455,10 @@ ApplicationWindow {
         recoveryDialog.close()
         whenTrusted = null
         trustDialog.close()
+        conflictDialog.asked = null
+        conflictDialog.close()
+        updateDialog.plan = null
+        updateDialog.close()
         logicEditor.reset()
         projectPanel.reset()
         // A permission given for one project is not given for the next.
@@ -474,6 +483,99 @@ ApplicationWindow {
             workspace.noteRecent(folder)
             recentProjects = workspace.recentProjects()
         }
+        refreshAssets()
+    }
+
+    // ── the asset library ──
+
+    readonly property AssetLibrary assetLibrary: AssetLibrary { folder: window.assetPacks }
+    /// What the library shows of the project (AssetLibrary.state), read again as the project changes and on Refresh.
+    property var assetState: ({ available: false, packs: [], missing: [], refused: [], lockProblem: "" })
+
+    function refreshAssets() {
+        if (!assetLibrary.available || String(project) === "") {
+            assetState = { available: false, packs: [], missing: [], refused: [], lockProblem: "" }
+            return
+        }
+        assetState = assetLibrary.state(project)
+        if (assetState.recovered !== "")
+            say(assetState.recovered, assetState.recovered.indexOf("stopped") >= 0)
+    }
+
+    /// Copy `files` of pack `id` (paths in the pack; none for all of it) into the project, as an import would be: in a project the
+    /// person trusts, never while a build runs, and never over a file that differs without asking. True if it was done.
+    function useAssets(id, files) {
+        if (String(project) === "") {
+            say(qsTr("Choose a project first: assets from the library are copied into it."), true)
+            return false
+        }
+        if (refusedWhileBuilding(qsTr("bring in assets")))
+            return false
+        return trusting(() => copyAssets(id, files, false))
+    }
+
+    function copyAssets(id, files, replace) {
+        const result = assetLibrary.use(project, id, files, replace)
+        if (!result.ok && (result.conflicts ?? []).length > 0) {
+            conflictDialog.asked = { id: id, files: files }
+            conflictText.text = result.problem + "\n\n" + result.conflicts.join("\n")
+            conflictDialog.open()
+            return false
+        }
+        if (!result.ok) {
+            say(result.problem, true)
+            refreshAssets()
+            return false
+        }
+        projectInfo = SceneIO.project(project)
+        refreshAssets()
+        say(qsTr("Copied into the project: %1. assets.lock.json says where it came from.").arg(result.copied.join(", ")))
+        return true
+    }
+
+    function answerConflict_(replace) {
+        const asked = conflictDialog.asked
+        conflictDialog.asked = null
+        conflictDialog.close()
+        if (asked && replace)
+            copyAssets(asked.id, asked.files, true)
+    }
+
+    /// What updating pack `id` would do, shown for the person to answer: nothing changes until they say Update.
+    function offerUpdate(id) {
+        if (refusedWhileBuilding(qsTr("update assets")))
+            return false
+        const plan = assetLibrary.plan(project, id)
+        if (!plan.ok) {
+            say(plan.problem, true)
+            return false
+        }
+        updateDialog.plan = plan
+        updateDialog.open()
+        return true
+    }
+
+    /// The update's answer: `beside` the changed copies whose new version goes beside them. Cancel changes nothing.
+    function answerUpdate_(go, beside) {
+        const plan = updateDialog.plan
+        updateDialog.plan = null
+        updateDialog.close()
+        if (!go || !plan)
+            return false
+        if (refusedWhileBuilding(qsTr("update assets")))
+            return false
+        const result = assetLibrary.update(project, plan.id, beside)
+        if (!result.ok) {
+            say(result.problem, true)
+            refreshAssets()
+            return false
+        }
+        projectInfo = SceneIO.project(project)
+        refreshAssets()
+        const kept = result.changed.length
+        say(kept === 0 ? qsTr("Updated %1 to %2.").arg(result.name).arg(result.to)
+                       : qsTr("Updated %1 to %2, keeping %3 file(s) you changed.").arg(result.name).arg(result.to).arg(kept))
+        return true
     }
 
     function enterProject(folder) {
@@ -1364,6 +1466,108 @@ ApplicationWindow {
         }
     }
 
+    // Copying from the library over a file already in the project that differs: asked first, and Leave changes nothing.
+    Dialog {
+        id: conflictDialog
+        objectName: "conflictDialog"
+        property var asked: null
+        anchors.centerIn: parent
+        modal: true
+        closePolicy: Popup.CloseOnEscape
+        title: qsTr("Replace files in the project?")
+        standardButtons: Dialog.NoButton
+        width: 520
+        contentItem: Label {
+            id: conflictText
+            objectName: "conflictText"
+            wrapMode: Text.Wrap
+            textFormat: Text.PlainText
+        }
+        footer: DialogButtonBox {
+            Button {
+                objectName: "conflictReplace"
+                text: qsTr("Replace them")
+                DialogButtonBox.buttonRole: DialogButtonBox.DestructiveRole
+                onClicked: window.answerConflict_(true)
+            }
+            Button {
+                objectName: "conflictLeave"
+                text: qsTr("Leave them")
+                DialogButtonBox.buttonRole: DialogButtonBox.RejectRole
+                onClicked: window.answerConflict_(false)
+            }
+        }
+    }
+
+    // What an update would do, and for each copy the person changed, whether the new version goes beside it. Cancel changes nothing.
+    Dialog {
+        id: updateDialog
+        objectName: "updateDialog"
+        property var plan: null
+        anchors.centerIn: parent
+        modal: true
+        closePolicy: Popup.CloseOnEscape
+        title: updateDialog.plan ? qsTr("Update %1 to %2?").arg(updateDialog.plan.name).arg(updateDialog.plan.to) : ""
+        standardButtons: Dialog.NoButton
+        width: 560
+        contentItem: ColumnLayout {
+            spacing: 8
+            Label {
+                objectName: "updateSummary"
+                Layout.fillWidth: true
+                wrapMode: Text.Wrap
+                textFormat: Text.PlainText
+                text: !updateDialog.plan ? ""
+                      : qsTr("From %1: %2 replaced, %3 new, %4 removed, %5 kept as you changed them.")
+                            .arg(updateDialog.plan.from).arg(updateDialog.plan.replaced.length).arg(updateDialog.plan.added.length)
+                            .arg(updateDialog.plan.removed.length).arg(updateDialog.plan.changed.length)
+                      + (updateDialog.plan.gone.length > 0 ? " " + qsTr("%1 you deleted stay deleted.").arg(updateDialog.plan.gone.length) : "")
+            }
+            Repeater {
+                id: changedList
+                model: updateDialog.plan ? updateDialog.plan.changed : []
+                delegate: CheckBox {
+                    id: changedRow
+                    required property var modelData
+                    objectName: "beside:" + modelData.path
+                    Layout.fillWidth: true
+                    enabled: modelData.beside !== ""
+                    checked: modelData.beside !== ""
+                    contentItem: Label {
+                        leftPadding: changedRow.indicator.width + changedRow.spacing
+                        wrapMode: Text.Wrap
+                        textFormat: Text.PlainText
+                        text: changedRow.modelData.beside !== ""
+                              ? qsTr("You changed %1: keep it, and put the new version beside it as %2").arg(changedRow.modelData.path).arg(changedRow.modelData.beside)
+                              : qsTr("You changed %1, and the new version no longer has it: it is kept").arg(changedRow.modelData.path)
+                    }
+                }
+            }
+        }
+        footer: DialogButtonBox {
+            Button {
+                objectName: "updateGo"
+                text: qsTr("Update")
+                DialogButtonBox.buttonRole: DialogButtonBox.AcceptRole
+                onClicked: {
+                    const beside = []
+                    for (let i = 0; i < changedList.count; ++i) {
+                        const row = changedList.itemAt(i)
+                        if (row && row.checked)
+                            beside.push(row.modelData.path)
+                    }
+                    window.answerUpdate_(true, beside)
+                }
+            }
+            Button {
+                objectName: "updateCancel"
+                text: qsTr("Cancel")
+                DialogButtonBox.buttonRole: DialogButtonBox.RejectRole
+                onClicked: window.answerUpdate_(false, [])
+            }
+        }
+    }
+
     // The projects worked in lately. A name is whatever the folder is called, so it is shown as text.
     Popup {
         id: recentPopup
@@ -1850,6 +2054,15 @@ ApplicationWindow {
                     studio: window
                     info: window.projectInfo
                     store: window.scene ? SceneIO.storeOf(window.scene) : null
+                }
+                LibraryPanel {
+                    id: libraryPanel
+                    objectName: "libraryPanel"
+                    visible: window.assetState.available === true
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: 240
+                    studio: window
+                    library: window.assetState
                 }
             }
         }

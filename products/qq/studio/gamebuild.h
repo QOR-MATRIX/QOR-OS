@@ -5,7 +5,9 @@
 // done to the project afterwards can touch. A person's edits reach it only by building again.
 //
 // The copy holds what a game can use: the project's scenes, logic, prefabs and assets, and game.json, which says what it
-// is, which scene it starts in and every file's SHA-256. Nothing else of the project goes: not its history, not what lies
+// is, which scene it starts in and every file's SHA-256, and in "uses" each asset pack its assets.lock.json names (assetlibrary.h),
+// with its version, developer, licence and provenance and the copies of it the game carries. A lock that cannot be used refuses the
+// build, since the game would not say what it uses. Nothing else of the project goes: not its history, not what lies
 // beside those folders, and no file whose name starts with a dot. No native program goes in it: its scenes and logic are
 // code, QML and JavaScript, which the Player that QOR OS has runs behind its walls, so `engine` says which QQ it was built
 // for and `platform` where. Nothing checks those digests when a game is played.
