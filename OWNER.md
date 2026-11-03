@@ -6,7 +6,7 @@ For Andrew, 3 November 2026. One page, rewritten every session (`AGENTS.md` §2)
 
 The operating system for players, game developers and game designers: the Prism shell (*the compositor and desktop in
 one*) and Lumen design, with QQ, ARQADE and QOR Media, on Linux. Code: `QOR-MATRIX/qor-os`, private, at `X:\Repoz\QOR-OS`.
-The work is on the branch `integration/owner-brief`, at `0cb81f9`; `main` has only your merge of pull request #2.
+The work is on the branch `integration/owner-brief`; `main` has your merges of pull requests #2 and #3.
 
 ## Shown working, and where
 
@@ -21,18 +21,22 @@ Windows.
      its new asset library with `assets.lock.json` (*a record in the project of what came from where, and under which
      licence*), updated without touching what you changed, reopened, and named in the built game. A broken lock refuses a build,
      as you chose.
-   - The Store's engine and pages reviewed and fixed; the asset library's review is under way.
+   - The Store's engine and pages reviewed and fixed. The asset library's review found two ways crash recovery can lose files,
+     a pack's name shown as rich text, and Update skipping the trust check: being fixed.
 3. **Prism lets a game capture the mouse** (*two of the three interfaces gamescope needs*), after a review; real hardware waits.
-4. **CI** (*the automatic build machines, both this laptop*): both runners stopped, no isolation setting made. A replacement VM
-   (*a separate machine inside this one*) is written, reviewed twice, and has never run. Pull request #3 was reviewed today and
-   its findings fixed.
+4. **CI** (*the automatic build machines, both this laptop*): both runners offline, no isolation setting made. You merged pull
+   request #3 on 3 November as `4c620c2` (its tree is exactly the reviewed `a31154c`). On it, Lint and Security passed on GitHub's
+   machines; Build failed only at Release readiness, as it should: both kit jobs were skipped as not isolated, so every required
+   step reads "not run". Nothing was built, and nothing failed to build. A replacement VM (*a separate machine inside this one*) is
+   written, reviewed twice, and has never run.
 5. **The suites in software:** QQ passes all but the Player's floor of 20 frames a second (5.6 to 6.3 here).
 
 ## Needs you
 
-1. **Merge pull request #3** (*a request to change `main`*), at `a31154c`: Build then fails while nothing was built, which is
-   the truth. It is a signal, not a lock: a pull request can edit the workflow that judges it.
-2. **Run the VM's first Create and Prove** (`docs/CI.md`, "The owner's first run", at `c9513c6`). Tell me first: I pause builds.
+1. **Run the VM's first Create and Prove** (`docs/CI.md`, "The owner's first run"; the script is unchanged since `c9513c6`).
+   Tell me first: it needs about 7 GB free, so I hold the build lock and the workers' builds wait.
+2. **Readiness is a signal, not a lock:** a pull request can edit the workflow that judges it, and the Free plan has no branch
+   protection.
 3. **Decide the floor and the eased software checks** (`docs/CI.md`, "What Linux runs"). I recommend letting them stand in
    software only, with a graphics-card run required before a release, and holding the drawing suites to that too.
 4. **A Windows test run** of `tools/dev/products.ps1` while you are away from the screen: the only graphics-card evidence here.
