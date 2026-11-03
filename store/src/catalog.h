@@ -64,6 +64,9 @@ struct Licence
 };
 
 // Where an item's content came from and why the store may carry it (QOR-0021, decision 6).
+// The most any text in a catalogue may be, in characters: a provenance's fields among them.
+inline constexpr qsizetype kMaximumCatalogText = 8192;
+
 struct Provenance
 {
     QString origin;

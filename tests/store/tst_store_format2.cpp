@@ -3868,6 +3868,191 @@ private Q_SLOTS:
         QVERIFY(items.value(v1.id).toObject().value(u"claimed"_s).toBool());
         QVERIFY(!items.value(other.id).toObject().contains(u"claimed"_s));
         QVERIFY(!store.installed().value(other.id).claimed);
+        // A record rebuilt from the folders has no listing's word on where it came from, and says so.
+        QCOMPARE(items.value(v1.id).toObject().value(u"provenanceFrom"_s).toString(), u"none"_s);
+        QVERIFY(!items.value(v1.id).toObject().contains(u"provenance"_s));
+        QVERIFY(!store.installed().value(v1.id).provenance);
+        QCOMPARE(items.value(other.id).toObject().value(u"provenanceFrom"_s).toString(), u"listing"_s);
+    }
+
+    // Where a pack came from is the listing's word, signed by the store's key, and installed.json keeps it as that:
+    // QQ Studio's asset library reads it there into a project's lock. It is someone else's text, kept as it is, markup
+    // and all; what reads it shows it as plain text.
+    void theListingsProvenanceIsKeptAsTheListings()
+    {
+        const Pack pack;
+        Shop shop;
+        QJsonObject &listing = shop.add(pack);
+        const QJsonObject provenance { { u"origin"_s, u"<b>Someone</b> & <img src=\"x\">"_s },
+                                       { u"author"_s, u"An author <script>"_s },
+                                       { u"source"_s, u"https://example.org/<i>art</i>"_s },
+                                       { u"permission"_s, QString(kMaximumCatalogText, u'p') } };
+        listing.insert(u"provenance"_s, provenance);
+        QTemporaryDir data;
+        {
+            CreatorStore store(data.path(), shop.store.publicKey());
+            QCOMPARE(refreshed(store, shop.publish()), StoreEngine::State::Ready);
+            QVERIFY(installAndWait(store, pack.id).ok);
+            QVERIFY(store.installed().value(pack.id).provenance);
+            QCOMPARE(store.installed().value(pack.id).provenance->origin, provenance.value(u"origin"_s).toString());
+        }
+        const QJsonObject entry = QJsonDocument::fromJson(readFile(data.path() + u"/installed.json"_s))
+                                      .object()
+                                      .value(u"items"_s)
+                                      .toObject()
+                                      .value(pack.id)
+                                      .toObject();
+        QCOMPARE(entry.value(u"provenance"_s).toObject(), provenance);
+        QCOMPARE(entry.value(u"provenanceFrom"_s).toString(), u"listing"_s);
+        QVERIFY(!entry.contains(u"claimed"_s));
+        // Read back by another engine over the same folder, as it was written.
+        CreatorStore again(data.path(), shop.store.publicKey());
+        QVERIFY(again.installed().value(pack.id).provenance);
+        QCOMPARE(again.installed().value(pack.id).provenance->permission, QString(kMaximumCatalogText, u'p'));
+        QCOMPARE(again.installed().value(pack.id).provenance->author, u"An author <script>"_s);
+    }
+
+    // A listing whose provenance is longer than a catalogue's text may be, or lacks a field, or has one it does not
+    // know, is refused with its catalogue, so it never reaches what is installed.
+    void aProvenanceTheCatalogueRefusesIsNeverKept_data()
+    {
+        QTest::addColumn<QJsonValue>("provenance");
+        const auto with = [](const QString &key, const QJsonValue &value) {
+            QJsonObject provenance { { u"origin"_s, u"here"_s },
+                                     { u"author"_s, u"someone"_s },
+                                     { u"source"_s, u"somewhere"_s },
+                                     { u"permission"_s, u"their own"_s } };
+            if (value.isUndefined())
+                provenance.remove(key);
+            else
+                provenance.insert(key, value);
+            return QJsonValue(provenance);
+        };
+        QTest::newRow("too long") << with(u"author"_s, QString(kMaximumCatalogText + 1, u'a'));
+        QTest::newRow("a field missing") << with(u"permission"_s, QJsonValue(QJsonValue::Undefined));
+        QTest::newRow("a field empty") << with(u"origin"_s, u"  "_s);
+        QTest::newRow("a field not text") << with(u"source"_s, 7);
+        QTest::newRow("a field it does not know") << with(u"licensee"_s, u"anyone"_s);
+        QTest::newRow("none at all") << QJsonValue(QJsonValue::Undefined);
+    }
+
+    void aProvenanceTheCatalogueRefusesIsNeverKept()
+    {
+        QFETCH(QJsonValue, provenance);
+        const Pack pack;
+        Shop shop;
+        QJsonObject &listing = shop.add(pack);
+        if (provenance.isUndefined())
+            listing.remove(u"provenance"_s);
+        else
+            listing.insert(u"provenance"_s, provenance);
+        QTemporaryDir data;
+        CreatorStore store(data.path(), shop.store.publicKey());
+        QCOMPARE(refreshed(store, shop.publish()), StoreEngine::State::Failed);
+        QVERIFY2(store.error().contains(u"provenance"_s), qPrintable(store.error()));
+        QVERIFY(!store.install(pack.id) || !installAndWait(store, pack.id).ok);
+        QVERIFY(store.installed().isEmpty());
+        QVERIFY(!readFile(data.path() + u"/installed.json"_s).contains("provenance"));
+    }
+
+    // What installed.json says of where an item came from is believed only as a listing's word would be: marked as the
+    // listing's, its four fields, each text no longer than a catalogue's. Anything else is no provenance at all.
+    void aKeptProvenanceThatIsNotAListingsIsNotBelieved_data()
+    {
+        QTest::addColumn<QJsonObject>("entry");
+        const QJsonObject four { { u"origin"_s, u"here"_s },
+                                 { u"author"_s, u"someone"_s },
+                                 { u"source"_s, u"somewhere"_s },
+                                 { u"permission"_s, u"their own"_s } };
+        const auto changed = [&four](const QString &key, const QJsonValue &value) {
+            QJsonObject provenance = four;
+            if (value.isUndefined())
+                provenance.remove(key);
+            else
+                provenance.insert(key, value);
+            return provenance;
+        };
+        QTest::newRow("not marked") << QJsonObject { { u"provenance"_s, four } };
+        QTest::newRow("marked as the manifest's")
+            << QJsonObject { { u"provenance"_s, four }, { u"provenanceFrom"_s, u"manifest"_s } };
+        QTest::newRow("too long") << QJsonObject { { u"provenance"_s,
+                                                     changed(u"source"_s, QString(kMaximumCatalogText + 1, u's')) },
+                                                   { u"provenanceFrom"_s, u"listing"_s } };
+        QTest::newRow("a field missing") << QJsonObject {
+            { u"provenance"_s, changed(u"author"_s, QJsonValue::Undefined) }, { u"provenanceFrom"_s, u"listing"_s }
+        };
+        QTest::newRow("a field more") << QJsonObject { { u"provenance"_s, changed(u"extra"_s, u"x"_s) },
+                                                       { u"provenanceFrom"_s, u"listing"_s } };
+        QTest::newRow("a field not text")
+            << QJsonObject { { u"provenance"_s, changed(u"origin"_s, 3) }, { u"provenanceFrom"_s, u"listing"_s } };
+        QTest::newRow("not an object") << QJsonObject { { u"provenance"_s, u"here"_s },
+                                                        { u"provenanceFrom"_s, u"listing"_s } };
+    }
+
+    void aKeptProvenanceThatIsNotAListingsIsNotBelieved()
+    {
+        QFETCH(QJsonObject, entry);
+        const Pack pack;
+        Shop shop;
+        shop.add(pack);
+        QTemporaryDir data;
+        {
+            CreatorStore store(data.path(), shop.store.publicKey());
+            QCOMPARE(refreshed(store, shop.publish()), StoreEngine::State::Ready);
+            QVERIFY(installAndWait(store, pack.id).ok);
+        }
+        const QString record = data.path() + u"/installed.json"_s;
+        QJsonObject root = QJsonDocument::fromJson(readFile(record)).object();
+        QJsonObject items = root.value(u"items"_s).toObject();
+        QJsonObject kept = items.value(pack.id).toObject();
+        kept.remove(u"provenance"_s);
+        kept.remove(u"provenanceFrom"_s);
+        for (auto it = entry.begin(); it != entry.end(); ++it)
+            kept.insert(it.key(), it.value());
+        items.insert(pack.id, kept);
+        root.insert(u"items"_s, items);
+        writeFile(record, QJsonDocument(root).toJson());
+
+        CreatorStore store(data.path(), shop.store.publicKey());
+        QVERIFY(store.installed().contains(pack.id));
+        QVERIFY(!store.installed().value(pack.id).provenance);
+    }
+
+    // An update keeps the provenance of the listing it was installed from, not the one before.
+    void anUpdateKeepsItsOwnListingsProvenance()
+    {
+        Pack v1;
+        Shop shop;
+        shop.add(v1).insert(u"provenance"_s, QJsonObject { { u"origin"_s, u"the first"_s },
+                                                           { u"author"_s, u"one"_s },
+                                                           { u"source"_s, u"there"_s },
+                                                           { u"permission"_s, u"theirs"_s } });
+        QTemporaryDir data;
+        CreatorStore store(data.path(), shop.store.publicKey());
+        QCOMPARE(refreshed(store, shop.publish()), StoreEngine::State::Ready);
+        QVERIFY(installAndWait(store, v1.id).ok);
+        QCOMPARE(store.installed().value(v1.id).provenance->origin, u"the first"_s);
+
+        Pack v2 = v1;
+        v2.version = u"1.1.0"_s;
+        shop.items.clear();
+        shop.add(v2).insert(u"provenance"_s, QJsonObject { { u"origin"_s, u"the second"_s },
+                                                           { u"author"_s, u"two"_s },
+                                                           { u"source"_s, u"elsewhere"_s },
+                                                           { u"permission"_s, u"granted"_s } });
+        shop.sequence = 2;
+        QCOMPARE(refreshed(store, shop.publish()), StoreEngine::State::Ready);
+        QVERIFY(installAndWait(store, v2.id).ok);
+        QCOMPARE(store.installed().value(v2.id).version, u"1.1.0"_s);
+        QCOMPARE(store.installed().value(v2.id).provenance->origin, u"the second"_s);
+        const QJsonObject entry = QJsonDocument::fromJson(readFile(data.path() + u"/installed.json"_s))
+                                      .object()
+                                      .value(u"items"_s)
+                                      .toObject()
+                                      .value(v2.id)
+                                      .toObject();
+        QCOMPARE(entry.value(u"provenance"_s).toObject().value(u"author"_s).toString(), u"two"_s);
+        QCOMPARE(entry.value(u"provenanceFrom"_s).toString(), u"listing"_s);
     }
 
     // Plans started together wait together, so what they hold in memory is bounded together, and what each held is let

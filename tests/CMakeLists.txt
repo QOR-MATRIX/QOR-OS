@@ -103,6 +103,13 @@ target_compile_definitions(tst_producthost PRIVATE QOR_TEST_PRODUCT="$<TARGET_FI
 add_dependencies(tst_producthost tst_producthost_product)
 # The Library (prism/shell/library.h): the games and media it finds, and what was played.
 qor_add_test(tst_library SOURCES prism/tst_library.cpp LIBRARIES qor_shell)
+# Prism's command line (prism/compositor/commandline.h), built as a build with the simulator has it and as a device's
+# image builds it, without: there, what only tests need is no option at all.
+foreach(build IN ITEMS tst_prismoptions tst_prismoptions_device)
+    qor_add_test(${build} SOURCES prism/tst_prismoptions.cpp "${CMAKE_SOURCE_DIR}/prism/compositor/commandline.cpp")
+    target_include_directories(${build} PRIVATE "${CMAKE_SOURCE_DIR}/prism/compositor")
+endforeach()
+target_compile_definitions(tst_prismoptions PRIVATE QOR_HAS_SIMULATOR)
 # What a Wayland client's app id can make the shell read.
 qor_add_test(tst_desktopentries SOURCES prism/tst_desktopentries.cpp LIBRARIES qor_shell)
 # The QOR core through its C bridge, built from demiurge-chain at the pinned commit (core/, QOR-0003).

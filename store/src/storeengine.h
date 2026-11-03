@@ -13,6 +13,7 @@
 
 #include <functional>
 #include <memory>
+#include <optional>
 
 QT_BEGIN_NAMESPACE
 class QNetworkAccessManager;
@@ -59,6 +60,10 @@ public:
         // Taken from the installed manifest's own word, unsigned, when the record was lost: kept as an id's pins, and
         // marked as such in installed.json until the item is installed again.
         bool claimed = false;
+        // Where it came from, as the format 2 listing it was installed or updated from says: the catalogue's word,
+        // signed by the store's key, not the developer's. Kept in installed.json beside "provenanceFrom": "listing". A
+        // record rebuilt from the folders has none, and says "provenanceFrom": "none"; format 1 says nothing of it.
+        std::optional<Provenance> provenance;
     };
 
     StoreEngine(const QString &dataDir, const QByteArray &storeKey, QObject *parent = nullptr);
