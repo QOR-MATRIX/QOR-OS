@@ -66,6 +66,11 @@ endif()
 if(QOR_STORE_DEMONSTRATION)
     target_compile_definitions(tst_storefronts PRIVATE QOR_STORE_DEMONSTRATION)
 endif()
+# The Library's games from the Store (prism/shell/library.h), from the hostile side: listed by the engine's record,
+# checked whole as each is played, from the scene its own game.json names.
+qor_add_test(tst_library_store
+    SOURCES store/tst_library_store.cpp store/testshop.h store/testsigner.h ${QOR_STORE_TEST_SIGNER}
+    LIBRARIES qor_shell qor_store ${QOR_STORE_TEST_CRYPTO})
 # The Store's real pages over a catalogue the suite signs. Offscreen and in software, so it needs no display and no card.
 qt_add_executable(tst_storefronts_qml
     store/tst_storefronts_qml.cpp store/testshop.h store/testsigner.h ${QOR_STORE_TEST_SIGNER})
@@ -212,6 +217,20 @@ if(TARGET prism)
                 --qq-player $<TARGET_FILE:prism-test-qq-player>
                 --script "${CMAKE_CURRENT_SOURCE_DIR}/prism/products.e2e.json")
         set_tests_properties(prism_products PROPERTIES TIMEOUT 120)
+        if(QOR_STORE_DEMONSTRATION)
+            # A demonstration's game from the Player Store to playing: installed, in the Library from the Store, and
+            # played there, checked whole, in the QQ Player's stand-in on the scene its game.json names.
+            add_test(NAME prism_store_play
+                COMMAND Python3::Interpreter "${CMAKE_SOURCE_DIR}/tools/dev/prism-products.py"
+                    --prism $<TARGET_FILE:prism>
+                    --arqade $<TARGET_FILE:prism-test-arqade>
+                    --media $<TARGET_FILE:prism-test-media>
+                    --qq-studio $<TARGET_FILE:prism-test-qq-studio>
+                    --qq-player $<TARGET_FILE:prism-test-qq-player>
+                    --script "${CMAKE_CURRENT_SOURCE_DIR}/prism/store-play.e2e.json")
+            set_tests_properties(prism_store_play PROPERTIES TIMEOUT 120 ENVIRONMENT
+                "QOR_STORE_DEMONSTRATION_URL=${CMAKE_CURRENT_SOURCE_DIR}/store/fixtures-demo/v1/catalog.json")
+        endif()
 
         # What a client says about itself is only a claim: one calling itself
         # Settings, and one that opens a window it never draws, hoping for the

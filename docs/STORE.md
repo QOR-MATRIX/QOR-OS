@@ -344,7 +344,7 @@ QOR_STORE_DEMONSTRATION_URL="$PWD/tests/store/fixtures-demo/v1/catalog.json|$PWD
 Get. Settings › Store turns creator features on, and the sidebar gains the Creator Store, with the art pack. Library has a
 **Next Catalogue** button, which takes the next URL as a real store's catalogue would move on at one address, and the pack then
 offers its update to 1.1.0. Settings › Store turns them off: the Creator Store is gone, and the pack stays, its next update
-waiting until they are on again.
+waiting until they are on again. Ember Climb, once installed, is in Home's Library, and plays from there.
 
 **Two engines, because trust differs.** Themes and widgets stay on `Store`'s engine, folder and key, in format 1, since the
 first-party catalogue cannot be signed again without the owner's key. The second `StoreEngine` has its own key and its own folder,
@@ -377,7 +377,15 @@ do. Longer than 256 KB the licence is not shown, and the page says it comes with
 **Starting again over the same folder.** A person who has reached `v2` and starts over finds `v1` refused as older, in plain words,
 with Next Catalogue beside the refusal. That is the sequence working. A fresh `QOR_STORE_DIR` starts the walk again.
 
-A game cannot be played from here yet: that, and installed games in the Library, are the next step.
+**Playing a game from the Store.** An installed game is in the shell's Library (`prism/shell/library.h`) and Home, from the
+Store, by the name its developer signed: listed from the engine's own record of what is installed, never by reading a folder for
+games, and only while the Player Store lists it, or the Creator Store with creator features on. As it is played, it is checked
+again, whole: every file as its developer signed it, nothing beside them, and no link (`StoreEngine::isIntact`). Then the QQ
+Player starts on the scene its own `game.json` names, the file a QQ Studio build writes (`products/qq/studio/gamebuild.cpp`), held
+to what that writes: a plain file directly in the game's `scenes/`. Nothing is guessed from its files, so a game with no
+`game.json` does not play. A game that has changed, or names a scene anywhere else, does not play, and says why in plain words; it
+stays installed, for the Store to remove. The Player plays it behind the walls every QQ game has (`tst_playerwall`), and nothing of
+it is trusted more than a game built here. The demonstration's Ember Climb carries the `game.json` a build would.
 
 ## Building the catalogue
 
@@ -415,7 +423,9 @@ update and remove), `tst_store_format2` (format 2, every package check and the e
 the hostile side, signing what it needs with keys it makes and drops, and reading the licence texts in
 `tests/store/licences/`, SPDX's as Qt carries them), `tst_storefronts` (the build choice, and what the layer hands a
 page), `tst_storefronts_qml` (the real pages, over a catalogue of markup), `shell_e2e_store` (in a demonstration build a
-person's walk, and in any other that there is nothing to walk), a qmllint pass over every widget
+person's walk, and in any other that there is nothing to walk), `tst_library_store` (the Library's games from the
+Store, from the hostile side), `prism_store_play` (in a demonstration build, Ember Climb from the Player Store to the QQ
+Player's stand-in, through Prism), a qmllint pass over every widget
 (`store_widgets_qmllint`), the Store section of `shell_e2e`, and
 `tests/tools/test_build_store.py` for the builder.
 

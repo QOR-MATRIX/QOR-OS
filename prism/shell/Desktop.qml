@@ -406,6 +406,13 @@ FocusScope {
         let shown = false;
         if (item.source === "arqade") {
             shown = playInArqade(item.game);
+        } else if (item.source === "store") {
+            // Checked whole as it is played, and played from the scene it says it starts in, or refused in plain words.
+            const ready = Library.playable(item.id);
+            if (ready.ok)
+                shown = playQQGame(ready.path);
+            else
+                toast.show("shopping-bag", ready.message);
         } else if (item.kind === "game") {
             shown = playQQGame(item.path);
         } else {
@@ -416,6 +423,11 @@ FocusScope {
         if (shown)
             Library.used(item.id);
         return shown;
+    }
+
+    // Plays the Library's item of this id: a script's way to what a card does.
+    function playLibraryItem(id: string): bool {
+        return playItem(Library.item(id));
     }
 
     Binding {

@@ -990,8 +990,11 @@ private:
                         return -1;
                     }
                 } else if (expectation.contains(u"contains"_s)) {
-                    // A string holding another: a path made where the run is.
-                    if (!value.toString().contains(expectation[u"contains"_s].toString())) {
+                    // A string holding another, a path made where the run is; or a list holding it as one of its own.
+                    const QJsonValue wanted = expectation[u"contains"_s];
+                    const bool holds = value.isArray() ? value.toArray().contains(wanted)
+                                                       : value.toString().contains(wanted.toString());
+                    if (!holds) {
                         m_error = u"%1 is %2, expected to contain %3"_s.arg(path, actual,
                                                                             expectation[u"contains"_s].toString());
                         return -1;

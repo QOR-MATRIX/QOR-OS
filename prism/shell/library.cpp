@@ -1,6 +1,10 @@
 // SPDX-License-Identifier: LicenseRef-QOR-OS-Proprietary
 #include "library.h"
 
+#include "catalog.h"
+#include "storeengine.h"
+#include "storefronts.h"
+
 #include <QtConcurrent/QtConcurrentRun>
 #include <QtCore/QCoreApplication>
 #include <QtCore/QDir>
@@ -234,6 +238,12 @@ void findMedia(const QString &root, QVariantList &into, QSet<QString> &seen)
 Library::Library(QObject *parent) : QObject(parent)
 {
     loadHistory();
+    // The Store's games are its engine's record, so the Library changes as that does. Null but in a build that has it.
+    if (store::StoreEngine *engine = store::Storefronts::engine()) {
+        for (const auto signal : { &store::StoreEngine::installedChanged, &store::StoreEngine::catalogChanged,
+                                   &store::StoreEngine::creatorFeaturesChanged })
+            connect(engine, signal, this, &Library::changed);
+    }
     connect(&m_watcher, &QFutureWatcher<Found>::finished, this, [this] {
         m_found = m_watcher.result();
         m_read = QDateTime::currentDateTimeUtc();
@@ -346,7 +356,71 @@ QVariantList Library::games() const
     if (m_arqade)
         for (const QVariant &game : arqadeGames())
             games.append(withUse(game.toMap()));
+    for (const QVariant &game : storeGames())
+        games.append(withUse(game.toMap()));
     return games + theirs;
+}
+
+QVariantList Library::storeGames() const
+{
+    QVariantList games;
+    const store::StoreEngine *engine = store::Storefronts::engine();
+    if (!engine)
+        return games;
+    for (const store::StoreEngine::Installed &installed : engine->installed()) {
+        if (installed.kind != u"game"_s)
+            continue;
+        // Only what a person may see now. What the catalogue no longer lists, or only the Creator Store does with
+        // creator features off, stays installed, and is the Store's to show.
+        const store::CatalogItem *listed = engine->catalog().item(installed.id);
+        if (!listed
+            || !(listed->isPlacedIn(store::View::Player)
+                 || (engine->creatorFeatures() && listed->isPlacedIn(store::View::Creator))))
+            continue;
+        const QString title = installed.name.simplified().left(LongestTitle);
+        games.append(QVariantMap {
+            { u"id"_s, QString(u"store:"_s + installed.id) },
+            { u"kind"_s, u"game"_s },
+            { u"source"_s, u"store"_s },
+            { u"title"_s, title.isEmpty() ? installed.id : title },
+            { u"subtitle"_s, QCoreApplication::translate("Library", "From the Store · %1").arg(installed.version) },
+            { u"glyph"_s, u"shopping-bag"_s },
+            { u"hue"_s, hueOf(installed.id) },
+            { u"storeId"_s, installed.id },
+            { u"path"_s, QString() },
+            { u"modified"_s, qint64(0) },
+        });
+    }
+    return games;
+}
+
+QVariantMap Library::playable(const QString &id) const
+{
+    const auto refused = [](const QString &message) {
+        return QVariantMap { { u"ok"_s, false }, { u"path"_s, QString() }, { u"message"_s, message } };
+    };
+    const store::StoreEngine *engine = store::Storefronts::engine();
+    QVariantMap listed;
+    for (const QVariant &game : storeGames())
+        if (game.toMap().value(u"id"_s) == id)
+            listed = game.toMap();
+    if (!engine || listed.isEmpty())
+        return refused(QCoreApplication::translate("Library", "That game is not in the Library."));
+    const QString storeId = listed.value(u"storeId"_s).toString();
+    const QString title = listed.value(u"title"_s).toString();
+    // Whole, every file as its developer signed it and nothing beside them, each time it is played: anything running
+    // as this person could have written there since it was installed.
+    if (!engine->isIntact(storeId))
+        return refused(QCoreApplication::translate("Library", "%1 is not as its developer signed it, so it will not "
+                                                              "play. Remove it in the Store and get it again.")
+                           .arg(title));
+    // The scene its own game.json names, held to what a QQ Studio build writes. Nothing is guessed from its files.
+    const QVariantMap built = builtGameItem(QDir(engine->installDirectory(storeId)));
+    if (built.isEmpty())
+        return refused(
+            QCoreApplication::translate("Library", "%1 does not say which scene it starts in, so it will not play.")
+                .arg(title));
+    return { { u"ok"_s, true }, { u"path"_s, built.value(u"path"_s) }, { u"message"_s, QString() } };
 }
 
 QVariantList Library::media() const

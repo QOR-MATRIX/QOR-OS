@@ -21,6 +21,11 @@ namespace qor {
 //     `scenes/<folder>.qml`, else its first.
 //   - The person's own QQ games: such folders in Documents, two deep.
 //   - ARQADE's seven games, while ARQADE can be started (`arqade`).
+//   - Games from the Store, in a build that has its second engine
+//     (store/qml/storefronts.h, docs/STORE.md): each game that engine's record
+//     says is installed, while the Player Store lists it, or the Creator Store
+//     with creator features on. Known by that record and never by a folder
+//     read; whether one may play is asked as it is played (playable()).
 //   - Media: video, music and pictures in the person's own folders, newest
 //     first, three deep and at most 400 a folder.
 //
@@ -33,8 +38,9 @@ namespace qor {
 // what plays is the copy. "mine" is a project itself, as it is now.
 //
 // An item: { id, kind ("game", "media"), source ("qq", "built", "mine", "arqade",
-// "media"), title, subtitle, glyph, hue, path (a scene or a file), game
-// (ARQADE's, by kind), mediaKind ("video", "audio", "picture"), modified,
+// "store", "media"), title, subtitle, glyph, hue, path (a scene or a file;
+// empty for the Store's, whose scene playable() says), game (ARQADE's, by
+// kind), storeId (the Store's id), mediaKind ("video", "audio", "picture"), modified,
 // lastUsed (ms since the epoch, 0 if never), position and duration
 // (seconds, 0 if not known) }.
 class Library : public QObject
@@ -66,6 +72,10 @@ public:
     Q_INVOKABLE void refresh(bool force = false);
     // The item, by its id, or an empty map.
     Q_INVOKABLE QVariantMap item(const QString &id) const;
+    // Whether a game from the Store may play now, and its scene: { ok, path, message }. What is installed is checked
+    // again, whole, against what its developer signed (StoreEngine::isIntact), and the scene is the one its own
+    // game.json names, as a game QQ Studio built says it. Anything else refuses, and `message` says why in plain words.
+    Q_INVOKABLE QVariantMap playable(const QString &id) const;
     // It was played or opened now.
     Q_INVOKABLE void used(const QString &id);
     // A report of QOR Media's: where a file stopped ("position"), or how long
@@ -100,6 +110,7 @@ private:
     void saveHistory() const;
     QString historyFile() const;
     QVariantList arqadeGames() const;
+    QVariantList storeGames() const;
 
     Found m_found;
     QHash<QString, Use> m_uses;

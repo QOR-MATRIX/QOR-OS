@@ -47,6 +47,11 @@
     { "expect": { "item": "storeAction", "path": "text", "equals": "Installed" } },
     { "expect": { "path": "store.installed", "equals": "" } },
 
+    { "log": "It is in the Library, from the Store, by the name its developer signed" },
+    { "expect": { "path": "library.games", "contains": "store:org.example.demo.game.ember-climb" } },
+    { "expect": { "path": "library.gameSources", "contains": "store" } },
+    { "expect": { "path": "library.gameTitles", "contains": "Ember Climb" } },
+
     { "log": "Creator features go on, in Settings" },
     { "call": "launch", "args": ["settings", { "page": "store" }] },
     { "waitFor": { "window": "Settings", "timeout": 10000 } },
@@ -101,6 +106,7 @@
     { "call": "launch", "args": ["store", { "page": "library" }] },
     { "wait": 900 },
     { "expect": { "item": "libraryItem:org.example.demo.pack.ember-climb-art", "path": "visible", "equals": true } },
+    { "expect": { "path": "library.games", "contains": "store:org.example.demo.game.ember-climb" } },
 
     { "log": "Themes and widgets were never touched" },
     { "expect": { "path": "store.ready", "equals": true } },
