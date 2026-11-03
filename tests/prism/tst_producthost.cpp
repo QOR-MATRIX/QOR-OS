@@ -7,6 +7,8 @@
 
 #include "producthost.h"
 #include "productside.h"
+#include "storeengine.h"
+#include "storefronts.h"
 
 #include <QtCore/QCoreApplication>
 #include <QtCore/QElapsedTimer>
@@ -681,6 +683,50 @@ private slots:
         QVERIFY2(stopping.elapsed() < 4500, qPrintable(QString::number(stopping.elapsed())));
         QCOMPARE(host->productOf(pid), QString());
         QCOMPARE(host->product(u"test-started"_s).value(u"running"_s).toBool(), false);
+    }
+
+    // QQ Studio's asset library hears where the Store's format 2 engine keeps what it installed, and only where that
+    // engine exists; nothing else hears it, and nothing of Prism's own environment is passed on in its place.
+    void only_the_studio_hears_where_the_packs_are_and_only_with_the_engine()
+    {
+        using qor::store::StoreEngine;
+        using qor::store::Storefronts;
+        const auto environmentOf = [this](qsizetype run) {
+            return entriesOf(m_log, u"started"_s).value(run).toObject().value(u"environment"_s).toObject();
+        };
+        QFile::remove(m_log);
+        qputenv("QOR_TEST_PRODUCT_PROGRAM", QOR_TEST_PRODUCT);
+        qputenv("QOR_TEST_PRODUCT_LOG", m_log.toUtf8());
+        qputenv("QOR_TEST_PRODUCT_MODE", "plain");
+        qputenv("QOR_ASSET_PACKS", "/planted/in/prisms/own/environment");
+        ProductRecord studio = startedRecord();
+        studio.id = u"test-studio"_s;
+        studio.readsAssetPacks = true;
+        ProductHost host(QList<ProductRecord> { studio, startedRecord() });
+        host.setDisplay(u"wayland-test"_s);
+        QSignalSpy exited(&host, &ProductHost::exited);
+        const auto runOnce = [&](const QString &id, int run) {
+            QVERIFY(host.launch(id, u"/projects/one"_s));
+            QTRY_COMPARE_WITH_TIMEOUT(entriesOf(m_log, u"started"_s).size(), run + 1, 10000);
+            host.stop(id);
+            QTRY_COMPARE_WITH_TIMEOUT(exited.size(), run + 1, 10000);
+        };
+
+        // An ordinary build: no second engine, so no library.
+        Storefronts::useEngine(nullptr, {});
+        runOnce(u"test-studio"_s, 0);
+        QVERIFY(environmentOf(0).value(u"QOR_ASSET_PACKS"_s).isNull());
+
+        // With the engine there, the Studio is told its folder, and another product is not.
+        QTemporaryDir store;
+        StoreEngine engine(store.path(), QByteArray("a key nothing here is checked with"));
+        Storefronts::useEngine(&engine, {});
+        runOnce(u"test-studio"_s, 1);
+        QCOMPARE(environmentOf(1).value(u"QOR_ASSET_PACKS"_s).toString(), engine.dataDir());
+        runOnce(u"test-started"_s, 2);
+        QVERIFY(environmentOf(2).value(u"QOR_ASSET_PACKS"_s).isNull());
+        Storefronts::useEngine(nullptr, {});
+        qunsetenv("QOR_ASSET_PACKS");
     }
 
     void a_product_is_launched_or_placed_by_its_record()
