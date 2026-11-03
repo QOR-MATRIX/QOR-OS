@@ -324,8 +324,11 @@ unpublished builds stay out of reach.
 - [x] Explicit views in the query layer, with no fallback between stores; a utility in both stores is one package, installed once;
   turning creator features off keeps what is installed
 - [x] A separate demonstration catalogue with a throwaway key, never in a release; today's fixtures not re-signed
-- [ ] The Player Store's pages, with Play; Store games in the Library, checked rather than scanned
-- [ ] The creator-features switch, and the Creator Store's pages
+- [x] The Player Store's pages: find, licence and provenance as plain text, install, update and remove, with refusals said
+  plainly, in a demonstration build only (`25e54a7`)
+- [ ] Play, and Store games in the Library, checked rather than scanned
+- [x] The creator-features switch in Settings, off by default and enforced by the engine, and the Creator Store's pages; turning
+  it off closes them and keeps what is installed
 - [ ] QQ Studio's asset library: browse, preview, copy into the project with a lock file, update safely
 - [ ] Publishing in stages: private draft, preview, package checks, a declaration of rights, submission, review, publication
 - [ ] Editable projects in the Creator Store as editions linked to a game, with their engine, files, outside dependencies and permitted
