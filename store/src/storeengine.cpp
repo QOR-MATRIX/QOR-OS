@@ -679,6 +679,7 @@ void StoreEngine::commitPlan(const PlanPtr &plan)
 
     for (const Move &move : std::as_const(moves)) {
         // An old version goes only once what replaced it is whole, as when clearing up: it may be the only good copy.
+        // What is left of one that cannot all be deleted yet goes when an engine next clears up, since its id is whole.
         if (!move.previous.isEmpty() && holdsWhatItsManifestLists(items + move.id))
             removeTree(items + move.previous);
         reachedStage(CommitStage::OldRemoved);
@@ -791,8 +792,10 @@ bool StoreEngine::remove(const QString &id)
         return refuse(u"The store could not write down what is installed."_s);
     }
     syncFolder(m_dataDir);
-    removeTree(items + moves.constFirst().previous);
-    removeJournal();
+    // What cannot all be deleted yet keeps its journal, so the next engine finishes deleting it, rather than taking
+    // what is left for an old version to put back.
+    if (removeTree(items + moves.constFirst().previous))
+        removeJournal();
     lock.unlock();
 
     m_installed = records;

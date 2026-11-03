@@ -4568,6 +4568,44 @@ private Q_SLOTS:
         QVERIFY(after.isIntact(v1.id));
         QVERIFY2(leftovers(data.path()).isEmpty(), qPrintable(leftovers(data.path()).join(u", "_s)));
     }
+
+    // A removal that is recorded but cannot all be deleted yet keeps its journal, and the next engine finishes deleting
+    // it, rather than taking what is left for an old version to put back.
+    void aRemovalThatCannotDeleteIsFinishedLater()
+    {
+        const Pack pack;
+        Shop shop;
+        shop.add(pack);
+        QTemporaryDir data;
+        const QByteArray key = shop.store.publicKey();
+        const QString items = data.path() + u"/items/"_s;
+        QString held;
+        {
+            CreatorStore store(data.path(), key);
+            QCOMPARE(refreshed(store, shop.publish()), StoreEngine::State::Ready);
+            QVERIFY(installAndWait(store, pack.id).ok);
+            held = store.installDirectory(pack.id) + u"/art"_s;
+            QVERIFY(QFile::setPermissions(held, QFileDevice::ReadOwner | QFileDevice::ExeOwner));
+            QVERIFY(store.remove(pack.id));
+            QVERIFY(!store.installed().contains(pack.id));
+        }
+        QVERIFY(QFile::exists(data.path() + u"/plan-journal.json"_s));
+        const QStringList aside = QDir(items).entryList({ u"*.old-*"_s }, QDir::Dirs);
+        QCOMPARE(aside.size(), 1);
+        held = items + aside.constFirst() + u"/art"_s;
+
+        // Still held: a new engine leaves it set aside, and puts nothing back under the id.
+        {
+            const StoreEngine again(data.path(), key);
+            QVERIFY(!QFileInfo::exists(items + pack.id));
+            QVERIFY(QFile::exists(data.path() + u"/plan-journal.json"_s));
+        }
+        QVERIFY(QFile::setPermissions(held, QFileDevice::ReadOwner | QFileDevice::WriteOwner | QFileDevice::ExeOwner));
+        const StoreEngine after(data.path(), key);
+        QVERIFY(!QFileInfo::exists(items + pack.id));
+        QVERIFY(!after.installed().contains(pack.id));
+        QVERIFY2(leftovers(data.path()).isEmpty(), qPrintable(leftovers(data.path()).join(u", "_s)));
+    }
 #endif
 
     // Once an update is recorded, its old version goes only if the new one is whole. If something broke it at once, the

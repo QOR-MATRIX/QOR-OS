@@ -82,12 +82,14 @@ Signatures are ECDSA P-256 over SHA-256 (r ‖ s, 64 bytes), checked by the
 platform's own crypto: CNG on Windows, OpenSSL's libcrypto elsewhere.
 
 **An install is all or nothing, as seen from outside,** with whatever it depends on. Every package it needs is downloaded and
-verified first, and held in memory, up to 128 MB for every install under way together. Only then does anything move, under a
+verified first, and held in memory, up to 128 MB for every install under way together, a package counting from its first
+byte on the way, so a download that would not fit stops there. Only then does anything move, under a
 lock in the store's folder and against what is on disk at that moment, since another program of this person's may share the
 folder: what is recorded is read again, and the plan is checked again against it. A journal is written, then each new version
 is swapped in beside the old one, then `installed.json` is written. That last write is the moment it happens, and it is atomic.
 A failure before it puts everything back. So does a crash, the next time an engine starts. A crash after it finishes clearing
-up. Putting back or clearing up may itself be cut short and run again over the same journal, and comes to the same end: it
+up, and an old version goes only once the new one stands whole, every file as its manifest lists it. Putting back or
+clearing up may itself be cut short and run again over the same journal, and comes to the same end: it
 decides from what is on disk, by whether the old version is still set aside, and never from an absence it made itself. A step of
 it that fails, as when a file being scanned cannot be deleted yet, stops it there: the journal stays, the old version stays set
 aside, and the next try starts again. With no record left to say whether a plan happened, what is on disk says: a plan whose every
