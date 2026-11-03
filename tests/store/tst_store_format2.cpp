@@ -4726,11 +4726,16 @@ private Q_SLOTS:
     {
         QTemporaryDir data;
         const QString top = data.path() + u"/items/.staging-"_s + QString(32, u'e');
+        // Each level holds files beside the next level, written before it: a listing read to its end lets its handle
+        // go, so a walk that holds one open while it goes deeper is seen only where more is left to read.
         QString deep = top;
-        for (int i = 0; i < 1000; ++i)
-            deep += u"/a"_s;
         QVERIFY(QDir().mkpath(deep));
-        writeFile(deep + u"/bottom.txt"_s, "x");
+        for (int i = 0; i < 1000; ++i) {
+            for (int k = 0; k < 3; ++k)
+                writeFile(deep + u"/f%1-%2"_s.arg(i).arg(k), "x");
+            deep += u"/a"_s;
+            QVERIFY(QDir().mkdir(deep));
+        }
         rlimit before {};
         QCOMPARE(getrlimit(RLIMIT_NOFILE, &before), 0);
         if (before.rlim_cur < 256)
