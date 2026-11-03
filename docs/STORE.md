@@ -395,8 +395,10 @@ the demonstration says nothing. The Studio reads `installed.json` and `items/<id
 writes there: installing, updating and removing stay the Store's. It checks each `asset-pack` itself, every time: exactly the files its
 manifest lists, every digest, every kind and first bytes, every model's names. It does not check the developer's signature, since it
 holds no key, and keeps the manifest's digest and signature in the project's `assets.lock.json` so that can be checked later. A
-listing's `provenance` is in the catalogue and not in the package or `installed.json`, so the Studio shows it only if the record of
-what is installed carries it. Today the record does not. `prism-test-store-install` (in `tests/store/`) is this engine on the
+listing's `provenance` reaches the Studio through `installed.json`, and the Studio believes it only where the record says it came from
+the signed listing (`"provenanceFrom": "listing"`), as this engine does, and not from a record rebuilt out of manifests. Each field
+may be as long as the catalogue allows, 8,192 characters, and goes into the lock whole. The whole lock must fit its existing 8 MiB
+limit; otherwise the Studio refuses the change before moving project files. `prism-test-store-install` (in `tests/store/`) is this engine on the
 command line, installing or removing one item in a folder, for QQ's `tst_assetlibrary` to join the two builds.
 
 ## Building the catalogue

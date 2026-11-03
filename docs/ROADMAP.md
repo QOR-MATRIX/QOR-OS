@@ -332,10 +332,13 @@ unpublished builds stay out of reach.
   in QQ's own `tst_storegame` (`2fbfc2a`), walled, from the scene its `game.json` names
 - [x] The creator-features switch in Settings, off by default and enforced by the engine, and the Creator Store's pages; turning
   it off closes them and keeps what is installed
-- [x] QQ Studio's asset library: browse, preview, copy into the project with `assets.lock.json`, update without writing over a
-  changed copy (a review's recovery findings being fixed); the built game says what it uses. `tst_assetlibrary` 50 cases under `linux-asan`, in
-  software, with the demonstration pack installed by the real StoreEngine (`45eb16b`). A listing's provenance reaches the project's
-  lock from what the Store installed (`8b77c01`)
+- [x] QQ Studio's asset library: browse, preview checked bytes, copy into a trusted project with `assets.lock.json`, and update
+  without writing over a changed copy; the built game says what it uses. Recovery checks the project folder and each placed file,
+  and every lock has its own change tag. Use and Update run off the window's thread; Save, Build and changing project wait.
+  The Store's listing provenance reaches the lock whole within its existing 8 MiB cap (`8b77c01`). Release `tst_assetlibrary`:
+  88 passed, none failed, one opt-in benchmark skipped; the same under AddressSanitizer and UBSan, with `tst_gamebuild` also
+  passing all 195 cases. Both use WSL software rendering and the real StoreEngine's demonstration pack. Native Linux, a GPU
+  and Windows still need their own evidence. QQ's full QML lint has 439 warnings, unchanged from `f65c90d`; the zero-warning gate remains open.
 - [ ] Publishing in stages: private draft, preview, package checks, a declaration of rights, submission, review, publication
 - [ ] Editable projects in the Creator Store as editions linked to a game, with their engine, files, outside dependencies and permitted
   reuse; playable mods, per game, only where that game allows them

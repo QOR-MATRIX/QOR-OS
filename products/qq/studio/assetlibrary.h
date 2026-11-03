@@ -20,6 +20,10 @@
 // developer's signature, and says the developer is not checked here. The manifest's digest and its signature go into the lock,
 // so that can be checked later.
 //
+// In the window, Use and Update run on a thread of their own (startUse, startUpdate), and finished() says how they went; listing
+// and planning stay on the window's thread. Provenance from the Store's record is believed only where it says it came from the
+// signed listing ("provenanceFrom": "listing"), as the Store's engine does, each field up to the catalogue's 8,192 characters.
+//
 // The lock is <project>/assets.lock.json, one per project, written whole or not at all, in one canonical layout:
 //
 //   { "format": 1, "change": a tag of its own for each change, "packs": [ { "id", "name", "version", "developer", "licence": SPDX
@@ -61,7 +65,9 @@
 #include <QHash>
 #include <QList>
 #include <QObject>
+#include <QPointer>
 #include <QString>
+#include <QThread>
 #include <QStringList>
 #include <QUrl>
 #include <QVariantList>
@@ -83,6 +89,8 @@ class AssetLibrary : public QObject
     /// The Store's folder of installed items, or "" for no library.
     Q_PROPERTY(QString folder READ folder WRITE setFolder NOTIFY folderChanged)
     Q_PROPERTY(bool available READ available NOTIFY folderChanged)
+    /// Whether a Use or an Update started by startUse() or startUpdate() is under way, off the window's thread.
+    Q_PROPERTY(bool busy READ busy NOTIFY busyChanged)
 
 public:
     /// The format of assets.lock.json. A lock of any other is not used.
@@ -92,6 +100,8 @@ public:
     static constexpr qint64 largestRecord = 1024 * 1024;
     static constexpr qint64 largestManifest = 1024 * 1024;
     static constexpr qint64 largestLock = 8 * 1024 * 1024;
+    /// The longest a provenance field may be, as the catalogue allows it (store/src/catalog.cpp).
+    static constexpr qsizetype longestProvenance = 8192;
     /// What one pack may hold altogether, as the Store bounds a package's content, and how many files.
     static constexpr qint64 largestPack = 32 * 1024 * 1024;
     static constexpr int mostFilesInAPack = 8192;
@@ -156,10 +166,12 @@ public:
     };
 
     explicit AssetLibrary(QObject *parent = nullptr);
+    ~AssetLibrary() override;
 
     QString folder() const { return m_folder; }
     void setFolder(const QString &folder);
     bool available() const { return !m_folder.isEmpty(); }
+    bool busy() const { return m_thread != nullptr; }
 
     /// What the library shows for `project`: { "available", "packs": [ { "id", "name", "version", "developer", "licence",
     /// "provenance": a line for a person, "files": [ { "path", "kind", "size", "url", "inProject": its path there, or "" } ],
@@ -178,6 +190,10 @@ public:
     /// Update pack `id`, putting the new version beside each changed copy in `beside` (project paths) and skipping the others.
     /// { "ok", "problem", and what plan() says was done }.
     Q_INVOKABLE QVariantMap update(const QUrl &project, const QString &id, const QStringList &beside);
+    /// use() and update(), on a thread of their own, so the window goes on drawing: finished() follows with what they answer and
+    /// which it was ("use" or "update"). False, and nothing starts, if one is under way or there is no library.
+    Q_INVOKABLE bool startUse(const QUrl &project, const QString &id, const QStringList &files, bool replace);
+    Q_INVOKABLE bool startUpdate(const QUrl &project, const QString &id, const QStringList &beside);
 
     // The same, for main.cpp's command line and the tests, with `packs` the folder of installed items.
     static QVariantMap usePack(const QString &project, const QString &packs, const QString &id, const QStringList &files,
@@ -204,9 +220,14 @@ public:
 
 signals:
     void folderChanged();
+    void busyChanged();
+    void finished(const QString &operation, const QVariantMap &result);
 
 private:
+    bool startWork(const QString &operation, std::function<QVariantMap()> work);
+
     QString m_folder;
+    QPointer<QThread> m_thread;
 };
 
 /// Thumbnails of the pictures in the packs the library lists (image://qqassets/<pack id>/<version>/<path>), from the very bytes

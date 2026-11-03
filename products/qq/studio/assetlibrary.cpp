@@ -20,7 +20,6 @@
 #include <QStringDecoder>
 #include <QUrl>
 #include <QUuid>
-#include <QtEndian>
 
 #include <algorithm>
 #include <memory>
@@ -351,10 +350,14 @@ QString modelProblem(const QString &path, const QByteArray &bytes, const QSet<QS
     QByteArray json = bytes;
     if (path.endsWith(QStringLiteral(".glb"), Qt::CaseInsensitive)) {
         // A binary glTF: a header of 12 bytes, then its JSON chunk first.
-        if (bytes.size() < 20 || qFromLittleEndian<quint32>(bytes.constData() + 4) != 2)
+        if (bytes.size() < 20)
             return tr("%1 is not a glTF 2.0 model.").arg(path);
-        const quint32 length = qFromLittleEndian<quint32>(bytes.constData() + 12);
-        if (qFromLittleEndian<quint32>(bytes.constData() + 16) != 0x4E4F534Au || length > quint32(bytes.size() - 20))
+        const auto word = [&bytes](qsizetype offset) {
+            return quint32(quint8(bytes.at(offset))) | (quint32(quint8(bytes.at(offset + 1))) << 8)
+                   | (quint32(quint8(bytes.at(offset + 2))) << 16) | (quint32(quint8(bytes.at(offset + 3))) << 24);
+        };
+        const quint32 length = word(12);
+        if (word(4) != 2 || word(16) != 0x4E4F534Au || length > quint32(bytes.size() - 20))
             return tr("%1 is not a glTF 2.0 model.").arg(path);
         json = bytes.mid(20, qsizetype(length));
     }
@@ -574,12 +577,15 @@ bool readPack(const QString &items, const QString &id, const QJsonObject &entry,
     pack->files = files;
     for (qsizetype i = 0; i < files.size(); ++i)
         pack->index.insert(files.at(i).path, i);
-    // Where the Store says it came from, if its record says: text, and nothing else.
-    const QJsonObject provenance = entry.value(QStringLiteral("provenance")).toObject();
-    for (const char *key : {"origin", "author", "source", "permission"}) {
-        const QJsonValue value = provenance.value(QLatin1String(key));
-        if (isPlainText(value, 1024) && !value.toString().isEmpty())
-            pack->provenance.insert(QLatin1String(key), value.toString());
+    // Where the Store says it came from, only as the Store's engine believes it, from the signed listing ("provenanceFrom":
+    // "listing"), not from a record rebuilt out of manifests: text, as long as the catalogue allows, and nothing else.
+    if (entry.value(QStringLiteral("provenanceFrom")).toString() == QStringLiteral("listing")) {
+        const QJsonObject provenance = entry.value(QStringLiteral("provenance")).toObject();
+        for (const char *key : {"origin", "author", "source", "permission"}) {
+            const QJsonValue value = provenance.value(QLatin1String(key));
+            if (isPlainText(value, AssetLibrary::longestProvenance) && !value.toString().isEmpty())
+                pack->provenance.insert(QLatin1String(key), value.toString());
+        }
     }
     if (!signature.isEmpty()) {
         const QMutexLocker locker(&checkedMutex());
@@ -1124,6 +1130,49 @@ AssetLibrary::Hold::~Hold() = default;
 
 AssetLibrary::AssetLibrary(QObject *parent) : QObject(parent) {}
 
+AssetLibrary::~AssetLibrary()
+{
+    if (m_thread)
+        m_thread->wait();
+}
+
+bool AssetLibrary::startWork(const QString &operation, std::function<QVariantMap()> work)
+{
+    if (m_thread || !available())
+        return false;
+    const auto result = std::make_shared<QVariantMap>();
+    QThread *thread = QThread::create([result, work] { *result = work(); });
+    thread->setParent(this);
+    connect(thread, &QThread::finished, this, [this, thread, operation, result] {
+        m_thread = nullptr;
+        thread->deleteLater();
+        emit busyChanged();
+        emit finished(operation, *result);
+    });
+    m_thread = thread;
+    thread->start();
+    emit busyChanged();
+    return true;
+}
+
+bool AssetLibrary::startUse(const QUrl &project, const QString &id, const QStringList &files, bool replace)
+{
+    if (!project.isLocalFile())
+        return false;
+    const QString folder = project.toLocalFile();
+    const QString packs = m_folder;
+    return startWork(QStringLiteral("use"), [=] { return usePack(folder, packs, id, files, replace); });
+}
+
+bool AssetLibrary::startUpdate(const QUrl &project, const QString &id, const QStringList &beside)
+{
+    if (!project.isLocalFile())
+        return false;
+    const QString folder = project.toLocalFile();
+    const QString packs = m_folder;
+    return startWork(QStringLiteral("update"), [=] { return updatePack(folder, packs, id, beside); });
+}
+
 void AssetLibrary::setFolder(const QString &folder)
 {
     AssetThumbnails::setFolder(folder);
@@ -1277,7 +1326,7 @@ AssetLibrary::Lock AssetLibrary::parseLock(const QByteArray &bytes, const QStrin
         if (!provenanceValue.isObject() || provenance.size() > 8)
             return broken(tr("what it says of %1 is not valid").arg(pack.id));
         for (auto it = provenance.begin(); it != provenance.end(); ++it) {
-            if (!isPlainText(it.value(), 1024))
+            if (!isPlainText(it.value(), longestProvenance))
                 return broken(tr("what it says of %1 is not valid").arg(pack.id));
             pack.provenance.insert(it.key(), it.value().toString());
         }

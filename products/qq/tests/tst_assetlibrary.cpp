@@ -30,6 +30,7 @@
 #include <QQuickWindow>
 #include <QStandardPaths>
 #include <QTemporaryDir>
+#include <QSignalSpy>
 #include <QTest>
 #include <QThread>
 #include <QtQml/qqmlextensionplugin.h>
@@ -1113,6 +1114,31 @@ private slots:
 
     // ── The window ──
 
+    void theWindowWaitsForItsAssetChange()
+    {
+        Store store;
+        store.add(kId, QStringLiteral("1.0.0"), firstVersion());
+        Project project;
+        project.saveScene();
+        trust(project.url());
+        Project other;
+        other.saveScene();
+        Studio s;
+        QVERIFY(s.open(project.url(), store.path()));
+        QVERIFY(s.call("openScene", QStringLiteral("level")).toBool());
+        QVERIFY(!s.get("savedText").toString().isEmpty());
+        QVERIFY(s.call("useAssets", kId, QStringList()).toBool());
+        QVERIFY(s.child(QStringLiteral("assetLibrary"))->property("busy").toBool());
+        QVERIFY(!s.call("saveScene").toBool());
+        QVERIFY(!s.call("switchProject", other.url()).toBool());
+        QCOMPARE(s.get("project").toUrl(), project.url());
+        s.call("buildGame");
+        QVERIFY2(s.notice().contains(QStringLiteral("assets are being changed")), qPrintable(s.notice()));
+        QVERIFY(!s.child(QStringLiteral("gameBuild"))->property("busy").toBool());
+        QTRY_VERIFY_WITH_TIMEOUT(s.notice().startsWith(QStringLiteral("Copied")), 60000);
+        QCOMPARE(readBytes(project.copy(QStringLiteral("art/hero.png"))), png(red));
+    }
+
     void theWindowUsesUpdatesAndReopens()
     {
         Store store;
@@ -1136,19 +1162,22 @@ private slots:
 
             // A file already there that differs: asked, and Leave changes nothing.
             const auto before = snapshot(project.path());
-            QVERIFY(!s.call("useAssets", kId, QStringList()).toBool());
+            // Started off the window's thread: the question comes when it has looked.
+            QVERIFY(s.call("useAssets", kId, QStringList()).toBool());
             QTRY_VERIFY(s.opened("conflictDialog"));
             QVERIFY(s.child(QStringLiteral("conflictText"))->property("text").toString().contains(inProject(QStringLiteral("art/hero.png"))));
             s.click(QStringLiteral("conflictLeave"));
             QTRY_VERIFY(!s.opened("conflictDialog"));
             QCOMPARE(snapshot(project.path()), before);
             // Replace does it.
-            QVERIFY(!s.call("useAssets", kId, QStringList()).toBool());
+            // Started off the window's thread: the question comes when it has looked.
+            QVERIFY(s.call("useAssets", kId, QStringList()).toBool());
             QTRY_VERIFY(s.opened("conflictDialog"));
             s.click(QStringLiteral("conflictReplace"));
             QTRY_VERIFY(QFileInfo::exists(project.lockPath()));
             QCOMPARE(readBytes(project.copy(QStringLiteral("art/hero.png"))), png(red));
-            QCOMPARE(s.assets().value(QStringLiteral("packs")).toList().first().toMap().value(QStringLiteral("used")).toString(), QStringLiteral("1.0.0"));
+            QTRY_VERIFY(!s.child(QStringLiteral("assetLibrary"))->property("busy").toBool());
+            QTRY_COMPARE(s.assets().value(QStringLiteral("packs")).toList().first().toMap().value(QStringLiteral("used")).toString(), QStringLiteral("1.0.0"));
 
             // The pack moves on; the person has changed the tiles.
             writeFile(project.copy(QStringLiteral("art/tiles.png")), png(blue, 8));
@@ -1171,7 +1200,7 @@ private slots:
             QTRY_COMPARE(project.lockedPack().value(QStringLiteral("version")).toString(), QStringLiteral("1.1.0"));
             QCOMPARE(readBytes(project.copy(QStringLiteral("art/tiles.png"))), png(blue, 8));
             QCOMPARE(readBytes(project.copy(QStringLiteral("art/tiles-1.1.0.png"))), png(green));
-            QVERIFY2(s.notice().contains(QStringLiteral("keeping 1")), qPrintable(s.notice()));
+            QTRY_VERIFY2(s.notice().contains(QStringLiteral("keeping 1")), qPrintable(s.notice()));
         }
         // Reopened: what the project uses comes from its lock; gone from the Store, the copies stay and the library says so.
         store.remove(kId);
@@ -1418,6 +1447,146 @@ private slots:
         QCOMPARE(snapshot(project.path()), before);
     }
 
+
+    // ── Provenance, as the Store's engine records it ──
+
+    void provenanceIsBelievedOnlyFromTheListing_data()
+    {
+        QTest::addColumn<QString>("from");
+        QTest::addColumn<int>("length");
+        QTest::addColumn<bool>("kept");
+        QTest::newRow("from the listing") << QStringLiteral("listing") << 40 << true;
+        QTest::newRow("from the listing, at the catalogue's longest") << QStringLiteral("listing") << 8192 << true;
+        QTest::newRow("from the listing, past the catalogue's longest") << QStringLiteral("listing") << 8193 << false;
+        QTest::newRow("from a record rebuilt out of manifests") << QStringLiteral("none") << 40 << false;
+        QTest::newRow("saying nothing of where it is from") << QString() << 40 << false;
+    }
+
+    void provenanceIsBelievedOnlyFromTheListing()
+    {
+        QFETCH(QString, from);
+        QFETCH(int, length);
+        QFETCH(bool, kept);
+        Store store;
+        store.add(kId, QStringLiteral("1.0.0"), firstVersion());
+        // In any script: three bytes each in UTF-8.
+        const QString origin = QString(length, QChar(0x20AC));
+        QJsonObject entry = store.items.value(kId).toObject();
+        entry.insert(QStringLiteral("provenance"), QJsonObject{{QStringLiteral("origin"), origin}, {QStringLiteral("author"), QStringLiteral("An author")},
+                                                               {QStringLiteral("source"), QStringLiteral("A source")}, {QStringLiteral("permission"), QStringLiteral("Apache-2.0")}});
+        if (!from.isEmpty())
+            entry.insert(QStringLiteral("provenanceFrom"), from);
+        store.items.insert(kId, entry);
+        store.writeRecord();
+        Project project;
+        QVERIFY(ok(AssetLibrary::usePack(project.path(), store.path(), kId, {}, false)));
+        const QJsonObject provenance = project.lockedPack().value(QStringLiteral("provenance")).toObject();
+        QCOMPARE(provenance.value(QStringLiteral("origin")).toString(), kept ? origin : QString());
+        QCOMPARE(provenance.contains(QStringLiteral("author")), from == QStringLiteral("listing"));
+        // The digest and signature of what was installed are kept whatever the record says.
+        QVERIFY(!provenance.value(QStringLiteral("manifest")).toString().isEmpty());
+        QVERIFY(AssetLibrary::readLock(project.real()).problem.isEmpty());
+    }
+
+    /// Even valid individual fields cannot lift the total lock limit. An oversized lock is refused whole.
+    void provenanceCannotExceedTheLockLimit()
+    {
+        Project project;
+        QList<AssetLibrary::LockedPack> packs;
+        const QString longest = QString(AssetLibrary::longestProvenance, QChar(0x20AC));
+        for (int i = 0; i < AssetLibrary::mostPacks; ++i) {
+            AssetLibrary::LockedPack pack;
+            pack.id = QStringLiteral("org.example.p%1").arg(i);
+            pack.name = QStringLiteral("Pack %1").arg(i);
+            pack.version = QStringLiteral("1.0.0");
+            pack.developer = QStringLiteral("org.example");
+            pack.licence = QStringLiteral("Apache-2.0");
+            pack.provenance = {{QStringLiteral("origin"), longest}, {QStringLiteral("author"), longest}, {QStringLiteral("source"), longest},
+                               {QStringLiteral("permission"), longest}, {QStringLiteral("manifest"), hex("m")},
+                               {QStringLiteral("signature"), QString::fromLatin1(QByteArray(64, '\x01').toBase64())}};
+            packs.append(pack);
+        }
+        const QByteArray bytes = AssetLibrary::lockBytes(packs, QStringLiteral("0123456789abcdef0123456789abcdef"));
+        qInfo("A lock of %d packs at the longest provenance: %lld bytes of a cap of %lld", int(packs.size()), qint64(bytes.size()),
+              qint64(AssetLibrary::largestLock));
+        QVERIFY(bytes.size() > AssetLibrary::largestLock);
+        const AssetLibrary::Lock read = AssetLibrary::parseLock(bytes, project.real());
+        QVERIFY(read.problem.contains(QStringLiteral("larger")));
+        QVERIFY(read.packs.isEmpty());
+    }
+
+    void backgroundChangesFinishBeforeAnotherCanStart()
+    {
+        Store store;
+        store.add(kId, QStringLiteral("1.0.0"), firstVersion());
+        Project project;
+        AssetLibrary library;
+        library.setFolder(store.path());
+        QSignalSpy done(&library, &AssetLibrary::finished);
+        QVERIFY(library.startUse(project.url(), kId, {}, false));
+        QVERIFY(library.busy());
+        QVERIFY(!library.startUpdate(project.url(), kId, {}));
+        QTRY_COMPARE_WITH_TIMEOUT(done.size(), 1, 60000);
+        QVERIFY(!library.busy());
+        QCOMPARE(done.at(0).at(0).toString(), QStringLiteral("use"));
+        QVERIFY(ok(done.at(0).at(1).toMap()));
+        QCOMPARE(readBytes(project.copy(QStringLiteral("art/hero.png"))), png(red));
+
+        store.add(kId, QStringLiteral("1.1.0"), secondVersion());
+        QVERIFY(library.startUpdate(project.url(), kId, {}));
+        QVERIFY(library.busy());
+        QVERIFY(!library.startUse(project.url(), kId, {}, false));
+        QTRY_COMPARE_WITH_TIMEOUT(done.size(), 2, 60000);
+        QVERIFY(!library.busy());
+        QCOMPARE(done.at(1).at(0).toString(), QStringLiteral("update"));
+        QVERIFY(ok(done.at(1).at(1).toMap()));
+        QCOMPARE(readBytes(project.copy(QStringLiteral("art/hero.png"))), png(amber));
+    }
+
+    void closingTheLibraryWaitsForItsChange()
+    {
+        Store store;
+        store.add(kId, QStringLiteral("1.0.0"), firstVersion());
+        Project project;
+        {
+            AssetLibrary library;
+            library.setFolder(store.path());
+            QVERIFY(library.startUse(project.url(), kId, {}, false));
+        }
+        QCOMPARE(readBytes(project.copy(QStringLiteral("art/hero.png"))), png(red));
+        QVERIFY(AssetLibrary::readLock(project.real()).problem.isEmpty());
+        QVERIFY(!QFileInfo::exists(AssetLibrary::journalFor(project.real())));
+    }
+
+    void binaryModelsNeedAWholeJsonChunk_data()
+    {
+        QTest::addColumn<QByteArray>("bytes");
+        QTest::addColumn<bool>("accepted");
+        const QByteArray model = QByteArray::fromHex("676c54460200000018000000040000004a534f4e7b7d2020");
+        QTest::newRow("whole") << model << true;
+        QTest::newRow("only magic") << model.first(4) << false;
+        QTest::newRow("short header") << model.first(19) << false;
+        QTest::newRow("short JSON") << model.first(23) << false;
+        QByteArray wrongVersion = model;
+        wrongVersion[4] = 3;
+        QTest::newRow("other version") << wrongVersion << false;
+        QByteArray wrongKind = model;
+        wrongKind[16] = 0;
+        QTest::newRow("not JSON") << wrongKind << false;
+    }
+
+    void binaryModelsNeedAWholeJsonChunk()
+    {
+        QFETCH(QByteArray, bytes);
+        QFETCH(bool, accepted);
+        Store store;
+        store.add(kId, QStringLiteral("1.0.0"), {{QStringLiteral("art/model.glb"), bytes}});
+        QStringList refused;
+        const auto packs = AssetLibrary::readInstalled(store.path(), &refused);
+        QCOMPARE(!packs.isEmpty(), accepted);
+        QCOMPARE(refused.isEmpty(), accepted);
+    }
+
     // ── Beside names ──
 
     void aNewVersionBesideNeverBreaksTheLock()
@@ -1639,6 +1808,17 @@ private slots:
         took("update");
         library.state(project.url());
         took("list after update");
+
+        // As the window does it: started, and its thread free while it runs.
+        Project backgroundProject;
+        store.add(kId, QStringLiteral("1.0.0"), first);
+        library.state(backgroundProject.url());
+        QSignalSpy done(&library, &AssetLibrary::finished);
+        clock.restart();
+        QVERIFY(library.startUse(backgroundProject.url(), kId, {}, false));
+        took("start use, on the window's thread");
+        QVERIFY(done.wait(120000));
+        took("use, on its own thread, waited for");
     }
 
     // ── The demonstration pack, installed by the real Store ──
@@ -1669,8 +1849,10 @@ private slots:
             QCOMPARE(pack.value(QStringLiteral("version")).toString(), QStringLiteral("1.0.0"));
             QCOMPARE(pack.value(QStringLiteral("licence")).toString(), QStringLiteral("Apache-2.0"));
             // Where it came from, as the Store's signed listing says and its engine keeps it in installed.json.
-            QCOMPARE(pack.value(QStringLiteral("provenance")).toString(), QStringLiteral("From Demiurge, QOR-MATRIX/demiurge-chain, through the Store"));
+            QCOMPARE(pack.value(QStringLiteral("provenance")).toString(),
+                     QStringLiteral("From Demiurge, QOR-MATRIX/demiurge-chain, through the Store. Developer (not checked here): org.example.demo"));
             QVERIFY(s.call("useAssets", kDemoPack, QStringList()).toBool());
+            QTRY_VERIFY_WITH_TIMEOUT(s.notice().startsWith(QStringLiteral("Copied")), 60000);
 
             // The lock is right: every file as the Store's manifest lists it, and the manifest's own digest.
             const QJsonObject manifest = QJsonDocument::fromJson(readBytes(store.filePath(QStringLiteral("items/%1/manifest.json").arg(kDemoPack)))).object();

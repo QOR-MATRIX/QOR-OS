@@ -488,7 +488,7 @@ ApplicationWindow {
 
     // ── the asset library ──
 
-    readonly property AssetLibrary assetLibrary: AssetLibrary { folder: window.assetPacks }
+    readonly property AssetLibrary assetLibrary: AssetLibrary { objectName: "assetLibrary"; folder: window.assetPacks }
     /// What the library shows of the project (AssetLibrary.state), read again as the project changes and on Refresh.
     property var assetState: ({ available: false, packs: [], missing: [], refused: [], lockProblem: "" })
 
@@ -503,7 +503,7 @@ ApplicationWindow {
     }
 
     /// Copy `files` of pack `id` (paths in the pack; none for all of it) into the project, as an import would be: in a project the
-    /// person trusts, never while a build runs, and never over a file that differs without asking. True if it was done.
+    /// person trusts, never while a build runs, and never over a file that differs without asking. True if the work started.
     function useAssets(id, files) {
         if (String(project) === "") {
             say(qsTr("Choose a project first: assets from the library are copied into it."), true)
@@ -515,10 +515,34 @@ ApplicationWindow {
         return trusting(() => { done = copyAssets(id, files, false) }) && done
     }
 
+    /// Started off the window's thread; its answer comes to copied().
     function copyAssets(id, files, replace) {
-        const result = assetLibrary.use(project, id, files, replace)
-        if (!result.ok && (result.conflicts ?? []).length > 0) {
-            conflictDialog.asked = { id: id, files: files }
+        assetsAsked = { id: id, files: files }
+        if (!assetLibrary.startUse(project, id, files, replace)) {
+            say(qsTr("The project's assets are being changed. When that has finished, try again."), true)
+            return false
+        }
+        say(qsTr("Copying into the project…"))
+        return true
+    }
+
+    /// What a Use or an Update said, once it has finished.
+    property var assetsAsked: null
+    Connections {
+        target: window.assetLibrary
+        function onFinished(operation, result) {
+            if (operation === "use")
+                window.copied(result)
+            else
+                window.updated(result)
+        }
+    }
+
+    function copied(result) {
+        const asked = assetsAsked
+        assetsAsked = null
+        if (!result.ok && (result.conflicts ?? []).length > 0 && asked) {
+            conflictDialog.asked = asked
             conflictText.text = result.problem + "\n\n" + result.conflicts.join("\n")
             conflictDialog.open()
             return false
@@ -571,7 +595,15 @@ ApplicationWindow {
             return false
         if (refusedWhileBuilding(qsTr("update assets")))
             return false
-        const result = assetLibrary.update(project, plan.id, beside)
+        if (!assetLibrary.startUpdate(project, plan.id, beside)) {
+            say(qsTr("The project's assets are being changed. When that has finished, try again."), true)
+            return false
+        }
+        say(qsTr("Updating %1…").arg(plan.name))
+        return true
+    }
+
+    function updated(result) {
         if (!result.ok) {
             say(result.problem, true)
             refreshAssets()
@@ -1298,6 +1330,11 @@ ApplicationWindow {
 
     /// With a build running, what would change what it is reading, or put its answer in another project, waits: said, and true.
     function refusedWhileBuilding(what) {
+        // A change to the project's assets is on its way too: nothing is saved or built, and the project stays, meanwhile.
+        if (assetLibrary.busy) {
+            say(qsTr("The project's assets are being changed. When that has finished, %1.").arg(what), true)
+            return true
+        }
         if (!gameBuild.busy)
             return false
         say(qsTr("%1 is being built. When that has finished, %2.").arg(projectInfo.name).arg(what), true)
@@ -1307,6 +1344,8 @@ ApplicationWindow {
     /// Save what is on the screen, then make a game of the project: what is built is what is on the disk.
     function buildGame() {
         if (playing || gameBuild.busy || askingFor !== null)
+            return
+        if (refusedWhileBuilding(qsTr("build")))
             return
         if (String(project) === "") {
             say(qsTr("Choose a project to build: Project, then a folder."), true)

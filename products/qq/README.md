@@ -199,7 +199,7 @@ it; the QQ Player plays a scene on its own, natively and in a browser.
   same trust as saving, as Update does, and happens neither while a build runs nor over a file already there that differs: that is asked first, and
   **Leave them** changes nothing. It happens whole or not at all, and writes **`assets.lock.json`** at the project's root. That file
   holds, for each pack, its id, name, version, developer, licence and provenance (the SHA-256 of the manifest the developer signed, that
-  signature, and where it came from if the Store recorded it), and each file copied: its path in the project and in the pack, its
+  signature, and where it came from when the Store's record says that came from the signed listing), and each file copied: its path in the project and in the pack, its
   SHA-256 and the version it came from. It is the permission an import does not have. **Update** shows when the installed version is
   newer than the lock's, and says what it would do before it does any of it. A copy the person changed (its digest differs from the
   lock's) is never written over: that is looked at when the update is planned and again just before each file is set aside, and a copy
@@ -236,9 +236,12 @@ it; the QQ Player plays a scene on its own, natively and in a browser.
   sharing that store, and not another person, a Studio with another store, another computer on a shared folder, or any other program.
   `qq-studio --project <folder> --asset-packs <folder> --use-pack <id> [--pack-file <path>]... [--replace]`, and `--update-pack <id>
   [--beside]`, do the same with no window. They take only a project on the person's trusted list, print `QQ-ASSETS` and their result as
-  JSON on standard output, and exit 0 done or 3 refused. **Not yet:** a pack's own pages in the Studio (its description, its previews)
-  and the Store's provenance fields reach the Studio only if the Store's record of what is installed carries them, which it does not yet.
-  A moved project leaves a change cut short in its old place's journal.
+  JSON on standard output, and exit 0 done or 3 refused. In the window Use and Update run on a thread of their own, so the window
+  goes on drawing, and while one runs nothing is saved or built and the project stays, each saying why; listing the packs and planning
+  an update stay on the window's thread. Provenance fields may contain up to 8,192 characters each; the whole lock must still fit
+  its 8 MiB limit, or the change is refused before any project file moves. **Not yet:** a pack's own pages in the Studio (its description,
+  its previews). A moved project leaves a change cut short in
+  its old place's journal.
 - **The files:** a scene is `scenes/<name>.qml` in the project, in one canonical layout: read and written back it is
   the same bytes, and one changed value is one changed line in Projects. Models and sounds are copied into `assets/`
   and logic into `logic/`, so the project is whole on its own; a Tiled map brings its tileset and image, and one whose
