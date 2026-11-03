@@ -85,6 +85,14 @@ add_test(NAME tst_storefronts_qml
     COMMAND tst_storefronts_qml -input "${CMAKE_CURRENT_SOURCE_DIR}/store/tst_storefronts.qml")
 set_tests_properties(tst_storefronts_qml PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen;QT_QUICK_BACKEND=software;${QOR_TEST_ENV}")
+# The real StoreEngine installing one item into a folder, as the shell's Store would: for QQ's asset library suite
+# (products/qq/tests/tst_assetlibrary.cpp), which finds it where QOR_PRISM_BUILD names this build. QQ at this tree's version.
+file(STRINGS "${CMAKE_SOURCE_DIR}/products/qq/CMakeLists.txt" QOR_TEST_QQ_LINE REGEX "^project\\(QQ VERSION [0-9]+\\.[0-9]+\\.[0-9]+")
+string(REGEX MATCH "[0-9]+\\.[0-9]+\\.[0-9]+" QOR_TEST_QQ_VERSION "${QOR_TEST_QQ_LINE}")
+qt_add_executable(prism-test-store-install store/store_install.cpp)
+target_link_libraries(prism-test-store-install PRIVATE qor_store qor::compiler_settings)
+target_compile_definitions(prism-test-store-install PRIVATE QOR_STORE_QQ_VERSION="${QOR_TEST_QQ_VERSION}")
+set_target_properties(prism-test-store-install PROPERTIES WIN32_EXECUTABLE OFF)
 # Prism's side of the QOR host protocol (prism/shell/producthost.h), against
 # a product with no window that tst_producthost_product stands in for.
 qt_add_executable(tst_producthost_product prism/producthost_product.cpp)

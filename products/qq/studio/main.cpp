@@ -27,6 +27,13 @@
 // builds only a project already on the person's trusted list, and it compiles nothing, as its answer says.
 //
 // Changed for QOR OS: Qt's QML disk cache only as it is compiled into the Studio, never a .qmlc or .jsc on disk.
+//
+// Changed for QOR OS: the asset library (assetlibrary.h). --asset-packs <folder>, or QOR_ASSET_PACKS as Prism sets it where the
+// Store's format 2 engine exists, names the Store's folder of installed items; with neither there is no library. With no window,
+// qq-studio --project <folder> --asset-packs <folder> --use-pack <id> [--pack-file <path>]... [--replace] copies a pack, or those
+// of its files, into the project, and --update-pack <id> [--beside] updates it, the new version of each changed copy beside it
+// with --beside and skipped without. Each prints "QQ-ASSETS {json}" and exits 0 done, 3 refused, and takes only a project on the
+// person's trusted list.
 
 #include <QCommandLineParser>
 #include <QCoreApplication>
@@ -46,6 +53,8 @@
 #include <cstdio>
 #include <memory>
 
+#include "assetlibrary.h"
+#include "confinement.h"
 #include "gamebuild.h"
 #include "gpu.h"
 #include "launcherlink.h"
@@ -117,16 +126,71 @@ int buildAndExit(int argc, char *argv[])
     return result.value(QStringLiteral("ok")).toBool() ? 0 : 3;
 }
 
+/// The Store's folder of installed items the library reads: the command line's, else Prism's, else none.
+QString assetPacksFrom(const QCommandLineParser &parser, const QCommandLineOption &option)
+{
+    const QString folder = parser.isSet(option) ? parser.value(option) : qEnvironmentVariable("QOR_ASSET_PACKS");
+    return folder.isEmpty() ? QString() : QDir().absoluteFilePath(folder);
+}
+
+/// A pack used or updated with no window: nobody is there to be asked, so only a project on the person's list.
+int assetsAndExit(int argc, char *argv[])
+{
+    QCoreApplication app(argc, argv);
+    QCoreApplication::setApplicationName(QStringLiteral("QQ Studio"));
+    QCoreApplication::setOrganizationName(QStringLiteral("Demiurge"));
+    QCommandLineParser parser;
+    const QCommandLineOption project(QStringLiteral("project"), QStringLiteral("The project folder."), QStringLiteral("folder"));
+    const QCommandLineOption packs(QStringLiteral("asset-packs"), QStringLiteral("The Store's folder of installed items."), QStringLiteral("folder"));
+    const QCommandLineOption use(QStringLiteral("use-pack"), QStringLiteral("Copy the pack into the project."), QStringLiteral("id"));
+    const QCommandLineOption file(QStringLiteral("pack-file"), QStringLiteral("Only this file of it."), QStringLiteral("path"));
+    const QCommandLineOption replace(QStringLiteral("replace"), QStringLiteral("Replace a file already there that differs."));
+    const QCommandLineOption update(QStringLiteral("update-pack"), QStringLiteral("Update the pack in the project."), QStringLiteral("id"));
+    const QCommandLineOption beside(QStringLiteral("beside"), QStringLiteral("Put the new version of each changed copy beside it."));
+    parser.addHelpOption();
+    for (const QCommandLineOption &option : {project, packs, use, file, replace, update, beside})
+        parser.addOption(option);
+    parser.process(app);
+    const QString folder = parser.value(project).isEmpty() ? QString() : QDir().absoluteFilePath(parser.value(project));
+    const QString installed = assetPacksFrom(parser, packs);
+    QVariantMap result;
+    if (installed.isEmpty()) {
+        result = {{QStringLiteral("ok"), false}, {QStringLiteral("problem"), QObject::tr("No folder of installed packs was named.")}};
+    } else if (folder.isEmpty() || !qq::SceneIO::realFolderOnTrustedList(qq::Confinement::realPath(folder))) {
+        result = {{QStringLiteral("ok"), false},
+                  {QStringLiteral("problem"), QObject::tr("%1 is not a project you have said you trust. Open it in QQ Studio and trust it there.").arg(folder)}};
+    } else if (parser.isSet(use)) {
+        result = qq::AssetLibrary::usePack(folder, installed, parser.value(use), parser.values(file), parser.isSet(replace));
+    } else {
+        const QVariantMap plan = qq::AssetLibrary::planUpdate(folder, installed, parser.value(update));
+        QStringList changed;
+        for (const QVariant &each : plan.value(QStringLiteral("changed")).toList())
+            changed.append(each.toMap().value(QStringLiteral("path")).toString());
+        result = plan.value(QStringLiteral("ok")).toBool()
+                     ? qq::AssetLibrary::updatePack(folder, installed, parser.value(update), parser.isSet(beside) ? changed : QStringList())
+                     : plan;
+    }
+    const QByteArray line = "QQ-ASSETS " + QJsonDocument(QJsonObject::fromVariantMap(result)).toJson(QJsonDocument::Compact) + '\n';
+    std::fwrite(line.constData(), 1, size_t(line.size()), stdout);
+    std::fflush(stdout);
+    return result.value(QStringLiteral("ok")).toBool() ? 0 : 3;
+}
+
 }  // namespace
 
 int main(int argc, char *argv[])
 {
-    // Either way of writing it: nothing that asks for a build opens a window.
+    // Either way of writing it: nothing that asks for a build, or for a pack with no window, opens a window.
     for (int i = 1; i < argc; ++i) {
         if (qstrcmp(argv[i], "--") == 0)
             break;
         if (qstrcmp(argv[i], "--build") == 0 || qstrncmp(argv[i], "--build=", 8) == 0)
             return buildAndExit(argc, argv);
+        for (const char *option : {"--use-pack", "--update-pack"}) {
+            const uint length = qstrlen(option);
+            if (qstrcmp(argv[i], option) == 0 || (qstrncmp(argv[i], option, length) == 0 && argv[i][length] == '='))
+                return assetsAndExit(argc, argv);
+        }
     }
 
     // Before any engine exists, which reads these once. What Qt compiled into the Studio itself, and no compiled unit kept on
@@ -157,10 +221,15 @@ int main(int argc, char *argv[])
     const QCommandLineOption channel(QStringLiteral("launcher-channel"),
                                      QStringLiteral("The launcher's channel, given by the launcher that started this."),
                                      QStringLiteral("name"));
+    const QCommandLineOption packs(QStringLiteral("asset-packs"), QStringLiteral("The Store's folder of installed items, for the asset library."),
+                                   QStringLiteral("folder"));
     parser.addOption(project);
     parser.addOption(capture);
     parser.addOption(channel);
+    parser.addOption(packs);
     parser.addOption({QStringLiteral("build"), QStringLiteral("Make a game of the project, starting in <scene>, and exit."), QStringLiteral("scene")});
+    parser.addOption({QStringLiteral("use-pack"), QStringLiteral("Copy an installed pack into the project, and exit."), QStringLiteral("id")});
+    parser.addOption({QStringLiteral("update-pack"), QStringLiteral("Update a pack the project uses, and exit."), QStringLiteral("id")});
     parser.process(app);
 
     const QStringList positional = parser.positionalArguments();
@@ -175,6 +244,7 @@ int main(int argc, char *argv[])
     engine.setInitialProperties({{QStringLiteral("model"), model},
                                  {QStringLiteral("project"), folder},
                                  {QStringLiteral("reopenLast"), bareStart},
+                                 {QStringLiteral("assetPacks"), assetPacksFrom(parser, packs)},
                                  {QStringLiteral("remembers"), !parser.isSet(capture)}});
     QObject::connect(
         &engine, &QQmlApplicationEngine::objectCreationFailed, &app, [] { QCoreApplication::exit(1); },

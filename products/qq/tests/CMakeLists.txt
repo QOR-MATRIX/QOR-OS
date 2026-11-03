@@ -1,7 +1,7 @@
 # QQ's tests: Qt Test, rendering for real on the machine's GPU and judging what was drawn by its pixels.
 #
 # Changed for QOR OS: every suite is built with virtualpads.cpp, so no controller on the machine joins in.
-# Changed for QOR OS: tst_workspace.
+# Changed for QOR OS: tst_workspace; tst_assetlibrary.
 # Changed for QOR OS: tst_storegame, a game from the Store played by the real Player.
 
 qt_add_executable(tst_world tst_world.cpp)
@@ -157,6 +157,23 @@ target_link_libraries(tst_gamebuild PRIVATE
 add_dependencies(tst_gamebuild qq-player qq-studio)
 
 add_test(NAME tst_gamebuild COMMAND tst_gamebuild)
+
+qt_add_executable(tst_assetlibrary tst_assetlibrary.cpp)
+
+# Changed for QOR OS: the asset library, from the hostile side, the real Studio killed mid-update, the window, and the demonstration
+# pack installed by the real StoreEngine where QOR_PRISM_BUILD names a build of Prism.
+target_compile_definitions(tst_assetlibrary PRIVATE
+    QQ_FIXTURES="${CMAKE_CURRENT_SOURCE_DIR}/fixtures"
+    QQ_STUDIO="$<TARGET_FILE:qq-studio>"
+    QOR_STORE_DEMO="${CMAKE_CURRENT_SOURCE_DIR}/../../../tests/store/fixtures-demo")
+
+target_link_libraries(tst_assetlibrary PRIVATE
+    Qt6::Test Qt6::Gui Qt6::Qml Qt6::Quick Qt6::Quick3D Qt6::QuickControls2 Qt6::Network
+    qqstudio qqstudioplugin qqruntime qqruntimeplugin
+)
+add_dependencies(tst_assetlibrary qq-studio)
+
+add_test(NAME tst_assetlibrary COMMAND tst_assetlibrary)
 
 # Changed for QOR OS: from the build, through Prism's Library where QOR_PRISM_BUILD names a build of it, to the Player.
 find_package(Python3 COMPONENTS Interpreter QUIET)

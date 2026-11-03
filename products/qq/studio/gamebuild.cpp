@@ -34,6 +34,7 @@
 #include <unistd.h>
 #endif
 
+#include "assetlibrary.h"
 #include "confinement.h"
 #include "projectworkspace.h"
 #include "store.h"
@@ -920,6 +921,12 @@ QVariantMap GameBuild::make(const QString &project, const QString &scene, const 
     if (QFileInfo(relative).fileName().startsWith(QLatin1Char('.')))
         return refused(tr("A game does not carry a file named with a dot, so it cannot start in %1: rename it, then build.").arg(relative));
 
+    // What the project uses from asset packs, which the game says it holds. A lock that cannot be used says nothing true of that,
+    // so nothing is built until it is put right.
+    const AssetLibrary::Lock assetLock = AssetLibrary::readLock(root);
+    if (!assetLock.problem.isEmpty())
+        return refused(tr("%1. Put it right or remove it, then build.").arg(assetLock.problem));
+
     Found found;
     for (const QString &folder : {QStringLiteral("scenes"), QStringLiteral("logic"), QStringLiteral("prefabs"), QStringLiteral("assets")}) {
         const QFileInfo top(QDir(root).filePath(folder));
@@ -960,6 +967,25 @@ QVariantMap GameBuild::make(const QString &project, const QString &scene, const 
         }
     }
 
+    // Each pack the lock names, with its licence and where it came from, and which of its copies the game carries.
+    QJsonArray uses;
+    for (const AssetLibrary::LockedPack &pack : assetLock.packs) {
+        QJsonArray carried;
+        for (const AssetLibrary::LockedFile &file : pack.files) {
+            if (files.contains(file.path))
+                carried.append(file.path);
+        }
+        if (carried.isEmpty())
+            continue;
+        uses.append(QJsonObject{{QStringLiteral("id"), pack.id},
+                                {QStringLiteral("name"), pack.name},
+                                {QStringLiteral("version"), pack.version},
+                                {QStringLiteral("developer"), pack.developer},
+                                {QStringLiteral("licence"), pack.licence},
+                                {QStringLiteral("provenance"), QJsonObject::fromVariantMap(pack.provenance)},
+                                {QStringLiteral("files"), carried}});
+    }
+
     const int build = existing.exists() ? builtBefore(target) + 1 : 1;
     const QString title = titleOf(QFileInfo(root).fileName());
 
@@ -974,6 +1000,7 @@ QVariantMap GameBuild::make(const QString &project, const QString &scene, const 
                                                {QStringLiteral("version"), QStringLiteral(QQ_ENGINE_VERSION)}}},
         {QStringLiteral("platform"), platformName()},
         {QStringLiteral("files"), files},
+        {QStringLiteral("uses"), uses},
     };
     QSaveFile written(staging.filePath(QLatin1String(manifestName)));
     if (!written.open(QIODevice::WriteOnly) || written.write(QJsonDocument(manifest).toJson()) < 0 || !written.commit())
