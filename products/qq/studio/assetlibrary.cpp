@@ -171,9 +171,18 @@ bool readPlain(const QString &root, const QString &relative, qint64 largest, QBy
     if (!file.open(QIODevice::ReadOnly))
         return fail(tr("%1 cannot be read.").arg(relative));
 #endif
-    *bytes = file.read(largest + 1);
+    // As large as it was seen to be, and no more: a read is not given room for what the largest could be. One that grew
+    // meanwhile is not taken whole, so it is not taken.
+#ifdef Q_OS_UNIX
+    const qint64 size = seen.st_size;
+#else
+    const qint64 size = info.size();
+#endif
+    *bytes = file.read(qMin(largest, size) + 1);
     if (bytes->size() > largest)
         return fail(tr("%1 is larger than it may be.").arg(relative));
+    if (bytes->size() > size || !file.atEnd())
+        return fail(tr("%1 changed while it was read.").arg(relative));
     return true;
 }
 
