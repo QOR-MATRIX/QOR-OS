@@ -19,6 +19,7 @@
 #include <QtCore/QLoggingCategory>
 #include <QtCore/QMutex>
 #include <QtCore/QTemporaryDir>
+#include <QtNetwork/QLocalServer>
 #include <QtNetwork/QLocalSocket>
 #include <QtTest/QSignalSpy>
 #include <QtTest/QTest>
@@ -728,6 +729,66 @@ private slots:
         Storefronts::useEngine(nullptr, {});
         qunsetenv("QOR_ASSET_PACKS");
     }
+
+#if defined(Q_OS_LINUX)
+    // Where no PipeWire daemon runs, as under WSL, a product is told to use
+    // PulseAudio, since Qt Multimedia's PipeWire backend crashes there; where
+    // one does, or something chose a backend already, it is left alone.
+    void the_audio_backend_is_pulseaudio_only_where_pipewire_is_not_running_data()
+    {
+        QTest::addColumn<bool>("daemon");
+        QTest::addColumn<QByteArray>("chosen");
+        QTest::addColumn<QString>("given");
+        QTest::newRow("no PipeWire daemon, nothing chosen") << false << QByteArray() << u"pulseaudio"_s;
+        QTest::newRow("a PipeWire daemon") << true << QByteArray() << QString();
+        QTest::newRow("no daemon, but a backend chosen") << false << QByteArray("alsa") << u"alsa"_s;
+    }
+
+    void the_audio_backend_is_pulseaudio_only_where_pipewire_is_not_running()
+    {
+        QFETCH(bool, daemon);
+        QFETCH(QByteArray, chosen);
+        QFETCH(QString, given);
+        QTemporaryDir runtime;
+        QLocalServer pipewire;
+        if (daemon)
+            QVERIFY(pipewire.listen(runtime.filePath(u"pipewire-0"_s)));
+        else
+            // A file of that name that is not a socket is no daemon either.
+            QVERIFY(QFile(runtime.filePath(u"pipewire-0"_s)).open(QIODevice::WriteOnly));
+        const QByteArray runtimeBefore = qgetenv("XDG_RUNTIME_DIR");
+        const QByteArray backendBefore = qgetenv("QT_AUDIO_BACKEND");
+        const bool hadBackend = qEnvironmentVariableIsSet("QT_AUDIO_BACKEND");
+        qputenv("XDG_RUNTIME_DIR", runtime.path().toUtf8());
+        if (chosen.isEmpty())
+            qunsetenv("QT_AUDIO_BACKEND");
+        else
+            qputenv("QT_AUDIO_BACKEND", chosen);
+
+        auto host = this->host("plain");
+        QSignalSpy exited(host.get(), &ProductHost::exited);
+        QVERIFY(host->launch(u"test-started"_s, u"/games/orb-run.qml"_s));
+        QTRY_COMPARE_WITH_TIMEOUT(entriesOf(m_log, u"started"_s).size(), 1, 10000);
+        const QJsonValue backend = entriesOf(m_log, u"started"_s)
+                                       .value(0)
+                                       .toObject()
+                                       .value(u"environment"_s)
+                                       .toObject()
+                                       .value(u"QT_AUDIO_BACKEND"_s);
+        host->stop(u"test-started"_s);
+        QTRY_COMPARE_WITH_TIMEOUT(exited.size(), 1, 10000);
+
+        qputenv("XDG_RUNTIME_DIR", runtimeBefore);
+        if (hadBackend)
+            qputenv("QT_AUDIO_BACKEND", backendBefore);
+        else
+            qunsetenv("QT_AUDIO_BACKEND");
+        if (given.isEmpty())
+            QVERIFY2(backend.isNull(), qPrintable(backend.toString()));
+        else
+            QCOMPARE(backend.toString(), given);
+    }
+#endif
 
     void a_product_is_launched_or_placed_by_its_record()
     {

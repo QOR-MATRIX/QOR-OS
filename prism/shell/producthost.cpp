@@ -6,6 +6,7 @@
 
 #include <QtCore/QCoreApplication>
 #include <QtCore/QDir>
+#include <QtCore/QFile>
 #include <QtCore/QFileInfo>
 #include <QtCore/QJsonDocument>
 #include <QtCore/QLoggingCategory>
@@ -25,6 +26,7 @@
 #include <csignal>
 #include <sys/prctl.h>
 #include <sys/socket.h>
+#include <sys/stat.h>
 #include <unistd.h>
 #elif defined(Q_OS_WIN)
 #include <QtCore/qt_windows.h>
@@ -708,6 +710,20 @@ bool ProductHost::start(const ProductRecord &record, const QString &file, const 
         environment.insert(
             u"QOR_THEME_COLORS"_s,
             QString::fromUtf8(QJsonDocument(QJsonObject::fromVariantMap(m_theme)).toJson(QJsonDocument::Compact)));
+#if defined(Q_OS_LINUX)
+    // Qt Multimedia's PipeWire backend crashes where libpipewire is installed
+    // and no PipeWire daemon runs (WSL), and every QQ product reaches it
+    // through QtQuick3D.SpatialAudio's AudioEngine. PulseAudio serves there,
+    // as tools/dev/products.sh decides it: only when nothing has chosen a
+    // backend and there is no PipeWire socket.
+    if (environment.value(u"QT_AUDIO_BACKEND"_s).isEmpty()) {
+        const QString runtime = environment.value(u"XDG_RUNTIME_DIR"_s, u"/run/user/%1"_s.arg(::getuid()));
+        struct stat seen {};
+        const QByteArray socket = QFile::encodeName(runtime + u"/pipewire-0"_s);
+        if (::stat(socket.constData(), &seen) != 0 || !S_ISSOCK(seen.st_mode))
+            environment.insert(u"QT_AUDIO_BACKEND"_s, u"pulseaudio"_s);
+    }
+#endif
     // Where the Store's format 2 engine keeps what it installed, for QQ Studio's
     // asset library, and only where that engine exists: a demonstration build.
     environment.remove(u"QOR_ASSET_PACKS"_s);

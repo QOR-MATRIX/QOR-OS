@@ -159,6 +159,11 @@ private:
 // (Phase 2), and the QQ Player has none. Their windows open at the size they
 // ask for.
 //
+// On Linux, a product started where nothing chose Qt's audio backend and no
+// PipeWire daemon's socket is there (WSL) is given QT_AUDIO_BACKEND=pulseaudio,
+// as tools/dev/products.sh does: Qt Multimedia's PipeWire backend crashes
+// there, and QQ's AudioEngine reaches it.
+//
 // QQ Studio is told where the Store's format 2 engine (Storefronts) keeps what
 // it installed, in QOR_ASSET_PACKS, for its asset library: only where that
 // engine exists, which is a demonstration build. Every other product, and QQ
