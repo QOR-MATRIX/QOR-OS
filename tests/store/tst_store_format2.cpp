@@ -4525,6 +4525,59 @@ private Q_SLOTS:
     }
 #endif
 
+    // Once an update is recorded, its old version goes only if the new one is whole. If something broke it at once, the
+    // old version stays set aside, and goes once a reinstall has made the new one whole.
+    void anUpdateBrokenAsItLandsKeepsTheOldVersion()
+    {
+        const Pack v1;
+        Pack v2 = v1;
+        v2.version = u"1.1.0"_s;
+        Shop shop;
+        shop.add(v1);
+        QTemporaryDir data;
+        const QByteArray key = shop.store.publicKey();
+        PlantedEngine store(data.path(), key);
+        store.setCreatorFeatures(true);
+        QCOMPARE(refreshed(store, shop.publish()), StoreEngine::State::Ready);
+        QVERIFY(installAndWait(store, v1.id).ok);
+        shop.items.clear();
+        shop.add(v2);
+        shop.sequence = 2;
+        const QUrl second = shop.publish();
+        QCOMPARE(refreshed(store, second), StoreEngine::State::Ready);
+
+        store.onStage = [&](PlantedEngine::Stage stage) {
+            if (stage == PlantedEngine::Stage::RecordWritten)
+                QFile::remove(store.installDirectory(v1.id) + u"/art/hero.png"_s); // as a scanner might take it
+            return true;
+        };
+        QVERIFY(installAndWait(store, v2.id).ok);
+        store.onStage = nullptr;
+        const QString items = data.path() + u"/items/"_s;
+        QVERIFY(!holdsWhatItsManifestLists(items + v1.id));
+        const QStringList aside = QDir(items).entryList({ u"*.old-*"_s }, QDir::Dirs);
+        QCOMPARE(aside.size(), 1);
+        QVERIFY(holdsWhatItsManifestLists(items + aside.constFirst()));
+        QVERIFY(!QFile::exists(data.path() + u"/plan-journal.json"_s));
+
+        // A new engine keeps it too, while what stands in its place is broken.
+        {
+            const StoreEngine again(data.path(), key);
+            QVERIFY(holdsWhatItsManifestLists(items + aside.constFirst()));
+        }
+        // Installed again, the new version is whole, and the next engine lets the old one go.
+        {
+            CreatorStore after(data.path(), key);
+            QCOMPARE(refreshed(after, second), StoreEngine::State::Ready);
+            QVERIFY(!after.isIntact(v1.id));
+            QVERIFY(installAndWait(after, v1.id).ok);
+            QVERIFY(after.isIntact(v1.id));
+        }
+        const StoreEngine last(data.path(), key);
+        QVERIFY2(leftovers(data.path()).isEmpty(), qPrintable(leftovers(data.path()).join(u", "_s)));
+        QVERIFY(holdsWhatItsManifestLists(items + v1.id));
+    }
+
     // An old version set aside is let go only when what stands under its id is whole, journal or none: otherwise it may
     // be the only good copy.
     void anOldVersionIsKeptWhileItsPlaceHoldsSomethingBroken_data()

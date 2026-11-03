@@ -653,7 +653,8 @@ void StoreEngine::commitPlan(const PlanPtr &plan)
         qCWarning(lcStore) << "An install went ahead past a stage asked to stop it, since it had already happened.";
 
     for (const Move &move : std::as_const(moves)) {
-        if (!move.previous.isEmpty())
+        // An old version goes only once what replaced it is whole, as when clearing up: it may be the only good copy.
+        if (!move.previous.isEmpty() && holdsWhatItsManifestLists(items + move.id))
             removeTree(items + move.previous);
         reachedStage(CommitStage::OldRemoved);
     }
