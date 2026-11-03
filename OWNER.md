@@ -28,7 +28,8 @@ Demiurge's QQ engine, ARQADE and QOR Media, on Linux. Code:
 
 ## Checked
 
-**CI passes at `3bf213a` and `c59286e`,** on both systems. ARQADE passed first time on
+**CI passed at `3bf213a` and `c59286e`,** on both systems, before its jobs on this laptop were paused on 1 November (*until a
+runner is shown to be isolated*): since then nothing is built, and Build reads red by design. ARQADE passed first time on
 Windows, Bellwick's tests included. Windows' clipboard refused every program on
 this laptop for at least 1¾ hours; what held it is not known. For Unreal: Epic's
 5.8 documents, its licence of May 2023, and a running Prism. **Nobody here has read
@@ -46,8 +47,8 @@ on QOR OS, or played or heard Bellwick, Ever Rift or Darkveil.
    Kingdom* and *Curse Crackers*. A search is not trademark clearance.
 3. **Play Bellwick, Ever Rift and Darkveil.**
 4. **Move the Store's signing keys off this PC.** A CI job here could read them.
-5. **During CI:** on AC, lid open, unlocked, mouse and keyboard left alone. One
-   test also clears what you had copied, on every Windows run.
+5. **CI is paused.** Its runners are stopped until a replacement is shown to be
+   isolated (`docs/CI.md`); nothing runs on this laptop until then.
 6. **The Linux machine:** a USB-C SSD of 500 GB or more and a USB stick of 8 GB
    or more, then BUILDING.md's steps. Epic recommends 32 GB of memory for its
    editor, and this laptop has 16.
