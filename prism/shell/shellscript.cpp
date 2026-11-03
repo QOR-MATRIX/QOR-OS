@@ -959,8 +959,12 @@ private:
                         value = value.toObject().value(key);
                     }
                 }
+                // What an item shows may be whatever a field holds, a password's for one, so a failure says how long
+                // its text is and never what it says.
+                const bool quiet = expectation.contains(u"item"_s) && value.isString();
                 const QString actual =
-                    QString::fromUtf8(QJsonDocument(QJsonArray { value }).toJson(QJsonDocument::Compact));
+                    quiet ? u"a text of %1 characters"_s.arg(value.toString().size())
+                          : QString::fromUtf8(QJsonDocument(QJsonArray { value }).toJson(QJsonDocument::Compact));
                 if (expectation.contains(u"near"_s)) {
                     // "near" is a literal array, or a path into the state (for
                     // example "workArea"), optionally scaled per component.

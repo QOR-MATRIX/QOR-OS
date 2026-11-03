@@ -24,6 +24,7 @@
 #include <QtNetwork/QNetworkReply>
 
 #include <algorithm>
+#include <utility>
 
 #ifdef Q_OS_UNIX
 #include <fcntl.h>
@@ -153,6 +154,11 @@ StoreEngine::StoreEngine(const QString &dataDir, const QByteArray &storeKey, QOb
 
 StoreEngine::~StoreEngine()
 {
+    // Licences on their way are let go first, so that their replies, aborted, find nothing to tell.
+    const QHash<QString, LicenceFetch> licences = std::exchange(m_licences, {});
+    for (const LicenceFetch &licence : licences)
+        if (licence.reply)
+            licence.reply->abort();
     // A copy: aborting a reply finishes it at once, which ends its plan, which takes jobs out of m_jobs.
     const QHash<QString, QPointer<QNetworkReply>> jobs = m_jobs;
     for (const QPointer<QNetworkReply> &reply : jobs)
@@ -167,6 +173,12 @@ void StoreEngine::setCreatorFeatures(bool on)
     if (m_creatorFeatures == on)
         return;
     m_creatorFeatures = on;
+    // A licence of what only the creator store carries stops on its way, lets go of what it held, and says why.
+    if (!on)
+        abortLicences([this](const QString &id) {
+            const CatalogItem *item = m_catalog.item(id);
+            return !item || !item->isPlacedIn(View::Player);
+        });
     Q_EMIT creatorFeaturesChanged();
 }
 
@@ -215,19 +227,23 @@ void StoreEngine::setState(State state, const QString &error)
 
 // Local catalogues (qrc:, file:) are read directly; anything else goes
 // through the network. Either way the result arrives asynchronously.
-void StoreEngine::fetch(const QString &job, const QUrl &url, qint64 maximumSize, const Done &done, bool held)
+QNetworkReply *StoreEngine::fetch(const QString &job, const QUrl &url, qint64 maximumSize, const Done &done, bool held)
 {
+    const bool counted = held || !job.isEmpty();
     if (url.scheme() == u"qrc"_s || url.isLocalFile()) {
         const QString path = url.scheme() == u"qrc"_s ? u":"_s + url.path() : url.toLocalFile();
-        QTimer::singleShot(0, this, [path, maximumSize, done] {
+        QTimer::singleShot(0, this, [this, path, maximumSize, done, counted] {
             QFile file(path);
             if (!file.open(QIODevice::ReadOnly))
                 return done(false, {}, u"%1 cannot be read."_s.arg(path));
             if (file.size() > maximumSize)
                 return done(false, {}, u"%1 is larger than expected."_s.arg(path));
+            // Read whole in one go, so counted whole before it is read, as a download is as it arrives.
+            if (counted && m_heldBytes + m_receivedBytes + file.size() > heldBytesLimit())
+                return done(false, {}, kTooMuchOnItsWay.toString());
             done(true, file.readAll(), {});
         });
-        return;
+        return nullptr;
     }
     QNetworkRequest request(url);
     request.setAttribute(QNetworkRequest::CacheLoadControlAttribute, QNetworkRequest::AlwaysNetwork);
@@ -241,7 +257,6 @@ void StoreEngine::fetch(const QString &job, const QUrl &url, qint64 maximumSize,
     }
     // A package on its way is held in memory as it comes, so it counts against what every plan may hold together, and
     // a download that would take more than is left stops there.
-    const bool counted = held || !job.isEmpty();
     connect(reply, &QNetworkReply::readyRead, this, [this, reply, maximumSize, counted] {
         if (reply->bytesAvailable() > maximumSize)
             return reply->abort();
@@ -263,6 +278,7 @@ void StoreEngine::fetch(const QString &job, const QUrl &url, qint64 maximumSize,
             return done(false, {}, reply->errorString());
         done(true, reply->readAll(), {});
     });
+    return reply;
 }
 
 // Counts what a download holds now, and says whether every plan's holdings and every download's still fit together.
@@ -315,6 +331,7 @@ void StoreEngine::refresh()
 void StoreEngine::adoptCatalog(Catalog catalog)
 {
     ++m_catalogEpoch;
+    abortLicences([](const QString &) { return true; });
     takeCatalog(std::move(catalog));
 }
 
@@ -400,7 +417,7 @@ void StoreEngine::loadSequence()
 // asked again here, of each thing an install would fetch and again when it arrives: the catalogue may have expired
 // since, a dependency must not carry past the switch what the switch keeps out, and what keeps the stores apart is not
 // left to a single wall.
-QString StoreEngine::refusalToInstall(const CatalogItem &item) const
+QString StoreEngine::refusalToInstall(const CatalogItem &item, bool assumeCreatorFeatures) const
 {
     if (item.format != 2)
         return {};
@@ -412,7 +429,8 @@ QString StoreEngine::refusalToInstall(const CatalogItem &item) const
         return u"%1 is not free, and this stage takes only what is."_s.arg(item.id);
     if (QDateTime::currentDateTimeUtc().date() > m_catalog.expires)
         return u"The catalogue that lists %1 has expired."_s.arg(item.id);
-    if (!item.isPlacedIn(View::Player) && !(m_creatorFeatures && item.isPlacedIn(View::Creator)))
+    if (!item.isPlacedIn(View::Player)
+        && !((m_creatorFeatures || assumeCreatorFeatures) && item.isPlacedIn(View::Creator)))
         return item.isPlacedIn(View::Creator)
                    ? u"%1 is in the creator store, and creator features are off."_s.arg(item.id)
                    : u"%1 is placed in no store."_s.arg(item.id);
@@ -740,6 +758,15 @@ bool StoreEngine::hasUpdate(const QString &id) const
            && refusalToInstall(*item).isEmpty() && refusalAgainstInstalled(*item).isEmpty();
 }
 
+bool StoreEngine::updateWaitsForCreatorFeatures(const QString &id) const
+{
+    const auto installed = m_installed.constFind(id);
+    const CatalogItem *item = m_catalog.item(id);
+    return installed != m_installed.cend() && item && !m_creatorFeatures && !item->isPlacedIn(View::Player)
+           && compareVersions(installed->version, item->version) < 0 && refusalToInstall(*item, true).isEmpty()
+           && refusalAgainstInstalled(*item).isEmpty();
+}
+
 int StoreEngine::updateCount() const
 {
     int count = 0;
@@ -860,28 +887,59 @@ bool StoreEngine::fetchLicence(const QString &id)
     const CatalogItem *item = m_catalog.item(id);
     if (!item || item->format != 2 || catalogueHasExpired() || (!item->isPlacedIn(View::Player) && !m_creatorFeatures))
         return false;
+    // Asked again while it is on its way: it is already coming.
+    if (m_licences.contains(id))
+        return true;
+    const quint64 asking = ++m_licenceAskings;
+    m_licences.insert(id, LicenceFetch { {}, asking, m_catalogEpoch });
     // The whole package comes, so it is counted as an install's would be.
-    fetch(
+    QNetworkReply *reply = fetch(
         {}, m_catalogUrl.resolved(QUrl(item->packageFile)), item->packageSize,
-        [this, id](bool ok, const QByteArray &data, const QString &error) {
+        [this, id, asking](bool ok, const QByteArray &data, const QString &error) {
+            // Let go of with the engine: nothing more to say.
+            const auto found = m_licences.constFind(id);
+            if (found == m_licences.cend() || found->asking != asking)
+                return;
+            const quint64 epoch = found->epoch;
+            m_licences.remove(id);
             QString text;
-            const QString why = ok ? licenceIn(id, data, &text) : error;
+            const QString why = epoch != m_catalogEpoch ? u"The catalogue changed while this was on its way."_s
+                                                        : licenceIn(id, ok, data, error, &text);
             Q_EMIT licenceFetched(id, why.isEmpty(), text, why);
         },
         true);
+    if (const auto found = m_licences.find(id); found != m_licences.end() && found->asking == asking)
+        found->reply = reply;
     return true;
 }
 
-// The licence's text in a download, once it is shown to be the package this catalogue lists. Returns why not, or an
-// empty string. The file rules have already said it is UTF-8 with no control characters or markup.
-QString StoreEngine::licenceIn(const QString &id, const QByteArray &data, QString *text) const
+// Stops the downloads of the licences on their way that `which` names. Aborting finishes each at once, and its answer
+// then says why, as one that arrived would. One read from a local file is not stopped, and says the same as it arrives.
+void StoreEngine::abortLicences(const std::function<bool(const QString &id)> &which)
+{
+    QList<QPointer<QNetworkReply>> replies;
+    for (auto it = m_licences.cbegin(); it != m_licences.cend(); ++it)
+        if (it->reply && which(it.key()))
+            replies.append(it->reply);
+    for (const QPointer<QNetworkReply> &reply : std::as_const(replies))
+        if (reply)
+            reply->abort();
+}
+
+// The licence's text in a download, once it is shown to be the package this catalogue lists: `arrived`, or `error`
+// says why not. Returns why not, or an empty string. The file rules have already said it is UTF-8 with no control
+// characters or markup.
+QString StoreEngine::licenceIn(const QString &id, bool arrived, const QByteArray &data, const QString &error,
+                               QString *text) const
 {
     const CatalogItem *item = m_catalog.item(id);
     if (!item)
         return u"The item is no longer in the catalogue."_s;
-    // The switch may have been turned off while this was on its way.
+    // The switch may have been turned off while this was on its way, which also stops a download.
     if (!item->isPlacedIn(View::Player) && !m_creatorFeatures)
         return u"%1 is in the creator store, and creator features are off."_s.arg(item->id);
+    if (!arrived)
+        return error;
     PackageResult package;
     if (const QString refusal = refusePackage(*item, data, &package); !refusal.isEmpty())
         return refusal;

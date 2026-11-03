@@ -203,5 +203,76 @@ class Folders(unittest.TestCase):
         self.assertEqual(hardening.main(["check_hardening.py", str(self.build)]), 1)
 
 
+class Demonstration(unittest.TestCase):
+    """The Store's demonstration fails a build folder whatever the build says of itself (docs/STORE.md)."""
+
+    KEY = (REPO / "tests" / "store" / "fixtures-demo" / "store.pub").read_bytes()
+
+    def setUp(self) -> None:
+        self.dir = tempfile.TemporaryDirectory()
+        self.build = Path(self.dir.name)
+
+    def tearDown(self) -> None:
+        self.dir.cleanup()
+
+    def put(self, path: str, data: bytes) -> None:
+        file = self.build / path
+        file.parent.mkdir(parents=True, exist_ok=True)
+        file.write_bytes(data)
+
+    def cache(self, line: str) -> None:
+        self.put("CMakeCache.txt", b"# This is the CMakeCache file.\nCMAKE_BUILD_TYPE:STRING=Release\n" + line.encode() + b"\n")
+
+    def test_the_key_looked_for_is_the_repositorys_by_default(self) -> None:
+        self.assertEqual(hardening.DEMONSTRATION_KEY.read_bytes(), self.KEY)
+        text, raw = hardening.demonstration_needles(self.KEY)
+        self.assertEqual(len(raw), 65)
+        self.put("qor-shell.exe", pe() + text)
+        self.assertIn("qor-shell.exe", hardening.check(self.build)[1])
+
+    def test_a_cache_that_has_it_on_fails_in_each_spelling(self) -> None:
+        for line in (
+            "QOR_STORE_DEMONSTRATION:BOOL=ON",
+            "QOR_STORE_DEMONSTRATION:BOOL=TRUE",
+            "QOR_STORE_DEMONSTRATION:STRING=1",
+            "QOR_STORE_DEMONSTRATION=yes",
+        ):
+            with self.subTest(line=line):
+                self.put("qor-shell.exe", pe())
+                self.cache(line)
+                count, failures = hardening.check(self.build, self.KEY)
+                self.assertEqual(count, 1)
+                self.assertEqual(list(failures), ["CMakeCache.txt"])
+                self.assertEqual(hardening.main(["check_hardening.py", str(self.build)]), 1)
+
+    def test_a_cache_that_has_it_off_or_says_nothing_passes(self) -> None:
+        self.put("qor-shell.exe", pe())
+        for line in ("QOR_STORE_DEMONSTRATION:BOOL=OFF", "QOR_STORE_DEMONSTRATION:BOOL=", "QOR_STORE_DEMONSTRATION_URL=x",
+                     "OTHER:BOOL=ON"):
+            with self.subTest(line=line):
+                self.cache(line)
+                self.assertEqual(hardening.check(self.build, self.KEY), (1, {}))
+
+    def test_a_program_holding_the_key_fails_as_text_or_as_bytes(self) -> None:
+        text, raw = hardening.demonstration_needles(self.KEY)
+        self.put("good.exe", pe())
+        self.put("tests/text.exe", pe() + b"\0" + text + b"\0")
+        self.put("bin/raw.exe", pe() + raw)
+        count, failures = hardening.check(self.build, self.KEY)
+        self.assertEqual(count, 3)
+        self.assertEqual(sorted(failures), ["bin/raw.exe", "tests/text.exe"])
+        self.assertEqual(failures["bin/raw.exe"], ["holds the Store's demonstration key"])
+
+    def test_a_library_holding_the_key_fails(self) -> None:
+        text, raw = hardening.demonstration_needles(self.KEY)
+        self.put("good.exe", pe())
+        self.put("lib/libqor_store.so.1", b"\x7fELF" + raw)
+        self.put("qor_storeplugin.dll", b"MZ" + text)
+        self.put("lib/clean.so", b"\x7fELF nothing here")
+        count, failures = hardening.check(self.build, self.KEY)
+        self.assertEqual(count, 1)
+        self.assertEqual(sorted(failures), ["lib/libqor_store.so.1", "qor_storeplugin.dll"])
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -13,15 +13,21 @@
 #include <QtCore/QDir>
 #include <QtCore/QFile>
 #include <QtCore/QFileInfo>
+#include <QtCore/QHash>
 #include <QtCore/QJsonArray>
 #include <QtCore/QJsonDocument>
 #include <QtCore/QJsonObject>
 #include <QtCore/QList>
 #include <QtCore/QMap>
+#include <QtCore/QPair>
+#include <QtCore/QSet>
 #include <QtCore/QString>
 #include <QtCore/QStringList>
 #include <QtCore/QTemporaryDir>
 #include <QtCore/QUrl>
+#include <QtNetwork/QHostAddress>
+#include <QtNetwork/QTcpServer>
+#include <QtNetwork/QTcpSocket>
 #include <QtTest/QSignalSpy>
 #include <QtTest/QTest>
 
@@ -370,6 +376,67 @@ public:
         const QByteArray bytes = json(extraRoot);
         return parseCatalog(bytes, store.sign(bytes), store.publicKey(), today);
     }
+};
+
+// An HTTP server on the loopback, just enough for the engine's network path. It serves what it is given and can hold a
+// response back until it is told. No Q_OBJECT: its connections are to functions.
+class TinyServer : public QObject
+{
+public:
+    TinyServer()
+    {
+        connect(&m_server, &QTcpServer::newConnection, this, [this] {
+            while (QTcpSocket *socket = m_server.nextPendingConnection()) {
+                socket->setParent(this);
+                connect(socket, &QTcpSocket::readyRead, this, [this, socket] {
+                    const QByteArray request = socket->readAll();
+                    const QList<QByteArray> words = request.left(request.indexOf('\r')).split(' ');
+                    const QString name = words.size() > 1 ? QString::fromLatin1(words.at(1)).mid(1) : QString();
+                    asked.append(name);
+                    if (held.contains(name))
+                        m_waiting.append(qMakePair(socket, name));
+                    else
+                        respond(socket, name);
+                });
+            }
+        });
+        m_server.listen(QHostAddress::LocalHost);
+    }
+
+    QHash<QString, QByteArray> files;
+    QSet<QString> held;
+    QStringList asked; // every request's path, in the order they came
+
+    QUrl url(const QString &name) const
+    {
+        return QUrl(u"http://127.0.0.1:%1/%2"_s.arg(m_server.serverPort()).arg(name));
+    }
+    int waiting() const { return int(m_waiting.size()); }
+    void release()
+    {
+        held.clear();
+        const auto pending = m_waiting;
+        m_waiting.clear();
+        for (const auto &[socket, name] : pending)
+            respond(socket, name);
+    }
+
+private:
+    void respond(QTcpSocket *socket, const QString &name)
+    {
+        const auto file = files.constFind(name);
+        if (file == files.cend()) {
+            socket->write("HTTP/1.1 404 Not Found\r\nContent-Length: 0\r\nConnection: close\r\n\r\n");
+        } else {
+            socket->write("HTTP/1.1 200 OK\r\nContent-Length: " + QByteArray::number(file->size())
+                          + "\r\nConnection: close\r\n\r\n");
+            socket->write(*file);
+        }
+        socket->disconnectFromHost();
+    }
+
+    QTcpServer m_server;
+    QList<QPair<QTcpSocket *, QString>> m_waiting;
 };
 
 // ── An engine, driven ───────────────────────────────────────────────────────

@@ -14,12 +14,19 @@ tool but Python.
                  may hold no function the compiler protects, so that last one
                  is asked only of a program of real size.
 
+It also fails a build folder that is the Store's demonstration (docs/STORE.md),
+whatever the build says of itself: one whose CMakeCache.txt has
+QOR_STORE_DEMONSTRATION on, or any program or library in it that holds the
+demonstration's throwaway key, tests/store/fixtures-demo/store.pub, as base64 or
+as raw bytes. That key is in the repository for anyone to sign with.
+
 Usage: python tools/ci/check_hardening.py <build folder> [<build folder> ...]
 Exit code 1 lists each program and what it lacks.
 """
 
 from __future__ import annotations
 
+import base64
 import re
 import struct
 import sys
@@ -55,6 +62,13 @@ ELF_SMALL = 128 * 1024
 
 # Not built by QOR OS, or not programs anyone runs: CMake's compiler checks and Rust's own build scripts.
 SKIPPED_FOLDERS = {"CMakeFiles", "_deps", "cargo", "__pycache__"}
+
+# The Store's demonstration: a build choice for development, never anything released or installed.
+DEMONSTRATION_OPTION = "QOR_STORE_DEMONSTRATION"
+DEMONSTRATION_KEY = Path(__file__).resolve().parents[2] / "tests" / "store" / "fixtures-demo" / "store.pub"
+# What CMake reads as false; anything else is true.
+CMAKE_FALSE = {"", "0", "OFF", "NO", "N", "FALSE", "IGNORE", "NOTFOUND"}
+LIBRARY = re.compile(r"\.(dll|so)(\.[0-9]+)*$")
 
 
 def pe_problems(data: bytes) -> list[str]:
@@ -205,15 +219,58 @@ def programs(build: Path) -> list[Path]:
     return found
 
 
-def check(build: Path) -> tuple[int, dict[str, list[str]]]:
-    """How many programs were read, and what each that falls short lacks."""
+def _cmake_true(value: str) -> bool:
+    text = value.strip().upper()
+    return text not in CMAKE_FALSE and not text.endswith("-NOTFOUND")
+
+
+def demonstration_in_cache(build: Path) -> bool:
+    """Whether the build folder's CMakeCache.txt has the Store's demonstration on."""
+    cache = build / "CMakeCache.txt"
+    if not cache.is_file():
+        return False
+    for line in cache.read_text(encoding="utf-8", errors="replace").splitlines():
+        name, equals, value = line.partition("=")
+        if equals and name.split(":", 1)[0].strip() == DEMONSTRATION_OPTION and _cmake_true(value):
+            return True
+    return False
+
+
+def demonstration_needles(key: bytes) -> list[bytes]:
+    """The demonstration key as a program would hold it: the base64 text compiled in, and the bytes it stands for."""
+    text = key.strip()
+    return [text, base64.b64decode(text, validate=True)]
+
+
+def libraries(build: Path) -> list[Path]:
+    """The shared libraries in a folder, which may hold what a program would, for the key's sake only."""
+    return [
+        path
+        for path in sorted(build.rglob("*"))
+        if path.is_file() and LIBRARY.search(path.name) and not SKIPPED_FOLDERS & set(path.relative_to(build).parts)
+    ]
+
+
+def check(build: Path, key: bytes | None = None) -> tuple[int, dict[str, list[str]]]:
+    """How many programs were read, and what each that falls short lacks. `key` is the demonstration's public key, as
+    store.pub holds it; by default, the repository's."""
+    if key is None:
+        key = DEMONSTRATION_KEY.read_bytes()
+    needles = demonstration_needles(key)
     failures: dict[str, list[str]] = {}
+    if demonstration_in_cache(build):
+        failures["CMakeCache.txt"] = [f"{DEMONSTRATION_OPTION} is on: the Store's demonstration is never released"]
     found = programs(build)
     for path in found:
         data = path.read_bytes()
         problems = pe_problems(data) if path.suffix == ".exe" else elf_problems(data)
+        if any(needle in data for needle in needles):
+            problems.append("holds the Store's demonstration key")
         if problems:
             failures[path.relative_to(build).as_posix()] = problems
+    for path in libraries(build):
+        if any(needle in path.read_bytes() for needle in needles):
+            failures[path.relative_to(build).as_posix()] = ["holds the Store's demonstration key"]
     return len(found), failures
 
 

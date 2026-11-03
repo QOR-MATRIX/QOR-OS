@@ -147,9 +147,22 @@ find_package(Python3 3.10 COMPONENTS Interpreter)
 add_test(NAME shell_e2e
     COMMAND qor-shell --unlocked --size 1280x800 --script "${CMAKE_CURRENT_SOURCE_DIR}/shell/apps.e2e.json")
 set_tests_properties(shell_e2e PROPERTIES LABELS "gpu" TIMEOUT 240 ENVIRONMENT "${QOR_TEST_ENV}")
+# A script's failure says how long an item's text is, and never what it says (the "item" expectation in
+# prism/shell/shellscript.cpp): the script is meant to fail, and passes only on that failure.
+add_test(NAME shell_e2e_quiet
+    COMMAND qor-shell --unlocked --size 1280x800 --script "${CMAKE_CURRENT_SOURCE_DIR}/shell/item-quiet.e2e.json")
+set_tests_properties(shell_e2e_quiet PROPERTIES LABELS "gpu" TIMEOUT 120 ENVIRONMENT "${QOR_TEST_ENV}"
+    PASS_REGULAR_EXPRESSION "text is a text of [0-9]+ characters"
+    FAIL_REGULAR_EXPRESSION "Music is on its way")
 # The Store in the build that was asked for: a person's whole walk through a demonstration's two storefronts, or in any other
 # build, that there are none, and the pages say what they said.
 if(QOR_STORE_DEMONSTRATION)
+    # Nothing of a demonstration build installs (CMakeLists.txt): asked to, it refuses before it has copied anything.
+    add_test(NAME demonstration_does_not_install
+        COMMAND "${CMAKE_COMMAND}" --install "${CMAKE_BINARY_DIR}" --prefix "${CMAKE_CURRENT_BINARY_DIR}/refused-install")
+    set_tests_properties(demonstration_does_not_install PROPERTIES
+        PASS_REGULAR_EXPRESSION "nothing built with it is installed"
+        FAIL_REGULAR_EXPRESSION "Installing:|Up-to-date:")
     add_test(NAME shell_e2e_store
         COMMAND qor-shell --unlocked --size 1280x800 --script "${CMAKE_CURRENT_SOURCE_DIR}/shell/store-demonstration.e2e.json")
     set_tests_properties(shell_e2e_store PROPERTIES LABELS "gpu" TIMEOUT 240 ENVIRONMENT

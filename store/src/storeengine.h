@@ -106,6 +106,13 @@ public:
     // none.
     bool hasUpdate(const QString &id) const;
     int updateCount() const;
+    // Whether what is installed for `id` has a newer version held back by nothing but creator features being off: one
+    // that install would take were they on.
+    bool updateWaitsForCreatorFeatures(const QString &id) const;
+
+    // Moves on each time a catalogue that differs from the one before is taken. The same bytes again leave it as it
+    // is, so what was fetched of a catalogue can be kept through "Check for Updates".
+    quint64 catalogueEpoch() const { return m_catalogEpoch; }
 
     bool isBusy(const QString &id) const { return m_jobs.contains(id); }
     double progress(const QString &id) const { return m_progress.value(id, 0); }
@@ -124,7 +131,9 @@ public:
 
     // A licence's text is only in the package. This fetches the item's package, checks it as an install would, installs
     // nothing, and ends with licenceFetched(). False if the item has no licence, or only the creator store carries it
-    // and creator features are off.
+    // and creator features are off. One at a time for an id: asked again while one is on its way, it starts nothing
+    // more and answers true. It stops, and licenceFetched() says why, when creator features go off and only the creator
+    // store carries the item, or when a catalogue that differs arrives.
     bool fetchLicence(const QString &id);
 
 Q_SIGNALS:
@@ -187,8 +196,9 @@ private:
     };
 
     using Done = std::function<void(bool ok, const QByteArray &data, const QString &error)>;
-    // A download for a job, or one that is `held` whole, as a licence's package is, counts against heldBytesLimit().
-    void fetch(const QString &job, const QUrl &url, qint64 maximumSize, const Done &done, bool held = false);
+    // A download for a job, or one that is `held` whole, as a licence's package is, counts against heldBytesLimit(),
+    // whether it comes over the network or is read from a local file. Returns the reply, or null for a local file.
+    QNetworkReply *fetch(const QString &job, const QUrl &url, qint64 maximumSize, const Done &done, bool held = false);
     bool countReceived(QNetworkReply *reply, qint64 bytes);
     void setState(State state, const QString &error = {});
     void takeCatalog(Catalog catalog);
@@ -199,11 +209,13 @@ private:
     void failPlan(const PlanPtr &plan, const QString &id, const QString &error);
     void fail(const QString &id, const QString &error);
 
-    QString refusalToInstall(const CatalogItem &item) const;
+    QString refusalToInstall(const CatalogItem &item, bool assumeCreatorFeatures = false) const;
     QString refusalAgainstInstalled(const CatalogItem &item) const;
     QString mismatch(const CatalogItem &item, const PackageResult &package) const;
     QString refusePackage(const CatalogItem &item, const QByteArray &data, PackageResult *package) const;
-    QString licenceIn(const QString &id, const QByteArray &data, QString *text) const;
+    QString licenceIn(const QString &id, bool arrived, const QByteArray &data, const QString &error,
+                      QString *text) const;
+    void abortLicences(const std::function<bool(const QString &id)> &which);
     bool catalogueHasExpired() const;
     bool viewIsClosed(View view) const;
 
@@ -236,6 +248,15 @@ private:
     QNetworkAccessManager *m_network = nullptr;
     QHash<QString, QPointer<QNetworkReply>> m_jobs;
     QHash<QString, double> m_progress;
+    // A licence on its way, by id: its reply, null for a local file, which asking it was, and of which catalogue.
+    struct LicenceFetch
+    {
+        QPointer<QNetworkReply> reply;
+        quint64 asking = 0;
+        quint64 epoch = 0;
+    };
+    QHash<QString, LicenceFetch> m_licences;
+    quint64 m_licenceAskings = 0;
     qint64 m_heldBytes = 0;     // what every plan under way holds in memory, together
     qint64 m_receivedBytes = 0; // what every package on its way holds in memory so far, together
     int m_generation = 0;
