@@ -106,6 +106,50 @@ class WorkflowTest(unittest.TestCase):
             with self.subTest(word=word):
                 self.assertIn(f"{word}: ${{{{ {expression} }}}}", readiness)
 
+    def test_no_job_claims_the_products_ran_unrelaxed_on_a_graphics_card(self):
+        # Until a job runs the products on a Linux machine with a graphics card, readiness is told nothing of it, and so reads
+        # "not run". A job that adds it must set it from what that run did. Not in the readiness job, nor anywhere it could
+        # reach it from, such as the workflow's own env.
+        self.assertNotIn("LINUX_PRODUCTS_GPU", TEXT)
+
+    def test_readiness_decides_by_its_script_alone(self):
+        readiness = job("readiness")
+        # Its verdict is the script's exit, with nothing after it to turn a failure into a pass.
+        self.assertIn("        run: python3 -I tools/ci/release_readiness.py", readiness)
+        # No step of it may be skipped: a skipped step leaves the job green.
+        self.assertEqual([line for line in readiness if re.match(r"^        if:", line)], [])
+        # Whether this is a release is said exactly, so unchanged products cannot stand down at a tag or a manual run.
+        self.assertIn("          IS_RELEASE: ${{ startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch' }}", readiness)
+
+    def test_what_changes_the_products_is_everything_they_are_built_and_checked_with(self):
+        patterns = re.findall(r"'(\^\(products/[^']*)'", TEXT)
+        self.assertEqual(len(patterns), 2, "one list for each platform")
+        self.assertEqual(patterns[0], patterns[1], "the two platforms ask about the same files")
+        changes = re.compile(patterns[0])
+        repository = WORKFLOW.parents[2]
+        named = {".github/workflows/build.yml", ".github/qt-packages.json", "docs/design/tokens.json"}
+        # What the products' builds include from outside their own folders.
+        for cmake in ("products/qq/CMakeLists.txt", "products/arqade/qt/CMakeLists.txt", "tools/qor-media/CMakeLists.txt"):
+            folder = (repository / cmake).parent
+            for included in re.findall(r"include\((\.\./[^)\s]+)\)", (repository / cmake).read_text(encoding="utf-8")):
+                named.add((folder / included).resolve().relative_to(repository).as_posix())
+        # What the products' steps run, and the tools the products' scripts call.
+        for name in ("windows", "linux"):
+            lines = job(name)
+            for i, line in enumerate(lines):
+                if line.strip() == "if: steps.products.outputs.run == 'true'":
+                    run = next(l for l in lines[i + 1 : i + 4] if l.strip().startswith("run:"))
+                    named.update(path.replace("\\", "/") for path in re.findall(r"tools[\\/][\w./\\-]+\.\w+", run))
+        for script in ("tools/dev/products.sh", "tools/dev/products.ps1"):
+            named.add(script)
+            named.update(re.findall(r"tools/dev/[\w.-]+\.(?:py|qml|sh|ps1)", (repository / script).read_text(encoding="utf-8")))
+        self.assertIn("cmake/QorHardening.cmake", named)
+        self.assertIn("tools/ci/check_hardening.py", named)
+        for path in sorted(named):
+            with self.subTest(path=path):
+                self.assertTrue((repository / path).is_file(), "named, so it must be there")
+                self.assertTrue(changes.match(path), "a change to it must run the products")
+
     def test_each_job_says_what_its_required_steps_did(self):
         for name, outputs in {
             "windows": {"gpu": "steps.gpu-tests.outcome", "products": "steps.product-suites.outcome", "products-changed": "steps.products.outputs.run"},

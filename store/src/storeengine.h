@@ -56,6 +56,9 @@ public:
         QString developer;
         QString installedAt;
         QList<VersionRange> dependencies;
+        // Taken from the installed manifest's own word, unsigned, when the record was lost: kept as an id's pins, and
+        // marked as such in installed.json until the item is installed again.
+        bool claimed = false;
     };
 
     StoreEngine(const QString &dataDir, const QByteArray &storeKey, QObject *parent = nullptr);
@@ -141,9 +144,11 @@ protected:
     // test overrides this to prove what does not depend on the stage, such as one install for two listings.
     virtual bool takesKind(const QString &kind) const { return isInstallableKind(kind); }
 
-    // Where an install has got to as it moves things. Nothing is done with these here. A test overrides this to look at
-    // what a crash at that moment would leave, and returning false stands in for a step failing there.
-    enum class CommitStage { JournalWritten, ItemSetAside, ItemSwapped, RecordWritten, OldRemoved };
+    // Where an install has got to as it moves things, and where putting back or clearing up has got to, one step on
+    // disk at a time. Nothing is done with these here. A test overrides this to look at what a crash at that moment
+    // would leave, and returning false stands in for a step failing there, or for recovery being cut short as a death
+    // would cut it.
+    enum class CommitStage { JournalWritten, ItemSetAside, ItemSwapped, RecordWritten, OldRemoved, RecoveryStep };
     virtual bool reachedStage(CommitStage stage)
     {
         Q_UNUSED(stage);
@@ -151,6 +156,11 @@ protected:
     }
     // Writes installed.json, atomically. Virtual so that a test can stand in for a disk that refuses the write.
     virtual bool saveInstalled(const QMap<QString, Installed> &records, const QString &transaction) const;
+    // Makes what a folder lists durable, where the system allows it: on Linux and macOS, fsync on the folder. Windows
+    // journals what a folder lists itself. Virtual so that a test can see that it is asked at the moments it must be.
+    virtual void syncFolder(const QString &path) const;
+    // What every plan under way may hold in memory together, in bytes, while it waits for the rest of itself.
+    virtual qint64 heldBytesLimit() const;
 
 private:
     struct Step
@@ -178,6 +188,7 @@ private:
 
     using Done = std::function<void(bool ok, const QByteArray &data, const QString &error)>;
     void fetch(const QString &job, const QUrl &url, qint64 maximumSize, const Done &done);
+    bool countReceived(QNetworkReply *reply, qint64 bytes);
     void setState(State state, const QString &error = {});
     void takeCatalog(Catalog catalog);
 
@@ -199,12 +210,15 @@ private:
     void loadSequence();
 
     QMap<QString, InstalledVersion> installedVersions() const;
-    QMap<QString, Installed> readInstalled(QString *transaction = nullptr) const;
+    QMap<QString, Installed> readInstalled(QString *transaction = nullptr, bool *recordRead = nullptr) const;
+    QMap<QString, Installed> installedFromFolders() const;
     bool writeJournal(const QString &transaction, const QList<Move> &moves) const;
-    void undoMoves(const QList<Move> &moves) const;
+    bool undoMoves(const QList<Move> &moves);
+    bool hasLanded(const Move &move) const;
     void removeJournal() const;
-    void recoverLocked() const;
-    void recoverInterrupted() const;
+    bool recoverLocked();
+    void recoverInterrupted();
+    void releaseHeld(const PlanPtr &plan);
 
     bool m_creatorFeatures = false;
     QMap<QString, QString> m_engines;
@@ -221,6 +235,8 @@ private:
     QNetworkAccessManager *m_network = nullptr;
     QHash<QString, QPointer<QNetworkReply>> m_jobs;
     QHash<QString, double> m_progress;
+    qint64 m_heldBytes = 0;     // what every plan under way holds in memory, together
+    qint64 m_receivedBytes = 0; // what every package on its way holds in memory so far, together
     int m_generation = 0;
     qint64 m_lastSequence = 0;
     QByteArray m_lastDigest;

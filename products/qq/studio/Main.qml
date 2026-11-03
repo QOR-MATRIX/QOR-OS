@@ -30,6 +30,13 @@
 // one way to change project, switchProject(): it asks about unsaved work, leaves nothing of the old project behind, goes
 // past the same trust check as anything else that runs a project's files, then restores. Unsaved work is asked about too
 // before a new scene, another scene or logic file, or the window closing. Names from outside are text, never markup.
+// Changed for QOR OS: Build brings in what the scene names from outside, saves, says if any of the project's code does not
+// build, then makes a game of the project (gamebuild.h). Play runs the project, here, as it stands; the Library plays the
+// copy, which changes only by building again. While a build runs nothing is saved and the project does not change, each saying why.
+// Changed for QOR OS: what is unsaved is copied to the person's own store after a short pause in editing (ProjectWorkspace), with
+// no timer running but for that pause, so a crash or a launcher closing the Studio loses none of it: on arriving in the project,
+// past the trust check, a person is asked to Restore or Discard what a Studio that has gone kept. Each Studio keeps its own copy,
+// always, whatever is still to be answered. The camera is remembered with the rest of a project.
 
 import QtQuick
 // Before the Material style: Qt Quick 3D has a type called Material too, and the import that comes later wins.
@@ -123,6 +130,15 @@ ApplicationWindow {
     property var askingFor: null
     /// The window may go: its unsaved work has been answered for.
     property bool closeSettled: false
+    /// The launcher closed this Studio (main.cpp, ADR-046): it goes without asking, and what is unsaved stays in its recovery copy.
+    property bool closingUnasked: false
+    /// Another session's recovery copy on the screen as a question: what was found, until it is answered.
+    property var recoveryOffer: null
+    /// One found on arriving, not asked about yet because the project is not trusted yet: asked about once it is, however
+    /// that comes. Its file stays as it is until it is answered; new work goes to this Studio's own copy meanwhile.
+    property var recoveryWaiting: null
+    /// What this Studio's own copy last kept, to write nothing when nothing has changed.
+    property string recoveryKept: "{}"
     /// Toggled to make the Agent panel anew, with nothing typed in it, for the next project.
     property bool agentPanelLive: true
     /// The statistics over the world, and the colliders drawn in play (F3).
@@ -166,6 +182,7 @@ ApplicationWindow {
         const text = SceneIO.write(scene, sceneFile)
         dirty = text !== savedText
         history.note(text, key)
+        keepRecoverySoon()
     }
 
     /// Undo and redo: the scene put back to the text before or after, its file, saved state, view and selection kept.
@@ -261,6 +278,9 @@ ApplicationWindow {
         whenTrusted = null
         if (then)
             then()
+        // However trust came (opening, saving, building), what was kept from before is asked about now.
+        if (recoveryWaiting !== null && recoveryOffer === null && askingFor === null)
+            offerRecovery(recoveryWaiting)
     }
 
     /// Do `then` if the project is trusted, or once the person says it is. True if it ran.
@@ -367,7 +387,7 @@ ApplicationWindow {
     /// false if it was refused or waits on a question. A scene in no project has come from none, so it can go with the
     /// person: Save there means saving it into the project being chosen.
     function switchProject(folder) {
-        if (askingFor !== null)
+        if (askingFor !== null || recoveryOffer !== null || refusedWhileBuilding(qsTr("change project")))
             return false
         if (!workspace.isFolder(folder)) {
             say(qsTr("That project's folder is not there any more."), true)
@@ -402,6 +422,8 @@ ApplicationWindow {
 
     /// Save the scene, which is in no project yet, as part of `folder`: what Save asks for before a project is chosen.
     function saveInto(folder) {
+        if (refusedWhileBuilding(qsTr("save")))
+            return false
         stop()
         if (!workspace.isFolder(folder)) {
             say(qsTr("That project's folder is not there any more."), true)
@@ -418,6 +440,14 @@ ApplicationWindow {
             designer.forget()
         stop()
         saveWorkspace()
+        // Whatever was unsaved here has been answered for by now: saved, or discarded, so this Studio's copy goes. Another's,
+        // not answered for, stays as it is.
+        recoverLater.stop()
+        workspace.dropRecovery(project)
+        recoveryKept = "{}"
+        recoveryOffer = null
+        recoveryWaiting = null
+        recoveryDialog.close()
         whenTrusted = null
         trustDialog.close()
         logicEditor.reset()
@@ -430,6 +460,7 @@ ApplicationWindow {
         pitch = 16
         distance = 8
         target = Qt.vector3d(0, 1, 0)
+        saveLater.stop()
     }
 
     /// `folder` is the project now, by SceneIO's trust check.
@@ -438,6 +469,7 @@ ApplicationWindow {
         SceneIO.setProject(folder)
         projectTrusted = SceneIO.projectTrusted(folder)
         projectInfo = SceneIO.project(folder)
+        recoveryKept = "{}"
         if (remembers) {
             workspace.noteRecent(folder)
             recentProjects = workspace.recentProjects()
@@ -466,15 +498,22 @@ ApplicationWindow {
         agentOpen = state.panels.agent === true
         showStats = state.panels.stats === true
         applyWindow(state.window)
+        applyCamera(state.camera)
 
         const keptScene = /^scenes\/([^/]+)\.qml$/.exec(state.scene)
         const keptLogic = /^logic\/(.+)\.qml$/.exec(state.logic)
         const problems = state.problem === "" ? [] : [state.problem]
         if ((state.scene !== "" && !keptScene) || (state.logic !== "" && !keptLogic))
             problems.push(qsTr("It named a file that does not belong there, which was left closed."))
+        // Read as a stranger's, here, where it runs nothing: scene text runs when it is loaded, so it waits for the same check.
+        const kept = remembers ? workspace.loadRecovery(project) : ({ found: false, problem: "", more: 0 })
+        if (kept.problem !== "")
+            problems.push(kept.problem)
+        const copy = kept.found ? kept.copy : null
+        recoveryWaiting = copy
         if (problems.length > 0)
             say(problems.join(" "), true)
-        if (!keptScene && !keptLogic)
+        if (!keptScene && !keptLogic && copy === null)
             return
         trusting(() => {
             const before = restoring
@@ -483,13 +522,145 @@ ApplicationWindow {
                 problems.push(SceneIO.lastError)
             if (keptLogic && !logicEditor.open(keptLogic[1]))
                 problems.push(SceneIO.lastError)
+            // After the scene: a 2D scene frames itself as it opens, and what the person left it at comes after that.
+            applyCamera(state.camera)
             viewport.forceActiveFocus()  // the editor took it, and nobody has started typing there
             restoring = before
             if (problems.length > 0)
                 say(problems.join(" "), true)
-            else
+            else if (keptScene || keptLogic)
                 say(qsTr("Back in %1, as you left it.").arg(projectInfo.name))
+            if (copy !== null && recoveryOffer === null)
+                offerRecovery(copy)
         })
+    }
+
+    function applyCamera(camera) {
+        if (camera.yaw === undefined)
+            return
+        yaw = camera.yaw
+        pitch = camera.pitch
+        distance = camera.distance
+        target = Qt.vector3d(camera.x, camera.y, camera.z)
+    }
+
+    // ── what is not saved yet, kept for a crash ──
+
+    /// Something unsaved may have changed: kept once editing pauses, however many changes that holds. Only a change starts
+    /// this, so an idle Studio has nothing waiting and nothing wakes it.
+    function keepRecoverySoon() {
+        if (!restoring && remembers && String(project) !== "")
+            recoverLater.restart()
+    }
+
+    /// Bring this Studio's own recovery copy up to what is unsaved now; another's is never written over. False, and said, if it
+    /// could not be kept.
+    function keepRecovery() {
+        recoverLater.stop()
+        if (!remembers || String(project) === "")
+            return true
+        const work = {}
+        if (sceneHasWork()) {
+            work.scene = { name: sceneName, text: SceneIO.write(scene, sceneFile),
+                           file: savedText !== "" ? workspace.relativeInside(project, sceneFile) : "" }
+        }
+        if (logicEditor.dirty)
+            work.logic = { name: logicEditor.name, file: "logic/" + logicEditor.name + ".qml", text: logicEditor.text }
+        const now = JSON.stringify(work)
+        if (now === recoveryKept)
+            return true
+        if (!workspace.keepRecovery(project, work)) {
+            recoveryKept = "{}"
+            say(qsTr("A recovery copy of your unsaved work could not be kept, so a crash would lose it. Save it to keep it."), true)
+            return false
+        }
+        recoveryKept = now
+        return true
+    }
+
+    Timer {
+        id: recoverLater
+        objectName: "recoverLater"
+        interval: 1000
+        onTriggered: window.keepRecovery()
+    }
+
+    Connections {
+        target: logicEditor
+        function onTextChanged() { window.keepRecoverySoon() }
+    }
+
+    /// Ask about what was kept. Names from outside are text.
+    function offerRecovery(copy) {
+        const named = []
+        if (copy.scene)
+            named.push(qsTr("the scene %1").arg(copy.scene.name))
+        if (copy.logic)
+            named.push(copy.logic.file)
+        const notes = []
+        for (const part of [copy.scene, copy.logic]) {
+            if (part && part.gone)
+                notes.push(qsTr("%1 is no longer on the disk; saving this makes it again.").arg(part.file))
+            else if (part && part.changed)
+                notes.push(qsTr("%1 has changed on the disk since this copy was made: restoring shows this copy, and leaves the file as it is until you save, which would write over that change.").arg(part.file))
+        }
+        recoveryOffer = copy
+        recoveryWaiting = null
+        recoveryText.text = qsTr("QQ Studio stopped before this was saved: %1.").arg(named.join(qsTr(" and ")))
+                            + (notes.length > 0 ? "\n\n" + notes.join(" ") : "")
+                            + "\n\n" + qsTr("Restore puts it back, still unsaved. Discard throws it away.")
+        recoveryDialog.open()
+    }
+
+    /// What the question's buttons do: "restore" or "discard". Restored, what came back is in this Studio's own copy before the
+    /// old one goes, so there is no moment with neither. A scene that will not build is said and its copy stays, to be asked
+    /// about again. Discarded, the next copy there is, if any, is asked about.
+    function answerRecovery_(answer) {
+        const copy = recoveryOffer
+        recoveryOffer = null
+        recoveryDialog.close()
+        if (!copy)
+            return false
+        if (answer !== "restore") {
+            workspace.dropRecoveryOf(project, copy.session)
+            const next = workspace.loadRecovery(project)
+            if (next.found)
+                Qt.callLater(() => offerRecovery(next.copy))
+            return true
+        }
+        const before = restoring
+        restoring = true
+        const sceneBack = !copy.scene || restoreSceneCopy(copy.scene)
+        if (copy.logic)
+            logicEditor.restore(copy.logic.name, copy.logic.text)
+        viewport.forceActiveFocus()
+        restoring = before
+        if (!sceneBack) {
+            say(qsTr("The scene in the recovery copy does not build, so it was left as it is, to be asked about again: %1").arg(SceneIO.lastError), true)
+            return false
+        }
+        recoveryKept = ""
+        if (!keepRecovery())
+            return false
+        workspace.dropRecoveryOf(project, copy.session)
+        const more = workspace.loadRecovery(project)
+        say(more.found ? qsTr("Restored what was not saved. It is still not saved. Another copy from before is kept, and is asked about the next time this project opens.")
+                       : qsTr("Restored what was not saved. It is still not saved."))
+        return true
+    }
+
+    /// The scene from a recovery copy, unsaved against what is on the disk now, if its file is still there. Built where it would
+    /// have been: relative URLs and types beside it mean what they meant.
+    function restoreSceneCopy(part) {
+        const hasFile = part.file !== "" && !part.gone
+        const place = hasFile ? String(project) + "/" + part.file : placeFor("untitled")
+        if (!show(SceneIO.loadText(part.text, place, stage), place, part.name, false))
+            return false
+        savedText = hasFile ? (SceneIO.readText(place) ?? "") : ""
+        pristineText = ""
+        history.reset(SceneIO.write(scene, sceneFile))
+        refresh()
+        return true
     }
 
     function applyWindow(placed) {
@@ -520,6 +691,7 @@ ApplicationWindow {
             scene: savedText !== "" ? workspace.relativeInside(project, sceneFile) : "",
             logic: logicEditor.name !== "" ? "logic/" + logicEditor.name + ".qml" : "",
             panels: { agent: agentOpen, stats: showStats },
+            camera: { yaw: yaw, pitch: pitch, distance: distance, x: target.x, y: target.y, z: target.z },
             window: maximized ? { maximized: true } : { x: x, y: y, width: width, height: height }
         })
     }
@@ -546,15 +718,19 @@ ApplicationWindow {
     onWidthChanged: keepWorkspaceSoon()
     onHeightChanged: keepWorkspaceSoon()
     onVisibilityChanged: keepWorkspaceSoon()
+    onYawChanged: keepWorkspaceSoon()
+    onPitchChanged: keepWorkspaceSoon()
+    onDistanceChanged: keepWorkspaceSoon()
+    onTargetChanged: keepWorkspaceSoon()
     Connections {
         target: logicEditor
         function onNameChanged() { window.keepWorkspaceSoon() }
     }
 
     // The window closing is a way of leaving too, so it asks first, and goes once that is answered. What it was left as is
-    // kept by release(), as the application quits.
+    // kept by release(), as the application quits. Closed by the launcher, it asks nothing.
     onClosing: (close) => {
-        if (closeSettled)
+        if (closeSettled || closingUnasked)
             return
         close.accepted = false
         settleThen({ scene: true, logic: true }, () => {
@@ -563,8 +739,22 @@ ApplicationWindow {
         })
     }
 
+    /// A name as a new scene's file is written.
+    function normalSceneName(name) {
+        return String(name).trim().toLowerCase().replace(/[^a-z0-9-]+/g, "-").replace(/^-+|-+$/g, "") || "untitled"
+    }
+
+    /// `name`, or the first like it that no scene in this project has. Names are compared as a system that ignores case would.
+    function freeSceneName(name) {
+        const taken = (SceneIO.project(project).scenes ?? []).map(held => String(held).toLowerCase())
+        let free = name
+        for (let n = 2; taken.includes(free); n++)
+            free = name + "-" + n
+        return free
+    }
+
     function saveScene() {
-        if (!scene || playing)
+        if (!scene || playing || refusedWhileBuilding(qsTr("save")))
             return false
         if (String(project) === "") {
             projectChooser.thenSave = true
@@ -576,13 +766,19 @@ ApplicationWindow {
             trusting(() => saveScene())
             return false
         }
-        const name = sceneName.trim().toLowerCase().replace(/[^a-z0-9-]+/g, "-").replace(/^-+|-+$/g, "") || "untitled"
+        const wanted = normalSceneName(sceneName)
+        // A scene already in scenes/ is written over only by the scene opened from it, whose file keeps its own name however
+        // that is written. A new one, or one given another's name, takes a name of its own: a project opened here for the first
+        // time starts in a new scene called untitled.
+        const own = savedText === "" ? null : /^scenes\/([^/]+)\.qml$/.exec(workspace.relativeInside(project, sceneFile))
+        const itself = own !== null && normalSceneName(own[1]) === wanted
+        const name = itself ? own[1] : freeSceneName(wanted)
         // Files from outside the project (models, sounds, pictures, skies, prefabs, logic) come into it first, so the
         // project is whole on its own: the scene's own (its sky) and its entities', those in groups too.
         if (!adoptFiles([scene].concat(SceneIO.entities(scene))))
             return false
         scene.name = name
-        const file = fileFor(name)
+        const file = itself ? sceneFile : fileFor(name)
         const problem = SceneIO.save(scene, file)
         if (problem !== "") {
             say(problem, true)
@@ -596,8 +792,11 @@ ApplicationWindow {
         history.amend(savedText)
         projectInfo = SceneIO.project(project)
         refresh()
-        say(projectInfo.repository ? qsTr("Saved scenes/%1.qml. Commit it in Projects.").arg(name)
-                                   : qsTr("Saved scenes/%1.qml. This folder is not versioned yet: open it in Projects.").arg(name))
+        // Saved, and no copy of it stays a moment longer.
+        keepRecovery()
+        const kept = itself || name === wanted ? "" : qsTr(" scenes/%1.qml was already there, and is as it was.").arg(wanted)
+        say((projectInfo.repository ? qsTr("Saved scenes/%1.qml. Commit it in Projects.").arg(name)
+                                    : qsTr("Saved scenes/%1.qml. This folder is not versioned yet: open it in Projects.").arg(name)) + kept)
         return true
     }
 
@@ -626,6 +825,11 @@ ApplicationWindow {
         if (!scene)
             return null
         let n = 1
+        // A prefab is built from its file as soon as it is placed, so one placed in a project from elsewhere asks as opening does.
+        if (kind === "Prefab" && !projectTrusted) {
+            trusting(() => addInto(kind, properties, into))
+            return null
+        }
         const base = properties.name ?? kind
         let name = base
         while (entityList.some(e => e.name === name))
@@ -786,12 +990,15 @@ ApplicationWindow {
             for (const field of e.fields) {
                 if (SceneIO.fieldType(e, field) !== "url" || String(e[field]) === "")
                     continue
-                const adopted = SceneIO.adopt(SceneIO.resolvedUrl(e, e[field]), project)
+                const whole = SceneIO.resolvedUrl(e, e[field])
+                const adopted = SceneIO.adopt(whole, project)
                 if (String(adopted) === "") {
                     say(SceneIO.lastError, true)
                     return false
                 }
-                e[field] = adopted
+                // Only what came in changes: a model already in the project is not loaded again for being named again.
+                if (String(adopted) !== String(whole))
+                    e[field] = adopted
             }
         }
         return true
@@ -835,6 +1042,8 @@ ApplicationWindow {
             say(qsTr("A prefab lives in the project: choose a project first."), true)
             return null
         }
+        if (refusedWhileBuilding(qsTr("save")))
+            return null
         const group = selection
         if (!adoptFiles([group].concat(SceneIO.entities(group))))
             return null
@@ -902,6 +1111,12 @@ ApplicationWindow {
             designer.stop()
         stop()
         saveWorkspace()
+        // Closed by the person, every question has been answered. Closed any other way, a launcher's or anything else's, nobody
+        // was asked, so what is unsaved stays in its copy for the next time.
+        if (!closeSettled)
+            keepRecovery()
+        else
+            workspace.dropRecovery(project)
         if (scene)
             SceneIO.discard(scene)
         scene = null
@@ -924,6 +1139,8 @@ ApplicationWindow {
 
     /// Start a new behaviour: a logic file in the project from a template, driving the selection.
     function addBehaviour() {
+        if (refusedWhileBuilding(qsTr("write a file")))
+            return null
         if (String(project) === "") {
             say(qsTr("A behaviour's logic lives in the project: choose a project first."), true)
             return null
@@ -968,6 +1185,63 @@ ApplicationWindow {
             return
         say(qsTr("Publishing %1… approve it in the launcher's window.").arg(projectInfo.name))
         launcher.publish(project, qsTr("Publish %1").arg(sceneName))
+    }
+
+    /// With a build running, what would change what it is reading, or put its answer in another project, waits: said, and true.
+    function refusedWhileBuilding(what) {
+        if (!gameBuild.busy)
+            return false
+        say(qsTr("%1 is being built. When that has finished, %2.").arg(projectInfo.name).arg(what), true)
+        return true
+    }
+
+    /// Save what is on the screen, then make a game of the project: what is built is what is on the disk.
+    function buildGame() {
+        if (playing || gameBuild.busy || askingFor !== null)
+            return
+        if (String(project) === "") {
+            say(qsTr("Choose a project to build: Project, then a folder."), true)
+            return
+        }
+        // Built, its files are one press from playing in the Library, so this asks first as opening does; --build refuses instead.
+        if (!projectTrusted) {
+            trusting(() => buildGame())
+            return
+        }
+        // A project just opened shows a new scene nobody has touched, which is no work, and no game of a project that has scenes.
+        projectInfo = SceneIO.project(project)
+        if (savedText === "" && !sceneHasWork() && (projectInfo.scenes ?? []).length > 0) {
+            say(qsTr("Open the scene the game starts in, then build."), true)
+            return
+        }
+        // What the scene names from outside comes in, as saving does, even with nothing else to save: so a scene whose model is
+        // elsewhere is brought whole rather than refused. If that changed anything, it is saved below.
+        if (!adoptFiles([scene].concat(SceneIO.entities(scene))))
+            return
+        if ((savedText === "" || sceneHasWork()) && !saveScene())
+            return
+        if (logicEditor.dirty && !logicEditor.save())
+            return
+        const broken = SceneIO.brokenCode(project)
+        if (broken.file !== undefined) {
+            say(broken.file === "" ? qsTr("No game was made of this project: %1").arg(broken.message)
+                                   : qsTr("%1 does not build, so no game was made of this project (line %2): %3").arg(broken.file).arg(broken.line).arg(broken.message), true)
+            return
+        }
+        say(qsTr("Building %1…").arg(projectInfo.name))
+        gameBuild.start(project, sceneFile)
+    }
+
+    GameBuild {
+        id: gameBuild
+        objectName: "gameBuild"
+        onFinished: (result) => {
+            if (result.ok)
+                window.say(qsTr("Built %1, build %2: it is in the Library. Play here runs the project; the Library plays this copy.")
+                           .arg(result.title).arg(result.build))
+            else
+                window.say(result.problem, true)
+        }
     }
 
     function removeSelection() {
@@ -1054,6 +1328,38 @@ ApplicationWindow {
                 text: qsTr("Cancel")
                 DialogButtonBox.buttonRole: DialogButtonBox.RejectRole
                 onClicked: window.answerUnsaved_("cancel")
+            }
+        }
+    }
+
+    // Work found unsaved from the last time. It must be answered: no answer, and it is all still there the next time.
+    Dialog {
+        id: recoveryDialog
+        objectName: "recoveryDialog"
+        anchors.centerIn: parent
+        modal: true
+        closePolicy: Popup.NoAutoClose
+        title: qsTr("Restore unsaved work?")
+        standardButtons: Dialog.NoButton
+        width: 520
+        contentItem: Label {
+            id: recoveryText
+            objectName: "recoveryText"
+            wrapMode: Text.Wrap
+            textFormat: Text.PlainText
+        }
+        footer: DialogButtonBox {
+            Button {
+                objectName: "recoveryRestore"
+                text: qsTr("Restore")
+                DialogButtonBox.buttonRole: DialogButtonBox.AcceptRole
+                onClicked: window.answerRecovery_("restore")
+            }
+            Button {
+                objectName: "recoveryDiscard"
+                text: qsTr("Discard")
+                DialogButtonBox.buttonRole: DialogButtonBox.DestructiveRole
+                onClicked: window.answerRecovery_("discard")
             }
         }
     }
@@ -1340,6 +1646,15 @@ ApplicationWindow {
                     enabled: window.canPublish
                     onClicked: window.publish()
                 }
+            }
+            StudioButton {
+                objectName: "buildButton"
+                kind: "ghost"
+                text: gameBuild.busy ? qsTr("Building…") : qsTr("Build")
+                enabled: !window.playing && !gameBuild.busy
+                ToolTip.visible: hovered
+                ToolTip.text: qsTr("Save, then make a game of this project for the Library. Play runs the project here; the Library plays the copy.")
+                onClicked: window.buildGame()
             }
             StudioButton {
                 id: playButton

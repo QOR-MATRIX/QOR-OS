@@ -63,17 +63,16 @@ QQ's, ARQADE's and QOR Media's suites.
 
   **Begun 28 October:** all three build on Linux with `tools/dev/products.sh`, on a display nobody sees, and the Linux
   kit has Qt Quick 3D Physics and Qt PDF. Under WSL, runs on the GPU hung the workstation three times on 28 October,
-  so since 29 October the script fences them from it and they draw in software. Fenced, in software, at `6dd9e43` on
-  1 November, every suite runs to its end:
-  - QOR Media passes all 9 suites; docking is skipped on Wayland, and the video case skips, needing a Windows sample file;
-  - ARQADE passed all 4 at `6dd9e43`, with no case skipped. At `fcea2e0` `games` passed 65 of 67: Ever Rift's pilot, which
-    tests the game, paced for ever in one run, choosing by eye what lay behind a wall. It now chooses by the walk, and by the
-    rules alone it stood at none of 600 seeds; `games` has not yet run whole since. The stall at Orbital's ten locks was
-    Qt's threaded render loop starving the event loop on Wayland at these frame rates; in software ARQADE draws on the basic
-    loop. `tst_games` takes about 50 minutes;
-  - QQ passes 7 of 8. The one failure is the QQ Player's floor of 20 frames a second, reading 5 to 6 in software. Whether
-    Linux CI stays red on it or lets it stand is the owner's decision (`--accept-software-floor`). The live-provider case
-    skips, needing `QQ_LIVE_ENDPOINT=1`.
+  so since 29 October the script fences them from it and they draw in software. Fenced, in software, on 1 November, every
+  suite runs to its end:
+  - QOR Media passes all 9 suites at `6dd9e43`; docking is skipped on Wayland, and the video case skips, needing a Windows sample file;
+  - ARQADE passes all 4 at `ff6946f` on the first attempt: 112 cases, none skipped, `games` 67 of 67 in 52 minutes. The stall at
+    Orbital's ten locks was Qt's threaded render loop starving the event loop on Wayland at these frame rates; in software ARQADE
+    draws on the basic loop;
+  - QQ passes 9 of 10 at `ff6946f`: 353 cases passed, 1 failed, 1 skipped, in 22 minutes. The one failure is the QQ Player's floor of
+    20 frames a second, reading 6.2 to 6.3 in software over four runs, with the Player still drawing to the end of each. Whether Linux
+    CI stays red on it or lets it stand is the owner's decision (`--accept-software-floor`). The live-provider case skips, needing
+    `QQ_LIVE_ENDPOINT=1`.
 
   In software some checks are eased, and the owner has not been asked to accept that: [CI.md](CI.md#what-linux-runs) lists what
   software alone no longer shows. A pass in software says nothing of a real GPU, real sound or real controllers. Linux CI can run them
@@ -270,8 +269,12 @@ gets the right tools and files back, imports an authorised asset, edits, saves, 
 no mix-ups between them, on native Linux.
 
 - [x] QQ Studio: a workspace for each project, one way to switch, unsaved work kept, a list of recent projects. Shown by `tst_workspace`
-  in software on Linux, on 1 November 2026, and not yet on native Linux, a GPU or Windows. A crash still loses unsaved work, and so does
-  the launcher closing the Studio
+  in software on Linux, on 1 November 2026, and not yet on native Linux, a GPU or Windows. Unsaved work is kept in a recovery copy and
+  offered back after a crash or a launcher's close (`tst_workspace`, the real program killed by SIGKILL), one copy for each Studio, never another project's
+- [x] QQ Studio builds a game of a project, and Prism's Library plays that copy: QML in QQ's runtime, not a native program. Shown by
+  `tst_gamebuild` and `first_journey` in software under WSL at `72945fe`, after an independent review and its recheck, with Prism starting a stand-in for the Player and the
+  real Player playing what it asked for on a display of its own. Not yet on native Linux, a GPU or Windows; the real Player in a Prism
+  window needs a real graphics card, and an import records no permission for what it brings in
 - [ ] What is pinned to a project: its engine and version, and its asset dependencies, apart from the person's own library
 - [ ] Prism: a project as a place on the desktop, with its files, tools, window layout, build targets and test history
 - [ ] Budgets, proposed and not yet measured, on the reference laptop: back in a small project within 1 second at p95, no
@@ -294,8 +297,8 @@ not a vendor's support. The commit and date go in the row.
 
 | Configuration | Editor launch | Menus, focus | Pointer capture | Graphics | Audio | Controller | Project save | Packaged build | Game launch |
 |---------------|---------------|--------------|-----------------|----------|-------|------------|--------------|----------------|-------------|
-| QQ, Windows 11, in CI, at `3bf213a` | passed, suites | passed, suites | untested | passed, suites | suites, deaf to the machine | virtual only | passed, suites | untested: no build step yet | project in the Player: passed, suites; packaged: untested |
-| QQ, Ubuntu in WSL2, software, hidden display | passed, suites | passed, suites | untested | software only | deaf to the machine | virtual only | passed, suites | untested: no build step yet | project in the Player: suites, known timing failures |
+| QQ, Windows 11, in CI, at `3bf213a` | passed, suites | passed, suites | untested | passed, suites | suites, deaf to the machine | virtual only | passed, suites | untested: the build step has not run on Windows | project in the Player: passed, suites; packaged: untested |
+| QQ, Ubuntu in WSL2, software, hidden display, at `72945fe` | passed, suites | passed, suites | untested | software only | deaf to the machine | virtual only | passed, suites | passed, suites (`tst_gamebuild`, `first_journey`) | what was built, in the real Player: passed, suites; from the Library: Prism starts a stand-in there, and the real Player plays what it asked for |
 | QQ, native Linux | blocked: machine | blocked: machine | blocked: machine | blocked: machine | blocked: machine | blocked: machine | blocked: machine | blocked: machine | blocked: machine |
 | Unreal 5.8 | blocked: licence, not installed | blocked | blocked: Prism's interfaces | blocked | blocked | blocked | blocked | blocked | blocked |
 | Unity 6.3 | blocked: operation gated | blocked | blocked | blocked | blocked | blocked | blocked | blocked | blocked |
@@ -312,13 +315,15 @@ real QQ project; one finished game appears for players, installs and launches; p
 featured collections and counts hold no creator-only listing, and a creator-only item is refused as well as hidden; private source and
 unpublished builds stay out of reach.
 
-- [ ] Catalogue format 2, typed per item: kind, store placement and category, stable package identity, entitlement, platform, engine
+- [x] Catalogue format 2, typed per item: kind, store placement and category, stable package identity, entitlement, platform, engine
   and base-game dependencies, licence, provenance, previews; sequence and expiry; `price` refused, and format 1's unchecked `price`
   closed. Unclassified or contradictory listings stay drafts. Hostile cases under `linux-asan`: archive bombs, duplicate and device
-  names, executable files in a pack, climbing glTF paths, an older signed copy swapped in, dependency cycles, markup in a licence
-- [ ] Explicit views in the query layer, with no fallback between stores; a utility in both stores is one package, installed once;
+  names, executable files in a pack, climbing glTF paths, an older signed copy swapped in, dependency cycles, markup in a licence.
+  Installs and removals all or nothing, across a crash. `tst_store_format2` 604 cases under `linux-asan` and 597 under MSVC at
+  `811d192`, after an independent review and two rechecks, each check proven by a planted fault
+- [x] Explicit views in the query layer, with no fallback between stores; a utility in both stores is one package, installed once;
   turning creator features off keeps what is installed
-- [ ] A separate demonstration catalogue with a throwaway key, never in a release; today's fixtures not re-signed
+- [x] A separate demonstration catalogue with a throwaway key, never in a release; today's fixtures not re-signed
 - [ ] The Player Store's pages, with Play; Store games in the Library, checked rather than scanned
 - [ ] The creator-features switch, and the Creator Store's pages
 - [ ] QQ Studio's asset library: browse, preview, copy into the project with a lock file, update safely
@@ -375,18 +380,23 @@ vendor's claim. No firmware turns an output-only HDMI port into an input, so thi
 - [x] The repository private, as its documents always said (1 November; it had been public since 27 October, while CI ran on
   the owner's machine)
 - [ ] CI that cannot reach the owner's keys or credentials ([CI.md](CI.md#what-ci-trusts)). Build's workstation jobs fail closed
-  until their runner is isolated: the gate is pull request #2, for the owner to merge
+  until their runner is isolated (pull request #2, merged 1 November 2026), both runners are stopped, and Release readiness fails
+  while a required build did not run (pull request #3, for the owner to merge)
   - [ ] The Store's keys and their backup off the workstation (the owner's act)
   - [ ] Linux jobs in a distribution of their own, with no Windows drive, no Windows programs and no credentials. `qor-ci` is
-    built and its boundary tried ([CI.md](CI.md#an-isolated-place-for-linux-jobs)). Still to do: ask Qt whether it may build without
-    the licence service, register its runner, move Build's Linux job to it, retire the `Ubuntu` runner and settle the GPU steps
+    built and its boundary tried ([CI.md](CI.md#an-isolated-place-for-linux-jobs)), but a distribution shares WSL's kernel, and
+    any process in one reaches `C:\` through `AF_VSOCK`, so it is not the replacement
+  - [ ] Linux jobs in a VM of their own: `tools/ci/isolated-vm.ps1` is written, reviewed and hardened, and tested against
+    stand-ins (138 tests, 125 planted faults; [CI.md](CI.md#a-clean-vm-for-linux-jobs-not-yet-made)). Still to do: the owner runs
+    Create and Prove at `c9513c6`; a way to start it without elevating each time, by a decision of its own; then Qt's answer, a
+    kit, a runner and a clean disk per job
   - [ ] Windows jobs under an account or a virtual machine that cannot reach the owner's profile
   - [ ] The GitHub Apps with workflow access to every repository limited, so that they cannot reach the runners (the owner's act)
 - [x] Prism: the bus, the keyboard, the lock screen, what a client's name and title can do, the Store's widgets
 - [x] QQ and QOR Media: what a package can reach, the Studio's trust in a project, the agent's logic; the QQ Player
   walled in by the kernel on Linux
-- [ ] The Store's catalogue carries a sequence and an expiry, so an old one cannot be replayed (needs signing, with Store
-  stage 2)
+- [ ] The Store's own catalogue in format 2. Format 2 carries a sequence and an expiry, and its checks are done. The first-party
+  catalogue of themes and widgets is still format 1, which has neither (needs signing, with Store stage 2)
 - [ ] The Player's wall on the owner's Linux machine with a real graphics card: tested so far in software only
 - [ ] Prism's clipboard: a client sets the selection only when it has the keyboard (needs Prism's own data device, or a
   patch to Qt)
@@ -407,6 +417,10 @@ the owner's advisers.
 - [ ] An external security review of the QOR core and the vault service ([release/SECURITY-REVIEW.md](release/SECURITY-REVIEW.md))
 - [ ] QOR ID in a second region with offline login; the key exposed on 5 October 2026 replaced ([release/SIGN-IN.md](release/SIGN-IN.md))
 - [ ] A public way to report a security problem: this repository's form reaches only its members, and demiurge-chain's private vulnerability reporting is off
+- [ ] Every required build and test run and passed on the commit released, as Build's Release readiness says
+  (`tools/ci/release_readiness.py`). That includes the products' suites on a graphics card with nothing eased, on Windows and on
+  a Linux machine, since what software eases ([CI.md](CI.md#what-linux-runs)) proves nothing of what it leaves out. Not yet: Build
+  is paused, and no job runs the products on a Linux graphics card
 
 ## Release deliverable · The image
 

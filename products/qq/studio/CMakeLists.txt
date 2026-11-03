@@ -11,7 +11,11 @@ qt_add_library(qqstudio STATIC
     logichighlighter.h logichighlighter.cpp
     # What the Studio remembers of each project, outside the project.
     projectworkspace.h projectworkspace.cpp
+    # Changed for QOR OS: making a game of a project, which the Library plays.
+    gamebuild.h gamebuild.cpp
 )
+
+target_compile_definitions(qqstudio PRIVATE QQ_ENGINE_VERSION="${PROJECT_VERSION}")
 
 qt_add_qml_module(qqstudio
     URI QQ.Studio

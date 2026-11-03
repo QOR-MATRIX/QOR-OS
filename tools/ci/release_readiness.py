@@ -34,6 +34,10 @@ REQUIRED = (
     Required("Linux: suites that draw", "LINUX_GPU"),
     Required("Linux: Prism's protocol check", "LINUX_PRISM"),
     Required("Linux: the products", "LINUX_PRODUCTS", "LINUX_PRODUCTS_CHANGED"),
+    # A run drawn in software proves nothing of how the products draw and keep time on a graphics card, so a release also
+    # needs them run there, on Linux, strictly. No job does that yet: build.yml tells this nothing, and it reads "not run".
+    # It never stands down for unchanged products.
+    Required("Linux: the products on a graphics card, unrelaxed", "LINUX_PRODUCTS_GPU"),
 )
 
 
@@ -42,9 +46,10 @@ def state_of(item: Required, env: Mapping[str, str]) -> tuple[str, bool]:
     outcome = env.get(item.outcome, "")
     if outcome == "success":
         return "passed", True
-    # Only outside a release, where the same products passed on an earlier commit or their job will say so. A release
-    # always runs them, and build.yml's own step says it does; this does not rely on that.
-    if item.changed and env.get(item.changed) == "false" and env.get("IS_RELEASE") != "true":
+    # Unchanged products may stand down, and only that: their step was skipped, the job said it changed nothing, and this is
+    # said not to be a release. Nothing here checks that they passed on an earlier commit. A release always runs them, and
+    # build.yml's own step says it does; this does not rely on that. Any other word, or none, counts against it.
+    if item.changed and outcome == "skipped" and env.get(item.changed) == "false" and env.get("IS_RELEASE") == "false":
         return "not run: unchanged by this commit", True
     if outcome == "failure":
         return "FAILED", False

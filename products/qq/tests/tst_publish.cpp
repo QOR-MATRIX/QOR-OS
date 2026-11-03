@@ -16,6 +16,7 @@
 #include <QQuickItem>
 #include <QQuickWindow>
 #include <QSignalSpy>
+#include <QStandardPaths>
 #include <QTemporaryDir>
 #include <QTest>
 #include <QtEndian>
@@ -147,6 +148,9 @@ class TstPublish : public QObject
     Q_OBJECT
 
 private slots:
+    // Everything kept goes to the test's own folders, never a person's: their recent projects gain no temporary folder.
+    void initTestCase() { QStandardPaths::setTestModeEnabled(true); }
+
     void theHelloCarriesTheTokenAndTheStudiosId()
     {
         FakeLauncher launcher;

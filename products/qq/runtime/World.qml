@@ -9,6 +9,10 @@
 // whole numbers of device pixels to an art pixel, as many as fit `viewHeight` units in the height (`pixelsPerUnit`
 // pixels to a unit), and drawn in exactly the colours it was painted in: linear tonemapping, no bloom, no dithering.
 // Art that is not pixel art fills exactly `viewHeight` units, with the 3D look's tonemapping and bloom.
+//
+// Changed for QOR OS: the made sky is made again when its colours change. Qt Quick 3D keeps a light probe by the texture
+// data it came from and works out its lighting only when it first sees it (QSSGBufferManager::loadTextureData), so a world
+// that lives on, as the Studio's does, kept the sky it was first drawn with however its colours were changed.
 
 import QtQuick
 import QtQuick3D
@@ -109,15 +113,31 @@ View3D {
     }
 
     readonly property Texture made: Texture {
-        textureData: ProceduralSkyTextureData {
-            skyTopColor: world.skyTop
-            skyHorizonColor: world.skyHorizon
-            groundHorizonColor: world.groundHorizon
-            groundBottomColor: world.groundBottom
+        textureData: world.madeSky
+    }
+    /// The made sky's data, made anew, once, after its colours change, however many change at once: a new one is what Qt
+    /// lights the world by again. Nothing is made while nothing changes.
+    property ProceduralSkyTextureData madeSky: null
+    Component {
+        id: madeSkyMaker
+        ProceduralSkyTextureData {
             sunLatitude: 18
             sunLongitude: 210
         }
     }
+    function makeSky() {
+        const before = madeSky
+        // In its texture, as one written inside it would be: Qt Quick 3D's own objects are placed among its own.
+        madeSky = madeSkyMaker.createObject(made, { skyTopColor: world.skyTop, skyHorizonColor: world.skyHorizon,
+                                                    groundHorizonColor: world.groundHorizon,
+                                                    groundBottomColor: world.groundBottom })
+        if (before)
+            before.destroy()
+    }
+    onSkyTopChanged: Qt.callLater(makeSky)
+    onSkyHorizonChanged: Qt.callLater(makeSky)
+    onGroundHorizonChanged: Qt.callLater(makeSky)
+    onGroundBottomChanged: Qt.callLater(makeSky)
     readonly property Texture photographed: Texture {
         source: world.sky
         mappingMode: Texture.LightProbe
@@ -190,6 +210,7 @@ View3D {
     }
 
     Component.onCompleted: {
+        makeSky()
         placeEye()
         overlay = overlayLayer.createObject(world)
     }

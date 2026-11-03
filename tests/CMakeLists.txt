@@ -44,7 +44,8 @@ target_compile_definitions(tst_store_format2 PRIVATE
     QOR_STORE_CATALOG="${CMAKE_SOURCE_DIR}/store/catalog"
     QOR_STORE_PUB="${CMAKE_SOURCE_DIR}/store/keys/store.pub"
     QOR_STORE_FIXTURES="${CMAKE_CURRENT_SOURCE_DIR}/store/fixtures"
-    QOR_STORE_DEMO="${CMAKE_CURRENT_SOURCE_DIR}/store/fixtures-demo")
+    QOR_STORE_DEMO="${CMAKE_CURRENT_SOURCE_DIR}/store/fixtures-demo"
+    QOR_STORE_LICENCES="${CMAKE_CURRENT_SOURCE_DIR}/store/licences")
 # What the shell's pages have of the two storefronts, the build choice that keeps them out of everything but a
 # demonstration, and what a catalogue hands them, from the hostile side (store/qml/storefronts.h).
 qor_add_test(tst_storefronts

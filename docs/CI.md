@@ -24,7 +24,9 @@ four different things:
 - Whether a job may use one is **Qt availability**, the first job.
 - Whether a build and its tests ran and passed is **Release readiness**, the last job, on a machine of GitHub's. It fails unless
   every step a release needs ran and passed: each platform's job, the suites that draw, Prism's protocol check, and the products
-  (which may stand down when a push or pull request did not change them, and never at a tag or a manual run). So a run that built
+  (which may stand down when a push or pull request did not change them, and never at a tag or a manual run). It also requires
+  the products run unrelaxed on a Linux machine with a graphics card, since in software some of their checks are eased; no job
+  does that yet, so that line reads "not run" and no commit is ready for a release until one does. So a run that built
   nothing is red, as the Build workflow's result, by design. Its summary tells a step that failed from a step that did not run.
   `tests/tools/test_release_readiness.py` and `test_build_workflow.py` hold it to this.
 
@@ -40,7 +42,11 @@ at a time or away from the GPU changes none of this. So:
   Without it nothing is built or tested, and Release readiness fails.
 - **The job's first step checks that claim** before anything from the repository runs, and a job that can still reach Windows
   or a credential stops there.
-- **What is still open:** the runners are registered, and started again a workflow naming their labels would reach them, so
+- **On Linux it stops if `AF_VSOCK` opens at all.** Under WSL that reaches Windows' file server whatever `wsl.conf` says
+  (measured 1 November 2026). Elsewhere such a socket can open with nothing behind it, and the job still stops: a Linux job must
+  run where `AF_VSOCK` is refused.
+- **What is still open:** the runners are stopped but still registered. Started again, they would be reached by any workflow
+  naming their labels, so
   whatever can write workflows could run code there. That is the owner, and the GitHub Apps installed on the organisation with
   workflow access, until the owner limits them. The check covers the places it names, not everything a job could do.
 
@@ -58,7 +64,7 @@ As for the rest ([QOR-0018](decisions/QOR-0018-the-security-and-quality-bar.md))
   installed by hash from `requirements-dev.txt`, generated from `requirements-dev.in`.
 - **Dependabot's pull requests do not run on the workstation.** Build's Windows and Linux jobs skip them, so a person
   reads the update before its code runs there; a merge runs them as any push does. Lint and Security run on hosted
-  runners, which hold nothing.
+  runners, which hold nothing. So Release readiness never reads ready on a Dependabot pull request, by design.
 - **Anything that downloads a tool to run it goes in Security**, on a hosted runner.
 - **Left to the owner:** the Store's keys off this machine (`OWNER.md`). Until then, a compromised job here can read them.
 
@@ -97,6 +103,190 @@ registering, or a job could land on either runner. The Windows job needs its own
 
 **Second stage, not run.** `-Action Register` serves one `--ephemeral` job at a time from an empty home, with the token piped from
 `gh` and never printed. It holds no credential between jobs, and nothing starts it at sign-in.
+
+### A clean VM for Linux jobs, not yet made
+
+`tools/ci/isolated-vm.ps1` makes `qor-ci-vm`, a generation 2 Hyper-V VM with its own kernel, and `-Action Prove` attacks it from
+inside with `tools/ci/isolated-vm-guest.py`. This is the replacement [release/QT.md](release/QT.md#ci-machines-that-hold-no-account)
+recommends for the Linux job. **Nothing in it has run against Hyper-V, and no such VM exists:** this account cannot call Hyper-V,
+so `-Action Create` first runs when the owner runs it once, as administrator, after reading it. Until `-Action Prove` has run there, it
+says nothing about any boundary. It holds no Qt, no kit, no Qt login, no runner, no GitHub token and no repository variable. Those wait
+for Qt's answer and for the proof.
+
+**What it makes,** and `-Action Remove` takes away, by these exact names and each only if it carries the script's mark: the VM and an
+internal virtual switch `qor-ci-vm`, that switch's adapter with one address, a NAT `qor-ci-vm`, the firewall rules
+`qor-ci-vm-block-by-adapter` and `qor-ci-vm-block-by-address`, a folder (`X:\qor-ci-vm` unless told otherwise, locked to
+administrators and SYSTEM so no ordinary process can place or change the image, disk or seed inside it), `%LOCALAPPDATA%\qor-ci-vm`
+(the SSH key that opens this guest and nothing else, and Prove's reports), and `%ProgramData%\qor-ci-vm` (a record of what was made,
+which only an elevated run can write). It changes no other VM, switch, rule or setting, and it stops rather than touch one of those
+names that it did not make. Windows supports one NAT per host, so another NAT stops it too. An elevated run refuses to start unless it
+was launched with `-NoProfile`, so that no profile script or user module runs first.
+
+**Who can have made its folders.** `X:\` and `C:\ProgramData` both let any process make a folder in them, so a folder with the right
+name proves nothing. The two locked folders are made already owned by Administrators and locked, in one step (an ordinary account
+cannot make one so, and a test shows Windows refusing it). One that is there already, or that appears between the look and the
+making, is used only if it is owned by Administrators or SYSTEM, writable by nobody else, has no link on its path, and no folder above
+it lets an ordinary process move it out of the way; otherwise the run stops and changes nothing. An owner can always rewrite a file's
+permissions, unelevated too, so what the script writes in them is given to Administrators, and the folders carry an `OWNER RIGHTS`
+entry that takes that right away from whoever owns a file inside (a test shows that too). The record is read only after the check:
+Create, Check and Start stop at one that fails it, and Prove, Stop and Remove go on without it, with the defaults, and say so. A disk is
+trusted only if the record says this script built it and the disk passes the same check, and the seed is checked before it is
+attached. `-Action Remove` empties the root only if it has the script's mark and passes the check, deletes from `%LOCALAPPDATA%` only
+the files it made there, by name, and deletes the record only if it passes the check. No path it deletes along may be a link.
+
+**The VM.** Generation 2, Secure Boot with the UEFI CA template, no checkpoints, no shared folders, no GPU or device passthrough, no
+nested virtualisation, and every integration service off. Enhanced Session has no per-VM off switch, and the host's is left alone: this
+VM keeps the VMBus transport and has no xrdp, which by Microsoft's archived `linux-vm-tools` and the guides is what a Linux guest would
+need changed. 8 processors. 6 GB of static memory on this 15.7 GB
+laptop, with under 1 GB free during a build: it stays stopped when idle, one heavy job runs at a time, and a start that will not fit is
+refused. Each choice has its reason beside the line that makes it.
+
+**The image** is Ubuntu 24.04's generic cloud image, pinned to `release-20261017` by URL and SHA-256. The digest comes from Ubuntu's
+`SHA256SUMS`, whose signature was checked against Ubuntu's image key, and the script checks it before each use. It takes its first-boot
+settings from a NoCloud seed, an ISO labelled `cidata` on a DVD drive, holding one public key and the network settings, which is taken
+out after the first boot. Canonical's Multipass does the same on generation 2 Hyper-V (read in its source), with Secure Boot off, so
+Secure Boot on is unproven. It is QCOW2 and Hyper-V wants VHDX, so the script reads it itself: not with `qemu-img` from WSL, where the
+jobs ran, nor with a tool downloaded and run as administrator. That reader has only read files written from the format's description.
+Not the Azure VHD (its manifest carries `walinuxagent`), Quick Create's desktop image (used with Enhanced Session), or the server ISO
+(unattended, it stops at "Continue with autoinstall? (yes|no)" on the console).
+
+**What blocks what,** read on 1 November 2026, none of it yet seen working on this machine:
+
+| Layer | What it covers | What it does not |
+|-------|----------------|------------------|
+| **Hyper-V firewall** | "Containers hosted by Windows, including WSL", by VM creator. `Get-NetFirewallHyperVVMCreator` here lists WSL alone | A classic VM. The script makes no such rule |
+| **Windows Firewall** | A packet that arrives for this machine. Block rules beat allow rules, so two rules stop anything starting a connection in from the VM's adapter or range | Its rules are inbound and outbound, with none for forwarded traffic, and Microsoft's documents do not say they stop what WinNAT sends on. So the LAN does not rest on them |
+| **Port ACL on the VM's adapter** (`Add-VMNetworkAdapterAcl`) | Below the guest's kernel and before NAT, so root in the guest cannot change it. Denies private, carrier NAT, link-local, loopback, multicast and reserved ranges and all of IPv6; longest match decides | It has no state, so the one address SSH's replies go to must be allowed, and only the firewall rules stand in front of that address. Microsoft's page is written for Windows Server: whether the switch enforces it on Windows 11 Pro is for Prove to show |
+| **The adapter's bindings** | SMB, IPv6 and link-layer protocols, which an IP ACL never sees, are off on this one adapter | NetBIOS over TCP/IP stays with IPv4, behind the firewall rules |
+
+A stateless ACL cannot tell a reply from a new connection, so `-StatefulSshAcl` (off by default) would add a stateful extended ACL
+(`Add-VMNetworkAdapterExtendedAcl -Stateful`) for the host's SSH, which, if Windows 11 honours extended ACLs beside basic ones, would
+let only SSH and its replies reach the host. It is off for the first proof, because mixing the two ACL kinds on a client Hyper-V is
+undocumented and getting it wrong would block the guest's internet (Prove's control would catch that) or its SSH; turn it on once the
+stateless boundary is proven, and read what Prove's `host-tcp` to `10.213.57.1` on a non-SSH port, and its `host-spoof` lines, then say.
+Each Create makes it match its own switch: a Create without `-StatefulSshAcl` takes away one an earlier Create added, and Remove
+takes it before the VM.
+
+Also unknown until it runs: whether WinNAT agrees to a NAT beside WSL's and the Default Switch's, and whether it still forwards with the
+rule on the adapter in place. Create would stop at the first, with Windows' reason, and Prove's outbound control would show the second.
+
+**Starting and stopping.** Stopping needs no privilege while the guest cooperates: `-Action Stop` powers it off from inside, over SSH.
+An ordinary account cannot read Hyper-V's state, so it reports only that the guest stopped answering SSH, and a guest that never
+answered (stuck at a Secure Boot refusal, say) it reports as not stopped, with the administrator command to force it, rather than
+calling it stopped. An administrator confirms against Hyper-V's own state and turns it off if it did not go. **Starting has no way
+round.** Hyper-V has no per-VM right to start one
+(`Grant-VMConnectAccess` gives the console and nothing more), and this account is neither an elevated administrator nor in Hyper-V
+Administrators. None of these is made by the script. The choices:
+
+1. The owner elevates for each start: `-Action Start`. Changes nothing, and a person sees each one. **Recommended while nothing uses
+   this VM.**
+2. A task the owner makes once, as administrator, running `Start-VM -Name qor-ci-vm` and nothing else, which this account may run and
+   not edit. **Recommended when a job needs it, as a decision of its own.**
+3. This account in Hyper-V Administrators: "complete and unrestricted access to all the features in Hyper-V", for everything that runs
+   as this account, and a VM can be pointed at any disk. Not recommended.
+4. Leave it running, holding its memory all the time. Not recommended.
+
+**`-Action Prove`** runs from an ordinary terminal and refuses to run elevated. It attacks as `runner`, with no privilege, and then as
+root. Each attempt prints what it tried and what happened:
+
+- `AF_VSOCK`, which is how a Linux guest reaches Hyper-V sockets, to the 9P port that reached `C:\` from WSL, to every service registered
+  for Hyper-V sockets on this machine, and to a list of well-known ports.
+- This machine's addresses on SMB, RDP, WinRM and every port found listening, and every TCP port on its address on this switch.
+- The LAN (the router, DNS and whatever this machine has seen nearby), WSL's addresses, and Windows' `127.0.0.1` by a raw frame.
+- As root: SYNs from source ports 22 and 53, ping, IPv6 on the link, and mounts of the host's filesystems.
+- What shows on the guest's mounts and devices, and every VMBus device the host offers, against a list of what should be there.
+
+A failed attack is a pass. A TCP refusal is a failure, because it means a packet got there and something answered. A check that could
+not run is a failure, never a pass. Outbound DNS and HTTPS must work, before and after the attacks, so that "everything refused" cannot
+mean "the network is down". Its exit status is 0 only if every line of both levels passed, the two levels' lines are all there, and the
+firewall rules read back as they should. **All of these mean something only in a real VM.** The check that this is one fails anywhere
+else, including under WSL, and the script on Windows refuses a run on stand-ins.
+
+**What Prove does not try.** A public address that leads back to this machine or its router, which is not a private range. Root in the
+guest speaking VMBus directly with code in its own kernel. Bugs in the hypervisor, or in `ssh.exe`, which talks to the guest. A guest
+that is already compromised can also lie: Prove's lines come from inside it, so it shows something about a fresh VM and nothing about
+one that has run jobs. A job here would have the internet, on any port, so it could send out whatever it was given.
+
+**Before Build can move here,** beyond the proof: Qt's answer and a kit, a way to start the VM, a runner, and a clean disk for each job,
+which this does not do. 6 GB will not carry 8 compilers without swap, and the suites that draw need a display it lacks. The Windows job
+needs its own answer.
+
+#### The owner's first run
+
+Run this at the commit that last changed `tools/ci/isolated-vm.ps1` (`git log -1 --format=%h -- tools/ci/isolated-vm.ps1`; it was
+`c9513c6` when this was written, the commit with the second review's fixes), with the working tree clean.
+The first run is likely to stop somewhere, because nothing here has met Hyper-V; each stop prints its reason, and most say to run the
+same command again.
+
+**Before elevating:** read the top of `tools/ci/isolated-vm.ps1` down to `param(`, and this section. Confirm the tree: `git status`
+clean, `git log -1`. Pick a time with no build running, since it needs about 7 GB of memory free.
+
+**Confirm its three folders are not there yet,** whatever the script would make of them. This should print `False` three times:
+
+```powershell
+Test-Path -LiteralPath X:\qor-ci-vm, "$env:ProgramData\qor-ci-vm", "$env:LOCALAPPDATA\qor-ci-vm"
+```
+
+If one prints `True`, nothing of a real Create is there yet, so it is a leftover or someone else's: look at it and remove it as below
+before Create. On the morning of 2 November 2026 an `X:\qor-ci-vm` was there, left by a run of the script against its test stand-ins
+(its disk and image were the suite's test files), which then had nothing to keep them inside the test's own folder; they refuse
+anything outside it now. It held five items, all this account's: `.made-by-qor-ci-vm` (90 bytes), `disk\`, `disk\qor-ci-vm.vhdx`
+(2,097,664 bytes, a 2 MB test disk), `image\`, and `image\ubuntu-24.04-server-cloudimg-amd64-20261017.img` (199,605 bytes, a test
+image, not Ubuntu's). Create refuses a folder like that, because it is not owned by Administrators. The owner removed it that morning,
+and on checking it was gone; the check above says whether anything has come back.
+
+**To remove a leftover `X:\qor-ci-vm` that holds no VM,** in PowerShell 7, one command at a time, reading each answer before the next:
+
+```powershell
+Get-VM -Name qor-ci-vm -ErrorAction SilentlyContinue   # as administrator: nothing printed means there is no such VM
+Get-ChildItem -LiteralPath X:\qor-ci-vm -Recurse -Force -Attributes ReparsePoint   # must print nothing: no link inside to follow
+Get-ChildItem -LiteralPath X:\qor-ci-vm -Recurse -Force | Format-Table FullName, Length, LastWriteTime   # what will go
+Remove-Item -LiteralPath X:\qor-ci-vm -Recurse -Force
+```
+
+If `Get-VM` prints a VM, stop: that is a real one, and `-Action Remove` is the way to take it and its folder. Leftovers that belong to
+this account, as the stand-ins' did, an ordinary terminal can remove; one that belongs to Administrators needs an administrator's.
+The same four steps, with the path changed, do for a leftover `%ProgramData%\qor-ci-vm` (it should hold at most `record.json`) or
+`%LOCALAPPDATA%\qor-ci-vm` (at most `ssh\` and `prove-*.txt`).
+
+**Create.** Open PowerShell 7 as administrator from the Start menu, then run `pwsh -NoProfile` (the script refuses an elevated run that
+was not). Then:
+
+```powershell
+cd X:\REPOZ\QOR-OS
+.\tools\ci\isolated-vm.ps1 -Action Create
+```
+
+Pass no `-Root`; a later `-Root` spelled even slightly differently is refused. Don't press Ctrl+C during the VM steps. Expect a download
+of about 600 MB, a conversion of a minute or more, up to 15 minutes for the first boot, then the VM left running on 6 GB. It ends with
+the line telling you to run Prove from an ordinary terminal.
+
+**Prove.** Start WSL (so Prove has something to attack on that side), then, in an **ordinary** PowerShell 7 (Prove refuses to run
+elevated):
+
+```powershell
+cd X:\REPOZ\QOR-OS
+.\tools\ci\isolated-vm.ps1 -Action Prove; "exit status: $LASTEXITCODE"
+```
+
+It prints one line per attempt and ends with a per-level summary and either `Every line passed...` or `PROVE FAILED:` with reasons, then
+writes `%LOCALAPPDATA%\qor-ci-vm\prove-<when>.txt`. It powers the VM off at the end.
+
+**Send back:** all of Create's output (or its `STOPPED` block), and the `prove-...txt` file with the exit status. That file holds this
+machine's addresses and port numbers, and no credential.
+
+**If it stops halfway:**
+
+- **Most steps:** run the same command again; it does what is left.
+- **It says a folder or the record cannot be trusted:** it changed nothing. Look at what it names, and remove a leftover as above.
+  `-Action Remove` stops the same way at a root it cannot trust; remove that by hand, then run Remove again for the key and record.
+- **It stops waiting for SSH:** likely Secure Boot refusing the image. The VM keeps running; as administrator,
+  `Stop-VM -Name qor-ci-vm -TurnOff -Force`, then `-Action Remove`. The script will not turn Secure Boot off; that is the owner's call.
+- **An unmarked `qor-ci-vm` is left (a stop between making and marking):** run `-Action Create` again, which finishes it, or
+  `-Action Remove`, which takes it when its files are under this script's root.
+- **WSL or the Default Switch lose networking:** `-Action Remove`, then `wsl --shutdown`, then reboot.
+
+**To undo everything, as administrator:** `pwsh -NoProfile`, then `.\tools\ci\isolated-vm.ps1 -Action Remove`.
 
 ## What the Build job needs on a runner
 
@@ -137,9 +327,9 @@ products ran.
 
 #### What Linux runs
 
-**`QOR_RUN_LINUX_PRODUCTS` is not set, so today it runs none of this.** With it
-set, the job runs every suite each product registers with CTest, **all of them
-in software**, hidden:
+**`QOR_RUN_LINUX_PRODUCTS` is not set and Build is paused, so today CI runs none of this.** With it set, the job runs
+every suite each product registers with CTest, hidden: **in software under WSL or with no GPU device, and on the GPU
+on a Linux machine that has a working one.**
 
 - **Fenced from the GPU.** Under WSL the script hides `/dev/dxg` in a namespace of
   its own, and Mesa draws with llvmpipe. A machine with no door to a GPU at all
@@ -149,20 +339,31 @@ in software**, hidden:
   platform; a session bus and an in-memory keyring of its own; no sound device.
 - **Within the machine's limits.** One job at a time and 8 compilers, as for the
   rest of the job. The tests are held to half the processors and three quarters of
-  WSL's memory where systemd's user manager runs.
+  WSL's memory where systemd's user manager runs. The script prints the commit, the
+  kernel, the processors, the limits and the display it ran with.
 
-**A pass there says nothing of a real GPU, real sound or a real controller.** It
+**A pass in software says nothing of a real GPU, real sound or a real controller.** It
 says what the games do, by their own clocks, and that their windows behave.
 Nothing here replaces playing them on the Linux machine.
 
-**The log and the step's summary name every case failed or skipped, with why**, in
-each product's `what its suites said` (`tools/dev/products-report.py`, from CTest's own
-log, the only place a passing suite's output is kept). A suite that stops before its
-end says `STOPPED`. Nothing is excluded. These are the cases that do not simply pass:
+**What draws is checked, not assumed.** From the machine's devices the script decides what should draw, and always sets
+`QOR_EXPECTED_RENDERER` to it, whatever the environment said. The suites whose checks differ in software (`tst_play`,
+`tst_studio`, `tst_agent`, `tst_player` and `games`) print what drew them, and stop if it disagrees, whichever way round. So
+`GALLIUM_DRIVER=llvmpipe`, `LIBGL_ALWAYS_SOFTWARE=1` or a render node Mesa cannot use is a failure on a machine with a GPU, not
+an easier run, and a machine with no render node that draws with some other renderer fails too. The other suites check the same
+either way, and neither print nor stop. Run by hand, or by `products.ps1`, nothing is expected and a suite takes its strict path.
+Only someone who sets both by hand, outside the script, is eased on a machine with a GPU, and the suite says what drew it.
+
+**The log and the step's summary name every case failed or skipped, with why**, in each product's `what its suites said`
+(`tools/dev/products-report.py`). It reads two files of CTest's: its log, the only place a passing suite's output is kept, and its
+record (`ctest -T Test`), the only place that says how a suite ended. A Qt Test suite with no totals says `STOPPED`. A suite that
+could not start, or skipped itself by its `SKIP_RETURN_CODE`, says `NOT RUN`, never a pass. A suite that is not Qt Test has no counts,
+and reads passed, failed or stopped by the record. At the end the script names any suite that passed only on a later attempt, having
+checked that the retry ran it. Nothing is excluded. These are the cases that do not simply pass:
 
 | Case | In software, under WSL | Why |
 |------|------------------------|-----|
-| QQ's `tst_player`: `thePlaygroundPlaysAndItsStartIsMeasured` | **Fails, and so fails the step**, until the owner says otherwise | Its floor of 20 frames a second, a real performance check, reads 5 to 6 here. It stays a check on Windows. See below |
+| QQ's `tst_player`: `thePlaygroundPlaysAndItsStartIsMeasured` | **Fails, and so fails the step**, until the owner says otherwise | Its floor of 20 frames a second, a real performance check, reads about 6 here. It stays a check on Windows. See below |
 | QQ's `tst_agent`: `theRealProviderIsReachedOverTls` | Skipped, as everywhere | Needs `QQ_LIVE_ENDPOINT=1`, to reach the real provider |
 | QOR Media's `playback`: `video_decodes_through_ffmpeg` | Skipped | Windows' sample video is not on this machine |
 | QOR Media's `playback`: `it_docks_inside_the_launchers_window_and_lifts_out_to_full_screen` | Skipped | Wayland has no window handles to dock by; Prism places the window ([QOR-0010](decisions/QOR-0010-on-wayland-prism-places-the-products-windows.md)) |
@@ -170,40 +371,46 @@ end says `STOPPED`. Nothing is excluded. These are the cases that do not simply 
 **The QQ Player's floor** asks for 20 frames a second of the bundled playground. Software
 cannot give that, and it says nothing of the game, so the floor is neither lowered nor skipped:
 the case fails and says what it read. Whether Linux CI stays red on it or lets it stand is the
-owner's decision. `tools/dev/products.sh --accept-software-floor` is the second. In software only, it
-reports the failure and lets it stand when all of this holds: that check in that case is the product's
-only failure, `tst_player` ended normally with that one failure as its exit status (CTest's record says
-so; its log says only "Test Failed.", even of a crash), and the Player still drew **at least 1 frame a
-second**, since below that it has stopped drawing, which is a fault anywhere. `build.yml` does not pass
-it, so the step is red on this alone.
+owner's decision. `tools/dev/products.sh --accept-software-floor` is the second. It reports the failure and lets it stand only when
+all of this holds: the script expected software from the machine's devices, and the Player says `llvmpipe` drew it; that check in that
+case is the product's only failure; `tst_player` ended normally with that one failure as its exit status (CTest's record says so; its
+log says only "Test Failed.", even of a crash); and the Player read **at least 1 frame a second** (`STILL_DRAWING_FPS`). Any other
+suite that failed, stopped or could not start refuses it, Qt Test or not. One that skipped itself does not, and still reads `NOT RUN`.
+`build.yml` does not pass the flag, so the step is red on this alone.
 
-**How long.** On this laptop, with the builds incremental, about 70 minutes: QQ 17, ARQADE 50
-(`games`, which is `tst_games`, 49), QOR Media under one. So a cold build and a second go at a
-failed `games` fit the step's limit of 180 minutes, and the job has 270 with the variable set.
+**Whether the Player kept drawing is a check of its own, on every machine,** neither part of the floor nor eased with it. An average
+cannot say it: a Player that draws four frames and stops reads 1.3 over its three measured seconds. So `tst_player` fails if the last
+frame came more than a second before those three seconds ended (`lastFrameAgoMs` in `--measure`'s report).
+
+**How long.** On this laptop, with the builds incremental, about 77 minutes, QQ and ARQADE measured on 1 November 2026 with
+nothing else holding the machine's one heavy job: QQ 22 (`tst_play` 7, `tst_workspace` 4), ARQADE 55 (`games`, which is
+`tst_games`, 52), and QOR Media under one, from an earlier run. So a cold build and a second go at a failed `games` fit
+the step's limit of 180 minutes, and the job has 270 with the variable set.
 What the products built then has its exploit mitigations read back, as on Windows.
 
-**On a GPU these suites check what they always did, and one thing more:** `tst_agent`'s
-`aLongWaitLastsWhatItWasAskedFor`, on every machine. What follows is eased **in software alone**. The
-suites choose that by the renderer's own name (`llvmpipe`, in `products/qq/tests/drawnin.h` and `tst_games`'
-`drawnInSoftware`) and the script by the machine's devices. The owner has not been asked to accept these,
-and they do not count as a pass of what they leave out.
+**On a GPU these suites check what they did at `a3a2fd4`, with these differences.** Added, on every machine: `tst_agent`'s
+`aLongWaitLastsWhatItWasAskedFor`; `tst_player`'s check that the Player kept drawing; and the renderer's check above, where the script
+expects something. Changed, and no easier: the gamepad's jump in `tst_play` waits 500 ms on the wall, where its 50 short waits took at
+least that, so it has less time to reach the same height; each of Orbital's ten locks looks the satellite up and checks it is there,
+where only the first did. What follows is eased **in software alone**: where the script expects it and the renderer says `llvmpipe`
+(`products/qq/tests/drawnin.h`). The owner has not been asked to accept these, and they do not count as a pass of what they leave out.
 
 **What software alone no longer checks:**
 
-- **That the world keeps up with real time.** On a GPU the walks, the falls and Orb Run's first orb in
-  `tst_play`, `tst_studio` and `tst_agent` wait on the wall's clock, so that a walk of over 3 metres in a
-  second fails a world below two thirds of real time. In software nothing compares the world with the
-  wall. A game has three clocks, which agree at 30 frames a second or more: a body moves by the physics
-  world's (at most 1/30 s a frame), the Player's turn, fall and jump speeds go by the frame clock (at most
-  1/20 s), and logic by the scene's ticks (at most 8/60 s). In software these cases wait on the clock the
-  thing goes by, with the same numbers, and a limit on the wall's time that stops a hung game.
+- **That the world keeps up with real time, in the cases that were failing for it.** On a GPU the walks, the Studio's and the agent's
+  falls and Orb Run's first orb in `tst_play`, `tst_studio` and `tst_agent` wait on the wall's clock, so that a walk of over 3 metres in a
+  second fails a world below two thirds of real time. In software these wait instead on the clock the thing goes by, with the same numbers,
+  and a limit on the wall's time that stops a hung game. A game has three clocks, which agree at 30 frames a second or more: a body moves
+  by the physics world's (at most 1/30 s a frame), the Player's turn, fall and jump speeds go by the frame clock (at most 1/20 s), and
+  logic by the scene's ticks (at most 8/60 s). Other cases still wait on the wall in software, such as `tst_play`'s falling shapes, whose
+  2½ and 3 seconds leave a world room to run well under real time, so they check it far less than a GPU's walk does.
 - **That frames pay logic's ticks at the right rate, against what moves bodies.** On a GPU `tst_play`'s
-  `logicMakesAndRemovesEntitiesOnItsOwnClock` is paid by frames, so logic running ahead of bodies fails it. In
-  software logic's clock runs up to four times ahead of the physics world's, so there it pays its ticks from the
-  physics world's time, and `root.advance(frameTime * 3)` in `Scene.qml` passes it. Darkveil's two pilot cases are
-  paid by frames on a GPU too, as a person's game is. In software the pilot pays them itself, one to each decision,
-  because deciding once in eight ticks plays a rougher game: of two such runs of the first case, one went home to the
-  healer before it met the Elder, which fails it, and one passed.
+  `logicMakesAndRemovesEntitiesOnItsOwnClock` is paid by frames, so logic running more than about 1.6 times ahead of bodies fails it: the
+  drops have not fallen 2 metres when logic's clock says they should have. In software logic's clock runs up to four times ahead of the physics
+  world's, so there it pays its ticks from the physics world's time, and `root.advance(frameTime * 3)` in `Scene.qml` passes it. Darkveil's two
+  pilot cases are paid by frames on a GPU too, as a person's game is. In software the pilot pays them itself, one to each decision, because
+  deciding once in eight ticks plays a rougher game: of two such runs of the first case, one went home to the healer before it met the Elder,
+  which fails it, and one passed.
 - **ARQADE's threaded render loop.** The script sets `QSG_RENDER_LOOP=basic` for it. On the threaded loop,
   on Wayland, with frames this slow, each turn of the event loop took one frame more than the last: at the
   13th turn of Orbital's first lock, 13 frames and 15 seconds. ARQADE keeps one window through all its cases,
@@ -215,14 +422,16 @@ and they do not count as a pass of what they leave out.
   drawing lets the test look, so it keeps each sound as it begins (`PlacedVoices`), which shows it began where it
   should, and compares the lock with where the satellite was as the lock was asked for.
 - **Limits on the wall's time that stop a slow or hung game sooner:** `QTEST_FUNCTION_TIMEOUT` is 30 minutes and
-  a suite's limit 90, not 5 and 15; Rift Survivor's hull has that case limit, less 20 seconds, not 2 minutes, since it
-  takes 13½ to break; the drops case has 60 and 30 seconds, not 8 and 4.
+  a suite's limit 90, not 5 and 15. What follows that limit, less 20 seconds, goes from 280 seconds to 1780: Darkveil's two pilot
+  cases and Bellwick's two. Rift Survivor's hull has it too, not 2 minutes, since it takes 13½ to break. The drops case has 60 and 30
+  seconds, not 8 and 4.
 - **Anything of a real GPU, real sound or a real controller**, as above.
 
 **The GPU's side of each of these has run here only by forcing it on in software**, since no GPU may be used here. Forced, the
 walks, the falls, the drops, Orb Run's first orb, the lock's sound and the hull's two minutes each failed, as they should
 where software cannot keep up. The live check of a kill's sound and Darkveil's frame-paid first case passed. The other sounds and
-Darkveil's second case were not run forced. Windows or Linux CI on a GPU must still confirm all of it.
+Darkveil's second case were not run forced. Since Build is paused and Linux here is fenced, a stated run of `tools/dev/products.ps1` on
+Windows is what must still confirm them, with the `Qt6::GuiPrivate` that `tst_studio`, `tst_play`, `tst_agent` and `qq-player` now link.
 
 **What the suites need of the machine.** Loopback: `tst_agent`, `tst_games` (its arenas and
 sign-in) and `tst_arqadeserver` talk to stand-ins for the provider and ARQADE's server on 127.0.0.1,
@@ -348,7 +557,7 @@ Set-Content "$([Environment]::GetFolderPath('Startup'))\qor-github-runner-linux.
   "@start `"QOR OS Linux runner`" /min wsl.exe -d Ubuntu --cd ~ --exec /home/$($env:USERNAME.ToLower())/ghr/qtos-linux/run.sh"
 ```
 
-If CI does not run, first check that both runners are online:
+Once a runner is isolated and started again, if CI does not run, first check that it is online:
 `gh api repos/QOR-MATRIX/qor-os/actions/runners` (or
 `orgs/QOR-MATRIX/actions/runners` once they belong to the organisation).
 

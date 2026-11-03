@@ -27,6 +27,7 @@ ALL_PASSED = {
     "LINUX_PRISM": "success",
     "LINUX_PRODUCTS": "success",
     "LINUX_PRODUCTS_CHANGED": "true",
+    "LINUX_PRODUCTS_GPU": "success",
     "IS_RELEASE": "false",
 }
 OUTCOMES = [item.outcome for item in release_readiness.REQUIRED]
@@ -97,6 +98,26 @@ class ReleaseReadinessTest(unittest.TestCase):
                 self.assertIn("not run: unchanged by this commit", text(unchanged))
                 self.assertFalse(ready({**unchanged, "IS_RELEASE": "true"}))
 
+    def test_unchanged_products_stand_down_only_when_skipped(self):
+        # An unchanged product's step that ran and failed, or was cancelled, is not excused by being unchanged.
+        for side in ("WINDOWS", "LINUX"):
+            for outcome in ("failure", "cancelled", "", "neutral"):
+                with self.subTest(side=side, outcome=outcome):
+                    self.assertFalse(ready({**ALL_PASSED, f"{side}_PRODUCTS": outcome, f"{side}_PRODUCTS_CHANGED": "false"}))
+
+    def test_unchanged_products_stand_down_only_when_said_not_to_be_a_release(self):
+        # Whether this is a release must be said, as false: a missing or malformed word is taken as a release.
+        for side in ("WINDOWS", "LINUX"):
+            unchanged = {**ALL_PASSED, f"{side}_PRODUCTS": "skipped", f"{side}_PRODUCTS_CHANGED": "false"}
+            for word in ("", "True", "FALSE", "0", None):
+                with self.subTest(side=side, word=word):
+                    env = dict(unchanged)
+                    if word is None:
+                        del env["IS_RELEASE"]
+                    else:
+                        env["IS_RELEASE"] = word
+                    self.assertFalse(ready(env))
+
     def test_products_that_changed_and_did_not_run_are_not_ready(self):
         for side in ("WINDOWS", "LINUX"):
             for changed in ("true", "", "FALSE"):
@@ -108,6 +129,17 @@ class ReleaseReadinessTest(unittest.TestCase):
         for outcome in ("WINDOWS_JOB", "WINDOWS_GPU", "LINUX_JOB", "LINUX_GPU", "LINUX_PRISM"):
             with self.subTest(outcome=outcome):
                 self.assertFalse(ready({**ALL_PASSED, outcome: "skipped", "WINDOWS_PRODUCTS_CHANGED": "false", "LINUX_PRODUCTS_CHANGED": "false"}))
+
+    def test_the_products_unrelaxed_on_a_graphics_card_are_required(self):
+        # What software eases is a pass of nothing it leaves out: a release needs the same suites run on a graphics card.
+        without = dict(ALL_PASSED)
+        del without["LINUX_PRODUCTS_GPU"]
+        self.assertFalse(ready(without))
+        self.assertIn("| Linux: the products on a graphics card, unrelaxed | not run |", text(without))
+        # Unchanged products excuse the software run outside a release, and never this one.
+        unchanged = {**without, "LINUX_PRODUCTS": "skipped", "LINUX_PRODUCTS_CHANGED": "false", "WINDOWS_PRODUCTS_CHANGED": "false"}
+        self.assertFalse(ready(unchanged))
+        self.assertFalse(ready({**ALL_PASSED, "LINUX_PRODUCTS_GPU": "skipped", "LINUX_PRODUCTS_CHANGED": "false"}))
 
     def test_the_summary_is_written_and_failure_is_reported(self):
         import tempfile

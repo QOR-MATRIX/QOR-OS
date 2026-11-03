@@ -31,6 +31,7 @@
 #include <QtCore/QSet>
 #include <QtCore/QTemporaryDir>
 #include <QtCore/QThread>
+#include <QtCore/QTimeZone>
 #include <QtCore/private/qzipreader_p.h>
 #include <QtCore/private/qzipwriter_p.h>
 #include <QtNetwork/QNetworkProxy>
@@ -38,6 +39,12 @@
 #include <QtNetwork/QTcpSocket>
 #include <QtTest/QSignalSpy>
 #include <QtTest/QTest>
+
+#include <algorithm>
+
+#ifdef Q_OS_UNIX
+#include <sys/resource.h>
+#endif
 
 using namespace qor::store;
 using namespace teststore;
@@ -50,6 +57,7 @@ const QString kCatalog = QStringLiteral(QOR_STORE_CATALOG);
 const QString kStorePub = QStringLiteral(QOR_STORE_PUB);
 const QString kFixtures = QStringLiteral(QOR_STORE_FIXTURES);
 const QString kDemo = QStringLiteral(QOR_STORE_DEMO);
+const QString kLicences = QStringLiteral(QOR_STORE_LICENCES);
 
 const QByteArray kJpg = QByteArray::fromHex("ffd8ffe0") + "a picture";
 const QByteArray kWebp = QByteArrayLiteral("RIFF....WEBPa picture");
@@ -117,9 +125,18 @@ protected:
     {
         return !refuseRecords && StoreEngine::saveInstalled(records, transaction);
     }
+    void syncFolder(const QString &path) const override
+    {
+        const QString relative = QDir(dataDir()).relativeFilePath(QDir::cleanPath(path));
+        events.append(u"sync "_s + (relative.isEmpty() ? u"."_s : relative));
+        StoreEngine::syncFolder(path);
+    }
+    qint64 heldBytesLimit() const override { return heldLimit >= 0 ? heldLimit : StoreEngine::heldBytesLimit(); }
 
 public:
     bool refuseRecords = false; // as a disk would that is full or gone read-only
+    qint64 heldLimit = -1;      // what plans may hold together, if not the engine's own limit
+    mutable QStringList events; // each folder made durable, as "sync <path in the data folder>", and what a test adds
 };
 
 // A copy of a folder, as a crash at this moment would leave it.
@@ -965,6 +982,31 @@ private Q_SLOTS:
         QTest::newRow("a space after the bracket, as Qt's parser reads it") << QByteArray("A line.\n< b >x");
         QTest::newRow("spaces around a closing slash") << QByteArray("A line.\n< / b >");
         QTest::newRow("an XML declaration") << QByteArray("<?xml version=\"1.0\"?>");
+        // The recheck's: a short list of names is no wall. A tag that carries a value is markup, whatever its name.
+        QTest::newRow("a style on a tag Qt does not know")
+            << QByteArray("<x style=\"background-image:url(https://example.org/seen.png)\">y</x>");
+        QTest::newRow("image, which a browser takes for img")
+            << QByteArray("<image src=\"https://example.org/seen.png\">");
+        QTest::newRow("an event handler on a tag nobody knows") << QByteArray("<x onmouseover=\"alert(1)\">y</x>");
+        QTest::newRow("a value straight after the name") << QByteArray("<x/style=color:red>y");
+        QTest::newRow("a value, and nothing to end the tag") << QByteArray("y <x style=color:red");
+        QTest::newRow("a value after a name longer than any element's")
+            << QByteArray("<abcdefghijklmnopqrstuvwxyz style=color:red>y");
+        QTest::newRow("a value after plain words") << QByteArray("<one line to give style=color:red>");
+        QTest::newRow("a value after a stray <= before it") << QByteArray("a <= b, then <x style=color:red>y");
+        // Qt reads a quoted word in a tag as one word, `>` and all, so the tag goes on past it.
+        QTest::newRow("a quoted key holding >, then a value")
+            << QByteArray("<x \">\" style=\"background-image:url(https://example.org/seen.png)\">y");
+        QTest::newRow("a single-quoted key holding >, then a value") << QByteArray("<x '>' style=color:red>y");
+        QTest::newRow("a single-quoted key a backslash keeps open, then a value")
+            << QByteArray("<x 'a\\'>' style=color:red>y");
+        // With no value to give it away, the name alone, read as Qt's parser reads it.
+        QTest::newRow("a browser's name, with no value") << QByteArray("<plaintext>y");
+        QTest::newRow("a browser's name, with no value, in capitals") << QByteArray("<PLAINTEXT>y");
+        QTest::newRow("a browser's name, with no value, then U+00A0") << QByteArray("<plaintext\xc2\xa0y>");
+        QTest::newRow("a browser's name, with no value, then a slash") << QByteArray("<plaintext/y>");
+        QTest::newRow("a name in quotes, with no value") << QByteArray("<\"b\">bold");
+        QTest::newRow("a name with an entity, and no value") << QByteArray("<&#98;>bold");
     }
     void aLicenceHoldsNoMarkup()
     {
@@ -991,7 +1033,32 @@ private Q_SLOTS:
         pack.files.insert(u"LICENSE.txt"_s,
                           "<one line to give the program's name and a brief idea of what it does.>\n"
                           "Copyright (C) <year> <name of author>, <https://www.gnu.org/licenses/>.\n\f\n1 < 2 > 1\n"
-                          "<signature of Ty Coon>, a <- c, <> and <=, and the odd stray < at the end <");
+                          "<signature of Ty Coon>, a <- c, <> and <=, and the odd stray < at the end <\n"
+                          "Copyright (c) <YEAR>, <OWNER>. Write to <someone@example.org> or <https://example.org/x>.\n"
+                          "a = b, then <copyright holders> and <organization>, and c = d");
+        const PackageResult opened = openPackage(pack.package(developer), developer.publicKey());
+        QVERIFY2(opened.ok, qPrintable(opened.error));
+    }
+
+    // The licences people use, as their stewards publish them (SPDX's texts, as Qt carries them): none is markup.
+    void aRealLicenceIsNotMarkup_data()
+    {
+        QTest::addColumn<QString>("file");
+        const QStringList names { u"GPL-2.0-only"_s,  u"GPL-3.0-only"_s, u"LGPL-2.1-or-later"_s,
+                                  u"LGPL-3.0-only"_s, u"MPL-2.0"_s,      u"Apache-2.0"_s,
+                                  u"MIT"_s,           u"BSD-2-Clause"_s, u"BSD-3-Clause"_s };
+        for (const QString &name : names)
+            QTest::newRow(qPrintable(name)) << QString(kLicences + u'/' + name + u".txt"_s);
+    }
+    void aRealLicenceIsNotMarkup()
+    {
+        QFETCH(QString, file);
+        const QByteArray text = readFile(file);
+        QVERIFY2(text.size() > 500, qPrintable(file));
+        QVERIFY(text.contains('<') || !QByteArray(QTest::currentDataTag()).contains("GPL"));
+        const TestSigner developer;
+        Pack pack;
+        pack.files.insert(u"LICENSE.txt"_s, text);
         const PackageResult opened = openPackage(pack.package(developer), developer.publicKey());
         QVERIFY2(opened.ok, qPrintable(opened.error));
     }
@@ -1018,6 +1085,16 @@ private Q_SLOTS:
         QTest::newRow("one long name") << QByteArray("<") << QByteArray("a") << QByteArray(">") << false;
         QTest::newRow("no close on the first line") << QByteArray("x <") << QByteArray("y") << QByteArray() << false;
         QTest::newRow("the tag at the very end") << QByteArray() << QByteArray("x") << QByteArray("<b>") << true;
+        QTest::newRow("a quoted key left open, over and over")
+            << QByteArray() << QByteArray("<x \"") << QByteArray() << false;
+        QTest::newRow("a quoted key holding >, over and over")
+            << QByteArray() << QByteArray("<x '>' ") << QByteArray() << false;
+        QTest::newRow("a name over and over, and a value at the very end")
+            << QByteArray() << QByteArray("<x ") << QByteArray("=") << true;
+        QTest::newRow("a value first, then a name over and over")
+            << QByteArray("=") << QByteArray("<x ") << QByteArray() << false;
+        QTest::newRow("a name and an end, over and over, and a value at the very end")
+            << QByteArray() << QByteArray("<x>") << QByteArray("<x =") << true;
     }
     void hostileTextIsReadInOnePass()
     {
@@ -3385,6 +3462,7 @@ private Q_SLOTS:
 
         QTemporaryDir crashes;
         QStringList written; // whether each snapshot was taken before or after the record was written
+        QList<PlantedEngine::Stage> stages;
         int taken = 0;
         bool recordWritten = false;
         store.onStage = [&](PlantedEngine::Stage stage) {
@@ -3392,6 +3470,7 @@ private Q_SLOTS:
                 recordWritten = true;
             copyFolder(data.path(), crashes.path() + u'/' + QString::number(taken++));
             written.append(recordWritten ? u"after"_s : u"before"_s);
+            stages.append(stage);
             return true;
         };
         const Outcome outcome = installAndWait(store, dependent2.id);
@@ -3401,30 +3480,87 @@ private Q_SLOTS:
         QCOMPARE(taken, 8);
         QCOMPARE(written.count(u"before"_s), 5);
 
-        for (int i = 0; i < taken; ++i) {
-            const QString folder = crashes.path() + u'/' + QString::number(i);
-            const bool happened = written.at(i) == u"after"_s;
+        // Opened by a new engine, a folder holds one state or the other, whole.
+        const auto expectWhole = [&](const QString &folder, bool happened, const QString &label) {
             CreatorStore opened(folder, key);
             QCOMPARE(refreshed(opened, newCatalogue), StoreEngine::State::Ready);
-            const QString label = u"snapshot %1"_s.arg(i);
             QVERIFY2(leftovers(folder).isEmpty(), qPrintable(label + u": "_s + leftovers(folder).join(u", "_s)));
             if (happened) {
                 QCOMPARE(opened.installed().value(base.id).version, u"2.0.0"_s);
                 QCOMPARE(opened.installed().value(dependent.id).version, u"2.0.0"_s);
                 QVERIFY2(opened.isIntact(base.id), qPrintable(label));
                 QVERIFY2(opened.isIntact(dependent.id), qPrintable(label));
-                QVERIFY(QFile::exists(opened.installDirectory(base.id) + u"/art/only-in-two.png"_s));
+                QVERIFY2(QFile::exists(opened.installDirectory(base.id) + u"/art/only-in-two.png"_s),
+                         qPrintable(label));
             } else if (update) {
                 QCOMPARE(opened.installed().value(base.id).version, u"1.0.0"_s);
                 QCOMPARE(opened.installed().value(dependent.id).version, u"1.0.0"_s);
                 QVERIFY2(opened.isIntact(base.id), qPrintable(label));
                 QVERIFY2(opened.isIntact(dependent.id), qPrintable(label));
-                QVERIFY(QFile::exists(opened.installDirectory(base.id) + u"/art/only-in-one.png"_s));
+                QVERIFY2(QFile::exists(opened.installDirectory(base.id) + u"/art/only-in-one.png"_s),
+                         qPrintable(label));
             } else {
                 QVERIFY2(opened.installed().isEmpty(), qPrintable(label));
                 QVERIFY2(!QFile::exists(opened.installDirectory(base.id)), qPrintable(label));
                 QVERIFY2(!QFile::exists(opened.installDirectory(dependent.id)), qPrintable(label));
             }
+        };
+
+        QTemporaryDir work;
+        int copies = 0;
+        for (int i = 0; i < taken; ++i) {
+            const QString snapshot = crashes.path() + u'/' + QString::number(i);
+            const bool happened = written.at(i) == u"after"_s;
+            const QString label = u"snapshot %1"_s.arg(i);
+
+            // Once.
+            const QString once = work.path() + u'/' + QString::number(copies++);
+            copyFolder(snapshot, once);
+            expectWhole(once, happened, label);
+            if (QTest::currentTestFailed())
+                return;
+
+            // Twice over the same journal, as when it could not be removed, or the engine died before removing it.
+            if (QFile::exists(snapshot + u"/plan-journal.json"_s)) {
+                QVERIFY(QFile::copy(snapshot + u"/plan-journal.json"_s, once + u"/plan-journal.json"_s));
+                expectWhole(once, happened, label + u", recovered twice"_s);
+                if (QTest::currentTestFailed())
+                    return;
+            }
+
+            // With the record lost as well: then what is on disk decides, and a plan whose every new version is in
+            // place stands, rather than a first install that was recorded being deleted.
+            const QString lost = work.path() + u'/' + QString::number(copies++);
+            copyFolder(snapshot, lost);
+            // Every snapshot has a record, a first install's too: one is written before any journal.
+            QVERIFY(QFile::remove(lost + u"/installed.json"_s));
+            const bool landed = i >= stages.lastIndexOf(PlantedEngine::Stage::ItemSwapped);
+            expectWhole(lost, landed, label + u", its record lost"_s);
+            if (QTest::currentTestFailed())
+                return;
+
+            // Cut short after each of its own steps, as a death would cut it, and finished by the next engine.
+            for (int cut = 0;; ++cut) {
+                const QString folder = work.path() + u'/' + QString::number(copies++);
+                bool wasCut = false;
+                {
+                    PlantedEngine dying(folder, key); // made before the crash is copied in, so recovery waits for it
+                    copyFolder(snapshot, folder);
+                    int steps = 0;
+                    dying.onStage = [&](PlantedEngine::Stage stage) {
+                        if (stage != PlantedEngine::Stage::RecoveryStep)
+                            return true;
+                        wasCut = steps++ == cut;
+                        return !wasCut;
+                    };
+                    (void)dying.remove(u"org.example.pack.none"_s); // takes the lock, and so recovers first
+                }
+                expectWhole(folder, happened, label + u", recovery cut after step %1"_s.arg(cut));
+                if (QTest::currentTestFailed() || !wasCut)
+                    break;
+            }
+            if (QTest::currentTestFailed())
+                return;
         }
     }
 
@@ -3546,25 +3682,40 @@ private Q_SLOTS:
         QVERIFY(!QFile::exists(data.path() + u"/plan-journal.json"_s));
     }
 
-    // A journal whose id climbs out of items/, with a name set aside after it that would otherwise pass. Rolled back or
-    // finished, nothing outside items/ is moved or deleted.
-    void aJournalWhoseIdsClimbMovesNothingOutside_data()
+    // A journal's move, each part of it on its own, named so that it would reach outside items/. Rolled back or
+    // finished, nothing outside is moved or deleted, and what is installed under a good id is not touched for it:
+    // neither an id that climbs, nor a good id with a name set aside after it that climbs, which only `<id>.old-<hex>`
+    // exactly passes.
+    void aJournalReachesNothingOutsideByAnyPartOfAMove_data()
     {
+        QTest::addColumn<QString>("id");
+        QTest::addColumn<QString>("aside");
         QTest::addColumn<bool>("committed");
-        QTest::newRow("as if it had not happened, so put back") << false;
-        QTest::newRow("as if it had, so cleared up") << true;
+        const QString hex(32, u'a');
+        for (const bool committed : { false, true }) {
+            const char *how = committed ? "finished" : "put back";
+            QTest::addRow("an id that climbs, %s", how)
+                << u"../victim"_s << QString(u"../victim.old-"_s + hex) << committed;
+            QTest::addRow("a good id, and a name set aside after it that climbs, %s", how)
+                << u"org.example.pack.art"_s << QString(u"org.example.pack.art/../../victim.old-"_s + hex) << committed;
+        }
     }
-    void aJournalWhoseIdsClimbMovesNothingOutside()
+    void aJournalReachesNothingOutsideByAnyPartOfAMove()
     {
+        QFETCH(QString, id);
+        QFETCH(QString, aside);
         QFETCH(bool, committed);
         QTemporaryDir data;
-        QDir().mkpath(data.path() + u"/items"_s);
-        const QString aside = u"../victim.old-"_s + QString(32, u'a');
-        writeFile(data.path() + u"/victim.old-"_s + QString(32, u'a') + u"/mine.txt"_s, "mine");
-        const QJsonObject journal { { u"transaction"_s, u"abc"_s },
-                                    { u"moves"_s, QJsonArray { QJsonObject { { u"id"_s, u"../victim"_s },
-                                                                             { u"staging"_s, u""_s },
-                                                                             { u"previous"_s, aside } } } } };
+        const QString victim = data.path() + u"/victim.old-"_s + QString(32, u'a');
+        writeFile(victim + u"/mine.txt"_s, "mine");
+        // Installed under the good id, as it would be, so that a path through it resolves.
+        const QString installed = data.path() + u"/items/org.example.pack.art"_s;
+        writeFile(installed + u"/kept.txt"_s, "kept");
+        const QJsonObject journal {
+            { u"transaction"_s, u"abc"_s },
+            { u"moves"_s,
+              QJsonArray { QJsonObject { { u"id"_s, id }, { u"staging"_s, u""_s }, { u"previous"_s, aside } } } }
+        };
         writeFile(data.path() + u"/plan-journal.json"_s, QJsonDocument(journal).toJson());
         if (committed)
             writeFile(data.path() + u"/installed.json"_s, QJsonDocument(QJsonObject { { u"format"_s, 1 },
@@ -3572,10 +3723,72 @@ private Q_SLOTS:
                                                                                       { u"items"_s, QJsonObject {} } })
                                                               .toJson());
         const StoreEngine store(data.path(), QByteArray(65, '\x04'));
-        QCOMPARE(readFile(data.path() + u"/victim.old-"_s + QString(32, u'a') + u"/mine.txt"_s), QByteArray("mine"));
+        QCOMPARE(readFile(victim + u"/mine.txt"_s), QByteArray("mine"));
         QVERIFY(!QFileInfo::exists(data.path() + u"/victim"_s));
+        QCOMPARE(readFile(installed + u"/kept.txt"_s), QByteArray("kept"));
         QVERIFY(!QFile::exists(data.path() + u"/plan-journal.json"_s));
     }
+
+#ifdef Q_OS_UNIX
+    // Clearing up deletes no folder through a link to it: a link standing where an item, an old version or a staging
+    // folder would be goes itself, and what it points to stays.
+    void clearingUpNeverDeletesThroughALink_data()
+    {
+        QTest::addColumn<QString>("link");    // what in items/ is a link to a folder outside
+        QTest::addColumn<QString>("staging"); // the journal's move, if there is a journal
+        QTest::addColumn<QString>("previous");
+        QTest::addColumn<bool>("asideIsReal"); // a real old version set aside, to come back
+        QTest::addColumn<bool>("journal");
+        QTest::addColumn<bool>("committed");
+        const QString hex(32, u'b');
+        const QString staging = u".staging-"_s + hex;
+        const QString old = u"org.example.pack.art.old-"_s + hex;
+        QTest::newRow("an item that is a link, its staging gone")
+            << u"org.example.pack.art"_s << staging << QString() << false << true << false;
+        QTest::newRow("an item that is a link, its old version set aside")
+            << u"org.example.pack.art"_s << staging << old << true << true << false;
+        QTest::newRow("an old version that is a link, finished") << old << QString() << old << false << true << true;
+        QTest::newRow("a staging folder that is a link, with no journal")
+            << staging << QString() << QString() << false << false << false;
+    }
+    void clearingUpNeverDeletesThroughALink()
+    {
+        QFETCH(QString, link);
+        QFETCH(QString, staging);
+        QFETCH(QString, previous);
+        QFETCH(bool, asideIsReal);
+        QFETCH(bool, journal);
+        QFETCH(bool, committed);
+        QTemporaryDir data;
+        QTemporaryDir outside;
+        writeFile(outside.path() + u"/mine.txt"_s, "mine");
+        const QString items = data.path() + u"/items/"_s;
+        QDir().mkpath(items);
+        QVERIFY(QFile::link(outside.path(), items + link));
+        if (asideIsReal)
+            writeFile(items + previous + u"/old.txt"_s, "old");
+        if (journal) {
+            const QJsonObject move { { u"id"_s, u"org.example.pack.art"_s },
+                                     { u"staging"_s, staging },
+                                     { u"previous"_s, previous } };
+            writeFile(data.path() + u"/plan-journal.json"_s,
+                      QJsonDocument(QJsonObject { { u"transaction"_s, u"abc"_s }, { u"moves"_s, QJsonArray { move } } })
+                          .toJson());
+        }
+        if (committed)
+            writeFile(data.path() + u"/installed.json"_s, QJsonDocument(QJsonObject { { u"format"_s, 1 },
+                                                                                      { u"transaction"_s, u"abc"_s },
+                                                                                      { u"items"_s, QJsonObject {} } })
+                                                              .toJson());
+        const StoreEngine store(data.path(), QByteArray(65, '\x04'));
+        QCOMPARE(readFile(outside.path() + u"/mine.txt"_s), QByteArray("mine"));
+        if (asideIsReal)
+            QCOMPARE(readFile(items + u"org.example.pack.art/old.txt"_s), QByteArray("old"));
+        else
+            QVERIFY(!QFileInfo(items + link).isSymLink());
+        QVERIFY2(leftovers(data.path()).isEmpty(), qPrintable(leftovers(data.path()).join(u", "_s)));
+    }
+#endif
 
     void aRemovalWhoseRecordCannotBeWrittenPutsItBack()
     {
@@ -3658,6 +3871,505 @@ private Q_SLOTS:
         QVERIFY(!plan.ok);
         QVERIFY2(plan.error.contains(u"too deep"_s), qPrintable(plan.error));
     }
+
+    // The record of what is installed lost or unreadable: what the folders hold stands in for it, so an id keeps its
+    // version against a catalogue that would move it back.
+    void aLostRecordStillKeepsEachIdMovingForward_data()
+    {
+        QTest::addColumn<bool>("unreadable");
+        QTest::newRow("unreadable") << true;
+        QTest::newRow("gone") << false;
+    }
+    void aLostRecordStillKeepsEachIdMovingForward()
+    {
+        QFETCH(bool, unreadable);
+        Pack v2;
+        v2.version = u"2.0.0"_s;
+        const Pack v1;
+        Shop shop;
+        shop.add(v2);
+        QTemporaryDir data;
+        const QByteArray key = shop.store.publicKey();
+        {
+            CreatorStore store(data.path(), key);
+            QCOMPARE(refreshed(store, shop.publish()), StoreEngine::State::Ready);
+            QVERIFY(installAndWait(store, v2.id).ok);
+        }
+        const QString record = data.path() + u"/installed.json"_s;
+        if (unreadable)
+            writeFile(record, "{ not a record");
+        else
+            QVERIFY(QFile::remove(record));
+
+        shop.items.clear();
+        shop.add(v1);
+        shop.sequence = 2;
+        CreatorStore store(data.path(), key);
+        QCOMPARE(refreshed(store, shop.publish()), StoreEngine::State::Ready);
+        QCOMPARE(store.installed().value(v1.id).version, u"2.0.0"_s);
+        QCOMPARE(store.installed().value(v1.id).developer, kDeveloper);
+        const Outcome outcome = installAndWait(store, v1.id);
+        QVERIFY(!outcome.ok);
+        QVERIFY2(outcome.error.contains(u"newer"_s), qPrintable(outcome.error));
+        QVERIFY(store.isIntact(v1.id));
+        QCOMPARE(store.installed().value(v1.id).version, u"2.0.0"_s);
+        QVERIFY(store.installed().value(v1.id).claimed);
+
+        // The next install writes the record again, and what was taken from the manifest says so there.
+        Pack other;
+        other.id = u"org.example.pack.other"_s;
+        shop.add(other);
+        shop.sequence = 3;
+        QCOMPARE(refreshed(store, shop.publish()), StoreEngine::State::Ready);
+        QVERIFY(installAndWait(store, other.id).ok);
+        const QJsonObject items =
+            QJsonDocument::fromJson(readFile(data.path() + u"/installed.json"_s)).object().value(u"items"_s).toObject();
+        QVERIFY(items.value(v1.id).toObject().value(u"claimed"_s).toBool());
+        QVERIFY(!items.value(other.id).toObject().contains(u"claimed"_s));
+        QVERIFY(!store.installed().value(other.id).claimed);
+    }
+
+    // Plans started together wait together, so what they hold in memory is bounded together, and what each held is let
+    // go when it ends.
+    void plansStartedTogetherShareOneLimit()
+    {
+        QNetworkProxy::setApplicationProxy(QNetworkProxy::NoProxy);
+        Pack a1;
+        a1.id = u"org.example.pack.a1"_s;
+        Pack a;
+        a.id = u"org.example.pack.a"_s;
+        a.dependencies.append(rangeOf(a1.id, u"1.0.0"_s, u"2.0.0"_s));
+        Pack b1;
+        b1.id = u"org.example.pack.b1"_s;
+        Pack b;
+        b.id = u"org.example.pack.b"_s;
+        b.dependencies.append(rangeOf(b1.id, u"1.0.0"_s, u"2.0.0"_s));
+        Shop shop;
+        TinyServer server;
+        for (const Pack *pack : { &a1, &a, &b1, &b }) {
+            const QByteArray bytes = pack->package(shop.developer);
+            shop.addPackage(*pack, bytes);
+            server.files.insert(u"packages/%1-1.0.0.qorpkg"_s.arg(pack->id), bytes);
+        }
+        const QByteArray json = shop.json();
+        server.files.insert(u"catalog.json"_s, json);
+        server.files.insert(u"catalog.json.sig"_s, shop.store.sign(json));
+        QMap<QString, qint64> unpacked;
+        QMap<QString, qint64> sent; // what each download holds as it arrives: the package itself, a little larger
+        for (const QJsonObject &listing : std::as_const(shop.items)) {
+            const QString id = listing.value(u"id"_s).toString();
+            unpacked.insert(id, listing.value(u"package"_s).toObject().value(u"unpacked"_s).toInteger());
+            sent.insert(id, server.files.value(u"packages/%1-1.0.0.qorpkg"_s.arg(id)).size());
+        }
+
+        QTemporaryDir data;
+        PlantedEngine store(data.path(), shop.store.publicKey());
+        store.setCreatorFeatures(true);
+        // Room for either plan whole, each package counted as it arrives and then as it unpacks, and for both first
+        // packages on their way at once, and not for both plans' first packages and a second on its way.
+        const auto u = [&unpacked](const Pack &pack) { return unpacked.value(pack.id); };
+        const auto s = [&sent](const Pack &pack) { return sent.value(pack.id); };
+        store.heldLimit = std::max(
+            { u(a1) + u(a), u(b1) + u(b), u(a1) + s(a), u(b1) + s(b), s(a1) + s(b1), u(a1) + s(b1), u(b1) + s(a1) });
+        QVERIFY2(u(a1) + u(b1) + std::min(s(a), s(b)) > store.heldLimit,
+                 "The packages are too small beside their headers for this test to say anything.");
+        QCOMPARE(refreshed(store, server.url(u"catalog.json"_s)), StoreEngine::State::Ready);
+        server.held = { u"packages/org.example.pack.a-1.0.0.qorpkg"_s, u"packages/org.example.pack.b-1.0.0.qorpkg"_s };
+        QSignalSpy finished(&store, &StoreEngine::finished);
+        QVERIFY(store.install(a.id));
+        QVERIFY(store.install(b.id));
+        // Each plan's first package is in memory, waiting for its second.
+        QTRY_COMPARE(server.waiting(), 2);
+        QCOMPARE(finished.count(), 0);
+        server.release();
+        QTRY_COMPARE(finished.count(), 4);
+
+        QStringList failed;
+        QStringList installed;
+        for (const QList<QVariant> &emission : std::as_const(finished)) {
+            const QString id = emission.at(0).toString();
+            (emission.at(1).toBool() ? installed : failed).append(id);
+            if (!emission.at(1).toBool())
+                QVERIFY2(emission.at(2).toString().contains(u"Too much is on its way at once"_s),
+                         qPrintable(emission.at(2).toString()));
+        }
+        failed.sort();
+        installed.sort();
+        const bool aFailed = failed.contains(a.id);
+        QCOMPARE(failed, aFailed ? QStringList({ a.id, a1.id }) : QStringList({ b.id, b1.id }));
+        QCOMPARE(installed, aFailed ? QStringList({ b.id, b1.id }) : QStringList({ a.id, a1.id }));
+
+        // What both held is let go: the one that stopped installs now, on its own.
+        const Outcome again = installAndWait(store, aFailed ? a.id : b.id);
+        QVERIFY2(again.ok, qPrintable(again.error));
+    }
+
+    // A package on its way counts as it arrives, so a download that would take more than is left stops there, before
+    // it is held whole beside everything else. What it held is let go when it stops.
+    void aDownloadCountsAgainstTheLimitAsItArrives()
+    {
+        QNetworkProxy::setApplicationProxy(QNetworkProxy::NoProxy);
+        const Pack pack;
+        Shop shop;
+        TinyServer server;
+        const QByteArray bytes = pack.package(shop.developer);
+        shop.addPackage(pack, bytes);
+        server.files.insert(u"packages/%1-1.0.0.qorpkg"_s.arg(pack.id), bytes);
+        const QByteArray json = shop.json();
+        server.files.insert(u"catalog.json"_s, json);
+        server.files.insert(u"catalog.json.sig"_s, shop.store.sign(json));
+        const qint64 unpacked = shop.items.constFirst().value(u"package"_s).toObject().value(u"unpacked"_s).toInteger();
+        QVERIFY(bytes.size() > unpacked);
+
+        QTemporaryDir data;
+        PlantedEngine store(data.path(), shop.store.publicKey());
+        store.setCreatorFeatures(true);
+        QCOMPARE(refreshed(store, server.url(u"catalog.json"_s)), StoreEngine::State::Ready);
+        // Room for what it unpacks to, and not for the download itself.
+        store.heldLimit = unpacked;
+        const Outcome refused = installAndWait(store, pack.id);
+        QVERIFY(!refused.ok);
+        QVERIFY2(refused.error.contains(u"Too much is on its way at once"_s), qPrintable(refused.error));
+        QVERIFY(!store.installed().contains(pack.id));
+
+        // Room for exactly the download: what the refused one held was let go.
+        store.heldLimit = bytes.size();
+        const Outcome installed = installAndWait(store, pack.id);
+        QVERIFY2(installed.ok, qPrintable(installed.error));
+        QVERIFY(store.isIntact(pack.id));
+    }
+
+    // What moves is made durable at each moment it must be, where the system can: what was staged before the journal
+    // says it is there, the journal before anything moves, the swap before the record, and the record before the old
+    // versions go. The same for a removal, and for the memory of a catalogue's sequence.
+    void theDiskIsToldAtEachMoment()
+    {
+        const Pack v1;
+        Pack v2 = v1;
+        v2.version = u"1.1.0"_s;
+        v2.files.insert(u"art/more/new.png"_s, kPng);
+        Shop shop;
+        shop.add(v1);
+        QTemporaryDir data;
+        PlantedEngine store(data.path(), shop.store.publicKey());
+        store.setCreatorFeatures(true);
+        QCOMPARE(refreshed(store, shop.publish()), StoreEngine::State::Ready);
+        QCOMPARE(store.events, QStringList { u"sync ."_s });
+        QVERIFY(installAndWait(store, v1.id).ok);
+        shop.items.clear();
+        shop.add(v2);
+        shop.sequence = 2;
+        QCOMPARE(refreshed(store, shop.publish()), StoreEngine::State::Ready);
+
+        store.events.clear();
+        store.onStage = [&store](PlantedEngine::Stage stage) {
+            store.events.append(u"stage %1"_s.arg(int(stage)));
+            return true;
+        };
+        QVERIFY(installAndWait(store, v2.id).ok);
+        store.onStage = nullptr;
+        const QStringList events = store.events;
+        const qsizetype journal = events.indexOf(u"stage %1"_s.arg(int(PlantedEngine::Stage::JournalWritten)));
+        const qsizetype record = events.indexOf(u"stage %1"_s.arg(int(PlantedEngine::Stage::RecordWritten)));
+        const qsizetype swapped = events.lastIndexOf(u"stage %1"_s.arg(int(PlantedEngine::Stage::ItemSwapped)));
+        QVERIFY2(journal >= 3 && swapped > journal && record > swapped, qPrintable(events.join(u", "_s)));
+        // Every staged folder, then items/, then the folder the journal is in once it is written.
+        static const QRegularExpression staged(u"^sync items/\\.staging-[0-9a-f]{32}(/art(/more)?)?\\z"_s);
+        QCOMPARE(events.mid(0, journal - 2).filter(staged).size(), 3);
+        QCOMPARE(events.at(journal - 2), u"sync items"_s);
+        QCOMPARE(events.at(journal - 1), u"sync ."_s);
+        // The swap, then the record.
+        QCOMPARE(events.mid(swapped + 1, record - swapped - 1), QStringList({ u"sync items"_s, u"sync ."_s }));
+
+        // A removal: the journal, the move, the record.
+        store.events.clear();
+        QVERIFY(store.remove(v2.id));
+        QCOMPARE(store.events, QStringList({ u"sync ."_s, u"sync items"_s, u"sync ."_s }));
+    }
+
+    // While another program holds the store, a catalogue is not taken, so its sequence is not written over another's.
+    // A lock whose holder lives is never taken from it, however old: where the file system has no locks of its own,
+    // Qt would take one older than 30 seconds, and this lock is such a file, with nothing of the system's on it.
+    void aCatalogueIsNotTakenWhileAnotherProgramHoldsTheStore_data()
+    {
+        QTest::addColumn<bool>("old");
+        QTest::newRow("a holder that is alive") << false;
+        QTest::newRow("a holder that is alive, an hour on, and no lock of the system's") << true;
+    }
+    void aCatalogueIsNotTakenWhileAnotherProgramHoldsTheStore()
+    {
+        QFETCH(bool, old);
+        const Pack pack;
+        Shop shop;
+        shop.add(pack);
+        const QUrl url = shop.publish();
+        QTemporaryDir data;
+        const QString path = data.path() + u"/.lock"_s;
+        QLockFile holder(path);
+        QVERIFY(holder.tryLock(0));
+        if (old) {
+            const QByteArray contents = readFile(path);
+            holder.unlock();
+            QFile file(path);
+            QVERIFY(file.open(QIODevice::WriteOnly));
+            QCOMPARE(file.write(contents), contents.size());
+            QVERIFY(file.flush()); // or the write lands after the time is set, and sets it again
+            QVERIFY(
+                file.setFileTime(QDateTime::currentDateTimeUtc().addSecs(-3600), QFileDevice::FileModificationTime));
+            file.close();
+            QVERIFY(QFileInfo(path).lastModified(QTimeZone::UTC).secsTo(QDateTime::currentDateTimeUtc()) > 3000);
+        }
+        StoreEngine store(data.path(), shop.store.publicKey());
+        QCOMPARE(refreshed(store, url), StoreEngine::State::Failed);
+        QVERIFY2(store.error().contains(u"busy"_s), qPrintable(store.error()));
+        QCOMPARE(store.lastSequence(), 0);
+        QVERIFY(QFile::exists(path));
+
+        if (old)
+            QVERIFY(QFile::remove(path));
+        else
+            holder.unlock();
+        QCOMPARE(refreshed(store, url), StoreEngine::State::Ready);
+        QCOMPARE(store.lastSequence(), 1);
+    }
+
+#ifdef Q_OS_UNIX
+    // Putting back an update, the new folder cannot all be deleted, as when a scanner holds a file just written. Undo
+    // says so, the journal stays, and the old version set aside is kept, the only good copy, until a later try
+    // succeeds.
+    void aRollbackThatCannotDeleteKeepsTheOldVersion()
+    {
+        const Pack v1;
+        Pack v2 = v1;
+        v2.version = u"1.1.0"_s;
+        v2.files.insert(u"art/more/new.png"_s, kPng);
+        Shop shop;
+        shop.add(v1);
+        QTemporaryDir data;
+        const QByteArray key = shop.store.publicKey();
+        PlantedEngine store(data.path(), key);
+        store.setCreatorFeatures(true);
+        QCOMPARE(refreshed(store, shop.publish()), StoreEngine::State::Ready);
+        QVERIFY(installAndWait(store, v1.id).ok);
+        shop.items.clear();
+        shop.add(v2);
+        shop.sequence = 2;
+        const QUrl second = shop.publish();
+        QCOMPARE(refreshed(store, second), StoreEngine::State::Ready);
+
+        const QString held = store.installDirectory(v1.id) + u"/art"_s;
+        store.onStage = [&](PlantedEngine::Stage stage) {
+            if (stage != PlantedEngine::Stage::ItemSwapped)
+                return true;
+            // The new version is in place. A file in it cannot be deleted, and the install fails here.
+            QFile::setPermissions(held, QFileDevice::ReadOwner | QFileDevice::ExeOwner);
+            return false;
+        };
+        const Outcome outcome = installAndWait(store, v2.id);
+        store.onStage = nullptr;
+        QVERIFY(!outcome.ok);
+        QVERIFY(QFile::exists(data.path() + u"/plan-journal.json"_s));
+        const QStringList aside = QDir(data.path() + u"/items"_s).entryList({ u"*.old-*"_s }, QDir::Dirs);
+        QCOMPARE(aside.size(), 1);
+        QVERIFY(holdsWhatItsManifestLists(data.path() + u"/items/"_s + aside.constFirst()));
+
+        // Still held: a new engine tries again and keeps it all.
+        {
+            const StoreEngine again(data.path(), key);
+            QVERIFY(QFile::exists(data.path() + u"/plan-journal.json"_s));
+            QVERIFY(holdsWhatItsManifestLists(data.path() + u"/items/"_s + aside.constFirst()));
+        }
+
+        // Let go: the next engine finishes putting it back.
+        QVERIFY(QFile::setPermissions(held, QFileDevice::ReadOwner | QFileDevice::WriteOwner | QFileDevice::ExeOwner));
+        CreatorStore after(data.path(), key);
+        QCOMPARE(refreshed(after, second), StoreEngine::State::Ready);
+        QCOMPARE(after.installed().value(v1.id).version, u"1.0.0"_s);
+        QVERIFY(after.isIntact(v1.id));
+        QVERIFY2(leftovers(data.path()).isEmpty(), qPrintable(leftovers(data.path()).join(u", "_s)));
+    }
+
+    // A removal that is recorded but cannot all be deleted yet keeps its journal, and the next engine finishes deleting
+    // it, rather than taking what is left for an old version to put back.
+    void aRemovalThatCannotDeleteIsFinishedLater()
+    {
+        const Pack pack;
+        Shop shop;
+        shop.add(pack);
+        QTemporaryDir data;
+        const QByteArray key = shop.store.publicKey();
+        const QString items = data.path() + u"/items/"_s;
+        QString held;
+        {
+            CreatorStore store(data.path(), key);
+            QCOMPARE(refreshed(store, shop.publish()), StoreEngine::State::Ready);
+            QVERIFY(installAndWait(store, pack.id).ok);
+            held = store.installDirectory(pack.id) + u"/art"_s;
+            QVERIFY(QFile::setPermissions(held, QFileDevice::ReadOwner | QFileDevice::ExeOwner));
+            QVERIFY(store.remove(pack.id));
+            QVERIFY(!store.installed().contains(pack.id));
+        }
+        QVERIFY(QFile::exists(data.path() + u"/plan-journal.json"_s));
+        const QStringList aside = QDir(items).entryList({ u"*.old-*"_s }, QDir::Dirs);
+        QCOMPARE(aside.size(), 1);
+        held = items + aside.constFirst() + u"/art"_s;
+
+        // Still held: a new engine leaves it set aside, and puts nothing back under the id.
+        {
+            const StoreEngine again(data.path(), key);
+            QVERIFY(!QFileInfo::exists(items + pack.id));
+            QVERIFY(QFile::exists(data.path() + u"/plan-journal.json"_s));
+        }
+        QVERIFY(QFile::setPermissions(held, QFileDevice::ReadOwner | QFileDevice::WriteOwner | QFileDevice::ExeOwner));
+        const StoreEngine after(data.path(), key);
+        QVERIFY(!QFileInfo::exists(items + pack.id));
+        QVERIFY(!after.installed().contains(pack.id));
+        QVERIFY2(leftovers(data.path()).isEmpty(), qPrintable(leftovers(data.path()).join(u", "_s)));
+    }
+#endif
+
+    // Once an update is recorded, its old version goes only if the new one is whole. If something broke it at once, the
+    // old version stays set aside, and goes once a reinstall has made the new one whole.
+    void anUpdateBrokenAsItLandsKeepsTheOldVersion()
+    {
+        const Pack v1;
+        Pack v2 = v1;
+        v2.version = u"1.1.0"_s;
+        Shop shop;
+        shop.add(v1);
+        QTemporaryDir data;
+        const QByteArray key = shop.store.publicKey();
+        PlantedEngine store(data.path(), key);
+        store.setCreatorFeatures(true);
+        QCOMPARE(refreshed(store, shop.publish()), StoreEngine::State::Ready);
+        QVERIFY(installAndWait(store, v1.id).ok);
+        shop.items.clear();
+        shop.add(v2);
+        shop.sequence = 2;
+        const QUrl second = shop.publish();
+        QCOMPARE(refreshed(store, second), StoreEngine::State::Ready);
+
+        store.onStage = [&](PlantedEngine::Stage stage) {
+            if (stage == PlantedEngine::Stage::RecordWritten)
+                QFile::remove(store.installDirectory(v1.id) + u"/art/hero.png"_s); // as a scanner might take it
+            return true;
+        };
+        QVERIFY(installAndWait(store, v2.id).ok);
+        store.onStage = nullptr;
+        const QString items = data.path() + u"/items/"_s;
+        QVERIFY(!holdsWhatItsManifestLists(items + v1.id));
+        const QStringList aside = QDir(items).entryList({ u"*.old-*"_s }, QDir::Dirs);
+        QCOMPARE(aside.size(), 1);
+        QVERIFY(holdsWhatItsManifestLists(items + aside.constFirst()));
+        QVERIFY(!QFile::exists(data.path() + u"/plan-journal.json"_s));
+
+        // A new engine keeps it too, while what stands in its place is broken.
+        {
+            const StoreEngine again(data.path(), key);
+            QVERIFY(holdsWhatItsManifestLists(items + aside.constFirst()));
+        }
+        // Installed again, the new version is whole, and the next engine lets the old one go.
+        {
+            CreatorStore after(data.path(), key);
+            QCOMPARE(refreshed(after, second), StoreEngine::State::Ready);
+            QVERIFY(!after.isIntact(v1.id));
+            QVERIFY(installAndWait(after, v1.id).ok);
+            QVERIFY(after.isIntact(v1.id));
+        }
+        const StoreEngine last(data.path(), key);
+        QVERIFY2(leftovers(data.path()).isEmpty(), qPrintable(leftovers(data.path()).join(u", "_s)));
+        QVERIFY(holdsWhatItsManifestLists(items + v1.id));
+    }
+
+    // An old version set aside is let go only when what stands under its id is whole, journal or none: otherwise it may
+    // be the only good copy.
+    void anOldVersionIsKeptWhileItsPlaceHoldsSomethingBroken_data()
+    {
+        QTest::addColumn<QString>("journal"); // none, finished, or not known to be, its record lost
+        QTest::addColumn<bool>("broken");
+        QTest::addColumn<bool>("kept");       // the old version still set aside
+        QTest::addColumn<bool>("placeWhole"); // what stands under the id after
+        QTest::newRow("no journal, its place whole") << u"none"_s << false << false << true;
+        QTest::newRow("no journal, its place broken") << u"none"_s << true << true << false;
+        QTest::newRow("a finished journal, its place whole") << u"finished"_s << false << false << true;
+        QTest::newRow("a finished journal, its place broken") << u"finished"_s << true << true << false;
+        // With the record lost, a broken place is a plan that did not land, so the old version goes back.
+        QTest::newRow("a journal with its record lost, its place whole") << u"lost"_s << false << false << true;
+        QTest::newRow("a journal with its record lost, its place broken") << u"lost"_s << true << false << true;
+    }
+    void anOldVersionIsKeptWhileItsPlaceHoldsSomethingBroken()
+    {
+        QFETCH(QString, journal);
+        QFETCH(bool, broken);
+        QFETCH(bool, kept);
+        QFETCH(bool, placeWhole);
+        const Pack pack;
+        Shop shop;
+        shop.add(pack);
+        QTemporaryDir data;
+        const QByteArray key = shop.store.publicKey();
+        {
+            CreatorStore store(data.path(), key);
+            QCOMPARE(refreshed(store, shop.publish()), StoreEngine::State::Ready);
+            QVERIFY(installAndWait(store, pack.id).ok);
+        }
+        const QString items = data.path() + u"/items/"_s;
+        const QString old = pack.id + u".old-"_s + QString(32, u'd');
+        copyFolder(items + pack.id, items + old);
+        if (broken)
+            QVERIFY(QFile::remove(items + pack.id + u"/art/hero.png"_s));
+        if (journal != u"none"_s) {
+            const QJsonObject move { { u"id"_s, pack.id },
+                                     { u"staging"_s, QString(u".staging-"_s + QString(32, u'd')) },
+                                     { u"previous"_s, old } };
+            writeFile(data.path() + u"/plan-journal.json"_s,
+                      QJsonDocument(QJsonObject { { u"transaction"_s, u"abc"_s }, { u"moves"_s, QJsonArray { move } } })
+                          .toJson());
+            QJsonObject record = QJsonDocument::fromJson(readFile(data.path() + u"/installed.json"_s)).object();
+            record.insert(u"transaction"_s, u"abc"_s);
+            writeFile(data.path() + u"/installed.json"_s, QJsonDocument(record).toJson());
+            if (journal == u"lost"_s)
+                QVERIFY(QFile::remove(data.path() + u"/installed.json"_s));
+        }
+        const StoreEngine store(data.path(), key);
+        QCOMPARE(QFileInfo::exists(items + old), kept);
+        if (kept)
+            QVERIFY(holdsWhatItsManifestLists(items + old));
+        QCOMPARE(holdsWhatItsManifestLists(items + pack.id), placeWhole);
+        QVERIFY(!QFile::exists(data.path() + u"/plan-journal.json"_s));
+    }
+
+#ifdef Q_OS_UNIX
+    // A tree planted where clearing up looks, deeper than the handles a process may hold: it is cleared with one
+    // listing open at a time.
+    void aDeepTreeIsClearedWithFewHandles()
+    {
+        QTemporaryDir data;
+        const QString top = data.path() + u"/items/.staging-"_s + QString(32, u'e');
+        // Each level holds files beside the next level, written before it: a listing read to its end lets its handle
+        // go, so a walk that holds one open while it goes deeper is seen only where more is left to read.
+        QString deep = top;
+        QVERIFY(QDir().mkpath(deep));
+        for (int i = 0; i < 1000; ++i) {
+            for (int k = 0; k < 3; ++k)
+                writeFile(deep + u"/f%1-%2"_s.arg(i).arg(k), "x");
+            deep += u"/a"_s;
+            QVERIFY(QDir().mkdir(deep));
+        }
+        rlimit before {};
+        QCOMPARE(getrlimit(RLIMIT_NOFILE, &before), 0);
+        if (before.rlim_cur < 256)
+            QSKIP("This system allows a process fewer than 256 open files already.");
+        rlimit tight = before;
+        tight.rlim_cur = 256;
+        QCOMPARE(setrlimit(RLIMIT_NOFILE, &tight), 0);
+        {
+            const StoreEngine store(data.path(), QByteArray(65, '\x04'));
+        }
+        QCOMPARE(setrlimit(RLIMIT_NOFILE, &before), 0);
+        QVERIFY(!QFileInfo::exists(top));
+    }
+#endif
 
     // Whatever is already wrong, a block is about what it affects, so nothing else is kept from installing.
     void aBrokenInstallBlocksOnlyWhatItAffects()

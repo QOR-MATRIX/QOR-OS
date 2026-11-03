@@ -7,6 +7,7 @@
 // the player), not an empty window.
 
 // Changed for QOR OS: the kernel's wall around a game (QOR-0018).
+// Changed for QOR OS: a measured Player was still drawing as its time ended, and was drawn by what products.sh expected.
 #include <QDir>
 #include <QFile>
 #include <QImage>
@@ -48,6 +49,23 @@ QJsonObject readJson(const QString &path)
 {
     QFile f(path);
     return f.open(QIODevice::ReadOnly) ? QJsonDocument::fromJson(f.readAll()).object() : QJsonObject();
+}
+
+/// The most a Player that is still drawing can go without a frame at the end of its measured time, on any machine. An
+/// average frame rate cannot say this: a Player that draws four frames and stops reads 1.3 over its three seconds.
+constexpr double kStillDrawingWithinMs = 1000;
+
+/// What products.sh expected against what the Player says drew it: a run's checks are not what they say otherwise.
+bool rendererAsExpected(const QJsonObject &measured)
+{
+    const QString renderer = measured.value(QStringLiteral("renderer")).toString();
+    const QByteArray expected = qgetenv("QOR_EXPECTED_RENDERER");
+    const bool software = renderer.contains(QStringLiteral("llvmpipe"));
+    if (expected == "software")
+        return software;
+    if (expected == "gpu")
+        return !renderer.isEmpty() && !software;
+    return true;
 }
 
 }  // namespace
@@ -104,6 +122,10 @@ private slots:
         // Counted from the process's creation: more than nothing, and well inside the time a person would wait.
         const double first = m.value(QStringLiteral("firstFrameMs")).toDouble();
         QVERIFY2(first > m.value(QStringLiteral("mainMs")).toDouble() && first < 10000, qPrintable(QString::number(first)));
+        QVERIFY2(rendererAsExpected(m), qPrintable(m.value(QStringLiteral("renderer")).toString()));
+        // Still drawing as its measured time ends, on any machine: neither part of the floor below nor eased with it.
+        QVERIFY2(m.contains(QStringLiteral("lastFrameAgoMs")) && m.value(QStringLiteral("lastFrameAgoMs")).toDouble() < kStillDrawingWithinMs,
+                 qPrintable(QStringLiteral("its last frame was %1 ms before the end").arg(m.value(QStringLiteral("lastFrameAgoMs")).toDouble())));
         QVERIFY2(m.value(QStringLiteral("fps")).toDouble() >= 20, qPrintable(QString::number(m.value(QStringLiteral("fps")).toDouble())));
     }
 
@@ -211,6 +233,9 @@ private slots:
         const QJsonObject m = readJson(result);
         QCOMPARE(m.value(QStringLiteral("problem")).toString(), QString());
         QVERIFY(m.value(QStringLiteral("firstFrameMs")).toDouble() > 0);
+        QVERIFY2(rendererAsExpected(m), qPrintable(m.value(QStringLiteral("renderer")).toString()));
+        QVERIFY2(m.contains(QStringLiteral("lastFrameAgoMs")) && m.value(QStringLiteral("lastFrameAgoMs")).toDouble() < kStillDrawingWithinMs,
+                 qPrintable(QStringLiteral("its last frame was %1 ms before the end").arg(m.value(QStringLiteral("lastFrameAgoMs")).toDouble())));
         QVERIFY2(m.value(QStringLiteral("fps")).toDouble() >= 20, qPrintable(QString::number(m.value(QStringLiteral("fps")).toDouble())));
 
         const QString frame = QDir(out.path()).filePath(QStringLiteral("first.png"));

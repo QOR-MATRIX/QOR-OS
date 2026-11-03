@@ -128,6 +128,84 @@ bool isElementName(QStringView name)
     return Qt::mightBeRichText(QStringView(tag.constData(), tag.size())) || isBrowserElementName(name);
 }
 
+// Whether Qt's own parser would give any tag an attribute with a value. It reads the text as QTextHtmlParser does
+// (parse, parseTag, parseWord, parseAttributes), one tag after another, so that a quoted word inside a tag, which may
+// hold a `>`, is one word, as it is to Qt: <x ">" style="..."> carries a style. It keeps nothing but where it is, and
+// passes each character once. An entity is not decoded, since none can hold what ends a word or a tag.
+bool qtGivesATagAValue(QStringView text)
+{
+    const qsizetype size = text.size();
+    qsizetype pos = 0;
+    const auto at = [&](qsizetype i) { return i < size ? text[i] : QChar(); };
+    const auto eatSpace = [&] {
+        while (pos < size && text[pos].isSpace() && text[pos] != QChar::ParagraphSeparator)
+            ++pos;
+    };
+    // QTextHtmlParser::parseWord. Whether the word has anything in it.
+    const auto parseWord = [&] {
+        const qsizetype start = pos;
+        if (at(pos) == u'"') {
+            ++pos;
+            qsizetype length = 0;
+            while (pos < size) {
+                if (text[pos++] == u'"')
+                    break;
+                ++length;
+            }
+            return length > 0;
+        }
+        if (at(pos) == u'\'') {
+            ++pos;
+            qsizetype length = 0;
+            while (pos < size) {
+                const QChar c = text[pos++];
+                // Qt lets a backslash keep a single quote in the word.
+                if (c == u'\'' && text[pos - 2] != u'\\')
+                    break;
+                ++length;
+            }
+            return length > 0;
+        }
+        while (pos < size) {
+            const QChar c = text[pos];
+            if (c == u'>' || (c == u'/' && at(pos + 1) == u'>') || c == u'<' || c == u'=' || c.isSpace())
+                break;
+            ++pos;
+        }
+        return pos > start;
+    };
+
+    while (pos < size) {
+        if (text[pos++] != u'<')
+            continue;
+        eatSpace();
+        if (at(pos) == u'!')
+            return true; // a comment or a declaration, markup of its own
+        if (at(pos) == u'/') {
+            ++pos;
+            parseWord();
+        } else {
+            parseWord();
+            // Qt needs a space after the name before it reads any attribute.
+            if (pos < size && text[pos].isSpace()) {
+                while (pos < size) {
+                    eatSpace();
+                    if (at(pos) == u'>' || at(pos) == u'/' || !parseWord())
+                        break;
+                    eatSpace();
+                    if (at(pos) == u'=')
+                        return true;
+                }
+            }
+        }
+        // Qt then skips to the `>` that ends the tag, quotes or not.
+        while (pos < size && text[pos] != u'>')
+            ++pos;
+        ++pos;
+    }
+    return false;
+}
+
 // Whether a text holds markup that a Qt Text, or a browser it reached, would act on. One pass over the text, with no
 // pattern to backtrack and nothing that can fail open: it either finds a tag or reaches the end.
 //
@@ -137,17 +215,33 @@ bool isElementName(QStringView name)
 //
 // This reads a tag as Qt's parser does (QTextHtmlParser::parseTag and parseWord): spaces of any kind may come after the
 // `<` and after a `/`, a name may be quoted, and a name holding an entity is decoded. A closing `>` is not required,
-// since Qt's parser takes the tag either way. It stops a name at a `/` as well, as browsers do, for <img/src=x>. A word
-// in angle brackets that names no element, such as the GPL's <year> or <name of author>, is left alone.
+// since Qt's parser takes the tag either way. It stops a name at a `/` as well, as browsers do, for <img/src=x>.
+//
+// A tag is markup if Qt or a browser knows its name, and whatever its name if it carries a value: an `=` before the `>`
+// that ends it, or before the end of the text when nothing does. Qt applies `style` to a tag it does not know, and a
+// style can fetch a picture; a browser runs an event handler on any tag. What is left is what licences hold: plain
+// words in angle brackets, such as the GPL's <year> or <one line to give the program's name...>, an address or a link.
+// A `>` inside quotes does not end a tag for Qt, so Qt's own reading is asked as well (qtGivesATagAValue); the stretch
+// below ends a tag at any `>`, as a browser ends a tag whose name holds a quote.
 bool hasMarkup(QStringView text)
 {
-    if (Qt::mightBeRichText(text))
+    if (Qt::mightBeRichText(text) || qtGivesATagAValue(text))
         return true;
 
     // Longer than any element's name: "blockquote" for Qt, "frameset" and "plaintext" for browsers.
     constexpr qsizetype kLongestName = 16;
     const qsizetype size = text.size();
+    // Every `<` before the same `>` opens a tag that ends there, so each stretch up to a `>` is read once, for that `>`
+    // and the last `=` before it, and a text of nothing but `<` stays one pass.
+    qsizetype tagEnd = -1;
+    qsizetype lastValue = -1;
     for (qsizetype open = text.indexOf(u'<'); open >= 0; open = text.indexOf(u'<', open + 1)) {
+        if (open > tagEnd) {
+            lastValue = -1;
+            for (tagEnd = open; tagEnd < size && text[tagEnd] != u'>'; ++tagEnd)
+                if (text[tagEnd] == u'=')
+                    lastValue = tagEnd;
+        }
         qsizetype at = open + 1;
         while (at < size && text[at].isSpace())
             ++at;
@@ -175,7 +269,11 @@ bool hasMarkup(QStringView text)
                 return true;
             name.append(c.toLower().unicode());
         }
-        if (!name.isEmpty() && name.size() <= kLongestName && isElementName(QStringView(name.constData(), name.size())))
+        if (name.isEmpty())
+            continue;
+        if (name.size() <= kLongestName && isElementName(QStringView(name.constData(), name.size())))
+            return true;
+        if (lastValue >= at) // a value after the name, whatever the name
             return true;
     }
     return false;

@@ -85,12 +85,23 @@ Signatures are ECDSA P-256 over SHA-256 (r ‖ s, 64 bytes), checked by the
 platform's own crypto: CNG on Windows, OpenSSL's libcrypto elsewhere.
 
 **An install is all or nothing, as seen from outside,** with whatever it depends on. Every package it needs is downloaded and
-verified first, and held in memory, up to 128 MB for one install. Only then does anything move, under a lock in the store's folder
-and against what is on disk at that moment, since another program of this person's may share the folder: what is recorded is
-read again, and the plan is checked again against it. A journal is written, then each new version is swapped in beside the old
-one, then `installed.json` is written. That last write is the moment it happens, and it is atomic. A failure before it puts
-everything back. So does a crash, the next time an engine starts. A crash after it finishes clearing up. A removal goes the same
-way. An engine that goes away while installs are on their way ends each of them, and says so for each.
+verified first, and held in memory, up to 128 MB for every install under way together, a package counting from its first
+byte on the way, so a download that would not fit stops there. Only then does anything move, under a
+lock in the store's folder and against what is on disk at that moment, since another program of this person's may share the
+folder: what is recorded is read again, and the plan is checked again against it. A journal is written, then each new version
+is swapped in beside the old one, then `installed.json` is written. That last write is the moment it happens, and it is atomic.
+A failure before it puts everything back. So does a crash, the next time an engine starts. A crash after it finishes clearing
+up, and an old version goes only once the new one stands whole, every file as its manifest lists it. Putting back or
+clearing up may itself be cut short and run again over the same journal, and comes to the same end: it
+decides from what is on disk, by whether the old version is still set aside, and never from an absence it made itself. A step of
+it that fails, as when a file being scanned cannot be deleted yet, stops it there: the journal stays, the old version stays set
+aside, and the next try starts again. A record is written before any journal, an empty one before a first install, so
+one missing beside a journal was lost. With no record left to say whether a plan happened, what is on disk says: a plan whose every
+new version is in place and whole stands, and anything less goes back. On Linux
+and macOS each step is made durable before the next (`fsync` on the folders): what was staged before the journal says it is
+there, the journal before anything moves, the swap before the record. A removal goes the same way. The lock is never taken from
+a holder that is alive, however long it has held it; one whose holder has died is. An engine that goes away while installs are
+on their way ends each of them, and says so for each.
 
 **Widgets are code.** A widget is QML that runs in the shell, so stage 1
 installs only QOR-MATRIX widgets. Third-party widgets and apps wait for the
@@ -279,10 +290,13 @@ picture is refused, and anything not on the list is too.
   WebP, KTX2, or octet-stream and glTF buffers). No climbing, scheme, missing file or other kind of data, under any field called
   `uri`, however deep, and no such field twice in one object, because two readers would not agree on which counts.
 - A `txt` is UTF-8 with no control characters but tab, line and page breaks, and no markup, since a Qt `Text` guesses at rich text
-  and rich text can fetch a picture. What counts as markup is asked of Qt: `Qt::mightBeRichText`, for whether a `Text` would go rich
-  at all, and a tag anywhere whose name is in Qt's own table of elements, read as Qt's parser reads one, or one a browser acts on. It
-  is one pass over the text, whatever the text is, and cannot fail open. Angle brackets as plain words, as the GPL has them, are
-  fine. The page that shows it still sets `textFormat: Text.PlainText`: this is the second wall, not the first.
+  and rich text can fetch a picture. `Qt::mightBeRichText` is asked whether a `Text` would go rich at all. Anywhere in the text, a
+  tag is read as Qt's parser reads one, and is markup if Qt's own table of elements or a browser knows its name, and whatever its
+  name if it carries a value, an `=` before the `>` that ends it: Qt applies `style` to a tag it does not know, and a browser runs
+  an event handler on any tag. Where a tag ends is read both ways: at any `>`, as a browser ends a tag whose name holds a quote,
+  and as Qt's parser reads it, where a quoted word, `>` and all, is one word. What is left is what licences hold: plain words in angle brackets, as the GPL has them, an address
+  or a link. It is one pass over the text, whatever the text is, and cannot fail open, and the GPL, LGPL, MPL, Apache, MIT and BSD
+  texts pass it. The page that shows it still sets `textFormat: Text.PlainText`: this is the second wall, not the first.
 
 A passive file still reaches a decoder when it is used, so these rules do not make a hostile picture safe to decode.
 
@@ -381,12 +395,13 @@ key offline or in a hardware security module, sign catalogues on a machine
 that holds nothing else, and ship its public key in a release. Rotating the
 store key needs a QOR OS update.
 
-Tests: `tst_store` (signatures, the first-party catalogue, refused tampering,
-forgery and unsigned catalogues, install, update and remove), `tst_store_format2`
-(format 2, every package check and the engine behind the two storefronts, from the hostile side, signing what it needs with
-keys it makes and drops), `tst_storefronts` (the build choice, and what the layer hands a page), `tst_storefronts_qml` (the real
-pages, over a catalogue of markup), `shell_e2e_store` (in a demonstration build a person's walk, and in any other that there is
-nothing to walk), a qmllint pass over every widget (`store_widgets_qmllint`), the Store section of `shell_e2e`, and
+Tests: `tst_store` (signatures, the first-party catalogue, refused tampering, forgery and unsigned catalogues, install,
+update and remove), `tst_store_format2` (format 2, every package check and the engine behind the two storefronts, from
+the hostile side, signing what it needs with keys it makes and drops, and reading the licence texts in
+`tests/store/licences/`, SPDX's as Qt carries them), `tst_storefronts` (the build choice, and what the layer hands a
+page), `tst_storefronts_qml` (the real pages, over a catalogue of markup), `shell_e2e_store` (in a demonstration build a
+person's walk, and in any other that there is nothing to walk), a qmllint pass over every widget
+(`store_widgets_qmllint`), the Store section of `shell_e2e`, and
 `tests/tools/test_build_store.py` for the builder.
 
 ## What runs, and when it is checked
@@ -399,9 +414,14 @@ not loaded. A widget's QML runs inside the shell with all it can do, so only QOR
 whoever a catalogue lists. A version older than the one installed is refused ([QOR-0018](decisions/QOR-0018-the-security-and-quality-bar.md)). What is
 installed must also be the very package recorded as installed: an older copy, signed in its day and put back by hand, is not
 intact. A crash during an install or a removal is put right the next time an engine starts, from the journal, unless another
-program holds the store's lock. What was left with no journal to say otherwise, by an older version of this code, is cleared too: an
-old version set aside goes back if nothing replaced it, and the rest of it goes. A record that cannot be read is set aside and not
-believed, and a reinstall replaces what it listed.
+program holds the store's lock. A journal is believed only for names inside `items/` of exactly the shapes the engine writes: an
+id, `.staging-<hex>` and `<id>.old-<hex>`. Clearing up deletes nothing through a link: a link where a folder would be goes
+itself, and it walks one folder at a time, however deep a tree it finds. What was left with no journal to say otherwise, by an
+older version of this code, is cleared too: an old version set aside goes back if nothing replaced it, and goes only once what
+stands in its place is whole, since it may be the only good copy. A record that cannot be read is set aside and not believed.
+Then, as when there is no record at all, what each installed folder's manifest claims stands in for it, so an id keeps its
+version, developer and kind against a catalogue that would move it back or hand it to someone else. Those entries are marked
+`"claimed": true` in `installed.json` until the item is installed again, since no signature was checked for them.
 
 ## Roadmap
 

@@ -26,7 +26,10 @@
 // would be all of it.
 //
 // Changed for QOR OS: on Linux the process's creation is read from /proc, so the start is measured there too; the wall
-// (sandbox.h), the refusal of too wide a package, and the watchdog for logic that never returns (QOR-0018).
+// (sandbox.h), the refusal of too wide a package, and the watchdog for logic that never returns (QOR-0018). The report
+// also says what drew the frames, and how long before the end of the measured time the last one came. Qt's disk cache is off:
+// it would map a compiled unit lying beside a game's file straight in as code, past every check on source, and past the
+// wall's interceptor, since that is no URL. The report says so.
 
 #include <QCommandLineParser>
 #include <QDateTime>
@@ -42,6 +45,7 @@
 #include <QTimer>
 #include <QUrl>
 #include <QtQml/qqmlextensionplugin.h>
+#include <rhi/qrhi.h>
 
 #include "confinement.h"
 #include "gpu.h"
@@ -110,6 +114,7 @@ struct Measure {
     double mainMs = 0;        // process start to main()
     double firstFrameMs = -1;  // process start to the first frame proper
     int frames = 0;
+    qint64 lastFrameMs = 0;    // into the measured time, the last frame
     QElapsedTimer sustained;
 };
 
@@ -119,6 +124,10 @@ int main(int argc, char *argv[])
 {
     Measure measure;
     measure.mainMs = sinceStart();
+
+    // Before any engine exists: read once, as the first one starts.
+    qputenv("QML_DISABLE_DISK_CACHE", "1");
+    qunsetenv("QML_FORCE_DISK_CACHE");
 
     QCommandLineParser parser;
     parser.setApplicationDescription(QStringLiteral("QQ Player: plays a QQ scene as a game"));
@@ -277,17 +286,24 @@ int main(int argc, char *argv[])
     }
 
     auto report = [&] {
-        const double seconds = measure.sustained.elapsed() / 1000.0;
+        const qint64 elapsed = measure.sustained.elapsed();
+        const double seconds = elapsed / 1000.0;
         // Logic that does not build leaves a game that plays and is not its creator's, as a missing model does.
         QVariant logicErrors;
         if (auto *playing = window->property("playing").value<QObject *>())
             QMetaObject::invokeMethod(playing, "logicErrors", Q_RETURN_ARG(QVariant, logicErrors));
+        const QRhi *rhi = window->rhi();
         const QJsonObject result{{QStringLiteral("scene"), scene.toString()},
                                  {QStringLiteral("logicErrors"), QJsonArray::fromStringList(logicErrors.toStringList())},
                                  {QStringLiteral("mainMs"), qRound(measure.mainMs)},
                                  {QStringLiteral("firstFrameMs"), qRound(measure.firstFrameMs)},
                                  {QStringLiteral("fps"), seconds > 0 ? qRound(measure.frames / seconds * 10) / 10.0 : 0},
+                                 // An average says nothing of a Player that drew a little and stopped: this does.
+                                 {QStringLiteral("lastFrameAgoMs"), elapsed - measure.lastFrameMs},
+                                 {QStringLiteral("renderer"), rhi ? QString::fromUtf8(rhi->driverInfo().deviceName) : QString()},
                                  {QStringLiteral("problem"), window->property("problem").toString()},
+                                 // As Qt's own engine has it, not as the environment was set.
+                                 {QStringLiteral("qmlDiskCache"), qq::Confinement::readsCompiledUnits(&engine)},
                                  {QStringLiteral("unloaded"),
                                   QJsonArray::fromStringList(window->property("unloaded").toStringList())}};
         const QByteArray line = QJsonDocument(result).toJson(QJsonDocument::Compact);
@@ -323,6 +339,7 @@ int main(int argc, char *argv[])
             return;
         }
         ++measure.frames;
+        measure.lastFrameMs = measure.sustained.elapsed();
     });
 
     // Measuring, frames are asked for continuously, so what is counted is what the machine can draw, not only what

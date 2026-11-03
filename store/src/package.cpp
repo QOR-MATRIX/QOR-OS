@@ -157,16 +157,31 @@ PackageResult openPackage(const QByteArray &archive, const QByteArray &developer
     return result;
 }
 
-bool verifyInstalled(const QString &folder, const QByteArray &developerKey, PackageManifest *manifest)
+bool readInstalledManifest(const QString &folder, PackageManifest *manifest)
 {
-    const auto read = [&folder](const QString &name) {
-        QFile file(folder + u'/' + name);
-        return file.open(QIODevice::ReadOnly) ? file.readAll() : QByteArray();
-    };
-    const QByteArray manifestBytes = read(kManifest);
-    const QByteArray signature = read(kSignature);
-    if (manifestBytes.isEmpty() || signature.isEmpty() || !verifySignature(developerKey, manifestBytes, signature))
+    const QFileInfo info(folder + u'/' + kManifest);
+    if (info.isSymLink() || info.isJunction() || !info.isFile() || info.size() > kMaximumManifest)
         return false;
+    QFile file(info.filePath());
+    if (!file.open(QIODevice::ReadOnly))
+        return false;
+    const QJsonDocument document = QJsonDocument::fromJson(file.read(kMaximumManifest));
+    return document.isObject() && readManifest(document.object(), manifest);
+}
+
+namespace {
+
+QByteArray readFrom(const QString &folder, const QString &name)
+{
+    QFile file(folder + u'/' + name);
+    return file.open(QIODevice::ReadOnly) ? file.readAll() : QByteArray();
+}
+
+// Whether `folder` holds exactly what `manifestBytes` lists, beside the manifest and its signature: every file whole,
+// and nothing else, not a file, a folder or a link.
+bool holdsExactly(const QString &folder, const QByteArray &manifestBytes, PackageManifest *manifest)
+{
+    const auto read = [&folder](const QString &name) { return readFrom(folder, name); };
     const QJsonObject object = QJsonDocument::fromJson(manifestBytes).object();
     const QJsonObject files = object.value(u"files"_s).toObject();
     QSet<QString> expected { kManifest, kSignature };
@@ -203,6 +218,26 @@ bool verifyInstalled(const QString &folder, const QByteArray &developerKey, Pack
     if (manifest && !readManifest(object, manifest))
         return false;
     return true;
+}
+
+} // namespace
+
+bool verifyInstalled(const QString &folder, const QByteArray &developerKey, PackageManifest *manifest)
+{
+    const QByteArray manifestBytes = readFrom(folder, kManifest);
+    const QByteArray signature = readFrom(folder, kSignature);
+    if (manifestBytes.isEmpty() || signature.isEmpty() || !verifySignature(developerKey, manifestBytes, signature))
+        return false;
+    return holdsExactly(folder, manifestBytes, manifest);
+}
+
+bool holdsWhatItsManifestLists(const QString &folder)
+{
+    const QFileInfo info(folder + u'/' + kManifest);
+    if (info.isSymLink() || info.isJunction() || !info.isFile() || info.size() > kMaximumManifest)
+        return false;
+    PackageManifest manifest;
+    return holdsExactly(folder, readFrom(folder, kManifest), &manifest);
 }
 
 } // namespace qor::store
