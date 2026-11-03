@@ -16,7 +16,7 @@ endif()
 # wayland-scanner emits the protocol interface tables as C.
 enable_language(C)
 
-qt_add_executable(prism main.cpp)
+qt_add_executable(prism main.cpp commandline.h commandline.cpp)
 
 # Protocols Prism implements itself (see extensions.h). The XML is vendored
 # from wayland-protocols 1.47; tablet-v2 only provides an interface that

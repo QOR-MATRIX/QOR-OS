@@ -59,7 +59,11 @@ The **simulator** (`qor-shell`, `qor-simd`, and Prism's embedded services) is a
 development tool. It exposes simulation controls (`SimControl`) on a local socket
 with no authentication, its lock screen takes any password, and it decodes media
 inside the shell. A device's image is built without it
-(`-DQOR_BUILD_SIMULATOR=OFF`), which removes it from Prism altogether.
+(`-DQOR_BUILD_SIMULATOR=OFF`), which removes it from Prism altogether. With it go the options only tests and a
+developer's runs need (`prism/compositor/commandline.h`): `--script`, which reads input steps from a file and can call
+the shell's own methods, `--unlocked`, which starts past the lock screen, `--screenshot` and `--delay`, and
+`--benchmark` and `--benchmark-out`, which unlock and drive the shell too. In such a build they are no options at all:
+asking for one is an error before anything is read (`tst_prismoptions_device`).
 
 ## What is checked by machines
 
@@ -125,9 +129,6 @@ Say so if you find a way past one; these are the walls we know are low.
   Until games and apps are sandboxed (Phase 3), a process running as the person can
   crash whatever hosts the bus: Prism, with the simulator. Qt Remote Objects'
   decoder trusts what it is sent. So: nothing sandboxed is ever given the bus.
-- **An installed Prism honours `--script`,** which reads input steps from a file and can call the shell's own methods. Only
-  the scripted tests need it, and the image's unit does not pass it, so it is open only to whoever controls Prism's command
-  line. It is to be refused outside a test build before an image ships.
 - **Prism's clipboard is Qt's**: any client may set the selection. Reading it takes
   the keyboard, which a client no longer gets unseen.
 - **A format 1 Store catalogue has no sequence or expiry.** Replaying an older one can
