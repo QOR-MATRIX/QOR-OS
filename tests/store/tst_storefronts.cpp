@@ -24,6 +24,7 @@
 #include <QtCore/QSettings>
 #include <QtCore/QTemporaryDir>
 #include <QtGui/QImage>
+#include <QtNetwork/QNetworkProxy>
 #include <QtTest/QSignalSpy>
 #include <QtTest/QTest>
 
@@ -136,6 +137,19 @@ struct Fronts
     Fronts &operator=(const Fronts &) = delete;
 };
 
+// The shop's catalogue and every file beside it, over the loopback. Returns the catalogue's URL there.
+QUrl serve(const Shop &shop, TinyServer &server)
+{
+    shop.publish();
+    const QDir folder(shop.dir.path());
+    QDirIterator it(shop.dir.path(), QDir::Files, QDirIterator::Subdirectories);
+    while (it.hasNext()) {
+        const QString path = it.next();
+        server.files.insert(folder.relativeFilePath(path), readFile(path));
+    }
+    return server.url(u"catalog.json"_s);
+}
+
 QStringList idsOf(const QVariantList &items)
 {
     QStringList ids;
@@ -209,14 +223,33 @@ QStringList presetsHoldingIt(const QByteArray &json)
     return holding;
 }
 
+// The presets that leave it to whatever a build folder's cache already holds, as one configured by hand before would.
+QStringList presetsLeavingItToTheCache(const QByteArray &json)
+{
+    QHash<QString, QJsonObject> presets;
+    const QJsonArray list = QJsonDocument::fromJson(json).object().value(u"configurePresets"_s).toArray();
+    for (const QJsonValue &preset : list)
+        presets.insert(preset.toObject().value(u"name"_s).toString(), preset.toObject());
+    QStringList leaving;
+    for (auto it = presets.cbegin(); it != presets.cend(); ++it)
+        if (!cacheOf(presets, it.key()).contains(kOption))
+            leaving.append(it.key());
+    leaving.sort();
+    return leaving;
+}
+
 // Everything under a folder of the repository that decides what CI and a release build.
 QStringList filesDecidingABuild()
 {
     QStringList files;
     for (const QString &folder : { u"/.github/workflows"_s, u"/tools/ci"_s, u"/image"_s }) {
         QDirIterator it(kSource + folder, QDir::Files, QDirIterator::Subdirectories);
-        while (it.hasNext())
-            files.append(it.next());
+        while (it.hasNext()) {
+            // What Python leaves beside a script it ran is no part of the repository, and holds the script's words.
+            const QString file = it.next();
+            if (!file.contains(u"/__pycache__/"_s))
+                files.append(file);
+        }
     }
     return files;
 }
@@ -340,9 +373,14 @@ private Q_SLOTS:
         ] })";
         QCOMPARE(presetsHoldingIt(planted),
                  (QStringList { u"base"_s, u"ci-linux"_s, u"ci-windows"_s, u"linux-release"_s, u"windows-release"_s }));
+        QCOMPARE(presetsLeavingItToTheCache(planted), QStringList { u"linux-debug"_s });
+
+        // Every preset says, so that a folder once configured with it on by hand is turned back off by its preset.
+        const QByteArray presets = readFile(kSource + u"/CMakePresets.json"_s);
+        QCOMPARE(presetsLeavingItToTheCache(presets), QStringList());
 
         // Only a preset made for it, whose name says so, and none whose name says CI or a release.
-        const QStringList holding = presetsHoldingIt(readFile(kSource + u"/CMakePresets.json"_s));
+        const QStringList holding = presetsHoldingIt(presets);
         QVERIFY(!holding.isEmpty());
         for (const QString &name : holding) {
             QVERIFY2(name.endsWith(u"-demonstration"_s), qPrintable(name));
@@ -350,14 +388,18 @@ private Q_SLOTS:
             QVERIFY2(!name.contains(u"release"_s), qPrintable(name));
         }
 
-        // What CI, a release and the image build say nothing of it, and name no such preset.
+        // What CI, a release and the image build say nothing of it, but for the check that refuses a build folder
+        // with it on, and name no such preset.
         const QStringList files = filesDecidingABuild();
         QVERIFY(files.size() > 3);
+        const QString refusing = kSource + u"/tools/ci/check_hardening.py"_s;
+        QVERIFY2(files.contains(refusing), qPrintable(refusing));
+        QVERIFY(readFile(refusing).contains(kOption.toUtf8()));
         static const QRegularExpression preset(u"--preset[= ]+([A-Za-z0-9_-]+)"_s);
         QStringList named;
         for (const QString &file : files) {
             const QByteArray bytes = readFile(file);
-            QVERIFY2(!bytes.contains(kOption.toUtf8()), qPrintable(file));
+            QVERIFY2(file == refusing || !bytes.contains(kOption.toUtf8()), qPrintable(file));
             auto matches = preset.globalMatch(QString::fromUtf8(bytes));
             while (matches.hasNext())
                 named.append(matches.next().captured(1));
@@ -655,6 +697,54 @@ private Q_SLOTS:
         QCOMPARE(store.updateCount(), 0);
         engine.setEngines({ { u"qq"_s, u"0.5.0"_s } });
         QCOMPARE(store.updateCount(), 2);
+
+        // An update is said to wait for the switch only when nothing else would refuse it, and the page hears so.
+        Storefronts::useEngine(&engine, {});
+        const auto unhand = qScopeGuard([] { Storefronts::useEngine(nullptr, {}); });
+        const Storefronts fronts;
+        QVERIFY(!engine.updateWaitsForCreatorFeatures(pack.id));
+        engine.setCreatorFeatures(false);
+        QVERIFY(engine.updateWaitsForCreatorFeatures(pack.id));
+        QVERIFY(!engine.updateWaitsForCreatorFeatures(game.id));
+        QCOMPARE(fronts.waitingUpdateCount(), 1);
+        QCOMPARE(fronts.status(pack.id).value(u"updateWaits"_s).toBool(), true);
+        engine.setEngines({ { u"qq"_s, u"9.0.0"_s } });
+        QVERIFY(!engine.updateWaitsForCreatorFeatures(pack.id));
+        QCOMPARE(fronts.waitingUpdateCount(), 0);
+        QCOMPARE(fronts.status(pack.id).value(u"updateWaits"_s).toBool(), false);
+        engine.setEngines({ { u"qq"_s, u"0.5.0"_s } });
+        QCOMPARE(fronts.waitingUpdateCount(), 1);
+    }
+
+    // With the switch off, a listing only the creator store carries is not described to anything that asks by its id:
+    // not by name, nor by version. What is installed keeps its own name, and its version.
+    void aCreatorOnlyListingTellsNothingOfItselfWithTheSwitchOff()
+    {
+        TwoStores stores;
+        Fronts all(stores.shop.store.publicKey(), { stores.shop.publish() });
+        Storefronts &fronts = *all.fronts;
+        QTRY_VERIFY(fronts.isReady());
+        const QString id = stores.pack.id;
+        QVariantMap status = fronts.status(id);
+        QCOMPARE(status.value(u"name"_s).toString(), id);
+        QVERIFY(status.value(u"version"_s).toString().isEmpty());
+        QCOMPARE(status.value(u"installed"_s).toBool(), false);
+
+        all.engine.setCreatorFeatures(true);
+        status = fronts.status(id);
+        QCOMPARE(status.value(u"name"_s).toString(), u"One creator pack"_s);
+        QCOMPARE(status.value(u"version"_s).toString(), stores.pack.version);
+        QVERIFY(installAndWait(all.engine, id).ok);
+
+        all.engine.setCreatorFeatures(false);
+        status = fronts.status(id);
+        QCOMPARE(status.value(u"installed"_s).toBool(), true);
+        QCOMPARE(status.value(u"installedVersion"_s).toString(), stores.pack.version);
+        QCOMPARE(status.value(u"name"_s).toString(), all.engine.installed().value(id).name);
+        QVERIFY(status.value(u"version"_s).toString().isEmpty());
+        const QVariantList library = fronts.library();
+        QCOMPARE(library.size(), 1);
+        QCOMPARE(library.constFirst().toMap().value(u"previewCount"_s).toInt(), 0);
     }
 
     // Every catalogue moved past is still signed, so it is shown refused rather than taken, in plain words.
@@ -843,12 +933,13 @@ private Q_SLOTS:
 
     void aPreviewOutlivesNoCatalogueAndHoldsABoundedAmountOfMemory()
     {
-        // More than can be held together: each says it is small, and is padded to nearly the most a preview may be. A
-        // listing holds at most eight, so this takes two.
+        // More than can be held together: each says it is small, and is padded to nearly the most a preview may be.
+        // Held as base64 text in a data: URL, one takes a third of the bound and a little more, so three fit.
         const QByteArray large = pngClaiming(16, 16, 3900 * 1024);
+        const int each = 5;
         TwoStores stores;
         QJsonArray previews;
-        for (int i = 0; i < 6; ++i) {
+        for (int i = 0; i < each; ++i) {
             const QString file = u"previews/%1.png"_s.arg(i);
             writeFile(stores.shop.dir.path() + u'/' + file, large);
             previews.append(QJsonObject { { u"file"_s, file }, { u"sha256"_s, hexDigest(large) } });
@@ -862,22 +953,109 @@ private Q_SLOTS:
         const QStringList ids { stores.game.id, stores.pack.id };
         QSignalSpy changed(&fronts, &Storefronts::previewsChanged);
         for (const QString &id : ids)
-            for (int i = 0; i < 6; ++i)
+            for (int i = 0; i < each; ++i)
                 QVERIFY(fronts.fetchPreview(id, i));
-        QTRY_COMPARE(changed.count(), 12);
-        int held = 0;
-        for (const QString &id : ids)
-            for (int i = 0; i < 6; ++i)
-                held += fronts.preview(id, i).isEmpty() ? 0 : 1;
-        QVERIFY2(held > 0 && held <= 8, qPrintable(QString::number(held)));
-        QVERIFY(!fronts.preview(stores.pack.id, 5).isEmpty());
+        QTRY_COMPARE(changed.count(), 2 * each);
+        const auto held = [&] {
+            QStringList keys;
+            for (const QString &id : ids)
+                for (int i = 0; i < each; ++i)
+                    if (!fronts.preview(id, i).isEmpty())
+                        keys.append(u"%1#%2"_s.arg(id).arg(i));
+            return keys;
+        };
+        // The three that came last: the oldest went first, to make room for each.
+        const QString &pack = stores.pack.id;
+        QCOMPARE(held(), (QStringList { pack + u"#2"_s, pack + u"#3"_s, pack + u"#4"_s }));
+
+        // One let go to make room may be asked for again, as a page built again does, and the oldest then goes.
+        QVERIFY(fronts.fetchPreview(stores.game.id, 0));
+        QTRY_COMPARE(changed.count(), 2 * each + 1);
+        QCOMPARE(held(), (QStringList { stores.game.id + u"#0"_s, pack + u"#3"_s, pack + u"#4"_s }));
 
         // A new catalogue forgets them all.
+        stores.shop.sequence = 2;
+        stores.shop.publish();
         fronts.refresh();
         QTRY_VERIFY(fronts.isReady());
-        for (const QString &id : ids)
-            for (int i = 0; i < 6; ++i)
-                QVERIFY(fronts.preview(id, i).isEmpty());
+        QVERIFY(held().isEmpty());
+    }
+
+    // "Check for Updates" finds the same catalogue: what was fetched of it stays, and nothing is fetched again. One
+    // that differs forgets it.
+    void whatWasFetchedIsKeptThroughTheSameCatalogueAndForgottenWithAnother()
+    {
+        const QByteArray picture = realPng();
+        TwoStores stores;
+        writeFile(stores.shop.dir.path() + u"/previews/one.png"_s, picture);
+        stores.shop.items.first().insert(
+            u"previews"_s,
+            QJsonArray { QJsonObject { { u"file"_s, u"previews/one.png"_s }, { u"sha256"_s, hexDigest(picture) } } });
+        Fronts all(stores.shop.store.publicKey(), { stores.shop.publish() });
+        Storefronts &fronts = *all.fronts;
+        QTRY_VERIFY(fronts.isReady());
+        const QString id = stores.game.id;
+        QVERIFY(fronts.fetchPreview(id, 0));
+        QVERIFY(fronts.fetchLicence(id));
+        QTRY_VERIFY(!fronts.preview(id, 0).isEmpty());
+        QTRY_VERIFY(fronts.licence(id).contains(u"text"_s));
+        QSignalSpy forgotten(&fronts, &Storefronts::previewsForgotten);
+        QSignalSpy previews(&all.engine, &StoreEngine::previewFetched);
+
+        fronts.refresh();
+        QVERIFY(fronts.isLoading());
+        QTRY_VERIFY(fronts.isReady());
+        QCOMPARE(forgotten.count(), 0);
+        QVERIFY(!fronts.preview(id, 0).isEmpty());
+        QVERIFY(fronts.licence(id).contains(u"text"_s));
+        QVERIFY(fronts.fetchPreview(id, 0));
+        QTest::qWait(50);
+        QCOMPARE(previews.count(), 0);
+
+        stores.shop.sequence = 2;
+        stores.shop.publish();
+        fronts.refresh();
+        QTRY_VERIFY(fronts.isReady());
+        QCOMPARE(forgotten.count(), 1);
+        QVERIFY(fronts.preview(id, 0).isEmpty());
+        QVERIFY(fronts.licence(id).isEmpty());
+    }
+
+    // A page of many listings asks for every preview at once. A few are on their way at a time, and the rest wait their
+    // turn, so they are not all in memory at once as they arrive.
+    void previewsComeAFewAtATime()
+    {
+        QNetworkProxy::setApplicationProxy(QNetworkProxy::NoProxy);
+        const QByteArray picture = realPng();
+        TwoStores stores;
+        QJsonArray previews;
+        for (int i = 0; i < 8; ++i) {
+            const QString file = u"previews/%1.png"_s.arg(i);
+            writeFile(stores.shop.dir.path() + u'/' + file, picture);
+            previews.append(QJsonObject { { u"file"_s, file }, { u"sha256"_s, hexDigest(picture) } });
+        }
+        stores.shop.items.first().insert(u"previews"_s, previews);
+        TinyServer server;
+        const QUrl url = serve(stores.shop, server);
+        for (int i = 0; i < 8; ++i)
+            server.held.insert(u"previews/%1.png"_s.arg(i));
+        Fronts all(stores.shop.store.publicKey(), { url });
+        Storefronts &fronts = *all.fronts;
+        QTRY_VERIFY(fronts.isReady());
+        QSignalSpy changed(&fronts, &Storefronts::previewsChanged);
+        for (int i = 0; i < 8; ++i)
+            QVERIFY(fronts.fetchPreview(stores.game.id, i));
+        QTRY_COMPARE(server.waiting(), 4);
+        QTest::qWait(300);
+        QCOMPARE(server.waiting(), 4);
+        QCOMPARE(changed.count(), 0);
+
+        server.release();
+        QTRY_COMPARE(changed.count(), 8);
+        for (int i = 0; i < 8; ++i) {
+            QVERIFY(!fronts.preview(stores.game.id, i).isEmpty());
+            QCOMPARE(server.asked.count(u"previews/%1.png"_s.arg(i)), 1);
+        }
     }
 
     // ── Licences, from the hostile side ──────────────────────────────────────
@@ -984,6 +1162,88 @@ private Q_SLOTS:
         QVERIFY(!engine.fetchLicence(game.id));
         QVERIFY(!engine.fetchPreview(game.id, 0));
         QVERIFY(engine.listings(View::Player).isEmpty());
+    }
+
+    // The engine's own check, not the page's: a licence read from a file is not stopped as the switch goes off, and
+    // arriving after, it is refused.
+    void aLicenceThatArrivesAfterTheSwitchWentOffIsRefusedByTheEngine()
+    {
+        TwoStores stores;
+        QTemporaryDir data;
+        StoreEngine engine(data.path(), stores.shop.store.publicKey());
+        engine.setCreatorFeatures(true);
+        QCOMPARE(refreshed(engine, stores.shop.publish()), StoreEngine::State::Ready);
+        QSignalSpy fetched(&engine, &StoreEngine::licenceFetched);
+        QVERIFY(engine.fetchLicence(stores.pack.id));
+        engine.setCreatorFeatures(false);
+        QCOMPARE(fetched.count(), 0); // read on the next turn of the event loop
+        QTRY_COMPARE(fetched.count(), 1);
+        QCOMPARE(fetched.at(0).at(0).toString(), stores.pack.id);
+        QCOMPARE(fetched.at(0).at(1).toBool(), false);
+        QVERIFY(fetched.at(0).at(2).toString().isEmpty());
+        const QString why = fetched.at(0).at(3).toString();
+        QVERIFY2(why.contains(u"creator features are off"_s), qPrintable(why));
+
+        // What players have is read with it off.
+        QVERIFY(engine.fetchLicence(stores.game.id));
+        QTRY_COMPARE(fetched.count(), 2);
+        QVERIFY2(fetched.at(1).at(1).toBool(), qPrintable(fetched.at(1).at(3).toString()));
+    }
+
+    // A licence is a whole package on its way, so it is fetched once however often it is asked for, and it stops,
+    // saying why, as soon as it is no longer wanted: when the switch goes off, or a catalogue that differs arrives.
+    void aLicenceIsOnItsWayOnceAndStopsWhenNoLongerWanted()
+    {
+        QNetworkProxy::setApplicationProxy(QNetworkProxy::NoProxy);
+        TwoStores stores;
+        TinyServer server;
+        const QUrl url = serve(stores.shop, server);
+        const QString packFile = u"packages/%1-%2.qorpkg"_s.arg(stores.pack.id, stores.pack.version);
+        const QString gameFile = u"packages/%1-%2.qorpkg"_s.arg(stores.game.id, stores.game.version);
+        QVERIFY(server.files.contains(packFile) && server.files.contains(gameFile));
+        server.held = { packFile, gameFile };
+        QTemporaryDir data;
+        StoreEngine engine(data.path(), stores.shop.store.publicKey());
+        engine.setCreatorFeatures(true);
+        QCOMPARE(refreshed(engine, url), StoreEngine::State::Ready);
+        QSignalSpy fetched(&engine, &StoreEngine::licenceFetched);
+
+        QVERIFY(engine.fetchLicence(stores.pack.id));
+        QVERIFY(engine.fetchLicence(stores.pack.id));
+        QVERIFY(engine.fetchLicence(stores.game.id));
+        QTRY_COMPARE(server.waiting(), 2);
+        QTest::qWait(200);
+        QCOMPARE(server.asked.count(packFile), 1);
+        QCOMPARE(fetched.count(), 0);
+
+        // The switch goes off: what only the creator store carries stops there and then, and says why.
+        engine.setCreatorFeatures(false);
+        QCOMPARE(fetched.count(), 1);
+        QCOMPARE(fetched.at(0).at(0).toString(), stores.pack.id);
+        QCOMPARE(fetched.at(0).at(1).toBool(), false);
+        QVERIFY2(fetched.at(0).at(3).toString().contains(u"creator features are off"_s),
+                 qPrintable(fetched.at(0).at(3).toString()));
+
+        // A catalogue that differs stops the rest.
+        stores.shop.sequence = 2;
+        const QByteArray json = stores.shop.json();
+        server.files.insert(u"catalog.json"_s, json);
+        server.files.insert(u"catalog.json.sig"_s, stores.shop.store.sign(json));
+        engine.refresh();
+        QTRY_COMPARE(fetched.count(), 2);
+        QCOMPARE(fetched.at(1).at(0).toString(), stores.game.id);
+        QVERIFY2(fetched.at(1).at(3).toString().contains(u"catalogue changed"_s),
+                 qPrintable(fetched.at(1).at(3).toString()));
+        QTRY_COMPARE(engine.state(), StoreEngine::State::Ready);
+
+        // Asked for again, it is fetched afresh, and what was stopped says nothing more.
+        server.release();
+        QVERIFY(engine.fetchLicence(stores.game.id));
+        QTRY_COMPARE(fetched.count(), 3);
+        QVERIFY2(fetched.at(2).at(1).toBool(), qPrintable(fetched.at(2).at(3).toString()));
+        QCOMPARE(server.asked.count(gameFile), 2);
+        QTest::qWait(200);
+        QCOMPARE(fetched.count(), 3);
     }
 
     void aFormatOneListingHasNoLicenceToFetch()

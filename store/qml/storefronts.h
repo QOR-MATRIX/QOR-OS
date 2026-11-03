@@ -8,6 +8,7 @@
 #include <QtCore/QUrl>
 #include <QtCore/QVariantList>
 #include <QtCore/QVariantMap>
+#include <QtCore/QtTypes>
 #include <QtQml/qqmlregistration.h>
 
 namespace qor::store {
@@ -97,7 +98,8 @@ public:
     Q_INVOKABLE bool remove(const QString &id);
 
     // Asks for a preview. When it has come, preview() answers with a URL holding the checked bytes themselves; until
-    // then, or if it was refused, it answers with an empty one.
+    // then, or if it was refused, it answers with an empty one. A few are on their way at once, and the rest wait their
+    // turn. One refused, or let go to make room, may be asked for again.
     Q_INVOKABLE bool fetchPreview(const QString &id, int index);
     Q_INVOKABLE QUrl preview(const QString &id, int index) const;
 
@@ -123,6 +125,7 @@ private:
     void followPreference();
     void takeCreatorFeatures(bool on);
     void forgetFetched();
+    void startPreviews();
     void takePreview(const QString &id, int index, bool ok, const QByteArray &data, const QString &error);
     void takeLicence(const QString &id, bool ok, const QString &text, const QString &error);
 
@@ -131,8 +134,17 @@ private:
     int m_statusRevision = 0;
     int m_previewRevision = 0;
     int m_licenceRevision = 0;
-    QHash<QString, QUrl> m_previews;
-    QSet<QString> m_previewsAsked;
+    // What was fetched belongs to one catalogue, and is kept until a different one arrives.
+    quint64 m_epoch = 0;
+    struct HeldPreview
+    {
+        QUrl url;
+        qint64 size = 0; // as it is held, in bytes: base64 text in a data: URL
+    };
+    QHash<QString, HeldPreview> m_previews;
+    QList<QString> m_previewOrder; // held, the oldest first
+    QSet<QString> m_previewsOnTheirWay;
+    QList<std::pair<QString, int>> m_previewQueue;
     qint64 m_previewBytes = 0;
     QHash<QString, QVariantMap> m_licences;
 };

@@ -10,6 +10,7 @@
 #include <QtCore/QCoreApplication>
 #include <QtCore/QCryptographicHash>
 #include <QtCore/QPointer>
+#include <QtCore/QScopeGuard>
 #include <QtGui/QImageReader>
 
 #include <optional>
@@ -23,8 +24,12 @@ namespace {
 // A small file can claim a very large picture, and the decoder believes it. Four thousand pixels a side is more than a
 // preview needs, and what it decodes to is still a size Qt's own limit lets through.
 constexpr int kMaximumPreviewSide = 4096;
-// What previews may hold in memory together: past this, the older ones go, and their cards show their glyph.
+// What previews may hold in memory together, counted as they are held, as base64 text in a data: URL. Past this the
+// oldest go first, and their cards show their glyph until their page is built again and asks for them again.
 constexpr qint64 kMaximumHeldPreviews = 32 * 1024 * 1024;
+// How many previews are on their way at once. The rest wait their turn, so a long page does not have every one of them
+// in memory as it arrives.
+constexpr qsizetype kPreviewsAtOnce = 4;
 
 struct Shared
 {
@@ -153,9 +158,14 @@ Storefronts::Storefronts(QObject *parent) : QObject(parent)
     StoreEngine *store = engine();
     if (!store)
         return;
+    m_epoch = store->catalogueEpoch();
     connect(store, &StoreEngine::stateChanged, this, &Storefronts::stateChanged);
-    connect(store, &StoreEngine::catalogChanged, this, [this] {
-        forgetFetched();
+    connect(store, &StoreEngine::catalogChanged, this, [this, store] {
+        // The same catalogue again, as "Check for Updates" finds it, keeps what was fetched of it.
+        if (store->catalogueEpoch() != m_epoch) {
+            m_epoch = store->catalogueEpoch();
+            forgetFetched();
+        }
         ++m_listingsRevision;
         ++m_statusRevision;
         Q_EMIT listingsChanged();
@@ -210,8 +220,10 @@ void Storefronts::takeCreatorFeatures(bool on)
 
 void Storefronts::forgetFetched()
 {
+    // What is on its way still arrives, and is checked then against the catalogue and the switch as they are.
     m_previews.clear();
-    m_previewsAsked.clear();
+    m_previewOrder.clear();
+    m_previewQueue.clear();
     m_previewBytes = 0;
     m_licences.clear();
     ++m_previewRevision;
@@ -318,18 +330,19 @@ QVariantMap Storefronts::status(const QString &id) const
     if (!store)
         return {};
     const CatalogItem *item = store->catalog().item(id);
+    // What only the creator store carries, with creator features off, tells nothing of what it lists.
+    const CatalogItem *listed = item && isWithinReach(store, *item) ? item : nullptr;
     const auto installed = store->installed().constFind(id);
     const bool isInstalled = installed != store->installed().cend();
-    const bool newer = isInstalled && item && compareVersions(installed->version, item->version) < 0;
     return {
-        { u"name"_s, item          ? item->name
+        { u"name"_s, listed        ? listed->name
                      : isInstalled ? installed->name
                                    : id },
         { u"installed"_s, isInstalled },
         { u"installedVersion"_s, isInstalled ? installed->version : QString() },
-        { u"version"_s, item ? item->version : QString() },
+        { u"version"_s, listed ? listed->version : QString() },
         { u"updateAvailable"_s, store->hasUpdate(id) },
-        { u"updateWaits"_s, newer && !isWithinReach(store, *item) },
+        { u"updateWaits"_s, store->updateWaitsForCreatorFeatures(id) },
         { u"busy"_s, store->isBusy(id) },
         { u"progress"_s, store->progress(id) },
     };
@@ -343,7 +356,8 @@ QVariantList Storefronts::library() const
     if (!store)
         return list;
     for (const StoreEngine::Installed &installed : store->installed()) {
-        const CatalogItem *item = store->catalog().item(installed.id);
+        const CatalogItem *found = store->catalog().item(installed.id);
+        const CatalogItem *item = found && isWithinReach(store, *found) ? found : nullptr;
         const Developer developer = store->catalog().developers.value(installed.developer);
         list.append(QVariantMap {
             { u"id"_s, installed.id },
@@ -367,11 +381,8 @@ int Storefronts::waitingUpdateCount() const
     const StoreEngine *store = engine();
     int count = 0;
     if (store) {
-        for (const StoreEngine::Installed &installed : store->installed()) {
-            const CatalogItem *item = store->catalog().item(installed.id);
-            count +=
-                item && compareVersions(installed.version, item->version) < 0 && !isWithinReach(store, *item) ? 1 : 0;
-        }
+        for (const StoreEngine::Installed &installed : store->installed())
+            count += store->updateWaitsForCreatorFeatures(installed.id) ? 1 : 0;
     }
     return count;
 }
@@ -417,24 +428,44 @@ bool Storefronts::fetchPreview(const QString &id, int index)
     if (!store)
         return false;
     const QString key = previewKey(id, index);
-    if (m_previews.contains(key) || m_previewsAsked.contains(key))
+    if (m_previews.contains(key) || m_previewsOnTheirWay.contains(key) || m_previewQueue.contains({ id, index }))
         return true;
-    if (!store->fetchPreview(id, index))
+    if (m_previewsOnTheirWay.size() < kPreviewsAtOnce) {
+        if (!store->fetchPreview(id, index))
+            return false;
+        m_previewsOnTheirWay.insert(key);
+        return true;
+    }
+    // What the engine would refuse is refused now, and the rest waits its turn.
+    const CatalogItem *item = store->catalog().item(id);
+    if (!item || index < 0 || index >= item->previews.size() || !isWithinReach(store, *item))
         return false;
-    m_previewsAsked.insert(key);
+    m_previewQueue.append({ id, index });
     return true;
+}
+
+void Storefronts::startPreviews()
+{
+    StoreEngine *store = engine();
+    while (store && m_previewsOnTheirWay.size() < kPreviewsAtOnce && !m_previewQueue.isEmpty()) {
+        const auto [id, index] = m_previewQueue.takeFirst();
+        if (store->fetchPreview(id, index))
+            m_previewsOnTheirWay.insert(previewKey(id, index));
+    }
 }
 
 void Storefronts::takePreview(const QString &id, int index, bool ok, const QByteArray &data, const QString &error)
 {
     const StoreEngine *store = engine();
     const QString key = previewKey(id, index);
+    // Only what was asked for here, and each answer lets the next that waits go.
+    if (!m_previewsOnTheirWay.remove(key))
+        return;
+    const auto next = qScopeGuard([this] { startPreviews(); });
     const CatalogItem *item = store->catalog().item(id);
     // Overtaken while it was on its way: by the switch, or by a catalogue that no longer lists it.
-    if (!item || index < 0 || index >= item->previews.size() || !isWithinReach(store, *item)) {
-        m_previewsAsked.remove(key);
+    if (!item || index < 0 || index >= item->previews.size() || !isWithinReach(store, *item))
         return;
-    }
     // Checked against the catalogue it was asked of. If that has since moved on, its own is on its way too.
     if (ok && QCryptographicHash::hash(data, QCryptographicHash::Sha256) != item->previews.at(index).sha256)
         return;
@@ -445,18 +476,19 @@ void Storefronts::takePreview(const QString &id, int index, bool ok, const QByte
         Q_EMIT previewRefused(id, index, why);
         return;
     }
-    if (m_previewBytes + data.size() > kMaximumHeldPreviews) {
-        m_previews.clear();
-        m_previewBytes = 0;
-    }
-    m_previews.insert(key, QUrl(u"data:image/"_s + QString::fromLatin1(format) + u";base64,"_s
-                                + QString::fromLatin1(data.toBase64())));
-    m_previewBytes += data.size();
+    const QString text =
+        u"data:image/"_s + QString::fromLatin1(format) + u";base64,"_s + QString::fromLatin1(data.toBase64());
+    const qint64 size = qint64(text.size()) * qint64(sizeof(QChar));
+    while (!m_previewOrder.isEmpty() && m_previewBytes + size > kMaximumHeldPreviews)
+        m_previewBytes -= m_previews.take(m_previewOrder.takeFirst()).size;
+    m_previews.insert(key, HeldPreview { QUrl(text), size });
+    m_previewOrder.append(key);
+    m_previewBytes += size;
     ++m_previewRevision;
     Q_EMIT previewsChanged();
 }
 
-QUrl Storefronts::preview(const QString &id, int index) const { return m_previews.value(previewKey(id, index)); }
+QUrl Storefronts::preview(const QString &id, int index) const { return m_previews.value(previewKey(id, index)).url; }
 
 bool Storefronts::fetchLicence(const QString &id)
 {

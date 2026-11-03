@@ -173,65 +173,6 @@ QStringList leftovers(const QString &dataDir)
     return found;
 }
 
-// An HTTP server on the loopback, just enough for the engine's network path. It serves what it is given and can hold a
-// response back until it is told. No Q_OBJECT: its connections are to functions.
-class TinyServer : public QObject
-{
-public:
-    TinyServer()
-    {
-        connect(&m_server, &QTcpServer::newConnection, this, [this] {
-            while (QTcpSocket *socket = m_server.nextPendingConnection()) {
-                socket->setParent(this);
-                connect(socket, &QTcpSocket::readyRead, this, [this, socket] {
-                    const QByteArray request = socket->readAll();
-                    const QList<QByteArray> words = request.left(request.indexOf('\r')).split(' ');
-                    const QString name = words.size() > 1 ? QString::fromLatin1(words.at(1)).mid(1) : QString();
-                    if (held.contains(name))
-                        m_waiting.append(qMakePair(socket, name));
-                    else
-                        respond(socket, name);
-                });
-            }
-        });
-        m_server.listen(QHostAddress::LocalHost);
-    }
-
-    QHash<QString, QByteArray> files;
-    QSet<QString> held;
-
-    QUrl url(const QString &name) const
-    {
-        return QUrl(u"http://127.0.0.1:%1/%2"_s.arg(m_server.serverPort()).arg(name));
-    }
-    int waiting() const { return int(m_waiting.size()); }
-    void release()
-    {
-        held.clear();
-        const auto pending = m_waiting;
-        m_waiting.clear();
-        for (const auto &[socket, name] : pending)
-            respond(socket, name);
-    }
-
-private:
-    void respond(QTcpSocket *socket, const QString &name)
-    {
-        const auto file = files.constFind(name);
-        if (file == files.cend()) {
-            socket->write("HTTP/1.1 404 Not Found\r\nContent-Length: 0\r\nConnection: close\r\n\r\n");
-        } else {
-            socket->write("HTTP/1.1 200 OK\r\nContent-Length: " + QByteArray::number(file->size())
-                          + "\r\nConnection: close\r\n\r\n");
-            socket->write(*file);
-        }
-        socket->disconnectFromHost();
-    }
-
-    QTcpServer m_server;
-    QList<QPair<QTcpSocket *, QString>> m_waiting;
-};
-
 CatalogItem plantedItem(const QString &id, const QString &kind)
 {
     CatalogItem item;
@@ -4073,6 +4014,33 @@ private Q_SLOTS:
         QVERIFY2(fetched.at(1).at(1).toBool(), qPrintable(fetched.at(1).at(3).toString()));
         QCOMPARE(fetched.at(1).at(2).toString(), QString::fromUtf8(kLicence));
         QVERIFY(store.installed().isEmpty());
+    }
+
+    // Read from a local file, as a demonstration's catalogue is, a licence's package counts the same, before it is
+    // read.
+    void aLicenceReadFromAFileCountsAgainstTheLimit()
+    {
+        const Pack pack;
+        Shop shop;
+        const QByteArray bytes = pack.package(shop.developer);
+        shop.addPackage(pack, bytes);
+        QTemporaryDir data;
+        PlantedEngine store(data.path(), shop.store.publicKey());
+        store.setCreatorFeatures(true);
+        QCOMPARE(refreshed(store, shop.publish()), StoreEngine::State::Ready);
+        QSignalSpy fetched(&store, &StoreEngine::licenceFetched);
+        store.heldLimit = bytes.size() - 1;
+        QVERIFY(store.fetchLicence(pack.id));
+        QTRY_COMPARE(fetched.count(), 1);
+        QVERIFY(!fetched.at(0).at(1).toBool());
+        QVERIFY2(fetched.at(0).at(3).toString().contains(u"Too much is on its way at once"_s),
+                 qPrintable(fetched.at(0).at(3).toString()));
+
+        store.heldLimit = bytes.size();
+        QVERIFY(store.fetchLicence(pack.id));
+        QTRY_COMPARE(fetched.count(), 2);
+        QVERIFY2(fetched.at(1).at(1).toBool(), qPrintable(fetched.at(1).at(3).toString()));
+        QCOMPARE(fetched.at(1).at(2).toString(), QString::fromUtf8(kLicence));
     }
 
     // What moves is made durable at each moment it must be, where the system can: what was staged before the journal

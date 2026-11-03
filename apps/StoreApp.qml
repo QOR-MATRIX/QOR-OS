@@ -569,8 +569,8 @@ Item {
                     objectName: "storeRefresh"
                     anchors.right: parent.right
                     anchors.bottom: parent.bottom
-                    text: Store.loading ? qsTr("Checking…") : qsTr("Check for Updates")
-                    enabled: !Store.loading
+                    text: Store.loading || Storefronts.loading ? qsTr("Checking…") : qsTr("Check for Updates")
+                    enabled: !Store.loading && !Storefronts.loading
                     onClicked: {
                         Store.refresh();
                         Storefronts.refresh();
@@ -1607,13 +1607,15 @@ Item {
         }
         Image {
             id: artPicture
+            objectName: "listingArtPicture"
             anchors.fill: parent
             anchors.margins: listingArt.compact ? 4 : 12
-            source: listingArt.picture
+            // Decoded at the size it is drawn, whatever the picture says of itself, and only once it has one.
+            source: width > 0 && height > 0 ? listingArt.picture : ""
             asynchronous: true
             cache: false
             fillMode: Image.PreserveAspectFit
-            sourceSize.width: 840
+            sourceSize: Qt.size(Math.ceil(width * Screen.devicePixelRatio), Math.ceil(height * Screen.devicePixelRatio))
         }
     }
 

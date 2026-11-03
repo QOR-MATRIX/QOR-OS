@@ -356,6 +356,38 @@ Item {
             tryVerify(() => String(art.picture).indexOf("data:image/png;base64,") === 0);
         }
 
+        // Decoded at the size it is drawn, both ways, whatever size the picture says it is.
+        function test_lm_aPictureIsDecodedAtTheSizeItIsDrawn() {
+            storeApp.show("library");
+            tryVerify(() => find("libraryArt:" + gameId) !== null);
+            const art = find("libraryArt:" + gameId);
+            tryVerify(() => String(art.picture).length > 0);
+            const image = named(art, "listingArtPicture");
+            verify(image !== null);
+            tryCompare(image, "status", Image.Ready);
+            verify(image.width > 0 && image.height > 0);
+            const ratio = Screen.devicePixelRatio;
+            verify(image.sourceSize.width > 0 && image.sourceSize.width <= Math.ceil(image.width * ratio),
+                   "sourceSize.width " + image.sourceSize.width + " for " + image.width);
+            verify(image.sourceSize.height > 0 && image.sourceSize.height <= Math.ceil(image.height * ratio),
+                   "sourceSize.height " + image.sourceSize.height + " for " + image.height);
+        }
+
+        // "Check for Updates" asks both stores, and waits for both.
+        function test_ln_checkingForUpdatesWaitsForTheStorefrontsToo() {
+            storeApp.show("library");
+            tryVerify(() => find("storeRefresh") !== null);
+            const button = find("storeRefresh");
+            tryCompare(Store, "loading", false, 10000);
+            tryCompare(button, "enabled", true);
+            Storefronts.refresh();
+            verify(Storefronts.loading);
+            verify(!Store.loading);
+            compare(button.enabled, false);
+            compare(button.text, "Checking…");
+            tryCompare(button, "enabled", true, 10000);
+        }
+
         // Themes and widgets carry on beside it, on their own engine.
         function test_m_themesAndWidgetsAreNotListedAsStorefrontsNorTheOtherWayRound() {
             tryCompare(Store, "ready", true, 10000);

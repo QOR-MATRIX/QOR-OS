@@ -324,9 +324,14 @@ release:
   Store's Games, Tools and Music pages and Settings are as they were.
 - With it on, `tests/store/fixtures-demo/store.pub` is compiled in, and `QOR_STORE_DEMONSTRATION_URL` names a format 2 catalogue, or
   several separated by `|` to be taken in turn.
-- `tst_storefronts` fails if a preset turns it on whose name does not end in `-demonstration` or that says CI or a release, if
-  what CI, a release or the image runs names it, or if a default build's `qor-shell` or `prism` holds the key. CMake refuses it
-  without the simulator, which is how a device's image is built.
+- Every preset says. The hidden `base` sets it off and only the two `-demonstration` presets turn it on, so configuring a folder
+  with any other preset turns off what was once set there by hand. `tst_storefronts` fails if a preset leaves it to the cache, if
+  one turns it on whose name does not end in `-demonstration` or says CI or a release, if what CI, a release or the image runs
+  names it (but for the check below), or if a default build's `qor-shell` or `prism` holds the key.
+- Whatever a build says of itself, `tools/ci/check_hardening.py <build folder>` fails one whose `CMakeCache.txt` has it on, or in
+  which a program or a shared library holds the key, as its base64 text or its bytes.
+- Nothing of a demonstration build installs: its first install rule refuses, which `demonstration_does_not_install` checks.
+  CMake refuses the option without the simulator, which is how a device's image is built.
 
 ```bash
 cmake --preset linux-demonstration      # or windows-demonstration
@@ -352,13 +357,22 @@ not that it has been built.
 them, and the Library keeps what each engine installed on a card of its own. A map holds no path a catalogue chose: a page asks for a
 preview by number and gets a `data:` URL of the checked bytes, once their digest has matched, their first bytes have said they are
 a picture, and their header has said they are at most 4096 pixels a side, since a small file can claim a very large picture.
-Everything from a catalogue is someone else's text, in a `Text` that sets `textFormat: Text.PlainText`.
+A card decodes its picture at the size it draws it, both ways. Four previews are on their way at a time and the rest wait their
+turn. What is held is bounded at 32 MB, counted as it is held, as base64 text: past that the oldest go first, and a card that lost
+its picture shows its glyph until its page is built again and asks again, as it may of one that was refused. What was fetched of a
+catalogue, previews and licences, is kept when "Check for Updates" finds the same catalogue, and forgotten when one that differs
+arrives or creator features go off. With them off, asking by id after something only the creator store carries gives its id and no
+version, and an installed one keeps its own name. An update is said to wait for creator features only when nothing else would
+refuse it. Everything from a catalogue is someone else's text, in a `Text` that sets `textFormat: Text.PlainText`.
 
 **A licence's text is only in its package.** "Read the Licence" fetches the whole package and checks it as an install would, signature
 and all, and installs nothing. So reading a licence before getting a large item costs what getting it costs: a catalogue that wants
 better would carry the text beside itself, as it does a preview. The package on its way counts against the 128 MB every install
-under way shares, and may stop with "Too much is on its way at once" as an install's would. Longer than 256 KB the licence is not
-shown, and the page says it comes with the package.
+under way shares, read from a local file as much as downloaded, and may stop with "Too much is on its way at once" as an install's
+would. One is on its way for an item however often it is asked for. A download stops, and says why, when creator features go off
+and only the creator store carries the item, or when a catalogue that differs arrives; one read from a local file is refused as
+it arrives instead. Its checks, the package's digest, signature and every file's, run on the thread that draws, as an install's
+do. Longer than 256 KB the licence is not shown, and the page says it comes with the package.
 
 **Starting again over the same folder.** A person who has reached `v2` and starts over finds `v1` refused as older, in plain words,
 with Next Catalogue beside the refusal. That is the sequence working. A fresh `QOR_STORE_DIR` starts the walk again.
