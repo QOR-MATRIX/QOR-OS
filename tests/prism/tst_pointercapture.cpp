@@ -1466,6 +1466,20 @@ void TestPointerCapture::theWayOutCannotBeHeardOrHeldOnTo()
         QVERIFY2(lock->started == ended + 1, qPrintable(held));
     }
     QCOMPARE(client.seen.keysDown.count(KEY_ESC), 1);
+
+    // A lock that has never held the pointer starts on a key, but not on one pressed with
+    // Super held: that is on its way to the shell, or to the host.
+    DO(key(u"Meta+Esc"_s));
+    lock->destroy();
+    Capture *fresh = client.lock(game->window->surface);
+    QVERIFY(client.roundtrip());
+    DO(key(u"Meta+Esc"_s));
+    QVERIFY(client.roundtrip());
+    QCOMPARE(client.seen.keysDown.count(KEY_ESC), 2);
+    QCOMPARE(fresh->started, 0);
+    DO(key(u"b"_s));
+    QVERIFY(client.roundtrip());
+    QCOMPARE(fresh->started, 1);
 }
 
 void TestPointerCapture::guideOnAControllerIsAWayOutToo()
