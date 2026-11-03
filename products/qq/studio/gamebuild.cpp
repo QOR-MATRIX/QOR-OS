@@ -923,9 +923,9 @@ QVariantMap GameBuild::make(const QString &project, const QString &scene, const 
 
     // What the project uses from asset packs, which the game says it holds. A lock that cannot be used says nothing true of that,
     // so nothing is built until it is put right.
-    const AssetLibrary::Lock lock = AssetLibrary::readLock(root);
-    if (!lock.problem.isEmpty())
-        return refused(tr("%1. Put it right or remove it, then build.").arg(lock.problem));
+    const AssetLibrary::Lock assetLock = AssetLibrary::readLock(root);
+    if (!assetLock.problem.isEmpty())
+        return refused(tr("%1. Put it right or remove it, then build.").arg(assetLock.problem));
 
     Found found;
     for (const QString &folder : {QStringLiteral("scenes"), QStringLiteral("logic"), QStringLiteral("prefabs"), QStringLiteral("assets")}) {
@@ -969,7 +969,7 @@ QVariantMap GameBuild::make(const QString &project, const QString &scene, const 
 
     // Each pack the lock names, with its licence and where it came from, and which of its copies the game carries.
     QJsonArray uses;
-    for (const AssetLibrary::LockedPack &pack : lock.packs) {
+    for (const AssetLibrary::LockedPack &pack : assetLock.packs) {
         QJsonArray carried;
         for (const AssetLibrary::LockedFile &file : pack.files) {
             if (files.contains(file.path))
