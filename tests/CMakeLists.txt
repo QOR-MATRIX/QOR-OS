@@ -46,6 +46,40 @@ target_compile_definitions(tst_store_format2 PRIVATE
     QOR_STORE_FIXTURES="${CMAKE_CURRENT_SOURCE_DIR}/store/fixtures"
     QOR_STORE_DEMO="${CMAKE_CURRENT_SOURCE_DIR}/store/fixtures-demo"
     QOR_STORE_LICENCES="${CMAKE_CURRENT_SOURCE_DIR}/store/licences")
+# What the shell's pages have of the two storefronts, the build choice that keeps them out of everything but a
+# demonstration, and what a catalogue hands them, from the hostile side (store/qml/storefronts.h).
+qor_add_test(tst_storefronts
+    SOURCES store/tst_storefronts.cpp store/testshop.h store/testsigner.h ${QOR_STORE_TEST_SIGNER}
+    LIBRARIES qor_store qor_storeplugin qor_sim qor_service_endpoint Qt6::GuiPrivate ${QOR_STORE_TEST_CRYPTO})
+target_compile_definitions(tst_storefronts PRIVATE
+    QOR_SOURCE_DIR="${CMAKE_SOURCE_DIR}"
+    QOR_STORE_CATALOG="${CMAKE_SOURCE_DIR}/store/catalog"
+    QOR_STORE_PUB="${CMAKE_SOURCE_DIR}/store/keys/store.pub"
+    QOR_STORE_DEMO="${CMAKE_CURRENT_SOURCE_DIR}/store/fixtures-demo"
+    QOR_SHELL_PROGRAM="$<TARGET_FILE:qor-shell>")
+# It reads what the shell and Prism were linked into, so it needs them built.
+add_dependencies(tst_storefronts qor-shell)
+if(TARGET prism)
+    target_compile_definitions(tst_storefronts PRIVATE QOR_PRISM_PROGRAM="$<TARGET_FILE:prism>")
+    add_dependencies(tst_storefronts prism)
+endif()
+if(QOR_STORE_DEMONSTRATION)
+    target_compile_definitions(tst_storefronts PRIVATE QOR_STORE_DEMONSTRATION)
+endif()
+# The Store's real pages over a catalogue the suite signs. Offscreen and in software, so it needs no display and no card.
+qt_add_executable(tst_storefronts_qml
+    store/tst_storefronts_qml.cpp store/testshop.h store/testsigner.h ${QOR_STORE_TEST_SIGNER})
+target_link_libraries(tst_storefronts_qml PRIVATE
+    Qt6::QuickTest Qt6::Test Qt6::QuickControls2 Qt6::GuiPrivate
+    qor_kit qor_kitplugin qor_lumen_style qor_lumen_styleplugin qor_services qor_servicesplugin qor_input qor_inputplugin
+    qor_store qor_storeplugin qor_apps qor_appsplugin qor_sim qor_service_endpoint ${QOR_STORE_TEST_CRYPTO}
+    qor::compiler_settings)
+target_compile_definitions(tst_storefronts_qml PRIVATE QUICK_TEST_SOURCE_DIR="${CMAKE_CURRENT_SOURCE_DIR}/store")
+set_target_properties(tst_storefronts_qml PROPERTIES WIN32_EXECUTABLE OFF)
+add_test(NAME tst_storefronts_qml
+    COMMAND tst_storefronts_qml -input "${CMAKE_CURRENT_SOURCE_DIR}/store/tst_storefronts.qml")
+set_tests_properties(tst_storefronts_qml PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen;QT_QUICK_BACKEND=software;${QOR_TEST_ENV}")
 # Prism's side of the QOR host protocol (prism/shell/producthost.h), against
 # a product with no window that tst_producthost_product stands in for.
 qt_add_executable(tst_producthost_product prism/producthost_product.cpp)
@@ -113,6 +147,19 @@ find_package(Python3 3.10 COMPONENTS Interpreter)
 add_test(NAME shell_e2e
     COMMAND qor-shell --unlocked --size 1280x800 --script "${CMAKE_CURRENT_SOURCE_DIR}/shell/apps.e2e.json")
 set_tests_properties(shell_e2e PROPERTIES LABELS "gpu" TIMEOUT 240 ENVIRONMENT "${QOR_TEST_ENV}")
+# The Store in the build that was asked for: a person's whole walk through a demonstration's two storefronts, or in any other
+# build, that there are none, and the pages say what they said.
+if(QOR_STORE_DEMONSTRATION)
+    add_test(NAME shell_e2e_store
+        COMMAND qor-shell --unlocked --size 1280x800 --script "${CMAKE_CURRENT_SOURCE_DIR}/shell/store-demonstration.e2e.json")
+    set_tests_properties(shell_e2e_store PROPERTIES LABELS "gpu" TIMEOUT 240 ENVIRONMENT
+        "${QOR_TEST_ENV};QOR_STORE_DEMONSTRATION_URL=${CMAKE_CURRENT_SOURCE_DIR}/store/fixtures-demo/v1/catalog.json|${CMAKE_CURRENT_SOURCE_DIR}/store/fixtures-demo/v2/catalog.json")
+else()
+    add_test(NAME shell_e2e_store
+        COMMAND qor-shell --unlocked --size 1280x800 --script "${CMAKE_CURRENT_SOURCE_DIR}/shell/store-ordinary.e2e.json")
+    set_tests_properties(shell_e2e_store PROPERTIES LABELS "gpu" TIMEOUT 120 ENVIRONMENT
+        "${QOR_TEST_ENV};QOR_STORE_DEMONSTRATION_URL=${CMAKE_CURRENT_SOURCE_DIR}/store/fixtures-demo/v1/catalog.json")
+endif()
 
 # ── Prism end-to-end (Linux, GPU) ───────────────────────────────────────────
 # Real Wayland clients in a nested Prism, driven by `prism --script`:

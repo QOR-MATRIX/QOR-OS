@@ -40,6 +40,8 @@ namespace {
 
 constexpr qint64 kMaximumCatalogSize = 4 * 1024 * 1024;
 constexpr qint64 kMaximumPreviewSize = 4 * 1024 * 1024;
+// More than any licence is, and few enough that a person's page can lay it out.
+constexpr qint64 kMaximumLicenceSize = 256 * 1024;
 // A plan's packages are held in memory until all of them are verified, so what every plan under way may come to,
 // together, is bounded.
 constexpr qint64 kMaximumHeldBytes = 128 * 1024 * 1024;
@@ -213,7 +215,7 @@ void StoreEngine::setState(State state, const QString &error)
 
 // Local catalogues (qrc:, file:) are read directly; anything else goes
 // through the network. Either way the result arrives asynchronously.
-void StoreEngine::fetch(const QString &job, const QUrl &url, qint64 maximumSize, const Done &done)
+void StoreEngine::fetch(const QString &job, const QUrl &url, qint64 maximumSize, const Done &done, bool held)
 {
     if (url.scheme() == u"qrc"_s || url.isLocalFile()) {
         const QString path = url.scheme() == u"qrc"_s ? u":"_s + url.path() : url.toLocalFile();
@@ -239,7 +241,7 @@ void StoreEngine::fetch(const QString &job, const QUrl &url, qint64 maximumSize,
     }
     // A package on its way is held in memory as it comes, so it counts against what every plan may hold together, and
     // a download that would take more than is left stops there.
-    const bool counted = !job.isEmpty();
+    const bool counted = held || !job.isEmpty();
     connect(reply, &QNetworkReply::readyRead, this, [this, reply, maximumSize, counted] {
         if (reply->bytesAvailable() > maximumSize)
             return reply->abort();
@@ -529,6 +531,21 @@ void StoreEngine::runNextStep(const PlanPtr &plan)
     });
 }
 
+// Whether a download is the package a listing says it is: an install's checks, and a licence's. Returns why not, or an
+// empty string.
+QString StoreEngine::refusePackage(const CatalogItem &item, const QByteArray &data, PackageResult *package) const
+{
+    if (QCryptographicHash::hash(data, QCryptographicHash::Sha256) != item.packageSha256)
+        return u"The download does not match the catalogue."_s;
+    const Developer developer = m_catalog.developers.value(item.developer);
+    // A format 2 catalogue says what the package unpacks to, and it may not unpack to a byte more.
+    *package =
+        item.format == 2 ? openPackage(data, developer.key, item.packageUnpacked) : openPackage(data, developer.key);
+    if (!package->ok)
+        return package->error;
+    return mismatch(item, *package);
+}
+
 // One package has arrived. It is verified and kept in memory, and nothing moves until they all have.
 void StoreEngine::stepArrived(const PlanPtr &plan, const QString &id, const QByteArray &data)
 {
@@ -537,15 +554,8 @@ void StoreEngine::stepArrived(const PlanPtr &plan, const QString &id, const QByt
     const CatalogItem *item = m_catalog.item(id);
     if (!item)
         return failPlan(plan, id, u"The item is no longer in the catalogue."_s);
-    if (QCryptographicHash::hash(data, QCryptographicHash::Sha256) != item->packageSha256)
-        return failPlan(plan, id, u"The download does not match the catalogue."_s);
-    const Developer developer = m_catalog.developers.value(item->developer);
-    // A format 2 catalogue says what the package unpacks to, and it may not unpack to a byte more.
-    PackageResult package =
-        item->format == 2 ? openPackage(data, developer.key, item->packageUnpacked) : openPackage(data, developer.key);
-    if (!package.ok)
-        return failPlan(plan, id, package.error);
-    if (const QString why = mismatch(*item, package); !why.isEmpty())
+    PackageResult package;
+    if (const QString why = refusePackage(*item, data, &package); !why.isEmpty())
         return failPlan(plan, id, why);
     if (const QString refusal = refusalAgainstInstalled(*item); !refusal.isEmpty())
         return failPlan(plan, id, refusal);
@@ -722,6 +732,22 @@ bool StoreEngine::isIntact(const QString &id) const
            && manifest.developer == installed->developer;
 }
 
+bool StoreEngine::hasUpdate(const QString &id) const
+{
+    const auto installed = m_installed.constFind(id);
+    const CatalogItem *item = m_catalog.item(id);
+    return installed != m_installed.cend() && item && compareVersions(installed->version, item->version) < 0
+           && refusalToInstall(*item).isEmpty() && refusalAgainstInstalled(*item).isEmpty();
+}
+
+int StoreEngine::updateCount() const
+{
+    int count = 0;
+    for (const Installed &installed : m_installed)
+        count += hasUpdate(installed.id) ? 1 : 0;
+    return count;
+}
+
 void StoreEngine::fail(const QString &id, const QString &error)
 {
     qCWarning(lcStore) << "Install of" << id << "failed:" << error;
@@ -827,6 +853,45 @@ bool StoreEngine::fetchPreview(const QString &id, int index)
               Q_EMIT previewFetched(id, index, why.isEmpty(), why.isEmpty() ? data : QByteArray(), why);
           });
     return true;
+}
+
+bool StoreEngine::fetchLicence(const QString &id)
+{
+    const CatalogItem *item = m_catalog.item(id);
+    if (!item || item->format != 2 || catalogueHasExpired() || (!item->isPlacedIn(View::Player) && !m_creatorFeatures))
+        return false;
+    // The whole package comes, so it is counted as an install's would be.
+    fetch(
+        {}, m_catalogUrl.resolved(QUrl(item->packageFile)), item->packageSize,
+        [this, id](bool ok, const QByteArray &data, const QString &error) {
+            QString text;
+            const QString why = ok ? licenceIn(id, data, &text) : error;
+            Q_EMIT licenceFetched(id, why.isEmpty(), text, why);
+        },
+        true);
+    return true;
+}
+
+// The licence's text in a download, once it is shown to be the package this catalogue lists. Returns why not, or an
+// empty string. The file rules have already said it is UTF-8 with no control characters or markup.
+QString StoreEngine::licenceIn(const QString &id, const QByteArray &data, QString *text) const
+{
+    const CatalogItem *item = m_catalog.item(id);
+    if (!item)
+        return u"The item is no longer in the catalogue."_s;
+    // The switch may have been turned off while this was on its way.
+    if (!item->isPlacedIn(View::Player) && !m_creatorFeatures)
+        return u"%1 is in the creator store, and creator features are off."_s.arg(item->id);
+    PackageResult package;
+    if (const QString refusal = refusePackage(*item, data, &package); !refusal.isEmpty())
+        return refusal;
+    const auto licence = package.contents.constFind(item->licence.file);
+    if (licence == package.contents.cend())
+        return u"The package does not hold its licence."_s;
+    if (licence->size() > kMaximumLicenceSize)
+        return u"This licence is too long to show here. It comes with the package, as %1."_s.arg(item->licence.file);
+    *text = QString::fromUtf8(*licence);
+    return {};
 }
 
 // ── The journal, and what a crash leaves ───────────────────────────────────

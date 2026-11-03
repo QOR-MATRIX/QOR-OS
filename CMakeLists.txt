@@ -29,6 +29,13 @@ option(QOR_WARNINGS_AS_ERRORS "Treat compiler warnings as errors" OFF)
 # (SECURITY.md). A device's image is built without it, and without qor-shell and
 # the tests, which need it: Prism then has the system's own services or none.
 option(QOR_BUILD_SIMULATOR "Build the simulated services (never in anything installed on a device)" ON)
+# The two storefronts, on a catalogue signed with a throwaway key (docs/STORE.md). A choice of a build, never a release:
+# tst_storefronts fails if a CI or release preset turns it on, and a device's image cannot.
+option(QOR_STORE_DEMONSTRATION "Compile in the Store's demonstration and its throwaway key (never in a release)" OFF)
+if(QOR_STORE_DEMONSTRATION AND NOT QOR_BUILD_SIMULATOR)
+    message(FATAL_ERROR "QOR_STORE_DEMONSTRATION is for development: a device's image is built without the simulator, "
+                        "and never holds the demonstration's key.")
+endif()
 # The QOR core is Rust, built by cargo (core/CMakeLists.txt, QOR-0003): on by
 # default wherever cargo is installed.
 find_program(QOR_CARGO cargo HINTS "$ENV{CARGO_HOME}/bin" "$ENV{HOME}/.cargo/bin" "$ENV{USERPROFILE}/.cargo/bin")

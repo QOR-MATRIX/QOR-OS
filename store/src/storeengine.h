@@ -101,6 +101,12 @@ public:
     // here.
     bool isIntact(const QString &id) const;
 
+    // Whether what is installed for `id` has a newer version that install would take now: with creator features off,
+    // the update of what only the creator store carries waits, and one that has expired or is not for this system is
+    // none.
+    bool hasUpdate(const QString &id) const;
+    int updateCount() const;
+
     bool isBusy(const QString &id) const { return m_jobs.contains(id); }
     double progress(const QString &id) const { return m_progress.value(id, 0); }
 
@@ -116,6 +122,11 @@ public:
     // creator features are off, or if its catalogue has expired.
     bool fetchPreview(const QString &id, int index);
 
+    // A licence's text is only in the package. This fetches the item's package, checks it as an install would, installs
+    // nothing, and ends with licenceFetched(). False if the item has no licence, or only the creator store carries it
+    // and creator features are off.
+    bool fetchLicence(const QString &id);
+
 Q_SIGNALS:
     void stateChanged();
     void catalogChanged();
@@ -124,6 +135,7 @@ Q_SIGNALS:
     void progressChanged(const QString &id);
     void finished(const QString &id, bool ok, const QString &error);
     void previewFetched(const QString &id, int index, bool ok, const QByteArray &data, const QString &error);
+    void licenceFetched(const QString &id, bool ok, const QString &text, const QString &error);
 
 protected:
     // Takes a catalogue that has passed every check. A plan under way against another catalogue stops.
@@ -175,7 +187,8 @@ private:
     };
 
     using Done = std::function<void(bool ok, const QByteArray &data, const QString &error)>;
-    void fetch(const QString &job, const QUrl &url, qint64 maximumSize, const Done &done);
+    // A download for a job, or one that is `held` whole, as a licence's package is, counts against heldBytesLimit().
+    void fetch(const QString &job, const QUrl &url, qint64 maximumSize, const Done &done, bool held = false);
     bool countReceived(QNetworkReply *reply, qint64 bytes);
     void setState(State state, const QString &error = {});
     void takeCatalog(Catalog catalog);
@@ -189,6 +202,8 @@ private:
     QString refusalToInstall(const CatalogItem &item) const;
     QString refusalAgainstInstalled(const CatalogItem &item) const;
     QString mismatch(const CatalogItem &item, const PackageResult &package) const;
+    QString refusePackage(const CatalogItem &item, const QByteArray &data, PackageResult *package) const;
+    QString licenceIn(const QString &id, const QByteArray &data, QString *text) const;
     bool catalogueHasExpired() const;
     bool viewIsClosed(View view) const;
 

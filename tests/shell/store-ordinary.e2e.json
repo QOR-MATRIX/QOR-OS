@@ -1,0 +1,48 @@
+{
+  "description": "The Store in an ordinary build: no second engine, whatever the environment says, and the pages say what they said. Run with the demonstration's URL set, which must be read by nothing.",
+  "steps": [
+    { "wait": 800 },
+    { "log": "No second engine, and the Store as it always was" },
+    { "expect": { "path": "storefronts.available", "equals": false } },
+    { "call": "launch", "args": ["store", { "page": "games" }] },
+    { "waitFor": { "window": "Store", "timeout": 10000 } },
+    { "wait": 1500 },
+    { "expect": { "path": "store.ready", "equals": true } },
+    { "expect": { "path": "store.items", "equals": 14 } },
+
+    { "log": "Games, Tools and Music say what they say today" },
+    { "expect": { "item": "storeComingTitle", "path": "text", "equals": "Games are on their way" } },
+    { "expect": { "item": "storefrontTitle", "path": "visible", "equals": "absent" } },
+    { "expect": { "item": "storeDemonstrationNote", "path": "visible", "equals": "absent" } },
+    { "click": { "item": "storeTools" } },
+    { "wait": 500 },
+    { "expect": { "item": "storeComingTitle", "path": "text", "equals": "Tools are on their way" } },
+    { "click": { "item": "storeMusic" } },
+    { "wait": 500 },
+    { "expect": { "item": "storeComingTitle", "path": "text", "equals": "Music is on its way" } },
+
+    { "log": "There is no Creator Store, by name or by any other way in" },
+    { "expect": { "item": "storeCreator", "path": "visible", "equals": false } },
+    { "call": "launch", "args": ["store", { "page": "creator" }] },
+    { "wait": 700 },
+    { "expect": { "item": "storefrontTitle", "path": "visible", "equals": "absent" } },
+    { "expect": { "item": "storeHero", "path": "visible", "equals": true } },
+    { "click": { "item": "storeLibrary" } },
+    { "wait": 500 },
+    { "expect": { "item": "storeNextCatalogue", "path": "visible", "equals": false } },
+    { "expect": { "item": "storefrontLibrary", "path": "visible", "equals": false } },
+
+    { "log": "Settings has no Store page, and asked for one by name shows Appearance" },
+    { "call": "launch", "args": ["settings", { "page": "store" }] },
+    { "waitFor": { "window": "Settings", "timeout": 10000 } },
+    { "wait": 1200 },
+    { "expect": { "item": "creatorFeaturesSwitch", "path": "visible", "equals": "absent" } },
+    { "expect": { "path": "settings.creatorFeatures", "equals": false } },
+    { "expect": { "path": "storefronts.available", "equals": false } },
+
+    { "close": "Settings" },
+    { "waitFor": { "gone": "Settings", "timeout": 4000 } },
+    { "close": "Store" },
+    { "waitFor": { "gone": "Store", "timeout": 4000 } }
+  ]
+}

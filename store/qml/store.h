@@ -42,6 +42,8 @@ public:
     static StoreEngine *engine();
     // The QOR OS Store's public key: the root of trust for every install.
     static QByteArray storeKey();
+    // Where the Store keeps what it installs: QOR_STORE_DIR, by default the app data folder's "store".
+    static QString dataLocation();
     // An engine for a suite to give this class, since engine() is one for the process and holds the built-in key.
     static void setEngineForTests(StoreEngine *engine);
 

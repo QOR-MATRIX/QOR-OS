@@ -72,10 +72,7 @@ StoreEngine *Store::engine()
     if (s_engineForTests)
         return s_engineForTests;
     static StoreEngine *shared = [] {
-        QString dir = qEnvironmentVariable("QOR_STORE_DIR");
-        if (dir.isEmpty())
-            dir = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation) + u"/store"_s;
-        auto *store = new StoreEngine(dir, storeKey(), QCoreApplication::instance());
+        auto *store = new StoreEngine(dataLocation(), storeKey(), QCoreApplication::instance());
         const QString url = qEnvironmentVariable("QOR_STORE_URL");
         store->setCatalogUrl(url.isEmpty() ? QUrl(u"qrc:/qt/qml/QOR/Store/catalog/catalog.json"_s)
                                            : QUrl::fromUserInput(url));
@@ -83,6 +80,12 @@ StoreEngine *Store::engine()
         return store;
     }();
     return shared;
+}
+
+QString Store::dataLocation()
+{
+    const QString dir = qEnvironmentVariable("QOR_STORE_DIR");
+    return dir.isEmpty() ? QStandardPaths::writableLocation(QStandardPaths::AppDataLocation) + u"/store"_s : dir;
 }
 
 QByteArray Store::storeKey()
@@ -132,7 +135,7 @@ QVariantMap Store::describe(const QString &id) const
     map.insert(u"inCatalog"_s, item != nullptr);
     map.insert(u"installed"_s, isInstalled);
     map.insert(u"installedVersion"_s, isInstalled ? installed->version : QString());
-    map.insert(u"updateAvailable"_s, isInstalled && item && compareVersions(installed->version, item->version) < 0);
+    map.insert(u"updateAvailable"_s, store->hasUpdate(id));
     map.insert(u"busy"_s, store->isBusy(id));
     map.insert(u"progress"_s, store->progress(id));
     return map;
@@ -158,13 +161,7 @@ QVariantList Store::library() const
     return list;
 }
 
-int Store::updateCount() const
-{
-    int count = 0;
-    for (const QVariant &item : library())
-        count += item.toMap().value(u"updateAvailable"_s).toBool() ? 1 : 0;
-    return count;
-}
+int Store::updateCount() const { return engine()->updateCount(); }
 
 void Store::refresh() { engine()->refresh(); }
 bool Store::install(const QString &id) { return engine()->install(id); }

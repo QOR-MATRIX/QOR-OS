@@ -192,7 +192,7 @@ scale.
 | `{"call": "setSurface", "args": [...]}` | Call a `Desktop` method (`launch`, `setSurface`, `switchSpace`, ...) |
 | `{"restore": spec}` | What clicking the window's app on the Shelf does |
 | `{"close": spec}` | Ask a window to close (`xdg_toplevel.close` for clients) |
-| `{"expect": {"path": ..., "equals": value}}` | Assert on the state below; `"window": spec` scopes the path to a window; in an array a path step is an index or `length` (`windows.length` counts closing windows too); `"near": [..] \| number \| "statePath"` with `"scale"` and `"tolerance"` compares rectangles and numbers; `"contains": "text"` checks a string holds another |
+| `{"expect": {"path": ..., "equals": value}}` | Assert on the state below; `"window": spec` scopes the path to a window; in an array a path step is an index or `length` (`windows.length` counts closing windows too); `"near": [..] \| number \| "statePath"` with `"scale"` and `"tolerance"` compares rectangles and numbers; `"contains": "text"` checks a string holds another. `"item": "<objectName>"` scopes the path to what an item shows (`visible`, `enabled`, `text`, `textFormat`), wherever it is scrolled; `"equals": "absent"` passes if nothing has that name, as it does for `"window"` |
 | `{"state": file}`, `{"screenshot": file}` | Write the state as JSON or grab the window (paths relative to the script); `"display": n` grabs another display under Prism |
 | `{"log": text}` | Print a progress line |
 

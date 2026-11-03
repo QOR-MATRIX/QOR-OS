@@ -69,6 +69,16 @@
       }
     },
     {
+      "name": "windows-demonstration",
+      "displayName": "Windows · The Store's demonstration",
+      "description": "The two storefronts on a catalogue signed with a throwaway key (docs/STORE.md). Never released.",
+      "inherits": "windows-base",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "RelWithDebInfo",
+        "QOR_STORE_DEMONSTRATION": "ON"
+      }
+    },
+    {
       "name": "linux-base",
       "hidden": true,
       "inherits": "base",
@@ -93,6 +103,16 @@
       "inherits": "linux-base",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "RelWithDebInfo"
+      }
+    },
+    {
+      "name": "linux-demonstration",
+      "displayName": "Linux · The Store's demonstration",
+      "description": "The two storefronts on a catalogue signed with a throwaway key (docs/STORE.md). Never released.",
+      "inherits": "linux-base",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "RelWithDebInfo",
+        "QOR_STORE_DEMONSTRATION": "ON"
       }
     },
     {
@@ -149,6 +169,14 @@
     {
       "name": "linux-release",
       "configurePreset": "linux-release"
+    },
+    {
+      "name": "windows-demonstration",
+      "configurePreset": "windows-demonstration"
+    },
+    {
+      "name": "linux-demonstration",
+      "configurePreset": "linux-demonstration"
     },
     {
       "name": "ci-windows",
@@ -208,6 +236,16 @@
       "name": "linux-release",
       "inherits": "test-base",
       "configurePreset": "linux-release"
+    },
+    {
+      "name": "windows-demonstration",
+      "inherits": "test-base",
+      "configurePreset": "windows-demonstration"
+    },
+    {
+      "name": "linux-demonstration",
+      "inherits": "test-base",
+      "configurePreset": "linux-demonstration"
     },
     {
       "name": "ci-windows",

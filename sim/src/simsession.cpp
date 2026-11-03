@@ -285,6 +285,9 @@ void SimSettings::load(const QJsonObject &config)
         setControllerVibration(store.value(u"vibration"_s, controllerVibration()).toBool());
         setControllerLightbar(store.value(u"lightbar"_s, controllerLightbar()).toBool());
         store.endGroup();
+        store.beginGroup(u"store"_s);
+        setCreatorFeatures(store.value(u"creatorFeatures"_s, creatorFeatures()).toBool());
+        store.endGroup();
     }
 
     for (auto signal :
@@ -292,7 +295,7 @@ void SimSettings::load(const QJsonObject &config)
            &SettingsSimpleSource::reduceTransparencyChanged, &SettingsSimpleSource::increaseContrastChanged,
            &SettingsSimpleSource::livingWallpaperChanged, &SettingsSimpleSource::audioReactiveChanged,
            &SettingsSimpleSource::controllerAutoSwitchChanged, &SettingsSimpleSource::controllerVibrationChanged,
-           &SettingsSimpleSource::controllerLightbarChanged })
+           &SettingsSimpleSource::controllerLightbarChanged, &SettingsSimpleSource::creatorFeaturesChanged })
         connect(this, signal, this, &SimSettings::save);
     for (auto signal : { &SettingsSimpleSource::themeChanged, &SettingsSimpleSource::widgetsChanged })
         connect(this, signal, this, &SimSettings::save);
@@ -330,6 +333,9 @@ void SimSettings::save()
     store.setValue(u"cursorSpeed"_s, controllerCursorSpeed());
     store.setValue(u"vibration"_s, controllerVibration());
     store.setValue(u"lightbar"_s, controllerLightbar());
+    store.endGroup();
+    store.beginGroup(u"store"_s);
+    store.setValue(u"creatorFeatures"_s, creatorFeatures());
     store.endGroup();
 }
 

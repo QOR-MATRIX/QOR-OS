@@ -253,6 +253,8 @@ own KMS backend is Phase 3
 | `tst_audio` | Qt Test | the audio engine: rendering, sessions, decoding, EQ, limiter, analysis |
 | `tst_input` | Qt Test | controller reports, CRCs, mappings, dead zones, the manager and the navigator |
 | `tst_store` | Qt Test | catalogue and package signatures, installation, tampering refused |
+| `tst_storefronts` | Qt Test | the two storefronts as pages have them: that only a demonstration build holds their key, no preset says otherwise, every query names its view, and what a catalogue hands over from the hostile side (hostile pictures, licences) |
+| `tst_storefronts_qml` | Qt Quick Test | the Store's real pages over a catalogue of markup: each store's list, search, featured row and counts hold nothing of the other's, plain text throughout, the switch in Settings |
 | `tst_store_format2` | Qt Test | catalogue format 2 and every package check from the hostile side: archive bombs, unsafe and colliding names, what a pack may hold, sequence and expiry, drafts, the two storefronts' views, creator features, dependencies |
 | `tst_qorcore` | Qt Test | the QOR core through its C bridge: version, units, exact amounts, refusals ([§10](#10-the-qor-core)) |
 | `tst_producthost` | Qt Test | Prism's side of the host protocol: the handshake, who may connect, the long poll, a real product process with its token on stdin only, nothing secret logged; products started with no channel, one run at a time ([§11](#hosted-by-prism)) |

@@ -26,6 +26,7 @@ qt_add_qml_module(qor_store
         qml/ThemePreview.qml
     SOURCES
         qml/store.h qml/store.cpp
+        qml/storefronts.h qml/storefronts.cpp
         src/archive.h src/archive.cpp
         src/catalog.h src/catalog.cpp
         src/filerules.h src/filerules.cpp
@@ -42,6 +43,27 @@ qt_add_qml_module(qor_store
         QOR.Kit
         QOR.Services
 )
+
+# The demonstration's key, in a build that asked for it and in no other (docs/STORE.md).
+if(QOR_STORE_DEMONSTRATION)
+    set(QOR_STORE_DEMONSTRATION_PUB "${CMAKE_SOURCE_DIR}/tests/store/fixtures-demo/store.pub")
+    set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${QOR_STORE_DEMONSTRATION_PUB}")
+    file(READ "${QOR_STORE_DEMONSTRATION_PUB}" QOR_STORE_DEMONSTRATION_KEY)
+    string(STRIP "${QOR_STORE_DEMONSTRATION_KEY}" QOR_STORE_DEMONSTRATION_KEY)
+    set_property(SOURCE qml/storefronts.cpp APPEND PROPERTY
+        COMPILE_DEFINITIONS "QOR_STORE_DEMONSTRATION_KEY=\"${QOR_STORE_DEMONSTRATION_KEY}\"")
+    # The engines this system has, for a listing's `engines` to be checked against: QQ, at the version in this tree. QQ keeps
+    # its own build, so this says which QQ this is, and not that it has been built.
+    set(QOR_STORE_QQ_PROJECT "${CMAKE_SOURCE_DIR}/products/qq/CMakeLists.txt")
+    set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${QOR_STORE_QQ_PROJECT}")
+    file(STRINGS "${QOR_STORE_QQ_PROJECT}" QOR_STORE_QQ_LINE REGEX "^project\\(QQ VERSION [0-9]+\\.[0-9]+\\.[0-9]+")
+    string(REGEX MATCH "[0-9]+\\.[0-9]+\\.[0-9]+" QOR_STORE_QQ_VERSION "${QOR_STORE_QQ_LINE}")
+    if(NOT QOR_STORE_QQ_VERSION)
+        message(FATAL_ERROR "QQ's version was not found in ${QOR_STORE_QQ_PROJECT}")
+    endif()
+    set_property(SOURCE qml/storefronts.cpp APPEND PROPERTY
+        COMPILE_DEFINITIONS "QOR_STORE_QQ_VERSION=\"${QOR_STORE_QQ_VERSION}\"")
+endif()
 
 if(WIN32)
     target_sources(qor_store PRIVATE src/signature_windows.cpp)
