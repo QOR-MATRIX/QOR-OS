@@ -332,7 +332,10 @@ unpublished builds stay out of reach.
   in QQ's own `tst_storegame` (`2fbfc2a`), walled, from the scene its `game.json` names
 - [x] The creator-features switch in Settings, off by default and enforced by the engine, and the Creator Store's pages; turning
   it off closes them and keeps what is installed
-- [ ] QQ Studio's asset library: browse, preview, copy into the project with a lock file, update safely
+- [x] QQ Studio's asset library: browse, preview, copy into the project with `assets.lock.json`, update without writing over a
+  changed copy, all or nothing across a crash; the built game says what it uses. `tst_assetlibrary` 50 cases under `linux-asan`, in
+  software, with the demonstration pack installed by the real StoreEngine (`45eb16b`). The listing's provenance waits for the Store's
+  installed record to carry it
 - [ ] Publishing in stages: private draft, preview, package checks, a declaration of rights, submission, review, publication
 - [ ] Editable projects in the Creator Store as editions linked to a game, with their engine, files, outside dependencies and permitted
   reuse; playable mods, per game, only where that game allows them
