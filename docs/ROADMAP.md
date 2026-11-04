@@ -368,10 +368,14 @@ unpublished builds stay out of reach.
   The agent panel's bound step rows then remove ten findings with none added: 247 console messages/272 structured warnings.
   Six selected Qt cases per Release/sanitizer build pass, none failed/skipped, including inert row replacement/style/plain text,
   literal status/key problems and the existing key/description flow in a private test keyring. Native lint still fails.
-  At integrated product revision `b2b084c`, the complete current Studio suite passes in each build: all 26 functions plus
+  At integrated product revision `b2b084c`, the complete Studio suite at that revision passes in each build: all 26 functions plus
   setup/cleanup, 28 Qt cases with no failures/skips or function filter. Fresh native records/source matches are verified;
   incremental build logs have no warnings, and hardening passes 16 Release/9 sanitizer programs. These remain hidden WSL
   software checks with leak checking off; full OS/core and native hardware are unverified.
+  A later real-popup test reproduced AutoText for creator group names. An explicit public MenuItem/plain-label delegate
+  fixes it; actual delegate activation still reparents the entity and updates the selected index. Seven selected Qt cases per
+  build pass without failures/skips, including group/prefab, undo, duplication and Studio-look checks. Hardening passes 16/9;
+  lint remains 247 console messages/272 structured warnings, none added. The full 28-case runs above precede this popup fix.
   The latest 48 scene cases pass in Release and under sanitizers, including malformed-image readiness; six selected screen-play
   functions pass (8 Qt cases including setup/cleanup). The earlier broader play run and a clean detached baseline each had
   the same 11 failures. Test clock waits and guaranteed fake-controller cleanup subsequently bring all 53 play cases to a pass,

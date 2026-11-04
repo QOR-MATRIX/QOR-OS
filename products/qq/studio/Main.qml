@@ -2494,12 +2494,34 @@ ApplicationWindow {
                         Layout.fillWidth: true
                         Label { text: qsTr("In group"); opacity: 0.7; Layout.preferredWidth: 90 }
                         ComboBox {
+                            id: groupChoice
                             objectName: "groupChoice"
                             Layout.fillWidth: true
                             readonly property var choices: window.selection ? [null].concat(window.groupsFor(window.selection)) : [null]
                             model: choices.map(g => g ? g.name : qsTr("None (the scene)"))
                             currentIndex: window.selection ? Math.max(0, choices.indexOf(window.selection.parent)) : 0
                             onActivated: (i) => window.moveSelectionInto(choices[i])
+                            // Changed for QOR OS: a creator's group name stays literal in the popup too.
+                            delegate: MenuItem {
+                                id: groupOption
+                                required property string modelData
+                                required property int index
+                                width: ListView.view ? ListView.view.width : groupChoice.width
+                                text: modelData
+                                highlighted: groupChoice.highlightedIndex === index
+                                hoverEnabled: groupChoice.hoverEnabled
+                                Material.foreground: groupChoice.currentIndex === index ? groupChoice.Material.accent
+                                                                                       : groupChoice.Material.foreground
+                                contentItem: Label {
+                                    text: groupOption.text
+                                    textFormat: Text.PlainText
+                                    font: groupOption.font
+                                    color: groupOption.enabled ? groupOption.Material.foreground : groupOption.Material.hintTextColor
+                                    horizontalAlignment: groupOption.mirrored ? Text.AlignRight : Text.AlignLeft
+                                    verticalAlignment: Text.AlignVCenter
+                                    elide: Text.ElideRight
+                                }
+                            }
                         }
                     }
                     StudioButton {

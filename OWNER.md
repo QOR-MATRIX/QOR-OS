@@ -1,6 +1,6 @@
 # Where QOR OS stands
 
-For Andrew, 4 November 2026. Local branch: `integration/owner-brief`; current product checkpoint: `b2b084c`.
+For Andrew, 4 November 2026. Local branch: `integration/owner-brief`.
 
 All 14 worktrees (Git checkouts) are preserved. This session owns implementation. Heavy jobs use the
 verified QOR-local lock sequentially; no cross-project prerequisite exists. No push was performed.
@@ -20,10 +20,10 @@ two processors, a 1.25 GiB cap and one worker. ASan/UBSan check memory and undef
 - Agent panel: **6 Qt cases pass per build**, none failed/skipped: inert row replacement/styles, literal text and the private
   test key store/description flow.
 
-QQ lint (Qt's interface-language checker) still fails: **247 console messages/272 structured warning records**; structured
+Last verified QQ lint (Qt's interface-language checker) still fails: **247 console messages/272 structured warning records**; structured
 reports include repeated/additional findings absent from console output. The latest agent batch removes ten console/structured findings, none added.
 Six spatial-audio findings remain a Qt metadata constraint. Last root aggregate lint passed incrementally; shell lint has
-**zero warnings/errors across 28 files**, plus one unchanged informational note. Its ID collision is fixed.
+**zero warnings/errors across 28 files**, plus one unchanged informational note.
 **12 Wayland type-metadata warnings** seen during dependency generation remain unresolved.
 Listing/planning remain on the window thread; last Release observations: **269/396 ms**, with no latency budget established.
 
@@ -31,7 +31,8 @@ Listing/planning remain on the window thread; last Release observations: **269/3
 
 Literal logic problems: **3 focused/18 related Qt cases pass per build**, none failed/skipped, including recovery/save/build interlocks.
 Inspector filenames are literal; full checks include loaded field edits, entity switches, undo, groups/prefabs and 2D editing.
-The transient assignment warning is fixed. No heavy job is active. Next: an inert group-selector text probe.
+Group-selector AutoText is fixed; **7 Qt cases per build pass**, none failed/skipped, including actual popup activation.
+The complete 28-case runs precede this fix. No heavy job runs. Next: the Ground-component lint batch.
 Exact sources, commands, records, active job and resume point: `build/autonomous-2026-11-04/HANDOFF.md`.
 
 Full OS/core, actual Windows products, native Linux graphics/sound/controllers and image/install proof remain unrun; the

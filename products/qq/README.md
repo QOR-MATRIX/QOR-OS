@@ -1,6 +1,6 @@
 # QQ, the QOR Engine
 
-<!-- Changed for QOR OS: current project-document links; on Linux the Studio keeps the provider's key in the Secret Service (QOR OS's QOR-0011); gamepads come from QOR OS's controller service, QOR.Input, in place of XInput; each project's workspace in the Studio; the asset library; literal game-screen labels and their owning component context; literal Agent status/key problems; project-file list bindings and layout; literal logic problem descriptions; typed statistics overlay; bound inspector field loaders and literal source filenames; bound Agent step rows. -->
+<!-- Changed for QOR OS: current project-document links; on Linux the Studio keeps the provider's key in the Secret Service (QOR OS's QOR-0011); gamepads come from QOR OS's controller service, QOR.Input, in place of XInput; each project's workspace in the Studio; the asset library; literal game-screen labels and their owning component context; literal Agent status/key problems; project-file list bindings and layout; literal logic problem descriptions; typed statistics overlay; bound inspector field loaders and literal source filenames; bound Agent step rows; literal group-selector names. -->
 
 An engine for virtual worlds and experiences, built on **Qt 6.12** under the owner's commercial licence
 ([the Qt rule](../../docs/decisions/qtos/QTOS-0004-commercial-qt-and-proprietary-repository.md)). QQ is developed in QOR OS
@@ -421,8 +421,8 @@ or planted-fault record is not a fresh passing suite.
   the editor, a brace taken away said to be wrong by line, mended and saved with Ctrl+S (the file written, the scene
   not); and F3's frames, draw calls and bodies, every body drawn as its collider in play, and gone with F3 again.
 
-  **Since QOR OS:** literal logic-problem descriptions and inspector source filenames, plus edits through the actual
-  loaded field controls and entity-kind switches; undo, groups/prefabs and 2D editing remain covered.
+  **Since QOR OS:** literal logic-problem descriptions, inspector source filenames and group-selector popup names (with
+  actual delegate activation/reparenting), plus edits through loaded field controls and entity-kind switches; undo, groups/prefabs and 2D editing remain covered.
 
   Eight planted faults were each caught: quick edits of one field never merged, an edit after an undo keeping what
   could be redone, undo forgetting what was last saved, undo losing the selection, saving made a step to undo, a copy

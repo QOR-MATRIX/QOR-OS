@@ -9,6 +9,7 @@
 // controller on the machine joins in (virtualpads.cpp); and drawn in software alone, what play does to bodies is waited
 // for on the physics world's clock.
 // Changed for QOR OS: supplied logic problem descriptions are displayed literally.
+// Changed for QOR OS: the group selector must display supplied names literally.
 // Changed for QOR OS: source filenames are literal and loaded inspector editors keep their selected fields.
 
 #include <QDir>
@@ -868,6 +869,51 @@ private slots:
         QMetaObject::invokeMethod(s.entity(QStringLiteral("Stand 2")), "part", Q_RETURN_ARG(QVariant, second),
                                   Q_ARG(QVariant, QStringLiteral("Plinth")));
         QCOMPARE(second.value<QObject *>()->property("colour").value<QColor>(), QColor(QStringLiteral("#ff6a00")));
+    }
+
+    void groupNamesInTheSelectorArePlainText()
+    {
+        Studio s;
+        QVERIFY(s.open());
+        const QString name = QStringLiteral("<b>Inert group");
+        auto *group = s.call("add", QStringLiteral("Group"), QVariantMap{{QStringLiteral("name"), name}}).value<QObject *>();
+        QVERIFY(group);
+        auto *shape = s.entity(QStringLiteral("Plinth"));
+        QVERIFY(shape);
+        QVERIFY(s.window->setProperty("selection", QVariant::fromValue(shape)));
+        s.settle(2);
+        auto *choice = s.window->findChild<QQuickItem *>(QStringLiteral("groupChoice"));
+        QVERIFY(choice);
+        QTRY_COMPARE(choice->property("count").toInt(), 2);
+        auto *popup = choice->property("popup").value<QObject *>();
+        QVERIFY(popup);
+        QVERIFY(QMetaObject::invokeMethod(popup, "open"));
+        QTRY_VERIFY(popup->property("visible").toBool());
+        auto *content = popup->property("contentItem").value<QQuickItem *>();
+        QVERIFY(content);
+        QQuickItem *label = nullptr;
+        // An inert opening tag only; no image, network URL or outside logic.
+        QTRY_VERIFY(([&] {
+            QList<QQuickItem *> pending{content};
+            while (!pending.isEmpty()) {
+                auto *item = pending.takeLast();
+                pending.append(item->childItems());
+                if (item->property("textFormat").isValid() && item->property("text").toString() == name) {
+                    label = item;
+                    return true;
+                }
+            }
+            return false;
+        })());
+        QCOMPARE(label->property("textFormat").toInt(), int(Qt::PlainText));
+        auto *delegate = label;
+        while (delegate && delegate->metaObject()->indexOfSignal("clicked()") < 0)
+            delegate = delegate->parentItem();
+        QVERIFY(delegate);
+        // Exercise the ComboBox's own delegate activation connection as well as its literal label.
+        QVERIFY(QMetaObject::invokeMethod(delegate, "clicked"));
+        QTRY_COMPARE(shape->parent(), group);
+        QTRY_COMPARE(choice->property("currentIndex").toInt(), 1);
     }
 
     void inspectorEditorsChangeOnlyTheirSelectedFields()
