@@ -176,6 +176,22 @@ No window was shown, no real rendering or input latency was measured, and
 this is not hardware or compositor-gate evidence. Exact records and commands:
 `build/autonomous-2026-11-04/HANDOFF.md`.
 
+A separate check of the private WindowLayer ID rename used the real shell
+at 1600 × 1000: three 3-second tours before and after, on the same machine
+and sanitizer build, with the offscreen software scene graph explicitly
+configured and the GPU fenced. Settings, Store and document/media folders
+were temporary and empty. The reports label `graphicsApi` as `unknown`.
+
+| Median of three runs | Before (root inputs `56ccb1e`) | After the ID rename |
+|----------------------|-------------------------------|---------------------|
+| Average interval | 9.63 ms | 10.50 ms |
+| p95 interval | 13.59 ms | 13.58 ms |
+
+These small software-only series establish no speed improvement or hardware
+budget result. The existing `shell_e2e` application-controls/window-management
+script passes both before and after, with unchanged assertions and timeout;
+fresh records are in the same handoff's `windowlayer-*-e2e-record` folders.
+
 ### Compositor decision gate
 
 **Deferred, not failed**

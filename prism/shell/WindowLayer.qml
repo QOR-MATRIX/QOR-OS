@@ -10,7 +10,7 @@ import QOR.Apps
 // and magnetic snapping. Windows of every Space live on one horizontal strip
 // that slides as `spaceOffset` springs between Spaces.
 Item {
-    id: layer
+    id: windowLayer
 
     property rect workArea
     // Whether the screen is locked, and whether a shell surface (Beam, Home, Overview) has the keyboard: what a client's
@@ -30,8 +30,8 @@ Item {
     property int spaceCount: 3
     // Every display's layer, left to right (Prism with several outputs); a
     // window moves between them. Just this one in the simulator.
-    property var displays: [layer]
-    readonly property int displayIndex: Math.max(0, displays.indexOf(layer))
+    property var displays: [windowLayer]
+    readonly property int displayIndex: Math.max(0, displays.indexOf(windowLayer))
     property var originProvider: appId => Qt.rect(width / 2, height, 0, 0)
     // The Space chip under a scene point in Overview, or -1 (set by the shell).
     property var spaceAt: scenePoint => -1
@@ -234,7 +234,7 @@ Item {
         const h = Math.min(app.height, workArea.height - 40);
         const cascade = (index % 5) - 2;
         const window = windowFactory.createObject(strip, {
-            manager: layer,
+            manager: windowLayer,
             appId: appId,
             title: app.name,
             space: currentSpace,
@@ -292,7 +292,7 @@ Item {
         const planned = product !== null && product.frame !== null;
         const frame = planned ? product.frame : planFrame(960, 640, null);
         const window = windowFactory.createObject(strip, {
-            manager: layer,
+            manager: windowLayer,
             appId: product ? product.id : clientAppId(toplevel.appId),
             startedByPrism: product !== null,
             title: toplevel.title,
@@ -381,7 +381,7 @@ Item {
     // lands under the pointer; otherwise centred.
     function moveToDisplay(window: AppWindow, index: int, scenePoint: var, grab: var): bool {
         const target = displays[index];
-        if (!window || !target || target === layer || window.closing)
+        if (!window || !target || target === windowLayer || window.closing)
             return false;
         let landing = null;
         if (scenePoint)
@@ -404,7 +404,7 @@ Item {
 
     function receive(window: AppWindow, landing: var, grab: var) {
         window.parent = strip;
-        window.manager = layer;
+        window.manager = windowLayer;
         window.normalW = Math.min(window.normalW, workArea.width);
         window.normalH = Math.min(window.normalH, workArea.height);
         if (landing && grab) {
@@ -525,24 +525,24 @@ Item {
     Surface {
         id: snapPreview
         readonly property real presence: snapSpring.value
-        x: layer.snapRect.x + 6 * (1 - presence)
-        y: layer.snapRect.y + 6 * (1 - presence)
-        width: Math.max(0, layer.snapRect.width - 12 * (1 - presence))
-        height: Math.max(0, layer.snapRect.height - 12 * (1 - presence))
+        x: windowLayer.snapRect.x + 6 * (1 - presence)
+        y: windowLayer.snapRect.y + 6 * (1 - presence)
+        width: Math.max(0, windowLayer.snapRect.width - 12 * (1 - presence))
+        height: Math.max(0, windowLayer.snapRect.height - 12 * (1 - presence))
         visible: presence > 0.01
         opacity: presence
         radius: Tokens.radius.window + 4
         color: Oklch.alpha(Theme.accent, 0.16)
         strokeColor: Oklch.alpha(Theme.accent, 0.55)
         strokeWidth: 1.5
-        Spring { id: snapSpring; target: layer.snapVisible ? 1 : 0; preset: Motion.snappy }
+        Spring { id: snapSpring; target: windowLayer.snapVisible ? 1 : 0; preset: Motion.snappy }
     }
 
     Item {
         id: strip
-        x: -layer.spaceOffset * layer.width
-        width: layer.width
-        height: layer.height
+        x: -windowLayer.spaceOffset * windowLayer.width
+        width: windowLayer.width
+        height: windowLayer.height
     }
 
     // Horizontal two-finger swipes on empty desktop switch Spaces.
@@ -554,16 +554,16 @@ Item {
         onWheel: event => {
             accumulated += event.pixelDelta.x;
             if (Math.abs(accumulated) > 140) {
-                const next = layer.currentSpace + (accumulated < 0 ? 1 : -1);
+                const next = windowLayer.currentSpace + (accumulated < 0 ? 1 : -1);
                 accumulated = 0;
-                if (next >= 0 && next < layer.spaceCount)
+                if (next >= 0 && next < windowLayer.spaceCount)
                     Intents.request("shell.space", { "index": next });
             }
         }
     }
 
     TapHandler {
-        enabled: layer.overview
-        onTapped: layer.overviewPicked()
+        enabled: windowLayer.overview
+        onTapped: windowLayer.overviewPicked()
     }
 }
