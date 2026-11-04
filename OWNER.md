@@ -17,8 +17,6 @@ two processors, a 1.25 GiB cap and one worker. ASan/UBSan check memory and undef
   and two-project asset/filter isolation. Product hardening (exploit mitigations): **16 Release/11 sanitizer programs pass**.
 - Frame probe: **7 sanitizer cases pass**, none failed/skipped: stall capture, idle timer stop, threaded resume, queued detach
   and status redraw. Shell UI and **5-program hardening** pass. Controlled timing comparisons establish no speed improvement.
-- Agent panel: **6 Qt cases pass per build**, none failed/skipped: inert row replacement/styles, literal text and the private
-  test key store/description flow.
 
 Last verified QQ lint (Qt's interface-language checker) still fails: **243 console messages/268 structured warning records**; structured
 reports include repeated/additional findings absent from console output. The Ground batch removes four console/structured findings, none added.
@@ -32,7 +30,8 @@ Listing/planning remain on the window thread; last Release observations: **269/3
 Literal logic problems: **3 focused/18 related Qt cases pass per build**, none failed/skipped, including recovery/save/build interlocks.
 Group-selector AutoText is fixed; **7 Qt cases per build pass**, none failed/skipped, including actual popup activation.
 Ground: **5 physics/3 pixel Qt cases per build pass**, none failed/skipped; Studio/Player variants rebuilt and fingerprinted.
-The complete 28-case runs precede these two fixes. No heavy job runs. Next: current-program build/Library smoke checks.
+The complete 28-case runs precede these two fixes. Current-program journeys at `6f14fe2`: **5 Qt cases per build pass**, none failed/skipped. No heavy job runs.
+Next: reproduce/fix Player report-write failure returning success; give repeated measurements fresh output paths.
 Exact sources, commands, records, active job and resume point: `build/autonomous-2026-11-04/HANDOFF.md`.
 
 Full OS/core, actual Windows products, native Linux graphics/sound/controllers and image/install proof remain unrun; the

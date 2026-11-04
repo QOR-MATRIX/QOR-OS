@@ -380,6 +380,10 @@ unpublished builds stay out of reach.
   structured warnings. Existing physics checks pass five Qt cases per build; its checker/extent pixel check passes three per
   build, all without failures/skips. Both Studio/Player variants are rebuilt and fingerprinted. Hardening passes 16 Release/11
   sanitizer programs, including the newly built play/world suites. The full 28-case runs at `b2b084c` precede this batch too.
+  Current-program journeys at `6f14fe2` pass three existing functions in each build (five Qt cases, zero failures/skips):
+  Studio edit/save/build and project switch/reopen; actual Player built-copy independence; actual headless Studio trust and
+  command-line protocol. Fresh records/product-source matches and hardening 16/11 pass. The CLI reports `compiled:false`;
+  these remain copy/rendering checks under private WSL, with native hardware/audio unverified.
   The latest 48 scene cases pass in Release and under sanitizers, including malformed-image readiness; six selected screen-play
   functions pass (8 Qt cases including setup/cleanup). The earlier broader play run and a clean detached baseline each had
   the same 11 failures. Test clock waits and guaranteed fake-controller cleanup subsequently bring all 53 play cases to a pass,
