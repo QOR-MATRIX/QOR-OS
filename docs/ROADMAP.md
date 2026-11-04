@@ -347,8 +347,12 @@ unpublished builds stay out of reach.
   still run on the window's thread: the latest Release largest-pack run measured first listing 269 ms, repeated listing 39 ms,
   new-version listing 345 ms and planning 396 ms. These are individual observations without a latency budget or an improvement claim.
   Native Linux, a GPU and Windows still need
-  their own evidence. Runtime ids and the Qt Quick 3D C++ dependency declaration reduced QQ lint to 429 diagnostics, none
-  added. Binding all five screen drawings to their owning context and typing image readiness leaves 347 diagnostics, none added.
+  their own evidence. Runtime ids and the Qt Quick 3D C++ dependency declaration reduced QQ's console lint messages to 429,
+  none added. Binding all five screen drawings to their owning context and typing image readiness then left 347, none added.
+  The project-file panel's bound delegates, actual Studio window type and preferred marker sizes now leave 340 console
+  messages, none added. Its structured findings fall from 14 to 5 with none added; full QQ JSON retains 375 warning records,
+  including repeats collapsed by the console. Seven selected Studio/workspace Qt cases pass in each of Release and
+  ASan/UBSan, none failed/skipped, covering file click/filter, saved-state summary/Forget and two-project isolation.
   The latest 48 scene cases pass in Release and under sanitizers, including malformed-image readiness; six selected screen-play
   functions pass (8 Qt cases including setup/cleanup). The earlier broader play run and a clean detached baseline each had
   the same 11 failures. Test clock waits and guaranteed fake-controller cleanup subsequently bring all 53 play cases to a pass,

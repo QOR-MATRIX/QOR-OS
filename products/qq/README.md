@@ -1,6 +1,6 @@
 # QQ, the QOR Engine
 
-<!-- Changed for QOR OS: current project-document links; on Linux the Studio keeps the provider's key in the Secret Service (QOR OS's QOR-0011); gamepads come from QOR OS's controller service, QOR.Input, in place of XInput; each project's workspace in the Studio; the asset library; literal game-screen labels and their owning component context; literal Agent status/key problems. -->
+<!-- Changed for QOR OS: current project-document links; on Linux the Studio keeps the provider's key in the Secret Service (QOR OS's QOR-0011); gamepads come from QOR OS's controller service, QOR.Input, in place of XInput; each project's workspace in the Studio; the asset library; literal game-screen labels and their owning component context; literal Agent status/key problems; project-file list bindings and layout. -->
 
 An engine for virtual worlds and experiences, built on **Qt 6.12** under the owner's commercial licence
 ([the Qt rule](../../docs/decisions/qtos/QTOS-0004-commercial-qt-and-proprietary-repository.md)). QQ is developed in QOR OS
@@ -134,7 +134,9 @@ it; the QQ Player plays a scene on its own, natively and in a browser.
   **The Studio's tools (P3.15, third part, built 20 October 2026):** the **project's files** under the scene list
   (`studio/ProjectPanel.qml`): its scenes, prefabs and logic, and the assets a scene can use by kind (models, pictures
   shown as themselves, sounds, skies, maps), with a filter; a click uses one as its kind says (a model added, a
-  picture put on the selection, a sky made the scene's, a prefab placed, a logic file opened). The **logic editor**
+  picture put on the selection, a sky made the scene's, a prefab placed, a logic file opened). Its delegates bind to their
+  own panel and list, the Studio reference has the actual window type, and the layout owns each kind mark's preferred size.
+  The **logic editor**
   under the world (`studio/LogicEditor.qml`): a logic file with its lines numbered and coloured, built as you pause
   (`SceneIO.checkLogic`), what does not build listed by line, and saved with its button or Ctrl+S while it has the
   keys, so a scene that is playing picks it up at once; a Behaviour's **Edit logic** opens its file there. **F3**

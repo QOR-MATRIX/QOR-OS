@@ -16,6 +16,10 @@
 //
 // Changed for QOR OS: reset(), so a filter typed in one project is not left on the next's files; and a file's name is
 // text, never markup (AGENTS.md).
+// Changed for QOR OS: file-list delegates stay bound to this panel and its list, with the actual Studio window type;
+// the layout owns each kind mark's size.
+
+pragma ComponentBehavior: Bound
 
 import QtQuick
 import QtQuick.Controls
@@ -27,7 +31,7 @@ ColumnLayout {
     id: panel
 
     /// The Studio's window: what using a file asks of it.
-    required property QtObject studio
+    required property Main studio
     /// The project as SceneIO.project() gives it.
     property var info: ({ scenes: [], logic: [], prefabs: [], assets: [] })
     /// The game's store (SceneIO.storeOf), or null for a scene in no folder.
@@ -120,8 +124,8 @@ ColumnLayout {
                 }
                 Rectangle {
                     visible: row.modelData.kind !== "picture"
-                    width: 9
-                    height: 9
+                    Layout.preferredWidth: 9
+                    Layout.preferredHeight: 9
                     radius: row.modelData.kind === "logic" ? 1 : 5
                     color: panel.marks[row.modelData.kind] ?? Look.inkMuted
                     Layout.leftMargin: 5
