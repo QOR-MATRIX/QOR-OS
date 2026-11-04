@@ -335,12 +335,14 @@ unpublished builds stay out of reach.
 - [x] QQ Studio's asset library: browse, preview checked bytes, copy into a trusted project with `assets.lock.json`, and update
   without writing over a changed copy; the built game says what it uses. Recovery checks the project folder and each placed file,
   and every lock has its own change tag. Use and Update run off the window's thread; Save, Build and changing project wait.
-  The Store's listing provenance reaches the lock whole within its existing 8 MiB cap (`8b77c01`). On 4 November, Release and
-  AddressSanitizer/UBSan `tst_assetlibrary` each passed 89 cases, none failed or skipped, including the opt-in largest-pack
-  measurement; Release `tst_studio` passed all 25. The unchanged recovery code's sanitizer build is preserved at `850a639`.
-  The 3 November sanitizer `tst_gamebuild` passed all 195 cases; it was not rerun on 4 November. These use WSL software rendering
-  and the real StoreEngine's demonstration pack. Listing and planning still run on the window's thread: the Release largest-pack
-  run measured 257 ms and 402 ms respectively, without establishing a latency budget. Native Linux, a GPU and Windows still need
+  The Store's listing provenance reaches the lock whole within its existing 8 MiB cap (`8b77c01`). On 4 November, Qt inputs at
+  `6046e08` passed Release `tst_assetlibrary` 89 cases, `tst_gamebuild` 195 and `tst_studio` 25, none failed or skipped, including
+  the opt-in largest-pack measurement and the real StoreEngine's demonstration pack. The same current-source sanitizer suites
+  are running. Earlier sanitizer runs passed 89 asset-library cases on 4 November and 195 game-build cases on 3 November;
+  the unchanged recovery code's earlier build is preserved at `850a639`. These use WSL software rendering. Listing and planning
+  still run on the window's thread: the latest Release largest-pack run measured first listing 269 ms, repeated listing 39 ms,
+  new-version listing 345 ms and planning 396 ms. These are individual observations without a latency budget or an improvement claim.
+  Native Linux, a GPU and Windows still need
   their own evidence. Runtime ids and the Qt Quick 3D C++ dependency declaration reduced QQ lint to 429 diagnostics, none
   added. Binding all five screen drawings to their owning context and typing image readiness leaves 347 diagnostics, none added.
   The latest 48 scene cases pass in Release and under sanitizers, including malformed-image readiness; six selected screen-play

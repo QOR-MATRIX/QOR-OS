@@ -15,9 +15,10 @@ with leak checking off.
 
 - Latest screen batch: **48 scene cases in each build and 8 selected screen-play cases pass**, none failed/skipped, including
   independent instances, edits, scaling and malformed-image readiness. Hardening (exploit mitigations): **16 Release/4 sanitizer programs pass**.
-- The earlier clean baseline reproduced **42 play passes/11 failures**. Test game-clock waits and guaranteed fake-controller
-  cleanup then brought the full suite to **53 passed**, none failed/skipped. This full run precedes the latest screen batch;
-  native waits, motion conditions and tolerances remain unchanged.
+- Full play: **53 passed**, none failed/skipped, after baseline test-clock/controller cleanup fixes and before the latest
+  screen batch. Native waits, motion conditions and tolerances remain unchanged.
+- Latest Release integration: **89 asset-library, 195 game-build and 25 Studio cases pass**, none failed/skipped, at `6046e08`.
+  Pack measurement: first listing **269 ms**, update planning **396 ms**, both on the window thread; no latency budget is established.
 - Agent status/key problems now use literal text: **4 cases pass in each build**, without provider/network/keychain operations.
   **90 Linux wrapper/reporter cases pass**; first attempts/retries stay sequential.
 - Benchmark launcher regressions reproduced reused evidence, ignored producer/client errors and equal-refresh acceptance.
@@ -31,8 +32,7 @@ Six spatial-audio findings remain a Qt metadata constraint. No warning was suppr
 
 ## Running, next and limits
 
-One QOR heavy job is refreshing asset-library, game-build and Studio checks at `6046e08`, then the same sanitizer suites.
-Release Studio has passed; other results remain pending. New opt-in pack measurements are pending. Exact commit, commands,
+One QOR heavy job is running the same current-source sanitizer suites; this group's result is pending. Exact commit, commands,
 records and resume point: `build/autonomous-2026-11-04/HANDOFF.md`. Next probe: replacement confirmation must recheck trust.
 Recovery/provenance source is unchanged; listing/planning still occupy the window thread.
 
