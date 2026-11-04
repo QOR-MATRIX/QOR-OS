@@ -204,6 +204,10 @@ against that release's ISO manifest:
 tools/dev/prism-gate-bundle.sh --build-dir ~/qor-build/linux-release     --manifest ubuntu-26.04.1-desktop-amd64.manifest --out qor-gate.tar.gz
 ```
 
+The packager checks file/dependency inventories and their filters before writing an archive; a failed command or missing
+dependency fails the package. `BUNDLE.txt` records the launcher checkout, packaging time and exact executable SHA-256 digests.
+It leaves the executables' build revision unverified: a checkout's current commit does not establish which revision built a binary.
+
 On the machine under test, booted into Ubuntu (a live USB session is enough)
 with two displays at different refresh rates on one GPU:
 

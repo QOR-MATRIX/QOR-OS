@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# SPDX-License-Identifier: LicenseRef-QOR-OS-Proprietary
 # Packs Prism, the Prism test client, the Qt runtime they need and
 # prism-gate.sh into one archive that runs on a stock Ubuntu desktop, such as
 # a live USB session: the decision gate then needs no Qt kit and no build on
@@ -62,7 +63,30 @@ declare -A target=()
 while read -r name _; do
     target[${name%:amd64}]=1
 done < "$manifest"
-mapfile -t binaries < <(find "$root" -type f \( -name '*.so*' -o -perm -u+x \) ! -name '*.sh')
+if find "$root" -type f \( -name '*.so*' -o -perm -u+x \) ! -name '*.sh' > "$stage/binaries.txt"; then
+    :
+else
+    status=$?
+    echo "Bundle file inventory failed ($status); no archive was written." >&2
+    exit "$status"
+fi
+mapfile -t binaries < "$stage/binaries.txt"
+# A process substitution hides its producer's exit from the loop. Check each inventory before using any of it.
+if LD_LIBRARY_PATH="$qt/lib" ldd "${binaries[@]}" > "$stage/ldd.txt" 2> "$stage/ldd-error.txt"; then
+    :
+else
+    status=$?
+    echo "Dependency inventory failed ($status); no archive was written." >&2
+    cat "$stage/ldd-error.txt" >&2
+    exit "$status"
+fi
+if awk '$2 == "=>" && ($3 ~ /^\// || $3 == "not") { print $1, $3 }' "$stage/ldd.txt" | sort -u > "$stage/dependencies.txt"; then
+    :
+else
+    status=$?
+    echo "Dependency filtering failed ($status); no archive was written." >&2
+    exit "$status"
+fi
 declare -A packages=()
 missing=()
 while read -r soname path; do
@@ -89,7 +113,7 @@ while read -r soname path; do
                 packages[$package]=1 ;;
         esac
     fi
-done < <(LD_LIBRARY_PATH="$qt/lib" ldd "${binaries[@]}" 2> /dev/null | awk '$2 == "=>" && ($3 ~ /^\// || $3 == "not") { print $1, $3 }' | sort -u)
+done < "$stage/dependencies.txt"
 if [ ${#missing[@]} -gt 0 ]; then
     printf 'The target lacks these, and they cannot be bundled:\n' >&2
     printf '  %s\n' "${missing[@]}" >&2
@@ -98,12 +122,19 @@ fi
 
 commit=$(git -C "$here" -c safe.directory='*' rev-parse --short HEAD 2> /dev/null || echo unknown)
 bundled="${!packages[*]}"
+(
+    cd "$root"
+    sha256sum prism/compositor/prism tests/prism-test-client
+) > "$stage/program-digests.txt"
 {
     echo "QOR OS decision-gate bundle"
-    echo "Commit: $commit"
-    echo "Built: $(date -u +%Y-%m-%dT%H:%MZ) on $(sed -n 's/^PRETTY_NAME="\(.*\)"$/\1/p' /etc/os-release)"
+    echo "Launcher checkout HEAD: $commit"
+    echo "Executable build revision: not established by this packager"
+    echo "Packaged: $(date -u +%Y-%m-%dT%H:%MZ) on $(sed -n 's/^PRETTY_NAME="\(.*\)"$/\1/p' /etc/os-release)"
     echo "Qt: $qt"
     echo "Bundled system packages: ${bundled:-none}"
+    echo "Executable SHA-256:"
+    cat "$stage/program-digests.txt"
     echo
     echo "Run ./prism-gate.sh --help for usage."
 } > "$root/BUNDLE.txt"

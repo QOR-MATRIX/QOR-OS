@@ -4,7 +4,7 @@ For Andrew, 4 November 2026. Local work continues on `integration/owner-brief`; 
 
 QOR OS joins Prism (desktop/compositor), Lumen (design language), QQ, ARQADE and QOR Media. Local fixes cover failed-command
 reporting, fresh evidence, strict lint status, supplied text and screen ownership. Nothing is pushed. All 13 original worktrees
-are preserved, plus one clean detached QOR baseline. This session owns implementation; heavy jobs use the verified QOR-local
+(Git checkouts) are preserved, plus one clean comparison checkout. This session owns implementation; heavy jobs use the verified QOR-local
 lock sequentially. No cross-project prerequisite exists.
 
 ## Verified checks
@@ -21,7 +21,8 @@ with leak checking off.
 - Agent status/key problems now use literal text: **4 cases pass in each build**, without provider/network/keychain operations.
   **90 Linux wrapper/reporter cases pass**; first attempts/retries stay sequential.
 - Benchmark launcher regressions reproduced reused evidence, ignored producer/client errors and equal-refresh acceptance.
-  **12 inert-program tests pass**, including normal post-measurement disconnects; no compositor/display/device runs. Old folders stay intact.
+  **12 launcher and 6 bundle fixture tests pass**, including normal disconnects and failed inventories. Bundles record program
+  fingerprints and mark their build revision unverified. No real Qt, compositor or device runs in these tests; old evidence stays intact.
 - Readiness unit checks: **14 pass**. Runner-boundary checks: **36 pass/1 Windows link-privilege skip**; that link case separately
   passes on Linux. VM preparation stand-ins: **138 pass**, none skipped; these establish no isolation proof.
 
@@ -31,7 +32,7 @@ Six spatial-audio findings remain a Qt metadata constraint. No warning was suppr
 ## Running, next and limits
 
 One QOR heavy job is refreshing asset-library, game-build and Studio checks at `6046e08`, then the same sanitizer suites.
-Release Studio has passed; other results remain pending. New opt-in pack measurements are pending. Exact HEAD, commands,
+Release Studio has passed; other results remain pending. New opt-in pack measurements are pending. Exact commit, commands,
 records and resume point: `build/autonomous-2026-11-04/HANDOFF.md`. Next probe: replacement confirmation must recheck trust.
 Recovery/provenance source is unchanged; listing/planning still occupy the window thread.
 
