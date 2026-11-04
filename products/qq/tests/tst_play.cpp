@@ -9,6 +9,7 @@
 //
 // Changed for QOR OS: a controller comes from QOR OS's controller service, QOR.Input; here, only its virtual ones.
 // Changed for QOR OS: drawn in software alone, what is measured over the game's time is waited for on its clocks (Stage).
+// Changed for QOR OS: physics/controller checks use those clocks too; a failed controller case still unplugs its virtual pad.
 
 #include <QDir>
 #include <QElapsedTimer>
@@ -24,6 +25,7 @@
 #include <QQuickItem>
 #include <QQuickWindow>
 #include <QSaveFile>
+#include <QScopeGuard>
 #include <QSet>
 #include <QSignalSpy>
 #include <QStandardPaths>
@@ -465,9 +467,9 @@ private slots:
         QObject *crate = s.entity(QStringLiteral("Crate"));
         QVERIFY(crate->property("physics").value<QObject *>());
         // Falling (the first world in a process takes a moment to start)...
-        QVERIFY2(s.runUntil([&s] { return s.where(QStringLiteral("Crate")).y() < 2.6f; }, 5000), "the crate did not fall");
+        QVERIFY2(s.playUntil([&s] { return s.where(QStringLiteral("Crate")).y() < 2.6f; }, 5000), "the crate did not fall");
         // ...and at rest.
-        s.run(2500);
+        QVERIFY(s.play(2500));
         const QVector3D rest = s.where(QStringLiteral("Crate"));
         QVERIFY2(qAbs(rest.y() - 0.5f) < 0.05f, qPrintable(QStringLiteral("at rest at y %1").arg(rest.y())));
         QVERIFY(qAbs(rest.x() - 2) < 0.05f);
@@ -486,7 +488,7 @@ private slots:
             "    Shape { name: \"Drop\"; form: \"sphere\"; position: Qt.vector3d(3, 3, 0); scale: Qt.vector3d(0.5, 0.5, 0.5); "
             "body: \"dynamic\"; bounce: 0 }\n"))));
         QVERIFY(!s.entity(QStringLiteral("Mist"))->property("physics").value<QObject *>());
-        s.run(2500);
+        QVERIFY(s.play(2500));
         // On the plinth's top (0.5), a ball of radius 0.25.
         const float ball = s.where(QStringLiteral("Ball")).y();
         QVERIFY2(qAbs(ball - 0.75f) < 0.05f, qPrintable(QStringLiteral("ball at %1").arg(ball)));
@@ -504,7 +506,7 @@ private slots:
             "    Shape { name: \"Peak\"; form: \"cone\"; position: Qt.vector3d(2, 3, 0); body: \"dynamic\"; bounce: 0 }\n"
             "    Shape { name: \"Spire\"; form: \"cone\"; position: Qt.vector3d(0, 3, -2); scale: Qt.vector3d(1, 3, 1); "
             "body: \"dynamic\"; bounce: 0 }\n"))));
-        s.run(3000);
+        QVERIFY(s.play(3000));
         // Standing on their flat ends: the pillar's middle a metre up, the cone's base (where a cone is) on the ground.
         const float pillar = s.where(QStringLiteral("Pillar")).y();
         const float peak = s.where(QStringLiteral("Peak")).y();
@@ -649,6 +651,7 @@ private slots:
         QVERIFY(QTest::qWaitForWindowActive(s.window.get()));
         auto *pads = qor::input::GamepadManager::instance();
         const QString pad = pads->addVirtual(qor::input::Family::PlayStation, QStringLiteral("DualSense"));
+        auto unplug = qScopeGuard([pads, pad] { pads->removeVirtual(pad); });
         QCOMPARE(input->gamepad(), true);
 
         // Forward on the left stick (QOR.Input's y runs down), and Cross, the south button: walking, and a jump.
@@ -659,7 +662,7 @@ private slots:
         QCOMPARE(input->move(), QVector2D(0, 1));
         QCOMPARE(input->jump(), true);
         const QVector3D from = hero->property("feet").value<QVector3D>();
-        s.run(800);
+        QVERIFY(s.play(800));
         const QVector3D to = hero->property("feet").value<QVector3D>();
         QVERIFY2(QVector2D(to.x() - from.x(), to.z() - from.z()).length() > 0.5f,
                  qPrintable(QStringLiteral("walked %1").arg(QVector2D(to.x() - from.x(), to.z() - from.z()).length())));
@@ -727,6 +730,7 @@ private slots:
 
         // Unplugged: nothing held, and no pad.
         pads->removeVirtual(pad);
+        unplug.dismiss();
         QCOMPARE(input->gamepad(), false);
         QCOMPARE(input->held(QStringLiteral("fire")), false);
         QCOMPARE(input->move(), QVector2D(0, 0));
@@ -957,7 +961,7 @@ private slots:
                            "    Trigger { name: \"Orb\"; form: \"sphere\"; position: Qt.vector3d(0, 1, -2.5) }\n"
                            "    Behaviour { name: \"Pickup\"; source: \"../logic/pickup.qml\"; target: \"Orb\" }\n")),
                        true, QUrl::fromLocalFile(QDir(project.path()).filePath(QStringLiteral("scenes/play.qml")))));
-        s.run(400);  // standing
+        QVERIFY(s.play(400));  // standing
         QObject *pickup = s.entity(QStringLiteral("Pickup"));
         auto who = [pickup] {
             QObject *logic = pickup->property("logic").value<QObject *>();
@@ -965,7 +969,7 @@ private slots:
         };
         QCOMPARE(who(), QString());
         QTest::keyPress(s.window.get(), Qt::Key_W);
-        const bool heard = s.runUntil([&] { return !who().isEmpty(); }, 3000);
+        const bool heard = s.playUntil([&] { return !who().isEmpty(); }, 3000);
         QTest::keyRelease(s.window.get(), Qt::Key_W);
         QVERIFY2(heard, "the orb did not hear the player");
         QCOMPARE(who(), QStringLiteral("Player:Hero"));
@@ -1095,16 +1099,16 @@ private slots:
                        true, QUrl::fromLocalFile(QDir(project.path()).filePath(QStringLiteral("scenes/play.qml")))));
         QObject *kick = s.entity(QStringLiteral("Kick"));
         auto logic = [kick] { return kick->property("logic").value<QObject *>(); };
-        QVERIFY(s.runUntil([&] { return logic() && logic()->property("kicked").toBool(); }, 5000));
+        QVERIFY(s.playUntil([&] { return logic() && logic()->property("kicked").toBool(); }, 5000));
         QCOMPARE(logic()->property("refused").toBool(), true);  // a kinematic body is led, not pushed
-        s.run(1500);
+        QVERIFY(s.play(1500));
         QVERIFY2(s.where(QStringLiteral("Ball")).x() > -1.5f,
                  qPrintable(QStringLiteral("ball at x %1").arg(s.where(QStringLiteral("Ball")).x())));
 
         // The lift rose a metre, its body with it, and carried its rider up.
-        QVERIFY(s.runUntil(
+        QVERIFY(s.playUntil(
             [&] { return s.entity(QStringLiteral("Lift"))->property("position").value<QVector3D>().y() >= 1.249f; }, 6000));
-        s.run(500);
+        QVERIFY(s.play(500));
         QVERIFY2(qAbs(s.where(QStringLiteral("Lift")).y() - 1.25f) < 0.02f,
                  qPrintable(QStringLiteral("lift's body at %1").arg(s.where(QStringLiteral("Lift")).y())));
         QVERIFY2(s.where(QStringLiteral("Rider")).y() > 1.6f,
@@ -1354,7 +1358,7 @@ private slots:
         // The boulder is rolled at the player, with a rumble from where it was.
         const QVector3D boulder = s.where(QStringLiteral("Boulder"));
         bool rumbled = false;
-        QVERIFY(s.runUntil([&] {
+        QVERIFY(s.playUntil([&] {
             rumbled = rumbled || sounding(QStringLiteral("rumble.wav"));
             return rumbled && (s.where(QStringLiteral("Boulder")) - boulder).length() > 1.0f;
         }, 6000));

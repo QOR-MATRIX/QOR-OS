@@ -15,7 +15,7 @@ _SCRIPT = _REPO / "tools" / "dev" / "products.sh"
 
 SUITE = textwrap.dedent(
     """\
-    import os, signal, sys
+    import os, signal, sys, time
     name, how, marks = sys.argv[1], sys.argv[2], sys.argv[3]
     with open(os.path.join(marks, "ran"), "a") as ran:
         ran.write(name + " " + os.environ.get("QOR_EXPECTED_RENDERER", "unset") + "\\n")
@@ -23,7 +23,19 @@ SUITE = textwrap.dedent(
         sys.exit(77)
     flaked = os.path.join(marks, name + ".flaked")
     again = os.path.exists(flaked)
-    fails = how == "fails" or (how in ("flaky", "kills-its-ctest") and not again)
+    if how == "sequential" or (how == "retry-sequential" and again):
+        activity = os.path.join(marks, "active")
+        try:
+            os.mkdir(activity)
+        except FileExistsError:
+            print("FAIL!  : Stand::aCase() 'one suite at a time' returned FALSE. (overlap)")
+            print("Totals: 0 passed, 1 failed, 0 skipped, 0 blacklisted, 1ms", flush=True)
+            sys.exit(1)
+        try:
+            time.sleep(0.6)
+        finally:
+            os.rmdir(activity)
+    fails = how == "fails" or (how in ("flaky", "kills-its-ctest", "retry-sequential") and not again)
     open(flaked, "w").close()
     if how == "kills-its-ctest" and again:
         os.kill(os.getppid(), signal.SIGKILL)
@@ -72,6 +84,19 @@ CTEST = textwrap.dedent(
     os.name == "posix" and all(shutil.which(tool) for tool in ("bash", "cmake", "ctest", "make", "python3")),
     "needs bash, CMake and make")
 class Attempts(unittest.TestCase):
+    def test_inherited_parallelism_cannot_overlap_the_first_attempt(self):
+        code, said, ran = self.run_script([("tst_one", "sequential"), ("tst_two", "sequential")],
+                                          "--attempts", "1", CTEST_PARALLEL_LEVEL="2")
+        self.assertEqual(code, 0, said)
+        self.assertEqual(len(ran), 2)
+
+    def test_inherited_parallelism_cannot_overlap_the_retry(self):
+        code, said, ran = self.run_script([("tst_one", "retry-sequential"), ("tst_two", "retry-sequential")],
+                                          CTEST_PARALLEL_LEVEL="2")
+        self.assertEqual(code, 0, said)
+        self.assertEqual(len(ran), 4)
+        self.assertIn("Failed once, and passed only on a later attempt", said)
+
     def run_script(self, suites, *arguments, old_record=False, blocked_record=False, **environment):
         made = tempfile.TemporaryDirectory()
         self.addCleanup(made.cleanup)

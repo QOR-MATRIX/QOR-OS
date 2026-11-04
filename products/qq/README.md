@@ -1,6 +1,6 @@
 # QQ, the QOR Engine
 
-<!-- Changed for QOR OS: current project-document links; on Linux the Studio keeps the provider's key in the Secret Service (QOR OS's QOR-0011); gamepads come from QOR OS's controller service, QOR.Input, in place of XInput; each project's workspace in the Studio; the asset library; literal game-screen labels and their owning component context. -->
+<!-- Changed for QOR OS: current project-document links; on Linux the Studio keeps the provider's key in the Secret Service (QOR OS's QOR-0011); gamepads come from QOR OS's controller service, QOR.Input, in place of XInput; each project's workspace in the Studio; the asset library; literal game-screen labels and their owning component context; literal Agent status/key problems. -->
 
 An engine for virtual worlds and experiences, built on **Qt 6.12** under the owner's commercial licence
 ([the Qt rule](../../docs/decisions/qtos/QTOS-0004-commercial-qt-and-proprietary-repository.md)). QQ is developed in QOR OS
@@ -291,6 +291,9 @@ ScreenText and ScreenButton labels render game-supplied text literally. Markup i
 rich text; changing one screen part updates its own drawing. ScreenButton keeps its existing uppercase label formatting.
 Their drawing Components are bound to their own screen part's context, including when ScreenPart creates them on the
 World's overlay. Text, sizing and actions continue to refer to that instance; neither drawing uses a delegate model context.
+
+The Agent panel also shows supplied status, key-storage problems and messages literally. Markup in those strings stays
+text, including when the status changes during a run.
 
 ## Build, test, deploy
 

@@ -9,7 +9,7 @@
 //
 // Changed for QOR OS: imports QQ, whose Look the panel's colours and faces come from. Without it, Look was undefined:
 // the key's problem and the steps were not coloured, and the tool steps were not in the mono face.
-// Changed for QOR OS: whether the agent's logic may run, and its answers are text, never markup (QOR-0018).
+// Changed for QOR OS: whether the agent's logic may run; answers, status and key problems are text, never markup (QOR-0018).
 
 import QtQuick
 import QtQuick.Controls
@@ -45,6 +45,7 @@ ColumnLayout {
 
     Label {
         objectName: "agentStatus"
+        textFormat: Text.PlainText
         Layout.fillWidth: true
         wrapMode: Text.Wrap
         text: panel.designer.status !== "" ? panel.designer.status
@@ -96,6 +97,7 @@ ColumnLayout {
         }
         Label {
             id: keyProblem
+            textFormat: Text.PlainText
             visible: text !== ""
             color: Look.bad
             wrapMode: Text.Wrap
@@ -108,7 +110,7 @@ ColumnLayout {
             opacity: 0.55
             font.pixelSize: 12
             text: qsTr("The agent runs on your own Anthropic account: Anthropic bills it for what each run uses. Demiurge "
-                       + "does not pay for it and does not charge for it. The key is kept in Windows Credential Manager "
+                       + "does not pay for it and does not charge for it. The key is kept in your system keychain "
                        + "for your account only, and never written to a file or a log.")
         }
     }

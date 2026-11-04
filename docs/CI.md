@@ -348,6 +348,16 @@ the paused CI jobs ran.
 
 #### What Linux runs
 
+The product wrapper runs suites sequentially on first attempts and retries, overriding inherited CTest parallelism.
+This is checked with real CTest and stand-in suites that fail if they overlap; it does not prove product runtime behavior.
+
+Gameplay checks measure body movement against the existing game-clock helpers when rendering in software. The remaining
+physics/controller, trigger, impulse and Orb Run movement waits now use those helpers, retaining their durations, conditions
+and tolerances. Native waits retain their wall-clock behavior; UI opacity, music and pause controls keep their existing
+waits. A virtual controller is removed even when its case returns early, so a failure cannot hold input in later cases.
+The clean and component baselines each failed the same 11 play cases; the corrected full suite passes all 53 under the
+same software fence. This is functional evidence, not native graphics, sound or controller proof.
+
 **`QOR_RUN_LINUX_PRODUCTS` is not set and Build is paused, so today CI runs none of this.** With it set, the job runs
 every suite each product registers with CTest, hidden: **in software under WSL or with no GPU device, and on the GPU
 on a Linux machine that has a working one.**

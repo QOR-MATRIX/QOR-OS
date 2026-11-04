@@ -439,6 +439,9 @@ each with CMake and Ninja against the `gcc_64` kit, builds it, and runs the
 suites it registers with CTest. A product whose suites fail has its failed
 suites run once more.
 
+First attempts and retries explicitly use CTest's `--parallel 1`, so an inherited `CTEST_PARALLEL_LEVEL` cannot overlap
+suite windows or input. Regression checks exercise both paths with real CTest and stand-in programs, without opening Qt.
+
 ```bash
 tools/dev/products.sh                                 # build/products-linux/{qq,arqade,media}
 tools/dev/products.sh --product qq --attempts 1

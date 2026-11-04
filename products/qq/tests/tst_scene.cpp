@@ -10,11 +10,13 @@
 // Changed for QOR OS: the Player's materials and TileMap's geometry keep their bindings when Qt has properties of the same name.
 // Changed for QOR OS: game-supplied screen text is literal and remains bound to its own screen part.
 // Changed for QOR OS: screen drawings made through ScreenPart keep per-instance edits and follow the overlay's scale.
+// Changed for QOR OS: panels, bars and project images keep their own drawing values too.
 
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
 #include <QFont>
+#include <QImage>
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
@@ -231,6 +233,84 @@ private slots:
             QVERIFY(first->setProperty("width", 230));
             QCOMPARE(firstVisual->property("width").toDouble(), 460.0);
             QVERIFY(secondVisual->property("width").toDouble() != 460.0);
+        }
+    }
+
+    void screenShapesFollowTheirOwnPart_data()
+    {
+        QTest::addColumn<QString>("kind");
+        QTest::newRow("panel") << QStringLiteral("ScreenPanel");
+        QTest::newRow("bar") << QStringLiteral("ScreenBar");
+        QTest::newRow("image") << QStringLiteral("ScreenImage");
+    }
+
+    void screenShapesFollowTheirOwnPart()
+    {
+        QFETCH(QString, kind);
+        QTemporaryDir project;
+        QVERIFY(project.isValid());
+        if (kind == QStringLiteral("ScreenImage")) {
+            QImage picture(4, 4, QImage::Format_RGB32);
+            picture.fill(Qt::blue);
+            QVERIFY(picture.save(QDir(project.path()).filePath(QStringLiteral("probe.png"))));
+        }
+        QQmlComponent host(engine);
+        host.setData("import QtQuick\nimport QtQuick3D\nNode { property QtObject qqView: QtObject { "
+                     "property Item overlay: Item { width: 1280; height: 720 } } }\n", QUrl());
+        std::unique_ptr<QObject> placed(host.create());
+        QVERIFY2(placed, qPrintable(host.errorString()));
+        const QString source = kind == QStringLiteral("ScreenImage") ? QStringLiteral("source: \"probe.png\";") : QString();
+        std::unique_ptr<QObject> scene(io->loadText(QStringLiteral(
+            "import QQ\nScene { %1 { name: \"First\"; width: 120; height: 60; %2 } "
+            "%1 { name: \"Second\"; width: 80; height: 40; %2 } }\n").arg(kind, source),
+            QUrl::fromLocalFile(QDir(project.path()).filePath(QStringLiteral("scene.qml"))), placed.get()));
+        QVERIFY2(scene, qPrintable(io->lastError()));
+        QObject *first = entityNamed(scene.get(), QStringLiteral("First"));
+        QObject *second = entityNamed(scene.get(), QStringLiteral("Second"));
+        QVERIFY(first);
+        QVERIFY(second);
+        QObject *firstVisual = first->property("content").value<QObject *>();
+        QObject *secondVisual = second->property("content").value<QObject *>();
+        QVERIFY(firstVisual);
+        QVERIFY(secondVisual);
+        QCOMPARE(firstVisual->property("width").toDouble(), 120.0);
+        QCOMPARE(secondVisual->property("width").toDouble(), 80.0);
+        QVERIFY(first->setProperty("width", 100));
+        QCOMPARE(firstVisual->property("width").toDouble(), 100.0);
+        QCOMPARE(secondVisual->property("width").toDouble(), 80.0);
+        QObject *layer = first->property("layer").value<QObject *>();
+        QVERIFY(layer);
+        QVERIFY(layer->setProperty("height", 1440));
+        QCOMPARE(firstVisual->property("width").toDouble(), 200.0);
+        QCOMPARE(secondVisual->property("width").toDouble(), 160.0);
+        QCOMPARE(firstVisual->property("height").toDouble(), 120.0);
+        QCOMPARE(secondVisual->property("height").toDouble(), 80.0);
+
+        if (kind == QStringLiteral("ScreenPanel")) {
+            QVERIFY(first->setProperty("width", 0));
+            QCOMPARE(firstVisual->property("width").toDouble(), 1280.0);
+            QCOMPARE(firstVisual->property("height").toDouble(), 1440.0);
+            QCOMPARE(secondVisual->property("width").toDouble(), 160.0);
+            QVERIFY(first->setProperty("shade", 0.25));
+            QVERIFY(qAbs(firstVisual->property("color").value<QColor>().alphaF() - 0.25) < 0.001);
+            QVERIFY(qAbs(secondVisual->property("color").value<QColor>().alphaF() - 0.6) < 0.001);
+        } else if (kind == QStringLiteral("ScreenBar")) {
+            QObject *fill = firstVisual->findChild<QObject *>(QStringLiteral("fill"));
+            QObject *otherFill = secondVisual->findChild<QObject *>(QStringLiteral("fill"));
+            QVERIFY(fill);
+            QVERIFY(otherFill);
+            QVERIFY(first->setProperty("value", 0.25));
+            QTRY_COMPARE(fill->property("width").toDouble(), 49.0);
+            QTRY_COMPARE(otherFill->property("width").toDouble(), 156.0);
+        } else {
+            QTRY_VERIFY(first->property("ready").toBool());
+            QTRY_VERIFY(second->property("ready").toBool());
+            QCOMPARE(firstVisual->property("source").toUrl(), QUrl::fromLocalFile(QDir(project.path()).filePath(QStringLiteral("probe.png"))));
+            QVERIFY(first->setProperty("crisp", true));
+            QCOMPARE(firstVisual->property("smooth").toBool(), false);
+            QCOMPARE(firstVisual->property("mipmap").toBool(), false);
+            QCOMPARE(secondVisual->property("smooth").toBool(), true);
+            QCOMPARE(secondVisual->property("mipmap").toBool(), true);
         }
     }
 

@@ -347,7 +347,7 @@ build_and_test() { # name
     for attempt in $(seq "$ATTEMPTS"); do
         forget_the_last_record "$build" || return 1
         if [ "$attempt" -eq 1 ]; then
-            if env "${drawing[@]}" ctest --test-dir "$build" -T Test --no-tests=error --output-on-failure --timeout "$SUITE_TIMEOUT" "${select[@]}" \
+            if env "${drawing[@]}" ctest --test-dir "$build" -T Test --no-tests=error --parallel 1 --output-on-failure --timeout "$SUITE_TIMEOUT" "${select[@]}" \
                 && python3 "$REPO/tools/dev/products-report.py" --passed "$build"; then
                 report "$name" "$build"
                 return 0
@@ -355,7 +355,7 @@ build_and_test() { # name
         else
             echo "== $name: the failed suites again (attempt $attempt of $ATTEMPTS): ${failed[*]}"
             # CTest's word is not enough: with nothing to run, or the wrong suites, it could still answer 0.
-            if env "${drawing[@]}" ctest --test-dir "$build" -T Test --no-tests=error --output-on-failure --timeout "$SUITE_TIMEOUT" --rerun-failed "${select[@]}" \
+            if env "${drawing[@]}" ctest --test-dir "$build" -T Test --no-tests=error --parallel 1 --output-on-failure --timeout "$SUITE_TIMEOUT" --rerun-failed "${select[@]}" \
                 && python3 "$REPO/tools/dev/products-report.py" --passed-again "${failed[@]}" "$build"; then
                 report "$name" "$build"
                 RETRIED+=("$name: ${failed[*]}")

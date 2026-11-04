@@ -10,6 +10,7 @@
 // Changed for QOR OS: what an agent writes runs only when allowed (QOR-0018).
 // Changed for QOR OS: drawn in software alone, what play does to bodies is waited for on the physics world's clock.
 // Changed for QOR OS: an agent writes no logic while a game of the project is being built.
+// Changed for QOR OS: supplied status and key-problem labels must remain literal text.
 
 #include <QColor>
 #include <QDir>
@@ -21,8 +22,11 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QLocalSocket>
+#include <QMetaProperty>
 #include <QProcess>
 #include <QQmlApplicationEngine>
+#include <QQmlComponent>
+#include <QQmlContext>
 #include <QQuickItem>
 #include <QQuickStyle>
 #include <QQuickWindow>
@@ -40,6 +44,8 @@
 #include <QTest>
 #include <QVector3D>
 #include <QtQml/qqmlextensionplugin.h>
+
+#include <memory>
 
 #include "designloop.h"
 #include "drawnin.h"
@@ -310,6 +316,47 @@ private slots:
 
     // QQ's own QML says nothing is wrong with it.
     void init() { QTest::failOnWarning(QRegularExpression(QStringLiteral("^qrc:/qt/qml/QQ/"))); }
+
+    void agentStatusAndKeyProblemsArePlainText_data()
+    {
+        QTest::addColumn<QString>("label");
+        QTest::newRow("status") << QStringLiteral("agentStatus");
+        QTest::newRow("key-problem") << QStringLiteral("keyProblem");
+    }
+
+    void agentStatusAndKeyProblemsArePlainText()
+    {
+        QFETCH(QString, label);
+        // The real panel, with an inert state object: no provider, account, network request or keychain access.
+        QQmlEngine engine;
+        QQmlComponent state(&engine);
+        state.setData("import QtQml\nQtObject { property bool running: false; property bool hasKey: false; "
+                      "property bool canUndo: false; property string status: \"<b>Supplied status</b>\"; "
+                      "property var steps: []; property var usage: ({}) }\n", QUrl());
+        std::unique_ptr<QObject> designer(state.create());
+        QVERIFY2(designer, qPrintable(state.errorString()));
+        QQmlComponent component(&engine);
+        component.loadFromModule(QStringLiteral("QQ.Studio"), QStringLiteral("AgentPanel"));
+        std::unique_ptr<QObject> panel(component.createWithInitialProperties(
+            {{QStringLiteral("designer"), QVariant::fromValue(designer.get())}}));
+        QVERIFY2(panel, qPrintable(component.errorString()));
+        QQmlContext *context = QQmlEngine::contextForObject(panel.get());
+        QVERIFY(context);
+        QObject *shown = label == QStringLiteral("agentStatus") ? panel->findChild<QObject *>(label) : context->objectForName(label);
+        QVERIFY(shown);
+        const QMetaProperty format = shown->metaObject()->property(shown->metaObject()->indexOfProperty("textFormat"));
+        const int plain = format.enumerator().keyToValue("PlainText");
+        QVERIFY(plain >= 0);
+        QCOMPARE(shown->property("textFormat").toInt(), plain);
+        if (label == QStringLiteral("agentStatus")) {
+            QCOMPARE(shown->property("text").toString(), QStringLiteral("<b>Supplied status</b>"));
+            QVERIFY(designer->setProperty("status", QStringLiteral("<i>Later status</i>")));
+            QCOMPARE(shown->property("text").toString(), QStringLiteral("<i>Later status</i>"));
+        } else {
+            QVERIFY(shown->setProperty("text", QStringLiteral("<b>Supplied problem</b>")));
+            QCOMPARE(shown->property("text").toString(), QStringLiteral("<b>Supplied problem</b>"));
+        }
+    }
 
     // ── the protocol ──
 
