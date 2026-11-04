@@ -170,6 +170,8 @@ QOR OS begins: QTOS and Demiurge's device-side products in one repository
 
 ### Fixed
 
+- **Linux product validation requires evidence from the current attempt.** A zero CTest exit without a complete matching log and record no longer passes, including on the first attempt. Old test records are invalidated before configuration, building and each attempt; a cleanup failure stops the run. A whole suite skipped by CTest remains unrun and cannot pass the product. Regression tests exercise no-op CTest, failed configuration/builds, inaccessible records and whole-suite skips with real CTest.
+- **QQ Studio's layout owns its marker and colour-swatch sizes.** Their existing dimensions are expressed as preferred layout sizes, removing four warnings without changing the requested sizes. The 4 November comparison against `17ef113` has no new QQ lint findings; 435 baseline warnings remain.
 - **Prism no longer starts a product into Qt Multimedia's PipeWire crash.** Where no PipeWire daemon runs (as under WSL) and nothing chose an audio backend, Prism starts every product with `QT_AUDIO_BACKEND=pulseaudio`, as `tools/dev/products.sh` does. Qt Multimedia's PipeWire backend crashes there, and QQ Studio and the QQ Player both reach it through `QtQuick3D.SpatialAudio`. Tested in `tst_producthost` each way, with planted faults.
 - **Wayland clients in Prism heard no pointer motion until a button was down.** A hover handler above a window's content kept every hover from it. An unfocused window's controls light up over a client's content again.
 - **A window opening while another closed was lost in Prism.** Counting a client's windows threw on the one closing.

@@ -40,6 +40,7 @@
 // Changed for QOR OS: the asset library (AssetLibrary, LibraryPanel.qml), where the Store's folder of installed items is named:
 // packs the Store installed, each with its files, copied into the project's assets/ with assets.lock.json, and updated without
 // writing over a copy the person changed. With no folder named there is no library, and nothing of it runs.
+// Changed for QOR OS: the entity marker gives its size to its layout, keeping its nine-pixel preferred frame.
 
 import QtQuick
 // Before the Material style: Qt Quick 3D has a type called Material too, and the import that comes later wins.
@@ -2042,8 +2043,8 @@ ApplicationWindow {
                             // Indented by the groups it is in.
                             Item { implicitWidth: window.depthOf(entry.modelData) * 14; visible: implicitWidth > 0 }
                             Rectangle {
-                                width: 9
-                                height: 9
+                                Layout.preferredWidth: 9
+                                Layout.preferredHeight: 9
                                 radius: entry.modelData.kind === "Shape" && entry.modelData.form === "cube" ? 1 : 5
                                 color: entry.modelData.kind === "Shape" || entry.modelData.kind === "Ground" ? entry.modelData.colour
                                      : entry.modelData.kind === "Lamp" || entry.modelData.kind === "Sun"

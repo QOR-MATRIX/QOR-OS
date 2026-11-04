@@ -290,6 +290,34 @@ class TheFloor(unittest.TestCase):
         self.assertFalse(self.stands(PASSING + FLOOR, **FAILED_ONE))
 
 
+class PassedRun(unittest.TestCase):
+    def passed(self, log, xml):
+        return report.passed_run(report.read_suites(log), report.read_record(xml) if xml is not None else None)
+
+    def test_complete_matching_evidence_passes(self):
+        self.assertTrue(self.passed(PASSING, record(["tst_world"])))
+        self.assertTrue(self.passed(SKIPPING, record(["tst_agent"])))
+
+    def test_missing_empty_or_mismatched_evidence_does_not_pass(self):
+        for log, xml in (("", record()), (PASSING, None), (PASSING, "<broken>"), (PASSING, record()),
+                         ("", record(["tst_world"])), (PASSING, record(["another_suite"])),
+                         (PASSING + PASSING, record(["tst_world"]))):
+            with self.subTest(log=log[:30], xml=xml):
+                self.assertFalse(self.passed(log, xml))
+
+    def test_partial_or_failed_log_cannot_lean_on_a_passing_record(self):
+        self.assertFalse(self.passed(PASSING.split("Totals:")[0], record(["tst_world"])))
+        self.assertFalse(self.passed(FLOOR, record(["tst_player"])))
+        self.assertFalse(self.passed(PASSING, record(tst_world=("Failed", "0"))))
+
+    def test_whole_suite_skips_are_reported_without_counting_as_passes(self):
+        self.assertFalse(self.passed(JOURNEY, record(skipped=["first_journey"])))
+        self.assertFalse(self.passed(PASSING + JOURNEY, record(["tst_world"], skipped=["first_journey"])))
+        said = report.report(report.read_suites(PASSING + JOURNEY), report.read_record(record(["tst_world"], skipped=["first_journey"])))
+        self.assertIn("first_journey: NOT RUN", said)
+        self.assertNotIn("first_journey: passed", said)
+
+
 class PassedAgain(unittest.TestCase):
     def again(self, names, xml):
         return report.passed_again(names, report.read_record(xml))
@@ -339,8 +367,15 @@ class TheProgram(unittest.TestCase):
         self.assertEqual(report.main([folder]), 0)
 
     def test_a_retry_is_read_by_the_program(self):
-        self.assertEqual(report.main(["--passed-again", "tst_flaky", self.folder(PASSING, record(["tst_flaky"]))]), 0)
+        flaky = suite(1, "tst_flaky", totals=(1, 0, 0))
+        self.assertEqual(report.main(["--passed-again", "tst_flaky", self.folder(flaky, record(["tst_flaky"]))]), 0)
         self.assertEqual(report.main(["--passed-again", "tst_flaky", self.folder(PASSING, record())]), 1)
+        self.assertEqual(report.main(["--passed-again", "tst_flaky", self.folder(PASSING, record(["tst_flaky"]))]), 1)
+
+    def test_a_first_attempt_is_read_by_the_program(self):
+        self.assertEqual(report.main(["--passed", self.folder(PASSING, record(["tst_world"]))]), 0)
+        self.assertEqual(report.main(["--passed", self.folder(PASSING)]), 1)
+        self.assertEqual(report.main(["--passed", self.folder(PASSING, record(["another_suite"]))]), 1)
 
     def test_nothing_left_by_ctest_is_said(self):
         with tempfile.TemporaryDirectory() as empty:

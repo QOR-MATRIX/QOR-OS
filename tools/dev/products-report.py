@@ -20,6 +20,7 @@ A suite need not be Qt Test: one with no "Start testing" line and no totals is j
 
   products-report.py <build folder>                   each suite's counts, and each case failed or skipped, with why
   products-report.py --failed <build folder>          the suites that did not pass, one to a line
+  products-report.py --passed <build folder>          exit 0 only for matching, complete log and record with every suite passed
   products-report.py --passed-again NAME... <folder>  exit 0 if this run ran each of those suites and it passed
   products-report.py --only-the-floor <build folder>  exit 0 if the QQ Player's frame-rate floor was all that went wrong
 """
@@ -184,6 +185,14 @@ def only_the_floor_failed(suites, endings):
     return SOFTWARE_RENDERER in next(suite for suite in suites if suite.name == FLOOR_SUITE).renderer
 
 
+def passed_run(suites, endings):
+    """A successful CTest exit needs a nonempty matching log and record. A suite that skipped itself is never a pass."""
+    if not suites or endings is None or len(suites) != len(endings) or set(endings) != {suite.name for suite in suites}:
+        return False
+    return (all(ending.status == "passed" for ending in endings.values())
+            and all(ended_as_it_said(suite, endings) for suite in suites))
+
+
 def passed_again(names, endings):
     """Whether this run ran each of `names` and it passed: a retry that ran nothing has not passed anything."""
     return bool(names) and endings is not None and all(endings.get(name, Ending("")).status == "passed" for name in names)
@@ -191,7 +200,7 @@ def passed_again(names, endings):
 
 def main(arguments):
     arguments = list(arguments)
-    mode = next((flag for flag in ("--only-the-floor", "--failed", "--passed-again") if flag in arguments), None)
+    mode = next((flag for flag in ("--only-the-floor", "--failed", "--passed-again", "--passed") if flag in arguments), None)
     if mode:
         arguments.remove(mode)
     if not arguments or (mode != "--passed-again" and len(arguments) != 1):
@@ -210,8 +219,10 @@ def main(arguments):
         endings = None
     if mode == "--only-the-floor":
         return 0 if only_the_floor_failed(suites, endings) else 1
+    if mode == "--passed":
+        return 0 if passed_run(suites, endings) else 1
     if mode == "--passed-again":
-        return 0 if passed_again(arguments[:-1], endings) else 1
+        return 0 if passed_again(arguments[:-1], endings) and passed_run(suites, endings) else 1
     if mode == "--failed":
         print("\n".join(not_passed(endings) if endings is not None else [suite.name for suite in suites]))
         return 0

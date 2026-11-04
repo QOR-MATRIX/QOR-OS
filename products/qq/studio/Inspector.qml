@@ -3,6 +3,8 @@
 // each field holds. A change is written to the entity at once, and `edited` tells the Studio the scene changed.
 
 // Changed for QOR OS: Open outside opens only the project's own QML (QOR-0018).
+// Changed for QOR OS: the colour swatch gives its preferred size to the layout instead of competing with it.
+
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Controls.Material
@@ -174,8 +176,8 @@ ColumnLayout {
             FieldLabel { text: inspector.labelFor(colourRow.field) }
             RowLayout {
                 Rectangle {
-                    width: 30
-                    height: 30
+                    Layout.preferredWidth: 30
+                    Layout.preferredHeight: 30
                     radius: 4
                     color: inspector.target ? inspector.target[colourRow.field] : "black"
                     border.color: Qt.rgba(1, 1, 1, 0.25)

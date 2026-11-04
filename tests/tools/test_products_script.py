@@ -19,6 +19,8 @@ SUITE = textwrap.dedent(
     name, how, marks = sys.argv[1], sys.argv[2], sys.argv[3]
     with open(os.path.join(marks, "ran"), "a") as ran:
         ran.write(name + " " + os.environ.get("QOR_EXPECTED_RENDERER", "unset") + "\\n")
+    if how == "skips":
+        sys.exit(77)
     flaked = os.path.join(marks, name + ".flaked")
     again = os.path.exists(flaked)
     fails = how == "fails" or (how in ("flaky", "kills-its-ctest") and not again)
@@ -37,7 +39,11 @@ SUITE = textwrap.dedent(
 CMAKE = textwrap.dedent(
     """\
     #!/bin/bash
-    [ "$1" != --build ] || exit 0
+    if [ "$1" = --build ]; then
+        [ "${BUILD_GOES:-}" != fails ] || exit 23
+        exit 0
+    fi
+    [ "${CONFIGURE_GOES:-}" != fails ] || exit 17
     while [ $# -gt 0 ]; do
         case $1 in -B) build=$2; shift 2 ;; *) shift ;; esac
     done
@@ -55,6 +61,7 @@ CTEST = textwrap.dedent(
                 answers-zero) exit 0 ;;
                 forgets) for list in "$2"/Testing/Temporary/LastTestsFailed*; do : > "$list"; done ;;
             esac ;;
+        *) [ "${FIRST_GOES:-}" != answers-zero ] || exit 0 ;;
     esac
     exec "$REAL_CTEST" "$@"
     """
@@ -65,16 +72,31 @@ CTEST = textwrap.dedent(
     os.name == "posix" and all(shutil.which(tool) for tool in ("bash", "cmake", "ctest", "make", "python3")),
     "needs bash, CMake and make")
 class Attempts(unittest.TestCase):
-    def run_script(self, suites, *arguments, **environment):
+    def run_script(self, suites, *arguments, old_record=False, blocked_record=False, **environment):
         made = tempfile.TemporaryDirectory()
         self.addCleanup(made.cleanup)
         root = pathlib.Path(made.name)
         for folder in ("kit/lib/cmake/Qt6", "shims", "stand-in", "marks"):
             (root / folder).mkdir(parents=True)
         (root / "kit/lib/cmake/Qt6/Qt6Config.cmake").touch()
+        self.old_record = root / "build/qq/Testing/prior/Test.xml"
+        if old_record:
+            self.old_record.parent.mkdir(parents=True)
+            self.old_record.write_text(
+                '<Site><Testing><Test Status="passed"><Name>tst_fine</Name><Results/></Test></Testing></Site>', encoding="utf-8")
+            testing = self.old_record.parent.parent
+            (testing / "TAG").write_text("prior\nExperimental\n", encoding="utf-8")
+            (testing / "Temporary").mkdir()
+            (testing / "Temporary/LastTest_prior.log").write_text(
+                "1/1 Testing: tst_fine\nTotals: 1 passed, 0 failed, 0 skipped, 0 blacklisted, 1ms\n", encoding="utf-8")
+            if blocked_record:
+                protected = testing if blocked_record == "unreadable" else self.old_record.parent
+                self.addCleanup(protected.chmod, 0o755)
+                protected.chmod(0o111 if blocked_record == "unreadable" else 0o555)
         (root / "stand-in/suite.py").write_text(SUITE, encoding="utf-8")
         tests = "".join(
-            f'add_test(NAME {name} COMMAND python3 -I "{root}/stand-in/suite.py" {name} {how} "{root}/marks")\n' for name, how in suites)
+            f'add_test(NAME {name} COMMAND python3 -I "{root}/stand-in/suite.py" {name} {how} "{root}/marks")\n'
+            f'set_tests_properties({name} PROPERTIES SKIP_RETURN_CODE 77)\n' for name, how in suites)
         (root / "stand-in/CMakeLists.txt").write_text(
             f"cmake_minimum_required(VERSION 3.16)\nproject(standin NONE)\nenable_testing()\n{tests}", encoding="utf-8")
         for name, text in (("cmake", CMAKE), ("ctest", CTEST)):
@@ -100,6 +122,40 @@ class Attempts(unittest.TestCase):
         self.assertEqual(code, 0, said)
         self.assertEqual(len(ran), 1)
         self.assertNotIn("later attempt", said)
+
+    def test_a_first_attempt_that_answers_zero_without_running_has_not_passed(self):
+        code, said, ran = self.run_script([("tst_fine", "fine")], "--attempts", "1", FIRST_GOES="answers-zero")
+        self.assertEqual(code, 1, said)
+        self.assertEqual(ran, [])
+        self.assertIn("Failed: qq", said)
+        self.assertNotIn("Products built and tested", said)
+
+    def test_a_failed_configure_or_build_leaves_no_old_passing_record(self):
+        for phase in ("CONFIGURE_GOES", "BUILD_GOES"):
+            with self.subTest(phase=phase):
+                code, said, ran = self.run_script([("tst_fine", "fine")], old_record=True, **{phase: "fails"})
+                self.assertEqual(code, 1, said)
+                self.assertEqual(ran, [])
+                self.assertFalse(self.old_record.exists(), "A failed build left a previous test record looking current")
+                self.assertNotIn("Products built and tested", said)
+
+    def test_a_record_that_cannot_be_invalidated_stops_the_run(self):
+        for blocked in ("unreadable", "unwritable"):
+            with self.subTest(blocked=blocked):
+                code, said, ran = self.run_script([("tst_fine", "fine")], "--attempts", "1", old_record=True,
+                                                  blocked_record=blocked, FIRST_GOES="answers-zero")
+                self.assertEqual(code, 1, said)
+                self.assertEqual(ran, [])
+                self.assertNotIn("Products built and tested", said)
+
+    def test_a_whole_suite_skip_does_not_pass_the_product(self):
+        for suites in ([("tst_skipped", "skips")], [("tst_fine", "fine"), ("tst_skipped", "skips")]):
+            with self.subTest(suites=suites):
+                code, said, ran = self.run_script(suites, "--attempts", "1")
+                self.assertEqual(code, 1, said)
+                self.assertEqual(len(ran), len(suites))
+                self.assertIn("tst_skipped: NOT RUN", said)
+                self.assertNotIn("Products built and tested", said)
 
     def test_failing_twice_fails(self):
         code, said, ran = self.run_script([("tst_fine", "fine"), ("tst_bad", "fails")])

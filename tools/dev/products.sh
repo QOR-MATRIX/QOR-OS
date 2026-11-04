@@ -312,12 +312,20 @@ only_the_floor_failed() { # build
 }
 
 # CTest's record is written as a run ends, so one stopped part way would leave its log beside the last run's record.
+# Invalidate it before configuring too: a failed configure or build must not leave old passing evidence looking current.
 forget_the_last_record() { # build
-    rm -f "$1"/Testing/*/Test.xml
+    local testing=$1/Testing
+    # A glob cannot enumerate an unreadable directory: rm -f would see no records and silently keep the old ones.
+    if [ -e "$testing" ] && { [ ! -r "$testing" ] || [ ! -x "$testing" ]; }; then
+        echo "Cannot inspect old CTest records in $testing, so nothing was run." >&2
+        return 1
+    fi
+    rm -f "$testing"/*/Test.xml || return 1
 }
 
 build_and_test() { # name
     local name=$1 source=$REPO/${SOURCES[$1]} build=$BUILD_ROOT/$1
+    forget_the_last_record "$build" || return 1
     local extra=()
     if [ "$name" = media ]; then
         local dir
@@ -337,9 +345,10 @@ build_and_test() { # name
     [ -z "$DRAWN" ] || [ "$name" != arqade ] || drawing=(QSG_RENDER_LOOP=basic)
     local failed=()
     for attempt in $(seq "$ATTEMPTS"); do
-        forget_the_last_record "$build"
+        forget_the_last_record "$build" || return 1
         if [ "$attempt" -eq 1 ]; then
-            if env "${drawing[@]}" ctest --test-dir "$build" -T Test --no-tests=error --output-on-failure --timeout "$SUITE_TIMEOUT" "${select[@]}"; then
+            if env "${drawing[@]}" ctest --test-dir "$build" -T Test --no-tests=error --output-on-failure --timeout "$SUITE_TIMEOUT" "${select[@]}" \
+                && python3 "$REPO/tools/dev/products-report.py" --passed "$build"; then
                 report "$name" "$build"
                 return 0
             fi

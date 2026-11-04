@@ -335,10 +335,13 @@ unpublished builds stay out of reach.
 - [x] QQ Studio's asset library: browse, preview checked bytes, copy into a trusted project with `assets.lock.json`, and update
   without writing over a changed copy; the built game says what it uses. Recovery checks the project folder and each placed file,
   and every lock has its own change tag. Use and Update run off the window's thread; Save, Build and changing project wait.
-  The Store's listing provenance reaches the lock whole within its existing 8 MiB cap (`8b77c01`). Release `tst_assetlibrary`:
-  88 passed, none failed, one opt-in benchmark skipped; the same under AddressSanitizer and UBSan, with `tst_gamebuild` also
-  passing all 195 cases. Both use WSL software rendering and the real StoreEngine's demonstration pack. Native Linux, a GPU
-  and Windows still need their own evidence. QQ's full QML lint has 439 warnings, unchanged from `f65c90d`; the zero-warning gate remains open.
+  The Store's listing provenance reaches the lock whole within its existing 8 MiB cap (`8b77c01`). On 4 November, Release and
+  AddressSanitizer/UBSan `tst_assetlibrary` each passed 89 cases, none failed or skipped, including the opt-in largest-pack
+  measurement; Release `tst_studio` passed all 25. The unchanged recovery code's sanitizer build is preserved at `850a639`.
+  The 3 November sanitizer `tst_gamebuild` passed all 195 cases; it was not rerun on 4 November. These use WSL software rendering
+  and the real StoreEngine's demonstration pack. Listing and planning still run on the window's thread: the Release largest-pack
+  run measured 257 ms and 402 ms respectively, without establishing a latency budget. Native Linux, a GPU and Windows still need
+  their own evidence. QQ's full QML lint has 435 warnings, four removed and none added against `17ef113`; the zero-warning gate remains open.
 - [ ] Publishing in stages: private draft, preview, package checks, a declaration of rights, submission, review, publication
 - [ ] Editable projects in the Creator Store as editions linked to a game, with their engine, files, outside dependencies and permitted
   reuse; playable mods, per game, only where that game allows them

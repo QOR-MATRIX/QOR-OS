@@ -358,8 +358,12 @@ Only someone who sets both by hand, outside the script, is eased on a machine wi
 (`tools/dev/products-report.py`). It reads two files of CTest's: its log, the only place a passing suite's output is kept, and its
 record (`ctest -T Test`), the only place that says how a suite ended. A Qt Test suite with no totals says `STOPPED`. A suite that
 could not start, or skipped itself by its `SKIP_RETURN_CODE`, says `NOT RUN`, never a pass. A suite that is not Qt Test has no counts,
-and reads passed, failed or stopped by the record. At the end the script names any suite that passed only on a later attempt, having
-checked that the retry ran it. Nothing is excluded. These are the cases that do not simply pass:
+and reads passed, failed or stopped by the record. On the first attempt and every retry, success needs a nonempty log and record
+that name the same suites, with every suite passed and every Qt Test suite's totals agreeing. A whole suite that skipped itself
+keeps the step from passing; individual skipped cases stay named and counted separately. Before configuring or building, and before
+each attempt, the script invalidates old test records. If that cannot be done, it stops: a failed build or an interrupted test
+must not leave earlier passing evidence looking current. At the end the script names any suite that passed only on a later attempt,
+having checked that the retry ran it. Nothing is excluded. These are the cases that do not simply pass:
 
 | Case | In software, under WSL | Why |
 |------|------------------------|-----|
