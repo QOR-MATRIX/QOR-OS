@@ -350,6 +350,10 @@ drew about 12 frames a second.
 
 ## The tests, and how they were proven
 
+The phase-by-phase case counts below preserve the product's earlier progression. For QOR OS's verified run scope,
+source revisions, failures and skips, use [OWNER.md](../../OWNER.md) and [CI.md](../../docs/CI.md). A historical count
+or planted-fault record is not a fresh passing suite.
+
 - **`tst_world`** (3 cases): a glTF model loads at runtime and is drawn lit in its own colour; bloom lights pixels past
   the glowing band; an unreadable model is an error, not a crash. Proven to fail by two planted faults (bloom ignored;
   a prop that never loads). **Since P3.14, 9 cases** (fixtures by `make_looks.py`):
@@ -416,6 +420,9 @@ drew about 12 frames a second.
   a picture put on the selection, a sky made the scene's, a sound added, and the filter; a Behaviour's logic opened in
   the editor, a brace taken away said to be wrong by line, mended and saved with Ctrl+S (the file written, the scene
   not); and F3's frames, draw calls and bodies, every body drawn as its collider in play, and gone with F3 again.
+
+  **Since QOR OS:** literal logic-problem descriptions and inspector source filenames, plus edits through the actual
+  loaded field controls and entity-kind switches; undo, groups/prefabs and 2D editing remain covered.
 
   Eight planted faults were each caught: quick edits of one field never merged, an edit after an undo keeping what
   could be redone, undo forgetting what was last saved, undo losing the selection, saving made a step to undo, a copy

@@ -341,7 +341,7 @@ unpublished builds stay out of reach.
   `6046e08` passed Release `tst_assetlibrary` 89 cases, `tst_gamebuild` 195 and `tst_studio` 25, none failed or skipped, including
   the opt-in largest-pack measurement and the real StoreEngine's demonstration pack. The matching current-source sanitizer group
   also passes all 89/195/25 cases, none failed or skipped, with leak checking off. The later trust guard has the 91-case asset checks
-  above; the full game-build/Studio runs precede it. Fresh hardening passes 16 Release/8 sanitizer programs.
+  above; those game-build/Studio runs precede it. Hardening at that checkpoint passes 16 Release/8 sanitizer programs.
   Earlier sanitizer runs passed 89 asset-library cases on 4 November and 195 game-build cases on 3 November;
   the unchanged recovery code's earlier build is preserved at `850a639`. These use WSL software rendering. Listing and planning
   still run on the window's thread: the latest Release largest-pack run measured first listing 269 ms, repeated listing 39 ms,
@@ -368,6 +368,10 @@ unpublished builds stay out of reach.
   The agent panel's bound step rows then remove ten findings with none added: 247 console messages/272 structured warnings.
   Six selected Qt cases per Release/sanitizer build pass, none failed/skipped, including inert row replacement/style/plain text,
   literal status/key problems and the existing key/description flow in a private test keyring. Native lint still fails.
+  At integrated product revision `b2b084c`, the complete current Studio suite passes in each build: all 26 functions plus
+  setup/cleanup, 28 Qt cases with no failures/skips or function filter. Fresh native records/source matches are verified;
+  incremental build logs have no warnings, and hardening passes 16 Release/9 sanitizer programs. These remain hidden WSL
+  software checks with leak checking off; full OS/core and native hardware are unverified.
   The latest 48 scene cases pass in Release and under sanitizers, including malformed-image readiness; six selected screen-play
   functions pass (8 Qt cases including setup/cleanup). The earlier broader play run and a clean detached baseline each had
   the same 11 failures. Test clock waits and guaranteed fake-controller cleanup subsequently bring all 53 play cases to a pass,

@@ -1,6 +1,6 @@
 # Where QOR OS stands
 
-For Andrew, 4 November 2026. Local branch: `integration/owner-brief`; inspector checkpoint: `c4f3152`; current agent-panel changes are local.
+For Andrew, 4 November 2026. Local branch: `integration/owner-brief`; current product checkpoint: `b2b084c`.
 
 All 14 worktrees (Git checkouts) are preserved. This session owns implementation. Heavy jobs use the
 verified QOR-local lock sequentially; no cross-project prerequisite exists. No push was performed.
@@ -11,8 +11,8 @@ Tests use commercial Qt 6.12 hidden in WSL (Linux inside Windows), software grap
 two processors, a 1.25 GiB cap and one worker. ASan/UBSan check memory and undefined behavior; leaks are off.
 
 - Asset trust guard at `24d3b09`: **91 asset-library cases pass per build**, none failed/skipped, including refusal after trust
-  changes and fresh retries. Earlier `6046e08` full integration: **195 game-build/25 Studio cases per build pass**;
-  these precede later interface changes.
+  changes and fresh retries. Earlier `6046e08`: **195 game-build cases per build pass**, before later interface changes.
+- Complete Studio at `b2b084c`: **28 Qt cases pass per build**, none failed/skipped, all functions with fresh records.
 - Project-file panel: **7 selected Qt cases per build pass**, none failed/skipped: file click/filter, saved-state summary/Forget,
   and two-project asset/filter isolation. Product hardening (exploit mitigations): **16 Release/9 sanitizer programs pass**.
 - Frame probe: **7 sanitizer cases pass**, none failed/skipped: stall capture, idle timer stop, threaded resume, queued detach
@@ -30,9 +30,8 @@ Listing/planning remain on the window thread; last Release observations: **269/3
 ## Running, next and limits
 
 Literal logic problems: **3 focused/18 related Qt cases pass per build**, none failed/skipped, including recovery/save/build interlocks.
-Inspector filenames are literal; bound field editors pass **7 Qt cases per build**, none failed/skipped, covering actual edits,
-entity switches, undo, groups/prefabs and 2D editing. The checks caught and fixed a transient assignment warning.
-No heavy job is active. Next: a complete Studio run on the integrated interface changes, Release then sanitizers.
+Inspector filenames are literal; full checks include loaded field edits, entity switches, undo, groups/prefabs and 2D editing.
+The transient assignment warning is fixed. No heavy job is active. Next: an inert group-selector text probe.
 Exact sources, commands, records, active job and resume point: `build/autonomous-2026-11-04/HANDOFF.md`.
 
 Full OS/core, actual Windows products, native Linux graphics/sound/controllers and image/install proof remain unrun; the

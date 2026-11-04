@@ -213,8 +213,10 @@ needs its own answer.
 
 #### The owner's first run
 
-Run this at the commit that last changed `tools/ci/isolated-vm.ps1` (`git log -1 --format=%h -- tools/ci/isolated-vm.ps1`; it was
-`c9513c6` when this was written, the commit with the second review's fixes), with the working tree clean.
+Use the current checkout after its pending work is safely checkpointed and `git status` is clean. Record the current
+`git log -1` and the last script change (`git log -1 --format=%h -- tools/ci/isolated-vm.ps1`). On 4 November the script in the
+current checkout is byte-identical to `c9513c6`, the commit with the second review's fixes. A later script change needs its own
+review before elevation. The owner's separate Create go-ahead is still required.
 The first run is likely to stop somewhere, because nothing here has met Hyper-V; each stop prints its reason, and most say to run the
 same command again.
 
