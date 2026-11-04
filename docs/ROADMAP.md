@@ -365,6 +365,9 @@ unpublished builds stay out of reach.
   messages/282 structured warning records. Seven selected Qt cases per build pass without failures/skips: literal filenames,
   actual loaded field edits and entity switches, undo, groups/prefabs and 2D editing. The checks caught and fixed a transient
   text-row assignment warning. Fresh product hardening passes 16 Release/9 sanitizer programs. Native lint still fails.
+  The agent panel's bound step rows then remove ten findings with none added: 247 console messages/272 structured warnings.
+  Six selected Qt cases per Release/sanitizer build pass, none failed/skipped, including inert row replacement/style/plain text,
+  literal status/key problems and the existing key/description flow in a private test keyring. Native lint still fails.
   The latest 48 scene cases pass in Release and under sanitizers, including malformed-image readiness; six selected screen-play
   functions pass (8 Qt cases including setup/cleanup). The earlier broader play run and a clean detached baseline each had
   the same 11 failures. Test clock waits and guaranteed fake-controller cleanup subsequently bring all 53 play cases to a pass,

@@ -1,6 +1,6 @@
 # QQ, the QOR Engine
 
-<!-- Changed for QOR OS: current project-document links; on Linux the Studio keeps the provider's key in the Secret Service (QOR OS's QOR-0011); gamepads come from QOR OS's controller service, QOR.Input, in place of XInput; each project's workspace in the Studio; the asset library; literal game-screen labels and their owning component context; literal Agent status/key problems; project-file list bindings and layout; literal logic problem descriptions; typed statistics overlay; bound inspector field loaders and literal source filenames. -->
+<!-- Changed for QOR OS: current project-document links; on Linux the Studio keeps the provider's key in the Secret Service (QOR OS's QOR-0011); gamepads come from QOR OS's controller service, QOR.Input, in place of XInput; each project's workspace in the Studio; the asset library; literal game-screen labels and their owning component context; literal Agent status/key problems; project-file list bindings and layout; literal logic problem descriptions; typed statistics overlay; bound inspector field loaders and literal source filenames; bound Agent step rows. -->
 
 An engine for virtual worlds and experiences, built on **Qt 6.12** under the owner's commercial licence
 ([the Qt rule](../../docs/decisions/qtos/QTOS-0004-commercial-qt-and-proprietary-repository.md)). QQ is developed in QOR OS
@@ -274,7 +274,7 @@ entities, write logic, play, stop, hold the controls, wait, place the eye, captu
 reaches them through `qq-mcp` (below); what an agent changes shows in the Studio as unsaved, and only the creator saves
 and commits. **And the design loop**, in the Studio's **Agent** panel: describe a game, and Claude (Opus 5.5, ADR-085)
 writes a brief, builds it with the same tools, plays it, looks at captured frames, judges them and revises, every step
-shown as it happens; the creator then saves and commits it, or undoes the run. The provider's key is kept in Windows
+shown as it happens; supplied text stays literal and each row uses its own model data. The creator then saves and commits it, or undoes the run. The provider's key is kept in Windows
 Credential Manager (on Linux, the Secret Service) and never logged. **Generation is paid for by whoever uses it** (ADR-086): the key is the creator's
 own, Anthropic bills it directly, the panel says so before a key is given and shows each run's token use, and Demiurge
 holds no provider key and pays for no one's generation. Still to come in P3.3: its proof, a scene built from a

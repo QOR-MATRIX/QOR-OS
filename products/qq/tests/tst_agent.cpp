@@ -12,11 +12,14 @@
 // Changed for QOR OS: an agent writes no logic while a game of the project is being built.
 // Changed for QOR OS: supplied status and key-problem labels must remain literal text.
 
+// Changed for QOR OS: inert step rows verify the actual agent panel's model bindings and literal text.
+
 #include <QColor>
 #include <QDir>
 #include <QElapsedTimer>
 #include <QFile>
 #include <QFileInfo>
+#include <QFont>
 #include <QImage>
 #include <QJsonArray>
 #include <QJsonDocument>
@@ -356,6 +359,62 @@ private slots:
             QVERIFY(shown->setProperty("text", QStringLiteral("<b>Supplied problem</b>")));
             QCOMPARE(shown->property("text").toString(), QStringLiteral("<b>Supplied problem</b>"));
         }
+    }
+
+    void agentStepRowsStayBoundAndPlain()
+    {
+        // Real panel and two inert model rows: no provider, keychain or outside image.
+        QQuickWindow window;
+        QQmlEngine engine;
+        QQmlComponent state(&engine);
+        state.setData("import QtQml\nQtObject { property bool running: false; property bool hasKey: false; "
+                      "property bool canUndo: false; property string status: \"\"; "
+                      "property var steps: []; property var usage: ({}) }\n", QUrl());
+        std::unique_ptr<QObject> designer(state.create());
+        QVERIFY2(designer, qPrintable(state.errorString()));
+        QQmlComponent component(&engine);
+        component.loadFromModule(QStringLiteral("QQ.Studio"), QStringLiteral("AgentPanel"));
+        std::unique_ptr<QObject> panel(component.createWithInitialProperties(
+            {{QStringLiteral("designer"), QVariant::fromValue(designer.get())}}));
+        QVERIFY2(panel, qPrintable(component.errorString()));
+        auto *root = qobject_cast<QQuickItem *>(panel.get());
+        QVERIFY(root);
+        root->setParentItem(window.contentItem());
+        root->setSize(QSizeF(520, 800));
+        window.resize(520, 800);
+        window.show();
+        QVERIFY(QTest::qWaitForWindowExposed(&window));
+        auto row = [](const QString &kind, const QString &text) {
+            return QVariantMap{{QStringLiteral("kind"), kind}, {QStringLiteral("text"), text},
+                               {QStringLiteral("image"), QString()}, {QStringLiteral("failed"), false}};
+        };
+        auto label = [&](const QString &text) -> QQuickItem * {
+            QList<QQuickItem *> pending{root};
+            while (!pending.isEmpty()) {
+                auto *item = pending.takeLast();
+                pending.append(item->childItems());
+                if (item->property("textFormat").isValid() && item->property("text").toString() == text)
+                    return item;
+            }
+            return nullptr;
+        };
+        const QString said = QStringLiteral("<b>Inert answer</b>");
+        const QString tool = QStringLiteral("<i>Inert tool step</i>");
+        QVERIFY(designer->setProperty("steps", QVariantList{row(QStringLiteral("said"), said),
+                                                          row(QStringLiteral("tool"), tool)}));
+        QTRY_VERIFY(label(said));
+        QTRY_VERIFY(label(tool));
+        QCOMPARE(label(said)->property("textFormat").toInt(), int(Qt::PlainText));
+        QCOMPARE(label(tool)->property("textFormat").toInt(), int(Qt::PlainText));
+        QCOMPARE(label(said)->property("font").value<QFont>().pixelSize(), 13);
+        QCOMPARE(label(tool)->property("font").value<QFont>().pixelSize(), 12);
+
+        const QString later = QStringLiteral("<u>Inert replacement</u>");
+        QVERIFY(designer->setProperty("steps", QVariantList{row(QStringLiteral("tool"), later)}));
+        QTRY_VERIFY(label(later));
+        QTRY_VERIFY(!label(said) && !label(tool));
+        QCOMPARE(label(later)->property("textFormat").toInt(), int(Qt::PlainText));
+        QCOMPARE(label(later)->property("font").value<QFont>().pixelSize(), 12);
     }
 
     // ── the protocol ──

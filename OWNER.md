@@ -1,9 +1,8 @@
 # Where QOR OS stands
 
-For Andrew, 4 November 2026. Local branch: `integration/owner-brief`; inspector validated from `e7e0533` plus the local changes.
+For Andrew, 4 November 2026. Local branch: `integration/owner-brief`; inspector checkpoint: `c4f3152`; current agent-panel changes are local.
 
-All 13 original worktrees
-(Git checkouts) and the added comparison checkout are preserved. This session owns implementation. Heavy jobs use the
+All 14 worktrees (Git checkouts) are preserved. This session owns implementation. Heavy jobs use the
 verified QOR-local lock sequentially; no cross-project prerequisite exists. No push was performed.
 
 ## Verified checks
@@ -18,10 +17,11 @@ two processors, a 1.25 GiB cap and one worker. ASan/UBSan check memory and undef
   and two-project asset/filter isolation. Product hardening (exploit mitigations): **16 Release/9 sanitizer programs pass**.
 - Frame probe: **7 sanitizer cases pass**, none failed/skipped: stall capture, idle timer stop, threaded resume, queued detach
   and status redraw. Shell UI and **5-program hardening** pass. Controlled timing comparisons establish no speed improvement.
-- Statistics overlay: **3 Qt cases pass per build**, none failed/skipped: F3 statistics, play/collider counts and debug-drawing toggle.
+- Agent panel: **6 Qt cases pass per build**, none failed/skipped: inert row replacement/styles, literal text and the private
+  test key store/description flow.
 
-QQ lint (Qt's interface-language checker) still fails: **257 console messages/282 structured warning records**; structured
-reports include repeated/additional findings absent from console output. The inspector removes 76 console/structured findings, none added.
+QQ lint (Qt's interface-language checker) still fails: **247 console messages/272 structured warning records**; structured
+reports include repeated/additional findings absent from console output. The latest agent batch removes ten console/structured findings, none added.
 Six spatial-audio findings remain a Qt metadata constraint. Last root aggregate lint passed incrementally; shell lint has
 **zero warnings/errors across 28 files**, plus one unchanged informational note. Its ID collision is fixed.
 **12 Wayland type-metadata warnings** seen during dependency generation remain unresolved.
@@ -32,7 +32,7 @@ Listing/planning remain on the window thread; last Release observations: **269/3
 Literal logic problems: **3 focused/18 related Qt cases pass per build**, none failed/skipped, including recovery/save/build interlocks.
 Inspector filenames are literal; bound field editors pass **7 Qt cases per build**, none failed/skipped, covering actual edits,
 entity switches, undo, groups/prefabs and 2D editing. The checks caught and fixed a transient assignment warning.
-No heavy job is active. Next: a small agent-panel delegate batch, tested with inert model rows.
+No heavy job is active. Next: a complete Studio run on the integrated interface changes, Release then sanitizers.
 Exact sources, commands, records, active job and resume point: `build/autonomous-2026-11-04/HANDOFF.md`.
 
 Full OS/core, actual Windows products, native Linux graphics/sound/controllers and image/install proof remain unrun; the

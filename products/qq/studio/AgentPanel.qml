@@ -11,6 +11,10 @@
 // the key's problem and the steps were not coloured, and the tool steps were not in the mono face.
 // Changed for QOR OS: whether the agent's logic may run; answers, status and key problems are text, never markup (QOR-0018).
 
+// Changed for QOR OS: step delegates keep their panel context and read roles from their own row.
+
+pragma ComponentBehavior: Bound
+
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Controls.Material
@@ -161,6 +165,7 @@ ColumnLayout {
         onCountChanged: positionViewAtEnd()
 
         delegate: ColumnLayout {
+            id: stepRow
             required property var modelData
             width: steps.width
             spacing: 4
@@ -168,15 +173,15 @@ ColumnLayout {
                 Layout.fillWidth: true
                 wrapMode: Text.Wrap
                 textFormat: Text.PlainText
-                text: modelData.text
-                font.pixelSize: modelData.kind === "said" ? 13 : 12
-                font.family: modelData.kind === "tool" || modelData.kind === "frame" ? Look.mono : Qt.application.font.family
-                color: modelData.failed ? Look.bad : modelData.kind === "done" ? Look.ok : Look.inkBody
-                opacity: modelData.kind === "tool" ? 0.65 : 1
+                text: stepRow.modelData.text
+                font.pixelSize: stepRow.modelData.kind === "said" ? 13 : 12
+                font.family: stepRow.modelData.kind === "tool" || stepRow.modelData.kind === "frame" ? Look.mono : Qt.application.font.family
+                color: stepRow.modelData.failed ? Look.bad : stepRow.modelData.kind === "done" ? Look.ok : Look.inkBody
+                opacity: stepRow.modelData.kind === "tool" ? 0.65 : 1
             }
             Image {
-                visible: modelData.image !== ""
-                source: modelData.image
+                visible: stepRow.modelData.image !== ""
+                source: stepRow.modelData.image
                 Layout.fillWidth: true
                 Layout.preferredHeight: visible ? width * sourceSize.height / Math.max(1, sourceSize.width) : 0
                 fillMode: Image.PreserveAspectFit
