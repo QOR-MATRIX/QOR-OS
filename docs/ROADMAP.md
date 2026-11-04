@@ -376,6 +376,10 @@ unpublished builds stay out of reach.
   fixes it; actual delegate activation still reparents the entity and updates the selected index. Seven selected Qt cases per
   build pass without failures/skips, including group/prefab, undo, duplication and Studio-look checks. Hardening passes 16/9;
   lint remains 247 console messages/272 structured warnings, none added. The full 28-case runs above precede this popup fix.
+  Ground's bound slab context and explicit texture owner then remove four findings, none added: 243 console messages/268
+  structured warnings. Existing physics checks pass five Qt cases per build; its checker/extent pixel check passes three per
+  build, all without failures/skips. Both Studio/Player variants are rebuilt and fingerprinted. Hardening passes 16 Release/11
+  sanitizer programs, including the newly built play/world suites. The full 28-case runs at `b2b084c` precede this batch too.
   The latest 48 scene cases pass in Release and under sanitizers, including malformed-image readiness; six selected screen-play
   functions pass (8 Qt cases including setup/cleanup). The earlier broader play run and a clean detached baseline each had
   the same 11 failures. Test clock waits and guaranteed fake-controller cleanup subsequently bring all 53 play cases to a pass,

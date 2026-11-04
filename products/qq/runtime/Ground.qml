@@ -4,6 +4,10 @@
 // Its surface can be a picture (P3.14): `image`, one copy every `imageSize` units, tinted by `colour` (white shows it
 // as painted).
 
+// Changed for QOR OS: the slab keeps its owning ground context and the material names its ground's texture.
+
+pragma ComponentBehavior: Bound
+
 import QtQuick
 import QtQuick3D
 import QtQuick3D.Physics
@@ -46,7 +50,7 @@ Model {
         baseColor: ground.colour
         roughness: 0.82
         metalness: 0.0
-        baseColorMap: String(ground.image) !== "" ? picture : null
+        baseColorMap: String(ground.image) !== "" ? ground.picture : null
     }
 
     readonly property Texture picture: Texture {
