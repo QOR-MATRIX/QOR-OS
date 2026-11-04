@@ -51,13 +51,19 @@ void FrameStats::setWindow(QQuickWindow *window)
     }
 }
 
+void FrameStats::setCaptureIdleGaps(bool capture)
+{
+    QMutexLocker lock(&m_mutex);
+    m_captureIdleGaps = capture;
+}
+
 void FrameStats::onFrameSwapped()
 {
     const qint64 now = m_clock.nsecsElapsed();
     QMutexLocker lock(&m_mutex);
     if (m_lastFrameNs >= 0) {
         const double interval = double(now - m_lastFrameNs) / 1e6;
-        if (interval < kIdleGapMs && m_intervals.size() < kMaxSamples)
+        if ((m_captureIdleGaps || interval < kIdleGapMs) && m_intervals.size() < kMaxSamples)
             m_intervals.append(interval);
     }
     m_lastFrameNs = now;

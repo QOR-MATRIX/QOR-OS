@@ -1,42 +1,39 @@
 # Where QOR OS stands
 
-For Andrew, 4 November 2026. Local work continues on `integration/owner-brief`; validation versions are distinguished below.
+For Andrew, 4 November 2026. Local branch: `integration/owner-brief`; latest checked asset guard: `24d3b09`.
 
-QOR OS joins Prism (desktop/compositor), Lumen (design language), QQ, ARQADE and QOR Media. Local fixes cover failed-command
-reporting, fresh evidence, strict lint status, supplied text and screen ownership. Nothing is pushed. All 13 original worktrees
-(Git checkouts) are preserved, plus one clean comparison checkout. This session owns implementation; heavy jobs use the verified QOR-local
-lock sequentially. No cross-project prerequisite exists.
+QOR OS joins Prism (desktop/compositor), Lumen (design language), QQ, ARQADE and QOR Media. All 13 original worktrees
+(Git checkouts) and the added comparison checkout are preserved. This session owns implementation. Heavy jobs use the
+verified QOR-local lock sequentially; no cross-project prerequisite exists. Nothing is pushed.
 
 ## Verified checks
 
-Commercial Qt 6.12 runs use hidden WSL (Linux inside Windows), software rendering, a graphics-processor fence, two processors,
-a 1.25 GiB memory cap and one compiler/rendering worker. Release is optimized; ASan/UBSan check memory and undefined behavior,
-with leak checking off.
+Commercial Qt 6.12 tests run hidden in WSL (Linux inside Windows), with software rendering, the graphics processor fenced,
+two processors, a 1.25 GiB memory cap and one compiler/rendering worker. Release is optimized; ASan/UBSan check memory and
+undefined behavior, with leak checking off.
 
-- Latest screen batch: **48 scene cases in each build and 8 selected screen-play cases pass**, none failed/skipped, including
-  independent instances, edits, scaling and malformed-image readiness. Latest hardening (exploit mitigations): **16 Release/8 sanitizer programs pass**.
-- Full play: **53 passed**, none failed/skipped, after baseline test-clock/controller cleanup fixes and before the latest
-  screen batch. Native waits, motion conditions and tolerances remain unchanged.
-- Full Release and ASan integration each: **89 asset-library, 195 game-build and 25 Studio cases pass**, none failed/skipped, at `6046e08`.
-  Pack measurement: first listing **269 ms**, update planning **396 ms**, both on the window thread; no latency budget is established.
-- The later replacement trust gap reproduced a write after permission changed. Copy now rechecks trust/busy work; **91 asset cases
-  pass in each build**, none failed/skipped, including refusal and a successful fresh request. Full game-build/Studio runs precede this guard.
-- Agent literal-text probes **4/build** and Linux wrapper/reporter **90 cases** pass; product attempts/retries stay sequential.
-- Benchmark launcher regressions reproduced reused evidence, ignored producer/client errors and equal-refresh acceptance.
-  **16 launcher and 9 bundle fixture tests pass**, including malformed metrics, normal disconnects and failed inventories/writes. Bundles record program
-  fingerprints and mark their build revision unverified. These tests use no real Qt/compositor/device; failed writes preserve prior archives.
-- Readiness unit checks: **14 pass**. Runner-boundary checks: **36 pass/1 Windows link-privilege skip**; that link case separately
-  passes on Linux. VM preparation stand-ins: **138 pass**, none skipped; these establish no isolation proof.
+- A delayed replacement wrote files after trust changed to false. Copy now rechecks trust and busy work. **91 asset-library
+  cases pass in each build**, none failed/skipped, including refusal and successful fresh requests; four focused cases also pass per build.
+- Earlier full integration at `6046e08`: **195 game-build/25 Studio cases pass in each build**, none failed/skipped.
+  These precede the trust guard. Latest hardening (exploit mitigations): **16 Release/8 sanitizer programs pass**.
+- Screen/text/image checks: **48 scene cases per build and 8 selected play cases pass**; full-play evidence predates that batch.
+- Benchmark tooling: **16 launcher/9 bundle fixture tests pass**, covering malformed metrics, failed producers/clients and archive
+  preservation. These use no real Qt/compositor/device; executable fingerprints do not establish a build revision.
+- Native benchmark capture: **5 sanitizer cases pass**, no skips; an injected 500 ms stall now reaches the report. Monitor idle
+  filtering is preserved. Synthetic probe cost establishes no speed change; focused root hardening passes **4 programs**.
+- Readiness: **14 unit passes**. Runner boundary: **36 passes/1 Windows link-privilege skip**; that case separately passes on Linux.
+  VM preparation: **138 stand-in passes**, no skips. These establish no isolation proof.
 
-QQ lint (Qt's interface-language checker) is **347 diagnostics**, down from 382 with none added. All three native commands fail.
-Six spatial-audio findings remain a Qt metadata constraint. No warning was suppressed or kit changed.
+QQ lint (Qt's interface-language checker) still fails with **347 diagnostics**, none added by the guard. Six spatial-audio
+findings remain a Qt metadata constraint; no warning was suppressed or kit changed. Pack listing/planning remain on the window
+thread; latest Release first listing **269 ms**, planning **396 ms**, with no latency budget established.
 
 ## Running, next and limits
 
-The checked trust guard is next to record. Exact commit, commands,
-records and resume point: `build/autonomous-2026-11-04/HANDOFF.md`. Next: reproduce/fix the benchmark sampling gap, then reduce lint.
-Recovery/provenance source is unchanged; listing/planning still occupy the window thread.
-Source review also found the benchmark omits long idle-classified gaps; its reproduction/fix is pending.
+Root lint fails: 12 Wayland type-metadata warnings on its first aggregate build and two pre-existing WindowLayer ID-shadowing
+diagnostics visible in JSON only. One heavy job checks Kit lint; then fix that ID and the project-file list bindings.
+Exact source versions, commands, records and resume point:
+`build/autonomous-2026-11-04/HANDOFF.md`.
 
 Full OS/core, actual Windows products, native Linux graphics/sound/controllers and image/install proof remain unrun; the
 zero-warning requirement is unmet. VM (virtual machine) Create/Prove commands are prepared in current `docs/CI.md`; neither ran.

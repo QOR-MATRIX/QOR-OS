@@ -237,6 +237,7 @@ void runShellBenchmark(const QList<QQuickWindow *> &windows, const ShellBenchmar
     QList<FramePump *> pumps;
     for (QQuickWindow *window : windows) {
         auto *probe = new FrameStats(window);
+        probe->setCaptureIdleGaps(true);
         probe->setWindow(window);
         stats.append(probe);
         pumps.append(new FramePump(window));

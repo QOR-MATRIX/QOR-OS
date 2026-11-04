@@ -20,6 +20,11 @@ endfunction()
 
 qor_add_test(tst_spring SOURCES kit/tst_spring.cpp LIBRARIES qor_kit)
 qor_add_test(tst_oklch SOURCES kit/tst_oklch.cpp LIBRARIES qor_kit)
+qor_add_test(tst_framecapture
+    SOURCES kit/tst_framecapture.cpp ../prism/shell/shellbenchmark.cpp
+    LIBRARIES qor_kit Qt6::Quick)
+target_include_directories(tst_framecapture PRIVATE "${CMAKE_SOURCE_DIR}/prism/shell")
+set_property(TEST tst_framecapture APPEND PROPERTY ENVIRONMENT "QT_QUICK_BACKEND=software")
 qor_add_test(tst_services SOURCES services/tst_services.cpp LIBRARIES qor_services qor_sim)
 qor_add_test(tst_audio SOURCES audio/tst_audio.cpp LIBRARIES qor_audio)
 qor_add_test(tst_input SOURCES input/tst_input.cpp LIBRARIES qor_input qor_kit qor_kitplugin Qt6::GuiPrivate)

@@ -150,10 +150,31 @@ Intervals come from `QQuickWindow::frameSwapped` through `qor::FrameStats`,
 which never requests frames itself. While the tour is measured, the benchmark
 keeps every output drawing (each swap asks for the next), so an output with
 nothing animating is measured at its refresh rate rather than by its idle
-gaps; the latency phase runs on a still scene. Gaps over 200 ms count as idle
-and are excluded. Keeping outputs busy left the single-output numbers above
+gaps; the latency phase runs on a still scene. Continuous benchmark probes
+include intervals of 200 ms or more, so a long stall reaches the report. The
+interactive Monitor still excludes these idle-classified gaps. Keeping outputs
+busy originally left the single-output numbers above
 unchanged (2.78 ms average, 3.05 ms p95 and 5.9 ms input to swap on the
 RTX 4060).
+
+On 4 November 2026, `tst_framecapture` reproduced the omitted-stall defect
+through the real benchmark collector: a hidden window receives synthetic
+10 ms frame signals, interrupted for 500 ms during the measured tour. The
+before/after runs used the same machine, commercial Qt 6.12, ASan/UBSan
+(leak checking off), fenced WSL, one worker and a 1.25 GiB memory limit.
+
+| Measurement | Before (`24d3b09` plus the regression) | After the sampler fix |
+|-------------|--------------------------------------|-----------------------|
+| Standalone report maximum | 10.40 ms | 510.38 ms |
+| Missed intervals in that report | 0 | 1 |
+| Probe reset and two synthetic signals, Qt Test microbenchmark | 0.00028 ms/iteration | 0.00028 ms/iteration |
+
+The five sanitizer cases pass without failures or skips, including the
+unchanged interactive idle filter. The microbenchmark's standard deviations
+were 0.00096 and 0.0020 ms, so these observations establish no speed change.
+No window was shown, no real rendering or input latency was measured, and
+this is not hardware or compositor-gate evidence. Exact records and commands:
+`build/autonomous-2026-11-04/HANDOFF.md`.
 
 ### Compositor decision gate
 
@@ -288,9 +309,6 @@ on a QOR OS device, Prism owns the KMS device.
 
 ## Known costs and next steps
 
-- Source review found that the shared `FrameStats` sampler omits intervals of 200 ms or more as idle, and the shell benchmark
-  currently reads that filtered series. Long benchmark stalls can therefore be absent from its report. Reproduction and
-  benchmark-specific capture are pending; report validation does not correct this sampling limitation. Preserve the Monitor's idle behavior.
 - On integrated GPUs the remaining p95 is dominated by re-capturing the scene
   backdrop while windows move. Planned work: capture only the region under
   visible glass, and skip the capture when no glass overlaps changed content.
