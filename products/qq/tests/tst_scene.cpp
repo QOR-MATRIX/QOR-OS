@@ -8,6 +8,7 @@
 //
 // Changed for QOR OS: the look takes the colours a host passes as the runtime starts (QOR_THEME_COLORS).
 // Changed for QOR OS: the Player's materials and TileMap's geometry keep their bindings when Qt has properties of the same name.
+// Changed for QOR OS: game-supplied screen text is literal and remains bound to its own screen part.
 
 #include <QDir>
 #include <QFile>
@@ -15,6 +16,8 @@
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QMetaProperty>
+#include <QQmlComponent>
 #include <QQmlEngine>
 #include <QQmlListReference>
 #include <QRegularExpression>
@@ -155,6 +158,58 @@ private slots:
         QVERIFY(level->setProperty("layer", QStringLiteral("decor")));
         QCOMPARE(geometry->tiles(), 1);
         QCOMPARE(level->property("count").toInt(), 1);
+    }
+
+    void screenLabelsShowGameTextLiterally_data()
+    {
+        QTest::addColumn<QString>("kind");
+        QTest::newRow("text") << QStringLiteral("ScreenText");
+        QTest::newRow("button") << QStringLiteral("ScreenButton");
+    }
+
+    void screenLabelsShowGameTextLiterally()
+    {
+        QFETCH(QString, kind);
+        std::unique_ptr<QObject> scene(io->loadText(QStringLiteral(
+            "import QQ\nScene { %1 { name: \"First\"; text: \"<b>First</b>\" } "
+            "%1 { name: \"Second\"; text: \"<i>Second</i>\" } }\n").arg(kind), QUrl(), nullptr));
+        QVERIFY2(scene, qPrintable(io->lastError()));
+        QObject *first = entityNamed(scene.get(), QStringLiteral("First"));
+        QObject *second = entityNamed(scene.get(), QStringLiteral("Second"));
+        QVERIFY(first);
+        QVERIFY(second);
+        auto *firstDrawing = first->property("drawing").value<QQmlComponent *>();
+        auto *secondDrawing = second->property("drawing").value<QQmlComponent *>();
+        QVERIFY(firstDrawing);
+        QVERIFY(secondDrawing);
+        std::unique_ptr<QObject> firstVisual(firstDrawing->create(firstDrawing->creationContext()));
+        std::unique_ptr<QObject> secondVisual(secondDrawing->create(secondDrawing->creationContext()));
+        QVERIFY2(firstVisual, qPrintable(firstDrawing->errorString()));
+        QVERIFY2(secondVisual, qPrintable(secondDrawing->errorString()));
+        const auto textIn = [](QObject *visual) -> QObject * {
+            if (visual->metaObject()->indexOfProperty("textFormat") >= 0)
+                return visual;
+            for (QObject *child : visual->findChildren<QObject *>()) {
+                if (child->metaObject()->indexOfProperty("textFormat") >= 0)
+                    return child;
+            }
+            return nullptr;
+        };
+        QObject *firstLabel = textIn(firstVisual.get());
+        QObject *secondLabel = textIn(secondVisual.get());
+        QVERIFY(firstLabel);
+        QVERIFY(secondLabel);
+        const QMetaProperty format = firstLabel->metaObject()->property(firstLabel->metaObject()->indexOfProperty("textFormat"));
+        const int plain = format.enumerator().keyToValue("PlainText");
+        QVERIFY(plain >= 0);
+        QCOMPARE(firstLabel->property("textFormat").toInt(), plain);
+        QCOMPARE(secondLabel->property("textFormat").toInt(), plain);
+        const auto shown = [&kind](const QString &text) { return kind == QStringLiteral("ScreenButton") ? text.toUpper() : text; };
+        QCOMPARE(firstLabel->property("text").toString(), shown(QStringLiteral("<b>First</b>")));
+        QCOMPARE(secondLabel->property("text").toString(), shown(QStringLiteral("<i>Second</i>")));
+        QVERIFY(first->setProperty("text", QStringLiteral("<b>Changed</b>")));
+        QCOMPARE(firstLabel->property("text").toString(), shown(QStringLiteral("<b>Changed</b>")));
+        QCOMPARE(secondLabel->property("text").toString(), shown(QStringLiteral("<i>Second</i>")));
     }
 
     void aSceneFileIsReadAndWrittenBackByteForByte()

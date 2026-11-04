@@ -6,6 +6,7 @@
 //
 // With an `action` (P3.9), it is also a touch control: the action is held while a finger, or the pointer, is on it, so
 // a phone plays with the same actions a keyboard and a gamepad have.
+// Changed for QOR OS: game-supplied labels are drawn literally, never parsed as markup.
 
 import QtQuick
 import QQ
@@ -94,6 +95,7 @@ ScreenPart {
 
             Text {
                 id: label
+                textFormat: Text.PlainText
                 anchors.centerIn: parent
                 text: button.text.toUpperCase()
                 color: Look.ink
