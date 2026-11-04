@@ -319,6 +319,11 @@ only when:
 - the run is for a tag;
 - the run was started by hand.
 
+Change detection stops on a failed Git fetch or diff. On Linux it reads the whole diff before matching and does not close
+the producer's pipe early, so a large change list cannot turn a match into an "unchanged" decision. The step reports only
+whether products were requested; it cannot claim they were built or tested. Regression checks execute each platform's
+actual workflow script with a stand-in Git, including failures, a large diff, unchanged files, tags and manual runs.
+
 A product whose suites fail is run once more (on Linux, its failed suites).
 On a Windows desktop someone is using, a test window can lose the keyboard to
 another application, or a synthetic click to the real pointer, wherever it rests,

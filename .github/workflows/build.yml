@@ -221,11 +221,13 @@ jobs:
           $run = $true
           if ($env:EVENT -in 'push', 'pull_request' -and $env:BEFORE -and $env:BEFORE -notmatch '^0+$' -and -not $env:GITHUB_REF.StartsWith('refs/tags/')) {
             git fetch --quiet --no-tags --depth=1 origin $env:BEFORE
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
             $changed = git diff --name-only $env:BEFORE HEAD
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
             $run = [bool]($changed | Where-Object { $_ -match '^(products/|tools/qor-media/|\.qmllint\.ini$|docs/design/tokens\.json$|cmake/QorHardening\.cmake$|tools/dev/(products\.(ps1|sh)|products-display\.qml|products-tests\.ps1|products-report\.py|secret-service\.py)$|tools/ci/(check_hardening|with_display)\.py$|\.github/(workflows/build\.yml|qt-packages\.json)$)' })
           }
           "run=$($run.ToString().ToLower())" >> $env:GITHUB_OUTPUT
-          "Carried products: $(if ($run) { 'built and tested' } else { 'unchanged, skipped' })" >> $env:GITHUB_STEP_SUMMARY
+          "Carried products requested: $(if ($run) { 'yes' } else { 'no (unchanged)' })" >> $env:GITHUB_STEP_SUMMARY
 
       # Each product's own script builds and tests it, exactly as upstream
       # (docs/UPSTREAM.md); a product that fails is tried once more.
@@ -423,12 +425,18 @@ jobs:
           if { [ "$EVENT" = push ] || [ "$EVENT" = pull_request ]; } && [ -n "$BEFORE" ] \
               && ! echo "$BEFORE" | grep -qE '^0+$' && [ "${GITHUB_REF#refs/tags/}" = "$GITHUB_REF" ]; then
             git fetch --quiet --no-tags --depth=1 origin "$BEFORE"
-            git diff --name-only "$BEFORE" HEAD \
-              | grep -qE '^(products/|tools/qor-media/|\.qmllint\.ini$|docs/design/tokens\.json$|cmake/QorHardening\.cmake$|tools/dev/(products\.(ps1|sh)|products-display\.qml|products-tests\.ps1|products-report\.py|secret-service\.py)$|tools/ci/(check_hardening|with_display)\.py$|\.github/(workflows/build\.yml|qt-packages\.json)$)' \
-              || run=false
+            changed=$(git diff --name-only "$BEFORE" HEAD)
+            if printf '%s\n' "$changed" \
+                | grep -E '^(products/|tools/qor-media/|\.qmllint\.ini$|docs/design/tokens\.json$|cmake/QorHardening\.cmake$|tools/dev/(products\.(ps1|sh)|products-display\.qml|products-tests\.ps1|products-report\.py|secret-service\.py)$|tools/ci/(check_hardening|with_display)\.py$|\.github/(workflows/build\.yml|qt-packages\.json)$)' > /dev/null; then
+              run=true
+            else
+              code=$?
+              [ "$code" -eq 1 ] || exit "$code"
+              run=false
+            fi
           fi
           echo "run=$run" >> "$GITHUB_OUTPUT"
-          echo "Carried products: $([ "$run" = true ] && echo 'built and tested' || echo 'unchanged, skipped')" >> "$GITHUB_STEP_SUMMARY"
+          echo "Carried products requested: $([ "$run" = true ] && echo 'yes' || echo 'no (unchanged)')" >> "$GITHUB_STEP_SUMMARY"
 
       # Fenced from the GPU, in software, on a display of its own. Its log and the step's summary name each case failed or
       # skipped, with why. A cold build, every suite, and a failed tst_games again (docs/CI.md#what-linux-runs).
