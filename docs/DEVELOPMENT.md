@@ -19,6 +19,11 @@ cmake --build --preset windows-release --target all_qmllint
 For visual work, `tools\screenshots\capture.ps1 -Scenes desktop,beam -OutDir $env:TEMP\shots`
 produces deterministic frames you can compare before and after a change.
 
+Before a local heavy job, inspect QOR's worktrees and active QOR build/test workers. Identify their current project-local
+build wrapper and check its actual operating-system lock; a leftover holder note does not mean the lock is held. Reuse that
+QOR lock and keep heavy jobs serial. Preserve active workers and unfinished changes. Local implementation follows QOR's
+worker and lock state.
+
 ## 2. C++ conventions
 
 - C++20, Qt 6.12. Namespaces: `qor` (Kit, Services), `qor::sim`,

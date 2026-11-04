@@ -5,6 +5,7 @@
 // In play, a `solid` map's tiles are what things stand on and run into: colliders over the fewest rectangles that cover
 // them (tilemap.h). A map with several layers is drawn with a TileMap for each, the solid one among them. A map marked
 // `bounds` is the level's frame: a 2D view following the player stops at its edges.
+// Changed for QOR OS: the root id is distinct from TileGeometry.tiles.
 
 import QtQuick
 import QtQuick3D
@@ -12,7 +13,7 @@ import QtQuick3D.Physics
 import QQ
 
 Node {
-    id: tiles
+    id: tileMap
 
     readonly property string kind: "TileMap"
     readonly property var fields: ["name", "position", "source", "layer", "solid", "bounds", "lit", "colour"]
@@ -38,7 +39,7 @@ Node {
     property Node physics: null
 
     /// The map as read: { error, width, height, tileWidth, tileHeight, gids, solids, … } (SceneIO.readTiledMap).
-    readonly property var map: SceneIO.readTiledMap(SceneIO.resolvedUrl(tiles, tiles.source), tiles.layer)
+    readonly property var map: SceneIO.readTiledMap(SceneIO.resolvedUrl(tileMap, tileMap.source), tileMap.layer)
     /// Why it could not be read, or empty.
     readonly property string error: source.toString() === "" ? "" : (map.error ?? "")
     readonly property real pixelsPerUnit: parent !== null && parent.pixelsPerUnit !== undefined ? parent.pixelsPerUnit : 16
@@ -54,16 +55,16 @@ Node {
         id: look
         pickable: true
         castsShadows: false
-        receivesShadows: tiles.lit
+        receivesShadows: tileMap.lit
         geometry: TileGeometry {
             id: geometry
-            map: tiles.map
-            pixelsPerUnit: tiles.pixelsPerUnit
+            map: tileMap.map
+            pixelsPerUnit: tileMap.pixelsPerUnit
         }
         materials: PrincipledMaterial {
-            baseColor: tiles.colour
+            baseColor: tileMap.colour
             baseColorMap: Texture {
-                source: tiles.map.image ?? ""
+                source: tileMap.map.image ?? ""
                 minFilter: Texture.Nearest
                 magFilter: Texture.Nearest
                 mipFilter: Texture.None
@@ -71,7 +72,7 @@ Node {
                 tilingModeHorizontal: Texture.ClampToEdge
                 tilingModeVertical: Texture.ClampToEdge
             }
-            lighting: tiles.lit ? PrincipledMaterial.FragmentLighting : PrincipledMaterial.NoLighting
+            lighting: tileMap.lit ? PrincipledMaterial.FragmentLighting : PrincipledMaterial.NoLighting
             alphaMode: PrincipledMaterial.Mask
             alphaCutoff: 0.5
             cullMode: Material.NoCulling
@@ -84,7 +85,7 @@ Node {
     function makeBody() {
         if (!live || physics || !solid || !map.solids || map.solids.length === 0)
             return
-        const made = wall.createObject(parent, { position: tiles.position, rotation: tiles.rotation })
+        const made = wall.createObject(parent, { position: tileMap.position, rotation: tileMap.rotation })
         const shapes = []
         for (const r of map.solids) {
             // [x, y, w, h] in tiles from the top-left; a box a unit deep, centred on its run.
@@ -106,7 +107,7 @@ Node {
     Component {
         id: wall
         StaticRigidBody {
-            readonly property QtObject entity: tiles
+            readonly property QtObject entity: tileMap
             sendContactReports: true
             physicsMaterial: PhysicsMaterial { staticFriction: 0.8; dynamicFriction: 0.7; restitution: 0.05 }
         }

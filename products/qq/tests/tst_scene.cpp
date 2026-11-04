@@ -7,6 +7,7 @@
 // tests/fixtures/make_2d.py writes (a Tiled map, its tileset and a sheet of sprite frames, P3.10).
 //
 // Changed for QOR OS: the look takes the colours a host passes as the runtime starts (QOR_THEME_COLORS).
+// Changed for QOR OS: the Player's materials and TileMap's geometry keep their bindings when Qt has properties of the same name.
 
 #include <QDir>
 #include <QFile>
@@ -15,6 +16,7 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QQmlEngine>
+#include <QQmlListReference>
 #include <QRegularExpression>
 #include <QStandardPaths>
 #include <QTemporaryDir>
@@ -22,6 +24,8 @@
 #include <QVector3D>
 #include <QtQml/qqmlextensionplugin.h>
 #include <QtQuick3D/qquick3dobject.h>
+
+#include <memory>
 
 #include "confinement.h"
 #include "kinematics.h"
@@ -102,6 +106,55 @@ private slots:
         QCOMPARE(qq::formatNumber(-0.00001), QStringLiteral("0"));
         QCOMPARE(qq::formatNumber(double(1.15f)), QStringLiteral("1.15"));
         QCOMPARE(qq::formatNumber(-2.5), QStringLiteral("-2.5"));
+    }
+
+    void thePlayersBodyKeepsItsColourOnEveryPart()
+    {
+        std::unique_ptr<QObject> scene(io->loadText(QStringLiteral(
+            "import QQ\nScene { Player { name: \"Hero\"; colour: \"#3684da\" } }\n"), QUrl(), nullptr));
+        QVERIFY2(scene, qPrintable(io->lastError()));
+        QObject *player = entityNamed(scene.get(), QStringLiteral("Hero"));
+        QVERIFY(player);
+        QList<QObject *> coloured;
+        int models = 0;
+        for (QObject *child : player->findChildren<QObject *>()) {
+            QQmlListReference materials(child, "materials");
+            if (!materials.isValid())
+                continue;
+            ++models;
+            QCOMPARE(materials.count(), 1);
+            QObject *material = materials.at(0);
+            QVERIFY(material);
+            if (material->property("baseColor").value<QColor>() == QColor(QStringLiteral("#3684da")))
+                coloured.append(material);
+        }
+        QCOMPARE(models, 4);
+        QCOMPARE(coloured.size(), 3);
+        QVERIFY(player->setProperty("colour", QColor(QStringLiteral("#c14953"))));
+        for (QObject *material : coloured)
+            QCOMPARE(material->property("baseColor").value<QColor>(), QColor(QStringLiteral("#c14953")));
+    }
+
+    void aTileMapsGeometryFollowsItsMapAndScale()
+    {
+        const QUrl file = QUrl::fromLocalFile(fixture(QStringLiteral("bindings.qml")));
+        std::unique_ptr<QObject> scene(io->loadText(QStringLiteral(
+            "import QQ\nScene { pixelsPerUnit: 16; TileMap { name: \"Level\"; source: \"level.tmj\" } }\n"), file, nullptr));
+        QVERIFY2(scene, qPrintable(io->lastError()));
+        QObject *level = entityNamed(scene.get(), QStringLiteral("Level"));
+        QVERIFY(level);
+        auto *geometry = level->findChild<qq::TileGeometry *>();
+        QVERIFY(geometry);
+        QCOMPARE(level->property("error").toString(), QString());
+        QCOMPARE(geometry->tiles(), 16);
+        QCOMPARE(level->property("count").toInt(), 16);
+        QCOMPARE(geometry->map(), io->readTiledMap(QUrl::fromLocalFile(fixture(QStringLiteral("level.tmj")))));
+        QCOMPARE(geometry->pixelsPerUnit(), 16.0);
+        QVERIFY(scene->setProperty("pixelsPerUnit", 32.0));
+        QCOMPARE(geometry->pixelsPerUnit(), 32.0);
+        QVERIFY(level->setProperty("layer", QStringLiteral("decor")));
+        QCOMPARE(geometry->tiles(), 1);
+        QCOMPARE(level->property("count").toInt(), 1);
     }
 
     void aSceneFileIsReadAndWrittenBackByteForByte()

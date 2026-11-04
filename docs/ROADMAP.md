@@ -341,7 +341,8 @@ unpublished builds stay out of reach.
   The 3 November sanitizer `tst_gamebuild` passed all 195 cases; it was not rerun on 4 November. These use WSL software rendering
   and the real StoreEngine's demonstration pack. Listing and planning still run on the window's thread: the Release largest-pack
   run measured 257 ms and 402 ms respectively, without establishing a latency budget. Native Linux, a GPU and Windows still need
-  their own evidence. QQ's full QML lint has 435 warnings, four removed and none added against `17ef113`; the zero-warning gate remains open.
+  their own evidence. QQ's full QML lint has 431 warnings: the next runtime-id batch removes four more, with none added against
+  `8eca6ea`; its 43 scene cases pass before and after. The zero-warning gate remains open.
 - [ ] Publishing in stages: private draft, preview, package checks, a declaration of rights, submission, review, publication
 - [ ] Editable projects in the Creator Store as editions linked to a game, with their engine, files, outside dependencies and permitted
   reuse; playable mods, per game, only where that game allows them
