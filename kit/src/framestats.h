@@ -76,6 +76,7 @@ private:
 
     double m_frameMs = 0;
     bool m_idle = true;
+    bool m_publishScheduled = false; // active timer or one queued GUI start; guarded by m_mutex
 };
 
 } // namespace qor

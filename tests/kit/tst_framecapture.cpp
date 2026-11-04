@@ -3,6 +3,13 @@
 #include "framestats.h"
 #include "shellbenchmark.h"
 
+#include <QtCore/QEvent>
+#include <QtCore/QHash>
+#include <QtCore/QPointer>
+#include <QtCore/qscopeguard.h>
+#include <chrono>
+#include <thread>
+
 #include <QtCore/QFile>
 #include <QtCore/QJsonArray>
 #include <QtCore/QJsonDocument>
@@ -16,6 +23,23 @@
 #include <QtTest/QTest>
 
 namespace {
+class TimerEvents : public QObject
+{
+public:
+    QObject *lastReceiver = nullptr;
+    QEvent::Type lastType = QEvent::None;
+    QHash<QObject *, int> counts;
+
+    bool eventFilter(QObject *receiver, QEvent *event) override
+    {
+        lastReceiver = receiver;
+        lastType = event->type();
+        if (lastType == QEvent::Timer)
+            ++counts[receiver];
+        return false;
+    }
+};
+
 int capture(const QString &path)
 {
     QQuickWindow window;
@@ -85,6 +109,86 @@ private slots:
         QTest::qWait(250);
         window.frameSwapped();
         QVERIFY(probe.intervals().isEmpty());
+    }
+
+    void idleProbeDoesNotWakeRepeatedly()
+    {
+        QQuickWindow window;
+        qor::FrameStats probe;
+        TimerEvents events;
+        QTimer frames;
+        QPointer<QObject> publisher;
+        auto *application = QCoreApplication::instance();
+        application->installEventFilter(&events);
+        const auto removeFilter = qScopeGuard([&] { application->removeEventFilter(&events); });
+        // Identify the actual timer from an update emitted during its Timer event, without private-member access.
+        QObject::connect(&probe, &qor::FrameStats::updated, &events, [&] {
+            if (events.lastType == QEvent::Timer && events.lastReceiver != &frames)
+                publisher = events.lastReceiver;
+        });
+        probe.setWindow(&window);
+        QObject::connect(&frames, &QTimer::timeout, &window, &QQuickWindow::frameSwapped);
+        frames.start(10);
+        QTRY_VERIFY(!probe.isIdle());
+        frames.stop();
+        QTRY_VERIFY(probe.isIdle());
+        QVERIFY(publisher);
+        const int atIdle = events.counts.value(publisher.data());
+        QTest::qWait(750);
+        QCOMPARE(events.counts.value(publisher.data()), atIdle);
+
+        // A real render thread emits frameSwapped. Resuming from another thread must restart GUI publishing safely.
+        std::thread rendering([&] {
+            for (int i = 0; i < 80; ++i) {
+                window.frameSwapped();
+                std::this_thread::sleep_for(std::chrono::milliseconds(10));
+            }
+        });
+        const auto join = qScopeGuard([&] {
+            if (rendering.joinable())
+                rendering.join();
+        });
+        QTRY_VERIFY(!probe.isIdle());
+        rendering.join();
+        QTRY_VERIFY(probe.isIdle());
+
+        // Detaching before a queued restart runs must leave the old timer stopped.
+        std::thread lastFrame([&] { window.frameSwapped(); });
+        lastFrame.join();
+        probe.setWindow(nullptr);
+        const int detached = events.counts.value(publisher.data());
+        QTest::qWait(300);
+        QCOMPARE(events.counts.value(publisher.data()), detached);
+    }
+
+    void anIdleStatusRedrawDoesNotKeepPublishing()
+    {
+        QQuickWindow window;
+        qor::FrameStats probe;
+        TimerEvents events;
+        QTimer frames;
+        QPointer<QObject> publisher;
+        auto *application = QCoreApplication::instance();
+        application->installEventFilter(&events);
+        const auto removeFilter = qScopeGuard([&] { application->removeEventFilter(&events); });
+        QObject::connect(&probe, &qor::FrameStats::updated, &events, [&] {
+            if (events.lastType == QEvent::Timer && events.lastReceiver != &frames)
+                publisher = events.lastReceiver;
+            // A Monitor label changing to idle can itself cause one more presented frame.
+            if (probe.isIdle())
+                QTimer::singleShot(0, &window, [&] { window.frameSwapped(); });
+        });
+        probe.setWindow(&window);
+        QObject::connect(&frames, &QTimer::timeout, &window, &QQuickWindow::frameSwapped);
+        frames.start(10);
+        QTRY_VERIFY(!probe.isIdle());
+        frames.stop();
+        QTRY_VERIFY(probe.isIdle());
+        QVERIFY(publisher);
+        const int atIdle = events.counts.value(publisher.data());
+        QTest::qWait(1000);
+        // The one status redraw gets one final sample, with no idle/active feedback loop.
+        QCOMPARE(events.counts.value(publisher.data()) - atIdle, 1);
     }
 
     void probeCost()

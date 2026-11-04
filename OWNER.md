@@ -16,14 +16,14 @@ two processors, a 1.25 GiB cap and one worker. ASan/UBSan check memory and undef
   these precede later interface changes.
 - Project-file panel: **7 selected Qt cases per build pass**, none failed/skipped: file click/filter, saved-state summary/Forget,
   and two-project asset/filter isolation. Product hardening (exploit mitigations): **16 Release/9 sanitizer programs pass**.
-- Native benchmark capture: **5 sanitizer cases pass**, no skips; an injected 500 ms stall now reaches the report. Monitor idle
-  filtering stays. Synthetic probe costs establish no speed change; focused root hardening passes **5 programs**.
+- Frame probe: **7 sanitizer cases pass**, none failed/skipped: stall capture, idle timer stop, threaded resume, queued detach
+  and status redraw. Shell UI and **5-program hardening** pass. Controlled timing comparisons establish no speed improvement.
 - Tools: **16 launcher/9 bundle/14 readiness unit passes**. Runner boundary: **36 passes/1 Windows link skip** (separately
   passes on Linux). Virtual-machine preparation: **138 stand-in passes**; no isolation proof.
 
 QQ lint (Qt's interface-language checker) still fails: **338 console messages/363 structured warning records**; structured
 reports include repeated/additional findings absent from console output. The panel/editor remove 9 console messages and 21 structured findings, none added.
-Six spatial-audio findings remain a Qt metadata constraint. Root aggregate lint now passes incrementally; shell lint has
+Six spatial-audio findings remain a Qt metadata constraint. Last root aggregate lint passed incrementally; shell lint has
 **zero warnings/errors across 28 files**, plus one unchanged informational note. Its ID collision is fixed.
 **12 Wayland type-metadata warnings** seen during dependency generation remain unresolved.
 Listing/planning remain on the window thread; last Release observations: **269/396 ms**, with no latency budget established.
@@ -32,7 +32,8 @@ Listing/planning remain on the window thread; last Release observations: **269/3
 
 The shell UI script passes before/after the ID rename under sanitizers; software benchmark observations are recorded.
 Literal logic problems: **3 focused/18 related Qt cases pass per build**, none failed/skipped, including recovery/save/build interlocks.
-Next: reproduce the existing frame probe's idle timer wakeups, then a bounded fix. No heavy job is active.
+The idle fix and controlled comparisons are verified; all timing series are preserved. No heavy job is active.
+Next: a small remaining interface-lint batch, preserving current journeys.
 Exact sources, commands, records, active job and resume point: `build/autonomous-2026-11-04/HANDOFF.md`.
 
 Full OS/core, actual Windows products, native Linux graphics/sound/controllers and image/install proof remain unrun; the

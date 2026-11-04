@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: LicenseRef-QOR-OS-Proprietary
 #include "framestats.h"
 
+#include <QtCore/QMetaObject>
+
 #include <algorithm>
 
 namespace qor {
@@ -45,8 +47,12 @@ void FrameStats::setWindow(QQuickWindow *window)
         // frameSwapped is emitted on the render thread; record it there.
         m_connection =
             connect(m_window, &QQuickWindow::frameSwapped, this, &FrameStats::onFrameSwapped, Qt::DirectConnection);
+        QMutexLocker lock(&m_mutex);
+        m_publishScheduled = true;
         m_publishTimer.start();
     } else {
+        QMutexLocker lock(&m_mutex);
+        m_publishScheduled = false;
         m_publishTimer.stop();
     }
 }
@@ -60,13 +66,33 @@ void FrameStats::setCaptureIdleGaps(bool capture)
 void FrameStats::onFrameSwapped()
 {
     const qint64 now = m_clock.nsecsElapsed();
-    QMutexLocker lock(&m_mutex);
-    if (m_lastFrameNs >= 0) {
-        const double interval = double(now - m_lastFrameNs) / 1e6;
-        if ((m_captureIdleGaps || interval < kIdleGapMs) && m_intervals.size() < kMaxSamples)
-            m_intervals.append(interval);
+    bool schedule = false;
+    {
+        QMutexLocker lock(&m_mutex);
+        if (m_lastFrameNs >= 0) {
+            const double interval = double(now - m_lastFrameNs) / 1e6;
+            if ((m_captureIdleGaps || interval < kIdleGapMs) && m_intervals.size() < kMaxSamples)
+                m_intervals.append(interval);
+        }
+        m_lastFrameNs = now;
+        if (!m_publishScheduled) {
+            m_publishScheduled = true;
+            schedule = true;
+        }
     }
-    m_lastFrameNs = now;
+    if (schedule) {
+        // frameSwapped can arrive on the render thread; the timer belongs to the GUI thread.
+        QMetaObject::invokeMethod(
+            this,
+            [this] {
+                QMutexLocker lock(&m_mutex);
+                if (!m_window)
+                    m_publishScheduled = false;
+                else if (m_publishScheduled && !m_publishTimer.isActive())
+                    m_publishTimer.start();
+            },
+            Qt::QueuedConnection);
+    }
 }
 
 void FrameStats::publish()
@@ -82,6 +108,10 @@ void FrameStats::publish()
             for (qsizetype i = m_intervals.size() - n; i < m_intervals.size(); ++i)
                 recent += m_intervals.at(i);
             recent /= double(n);
+        }
+        if (idle) {
+            m_publishTimer.stop();
+            m_publishScheduled = false;
         }
     }
     const bool changed = idle != m_idle || (recent > 0 && std::abs(recent - m_frameMs) > 0.05);

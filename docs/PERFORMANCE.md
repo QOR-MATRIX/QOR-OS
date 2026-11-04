@@ -192,6 +192,42 @@ budget result. The existing `shell_e2e` application-controls/window-management
 script passes both before and after, with unchanged assertions and timeout;
 fresh records are in the same handoff's `windowlayer-*-e2e-record` folders.
 
+### Frame probe idle wakeups
+
+The probe's publisher previously kept waking every 250 ms after reporting
+idle. A real Qt event-filter regression counted three further timer events
+in a 750 ms quiet interval. It now stops at idle and queues one GUI-thread
+restart when frames resume. The 250 ms sampling cadence, 200 ms idle filter,
+benchmark stall capture and sample cap are retained. A status label's idle
+redraw gets one final sample without sustaining an idle/active feedback loop.
+
+Seven ASan/UBSan cases pass without failures or skips, covering those paths,
+resume from another thread and detach before a queued restart. Leak checking
+is off. The existing shell UI script also passes; five root programs pass
+hardening. Synthetic probe-cost observations were 0.00034/0.00036 ms per
+iteration before/after, with standard deviations 0.0026/0.0029 ms.
+
+The first separate short timing series was slower after the change, so it
+was retained and investigated. The committed sampler was rebuilt with the
+same flags in a private namespace: read-only source with its two committed
+files overlaid, and a copy-on-write build cache. Hashes verified the real
+source, executable, build log and CMake cache were preserved. Both exported
+executables pass hardening. Alternating old/new/new/old/old/new runs use the
+same executable directory and a fresh private profile each time.
+
+| Series, medians of three per version | Before average / p95 | After average / p95 |
+|-------------------------------------|----------------------|---------------------|
+| Initial separate 3-second runs | 8.88 / 11.92 ms | 11.34 / 16.19 ms |
+| Separate quiet repeat | — | 11.80 / 17.12 ms |
+| Alternating 8-second runs | 8.46 / 10.62 ms | 8.51 / 11.13 ms |
+| Alternating 3-second runs | 8.74 / 11.91 ms | 8.77 / 11.41 ms |
+
+The large gap was not reproduced in the controlled comparisons. These are
+fenced WSL software/sanitizer observations, with `graphicsApi` reported as
+`unknown`; they establish neither a speed improvement nor a hardware budget
+result. All raw series, executable fingerprints, commands and fresh records
+are retained in `build/autonomous-2026-11-04/HANDOFF.md`.
+
 ### Compositor decision gate
 
 **Deferred, not failed**
