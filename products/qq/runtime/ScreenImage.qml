@@ -1,5 +1,8 @@
 // A picture on a game's screen (P3.8): a logo, an icon, a portrait. An image file in the project (`assets/`), drawn
 // smooth, or `crisp` for pixel art: every pixel kept square, never blurred.
+// Changed for QOR OS: the drawing stays bound to this screen part; readiness uses its actual Image type.
+
+pragma ComponentBehavior: Bound
 
 import QtQuick
 import QQ
@@ -23,7 +26,10 @@ ScreenPart {
     property bool crisp: false
 
     /// Ready once the file is read; the error if it could not be.
-    readonly property bool ready: content !== null && content.status === Image.Ready
+    readonly property bool ready: {
+        const image = content as Image
+        return image !== null && image.status === Image.Ready
+    }
 
     drawing: Component {
         Image {

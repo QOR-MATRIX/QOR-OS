@@ -1,6 +1,6 @@
 # Where QOR OS stands
 
-For Andrew, 4 November 2026. Local work continues on `integration/owner-brief`, from checkpoint `4ef69b4`.
+For Andrew, 4 November 2026. Local work continues on `integration/owner-brief`, from checkpoint `505f614`.
 
 QOR OS joins Prism (desktop/compositor), Lumen (design language), QQ, ARQADE and QOR Media. Local fixes cover Windows
 failure reporting and fresh test evidence, automated change detection, strict lint status, supplied text and screen
@@ -15,19 +15,20 @@ undefined behavior, with leak checking off.
 
 - Clean `b651296` and the component baseline each had **42 play cases pass, 11 fail, none skip**, with identical failures.
   Correcting test game-clock waits and guaranteed fake-controller cleanup brings the full play suite to **53 passed, none failed/skipped**.
-  Native waits, motion conditions and tolerances remain unchanged.
-- **48 scene cases pass in Release and ASan/UBSan**, including separate drawing instances, edits, scaling, bar fills and project images.
+  Native waits, motion conditions and tolerances remain unchanged. This full run precedes the latest panel/bar/image batch.
+- All five screen drawings now retain their owning context. Latest **48 scene cases pass in Release and ASan/UBSan**,
+  including separate instances, edits, scaling and malformed-image readiness; **8 selected screen-play cases pass**, none skipped.
 - Agent status/key problems reproduced automatic rich text. Both now use plain text; **4 cases pass in each build**, none failed/skipped,
   using inert state without provider, network or keychain operations. Its keychain wording now fits Windows/Linux.
 - Linux first attempts/retries reject inherited CTest (test runner) parallelism. Both overlap regressions first failed;
   **90 wrapper/reporter stand-in cases pass**, none skipped. These use no Qt or hardware.
 - Hardening (exploit mitigations) passed **16 Release and 4 sanitizer programs**. QQ lint (Qt's interface-language checker)
-  remains **382 diagnostics**, none added; every native lint command fails. Six spatial-audio findings remain a Qt metadata constraint.
+  falls from **382 to 347 diagnostics**, none added; every native lint command fails. Six spatial-audio findings remain a Qt metadata constraint.
   No warning was suppressed or kit changed.
 
 ## Next and limits
 
-Record the checked changes, then reduce the panel/bar/image lint batch using the passing 48-case baseline. Source hashes,
+Record the checked screen batch, then refresh asset-library, build and Studio integration evidence. Source hashes,
 exact branch/HEAD, commands, results and resume point: `build/autonomous-2026-11-04/HANDOFF.md`. No heavy job is active.
 Recovery/provenance source remains unchanged; listing/planning still occupy the window thread.
 

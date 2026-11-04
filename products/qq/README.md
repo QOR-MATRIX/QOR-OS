@@ -289,8 +289,9 @@ description with no human edit, made by whoever runs it with their own key.
 
 ScreenText and ScreenButton labels render game-supplied text literally. Markup is shown as characters rather than parsed as
 rich text; changing one screen part updates its own drawing. ScreenButton keeps its existing uppercase label formatting.
-Their drawing Components are bound to their own screen part's context, including when ScreenPart creates them on the
-World's overlay. Text, sizing and actions continue to refer to that instance; neither drawing uses a delegate model context.
+All five screen kinds bind their drawing Components to their own screen part's context, including when ScreenPart creates
+them on the World's overlay. Text, sizing, fill, images and actions continue to refer to that instance; these drawings use
+no delegate model context. ScreenImage is ready only when its actual Image has finished loading; a malformed file is not ready.
 
 The Agent panel also shows supplied status, key-storage problems and messages literally. Markup in those strings stays
 text, including when the status changes during a run.

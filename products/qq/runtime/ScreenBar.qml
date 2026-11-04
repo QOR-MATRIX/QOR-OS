@@ -1,5 +1,8 @@
 // A bar on a game's screen (P3.8): health, fuel, a charge, a level's progress. Logic sets `value`, from 0 to `maximum`;
 // the bar fills that much of its length, easing to it unless the person asked for less motion.
+// Changed for QOR OS: the drawing stays bound to the screen part that supplies its values and size.
+
+pragma ComponentBehavior: Bound
 
 import QtQuick
 import QQ

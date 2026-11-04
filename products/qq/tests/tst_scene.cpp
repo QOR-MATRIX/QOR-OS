@@ -311,6 +311,18 @@ private slots:
             QCOMPARE(firstVisual->property("mipmap").toBool(), false);
             QCOMPARE(secondVisual->property("smooth").toBool(), true);
             QCOMPARE(secondVisual->property("mipmap").toBool(), true);
+            QFile broken(QDir(project.path()).filePath(QStringLiteral("broken.png")));
+            QVERIFY(broken.open(QIODevice::WriteOnly));
+            const QByteArray malformed("not a PNG");
+            QCOMPARE(broken.write(malformed), qint64(malformed.size()));
+            broken.close();
+            QVERIFY(first->setProperty("source", QUrl::fromLocalFile(broken.fileName())));
+            const QMetaProperty status = firstVisual->metaObject()->property(firstVisual->metaObject()->indexOfProperty("status"));
+            const int error = status.enumerator().keyToValue("Error");
+            QVERIFY(error >= 0);
+            QTRY_COMPARE(firstVisual->property("status").toInt(), error);
+            QCOMPARE(first->property("ready").toBool(), false);
+            QCOMPARE(second->property("ready").toBool(), true);
         }
     }
 
