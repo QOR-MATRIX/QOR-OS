@@ -7,6 +7,9 @@
 // Changed for QOR OS: reset(), which leaves nothing of a file behind when it closes or its project is left; Close asks
 // about unsaved text first; a file's name is text, never markup (AGENTS.md); saving goes back to the file that is open, and
 // says if that cannot be, and waits while a game is being built; restore(), for a recovery copy.
+// Changed for QOR OS: use the actual Studio window and bound delegates; supplied problems are plain text.
+
+pragma ComponentBehavior: Bound
 
 import QtQuick
 import QtQuick.Controls
@@ -19,7 +22,7 @@ Pane {
     id: editor
 
     /// The Studio's window: its project.
-    required property QtObject studio
+    required property Main studio
     /// The file open, by name (logic/<name>.qml), or "".
     property string name: ""
     readonly property url file: name === "" ? "" : String(studio.project) + "/logic/" + name + ".qml"
@@ -213,12 +216,22 @@ Pane {
             clip: true
             model: editor.problems
             delegate: ItemDelegate {
+                id: problemRow
                 required property var modelData
                 width: ListView.view.width
                 height: 24
                 font.pixelSize: 12
                 text: qsTr("Line %1: %2").arg(modelData.line).arg(modelData.message)
                 Material.foreground: Look.bad
+                contentItem: Label {
+                    text: problemRow.text
+                    textFormat: Text.PlainText
+                    font: problemRow.font
+                    color: problemRow.Material.foreground
+                    horizontalAlignment: problemRow.mirrored ? Text.AlignRight : Text.AlignLeft
+                    verticalAlignment: Text.AlignVCenter
+                    elide: Text.ElideRight
+                }
                 onClicked: editor.goTo(modelData.line)
             }
         }

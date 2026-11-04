@@ -349,10 +349,14 @@ unpublished builds stay out of reach.
   Native Linux, a GPU and Windows still need
   their own evidence. Runtime ids and the Qt Quick 3D C++ dependency declaration reduced QQ's console lint messages to 429,
   none added. Binding all five screen drawings to their owning context and typing image readiness then left 347, none added.
-  The project-file panel's bound delegates, actual Studio window type and preferred marker sizes now leave 340 console
+  The project-file panel's bound delegates, actual Studio window type and preferred marker sizes then left 340 console
   messages, none added. Its structured findings fall from 14 to 5 with none added; full QQ JSON retains 375 warning records,
   including repeats collapsed by the console. Seven selected Studio/workspace Qt cases pass in each of Release and
   ASan/UBSan, none failed/skipped, covering file click/filter, saved-state summary/Forget and two-project isolation.
+  A real Studio probe then reproduced automatic parsing of supplied logic problem text. Its label is now plain text;
+  actual window typing and bound editor delegates leave 338 console messages/363 structured warning records, none added.
+  The editor's 12 structured findings are gone. Three focused and 18 related Qt cases pass in each build without failures/skips,
+  including exact save filenames, unsaved prompts, restore/discard, project switching and build interlocks/packaged logic.
   The latest 48 scene cases pass in Release and under sanitizers, including malformed-image readiness; six selected screen-play
   functions pass (8 Qt cases including setup/cleanup). The earlier broader play run and a clean detached baseline each had
   the same 11 failures. Test clock waits and guaranteed fake-controller cleanup subsequently bring all 53 play cases to a pass,

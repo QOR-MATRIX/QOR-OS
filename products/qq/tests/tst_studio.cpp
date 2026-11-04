@@ -8,6 +8,7 @@
 // a Studio is open once its window has the keyboard too, so that a shortcut is not pressed before it can answer; no
 // controller on the machine joins in (virtualpads.cpp); and drawn in software alone, what play does to bodies is waited
 // for on the physics world's clock.
+// Changed for QOR OS: supplied logic problem descriptions are displayed literally.
 
 #include <QDir>
 #include <QElapsedTimer>
@@ -920,6 +921,42 @@ private slots:
         // The filter narrows the list by name.
         s.window->findChild<QObject *>(QStringLiteral("assetFilter"))->setProperty("text", QStringLiteral("chec"));
         QCOMPARE(panel->property("shown").toList().size(), 1);
+    }
+
+    void logicProblemsArePlainText()
+    {
+        Studio s;
+        QVERIFY(s.open());
+        QObject *behaviour = s.call("addBehaviour").value<QObject *>();
+        QVERIFY(behaviour);
+        s.window->setProperty("selection", QVariant::fromValue(behaviour));
+        s.settle(2);
+        s.click("editLogicButton");
+        s.settle(2);
+        QObject *editor = s.window->findChild<QObject *>(QStringLiteral("logicEditor"));
+        auto *list = s.window->findChild<QQuickItem *>(QStringLiteral("logicProblems"));
+        QVERIFY(editor && list);
+        QVERIFY(!editor->property("name").toString().isEmpty());
+        const QString description = QStringLiteral("<b>an inert supplied problem</b>");
+        const QVariantList problems{QVariantMap{{QStringLiteral("line"), 1}, {QStringLiteral("message"), description}}};
+        QQuickItem *label = nullptr;
+        // Supply an inert description to the real list, without executing logic or requesting an outside image.
+        // The normal quiet check may finish while the delegate is created; supply the row again if it clears it.
+        QTRY_VERIFY(([&] {
+            if (list->property("count").toInt() == 0)
+                editor->setProperty("problems", problems);
+            QList<QQuickItem *> pending{list};
+            while (!pending.isEmpty()) {
+                auto *item = pending.takeLast();
+                pending.append(item->childItems());
+                if (item->property("textFormat").isValid() && item->property("text").toString().contains(description)) {
+                    label = item;
+                    return true;
+                }
+            }
+            return false;
+        })());
+        QCOMPARE(label->property("textFormat").toInt(), int(Qt::PlainText));
     }
 
     void logicIsWrittenInTheStudioAndCheckedByLine()
