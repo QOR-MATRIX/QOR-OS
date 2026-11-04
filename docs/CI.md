@@ -323,7 +323,8 @@ A product whose suites fail is run once more (on Linux, its failed suites).
 On a Windows desktop someone is using, a test window can lose the keyboard to
 another application, or a synthetic click to the real pointer, wherever it rests,
 and a genuine failure fails both attempts. The step summary says whether the
-products ran.
+products ran. The Windows wrapper rejects both an exception and a nonzero child/native exit code; it clears a stale exit code
+before each attempt. Its PowerShell regression tests use stand-in product scripts without opening Qt windows.
 
 #### What Linux runs
 

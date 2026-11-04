@@ -1,38 +1,32 @@
 # Where QOR OS stands
 
-For Andrew, 4 November 2026. The runtime batch passed; the warning gate remains open.
+For Andrew, 4 November 2026. Autonomous local work continues; the warning and native-hardware gates remain open.
 
-QOR OS joins Prism (desktop and compositor), Lumen (design language), QQ, ARQADE and QOR Media. This session remains sole
-implementation owner. It began clean at `8eca6ea`; all 13 QOR worktrees were inspected and preserved. Nothing was pushed.
+QOR OS joins Prism (desktop and compositor), Lumen (design language), QQ, ARQADE and QOR Media. This run began clean at
+`a79a754` on `integration/owner-brief`; all 13 QOR worktrees were clean. This session owns implementation. The actual existing
+QOR-local build lock was inspected and probed free; heavy jobs use it sequentially. No other-project prerequisite exists.
 
-Work follows QOR's workers and verified build lock (one heavy job at a time). Cross-project prerequisites are removed from
-OWNER and local handoff/VM notes. The development guide records this procedure. No other project was changed.
+## Latest checkpoint
 
-QQ's Player material and TileMap root have private identifiers distinct from Qt properties. Public fields and bindings stay
-the same. Two new checks verify body-part colours follow edits and tile geometry follows map, layer and scale changes.
+The Windows product wrapper could print success after a child script exited unsuccessfully or left a native-command failure.
+Four regression cases reproduced that defect. It now rejects those exit codes as well as exceptions, retries failures, and
+clears inherited exit state before each attempt. **Six PowerShell cases pass, none skipped**, using stand-in builds that open
+no product windows. A later success is reported, and other products still run after one fails.
 
-Fresh QML lint (Qt's interface-language checker): **435 → 431 diagnostics**, two shadowing warnings and their two declaration
-notes removed, none added against `8eca6ea`. Targeted and full built lint agree. No warnings were suppressed; the wrapper
-correctly exits 1 for the remaining gate.
+The prior checkpoint's runtime bindings and recovery code are unchanged. Its verified QML lint (Qt's interface-language
+checker) count was **431 diagnostics**; it was not rerun for this script-only change. Prior scene, sanitizer, asset-library,
+Studio and hardening results remain evidence for their recorded revisions, not new runs.
 
-Checks used commercial Qt 6.12 under WSL (Linux inside Windows), hidden, drawn in software and fenced from the graphics processor:
+## Active work and limits
 
-- Release (optimized): **43 scene cases passed before and after the rename**, none failed or skipped; no compiler warnings.
-- AddressSanitizer/UBSan (memory and undefined-behavior checks): **43 scene cases passed**, none failed or skipped, rebuilt
-  from current source with documented sanitizer settings. Leak checking was off.
-- Hardening (exploit-mitigation checks): **16 Release programs and the sanitizer scene program passed**.
+Next: fix Windows product test discovery. QQ's build script searches the build root for test executables, but CMake places
+its suites under `tests/`. Every product script also accepts an empty enumeration as success. Reproduce this with stand-ins,
+then require a real nonempty test run and fresh evidence. Exact notes and logs: `build/autonomous-2026-11-04/HANDOFF.md`.
+No heavy job remains active at this checkpoint. Continue to the next bounded task after recording this change locally.
 
-Runs used the QOR-local lock sequentially, one compiler/rendering worker, two processors and a 1.25 GiB memory cap.
-Evidence: `build/checkpoint-2026-11-04/lint-runtime/`.
+The zero-warning bar remains unmet. Listing/planning still occupy the window thread. Full OS/core, actual Windows product
+suites, native Linux graphics/sound/controllers and image/install testing remain unrun. No hardware readiness is claimed.
 
-Recovery code is unchanged from `8eca6ea`: trust, transaction tags (change identifiers), checked thumbnails, changed-copy
-protection, listing provenance (origin) and the 8 MiB lock limit remain. That checkpoint passed
-25 Studio and 89 asset-library Release cases, 89 asset-library and 21 Prism option sanitizer cases, 32 hardening checks and
-88 wrapper/report tests. Those suites were not rerun here. CTest (test runner) evidence must remain complete and fresh.
-
-Continue lint in small batches. Listing/planning still occupy the window thread; earlier largest-pack measurements were
-257/402 ms, without a latency guarantee. Full OS/core, full products, Windows, native hardware and root-wide lint remain unrun.
-
-VM (virtual machine) Create/Prove remains prepared in current `docs/CI.md`, requiring your separate go-ahead, a clean reviewed
-revision and documented prerequisites. Neither ran. Qt's licensing answer and successful isolation proof precede a guest
-kit/runner. Runner settings, isolation flags and the roadmap's other owner decisions remain unchanged.
+VM (virtual machine) Create/Prove commands remain prepared in current `docs/CI.md`. They require your separate go-ahead and
+its prerequisites; neither ran. Qt's licensing answer and successful isolation proof precede a guest kit/runner. Runner
+settings and isolation flags remain unchanged. Nothing was pushed, merged, deployed or published; no licences or accounts changed.
