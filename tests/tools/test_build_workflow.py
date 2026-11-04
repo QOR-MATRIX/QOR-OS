@@ -140,7 +140,7 @@ class WorkflowTest(unittest.TestCase):
                 if line.strip() == "if: steps.products.outputs.run == 'true'":
                     run = next(l for l in lines[i + 1 : i + 4] if l.strip().startswith("run:"))
                     named.update(path.replace("\\", "/") for path in re.findall(r"tools[\\/][\w./\\-]+\.\w+", run))
-        for script in ("tools/dev/products.sh", "tools/dev/products.ps1"):
+        for script in ("tools/dev/products.sh", "tools/dev/products.ps1", "tools/dev/products-tests.ps1"):
             named.add(script)
             named.update(re.findall(r"tools/dev/[\w.-]+\.(?:py|qml|sh|ps1)", (repository / script).read_text(encoding="utf-8")))
         self.assertIn("cmake/QorHardening.cmake", named)

@@ -222,7 +222,7 @@ jobs:
           if ($env:EVENT -in 'push', 'pull_request' -and $env:BEFORE -and $env:BEFORE -notmatch '^0+$' -and -not $env:GITHUB_REF.StartsWith('refs/tags/')) {
             git fetch --quiet --no-tags --depth=1 origin $env:BEFORE
             $changed = git diff --name-only $env:BEFORE HEAD
-            $run = [bool]($changed | Where-Object { $_ -match '^(products/|tools/qor-media/|docs/design/tokens\.json$|cmake/QorHardening\.cmake$|tools/dev/(products\.(ps1|sh)|products-display\.qml|products-report\.py|secret-service\.py)$|tools/ci/(check_hardening|with_display)\.py$|\.github/(workflows/build\.yml|qt-packages\.json)$)' })
+            $run = [bool]($changed | Where-Object { $_ -match '^(products/|tools/qor-media/|docs/design/tokens\.json$|cmake/QorHardening\.cmake$|tools/dev/(products\.(ps1|sh)|products-display\.qml|products-tests\.ps1|products-report\.py|secret-service\.py)$|tools/ci/(check_hardening|with_display)\.py$|\.github/(workflows/build\.yml|qt-packages\.json)$)' })
           }
           "run=$($run.ToString().ToLower())" >> $env:GITHUB_OUTPUT
           "Carried products: $(if ($run) { 'built and tested' } else { 'unchanged, skipped' })" >> $env:GITHUB_STEP_SUMMARY
@@ -415,7 +415,7 @@ jobs:
               && ! echo "$BEFORE" | grep -qE '^0+$' && [ "${GITHUB_REF#refs/tags/}" = "$GITHUB_REF" ]; then
             git fetch --quiet --no-tags --depth=1 origin "$BEFORE"
             git diff --name-only "$BEFORE" HEAD \
-              | grep -qE '^(products/|tools/qor-media/|docs/design/tokens\.json$|cmake/QorHardening\.cmake$|tools/dev/(products\.(ps1|sh)|products-display\.qml|products-report\.py|secret-service\.py)$|tools/ci/(check_hardening|with_display)\.py$|\.github/(workflows/build\.yml|qt-packages\.json)$)' \
+              | grep -qE '^(products/|tools/qor-media/|docs/design/tokens\.json$|cmake/QorHardening\.cmake$|tools/dev/(products\.(ps1|sh)|products-display\.qml|products-tests\.ps1|products-report\.py|secret-service\.py)$|tools/ci/(check_hardening|with_display)\.py$|\.github/(workflows/build\.yml|qt-packages\.json)$)' \
               || run=false
           fi
           echo "run=$run" >> "$GITHUB_OUTPUT"

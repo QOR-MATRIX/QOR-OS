@@ -326,6 +326,14 @@ and a genuine failure fails both attempts. The step summary says whether the
 products ran. The Windows wrapper rejects both an exception and a nonzero child/native exit code; it clears a stale exit code
 before each attempt. Its PowerShell regression tests use stand-in product scripts without opening Qt windows.
 
+The Windows product scripts run CTest's registered suites through `products-tests.ps1`, rather than scanning for executables
+in the build root. Qt's Windows setup puts executables there. The old scan accepted an empty list and could not execute
+registered tests that are not executables. Suites run sequentially even if CTEST_PARALLEL_LEVEL is inherited. Old records are invalidated
+before configuring/building and before testing; a failed cleanup stops the run. No registered suites, a whole-suite skip,
+or missing/mismatched log/XML evidence fails the product. These paths are checked with real CTest and stand-in builds,
+without proving Windows Qt runtime behavior. An empty executable scan is not evidence that suites ran; no such diagnosis is
+asserted for earlier Windows runs without their logs.
+
 #### What Linux runs
 
 **`QOR_RUN_LINUX_PRODUCTS` is not set and Build is paused, so today CI runs none of this.** With it set, the job runs

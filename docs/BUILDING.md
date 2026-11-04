@@ -400,7 +400,7 @@ and `services/` so the deployment scan finds their imports (for example
 QQ, ARQADE and QOR Media came from demiurge-chain at the paths they had
 there, and are developed here ([UPSTREAM.md](UPSTREAM.md)). Each keeps its own CMake project and
 `build.ps1`, which configures with MSVC 2022 and Ninja, builds, and runs every
-suite. `tools/dev/products.ps1` runs them all:
+registered CTest suite. `tools/dev/products.ps1` runs them all:
 
 ```powershell
 .\tools\dev\products.ps1                          # build\products\{qq,arqade,media}
@@ -418,6 +418,13 @@ and mouse. Run them in a desktop session, and leave the desktop alone while
 they run: a window that loses the keyboard to another application fails a
 test. `products.ps1` tries a failing product once more. The look tests read
 `docs/design/tokens.json`.
+
+The Windows scripts use `tools/dev/products-tests.ps1`: old CTest records are invalidated before configuring/building and
+before testing, and cleanup failure stops the run. CTest must run at least one suite and leave complete matching log/XML
+evidence. Empty runs, failed suites and whole suites skipped by CTest cannot pass. `products-report.py` prints individual
+case counts and skipped/failed cases; a skipped case is kept separate from the passing count. Python is required, as for
+the repository's other checks. Suites run one at a time even with an inherited CTEST_PARALLEL_LEVEL. The scripts' explicit
+`-Run` modes and QQ's `-Web` workflow retain their existing behavior.
 
 ### On Linux
 
