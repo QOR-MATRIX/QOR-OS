@@ -239,7 +239,9 @@ it; the QQ Player plays a scene on its own, natively and in a browser.
   `qq-studio --project <folder> --asset-packs <folder> --use-pack <id> [--pack-file <path>]... [--replace]`, and `--update-pack <id>
   [--beside]`, do the same with no window. They take only a project on the person's trusted list, print `QQ-ASSETS` and their result as
   JSON on standard output, and exit 0 done or 3 refused. In the window Use and Update run on a thread of their own, so the window
-  goes on drawing, and while one runs nothing is saved or built and the project stays, each saying why; listing the packs and planning
+  goes on drawing, and while one runs nothing is saved or built and the project stays, each saying why. A delayed Replace or Update
+  answer checks trust and the current build/asset work again before writing; a fresh request after restoring trust works normally.
+  Listing the packs and planning
   an update stay on the window's thread. Provenance fields may contain up to 8,192 characters each; the whole lock must still fit
   its 8 MiB limit, or the change is refused before any project file moves. **Not yet:** a pack's own pages in the Studio (its description,
   its previews). A moved project leaves a change cut short in

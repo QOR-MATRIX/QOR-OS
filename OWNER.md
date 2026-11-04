@@ -1,6 +1,6 @@
 # Where QOR OS stands
 
-For Andrew, 4 November 2026. Local work continues on `integration/owner-brief`; Qt integration inputs are checkpoint `6046e08`.
+For Andrew, 4 November 2026. Local work continues on `integration/owner-brief`; validation versions are distinguished below.
 
 QOR OS joins Prism (desktop/compositor), Lumen (design language), QQ, ARQADE and QOR Media. Local fixes cover failed-command
 reporting, fresh evidence, strict lint status, supplied text and screen ownership. Nothing is pushed. All 13 original worktrees
@@ -17,10 +17,11 @@ with leak checking off.
   independent instances, edits, scaling and malformed-image readiness. Latest hardening (exploit mitigations): **16 Release/8 sanitizer programs pass**.
 - Full play: **53 passed**, none failed/skipped, after baseline test-clock/controller cleanup fixes and before the latest
   screen batch. Native waits, motion conditions and tolerances remain unchanged.
-- Latest Release and ASan integration each: **89 asset-library, 195 game-build and 25 Studio cases pass**, none failed/skipped, at `6046e08`.
+- Full Release and ASan integration each: **89 asset-library, 195 game-build and 25 Studio cases pass**, none failed/skipped, at `6046e08`.
   Pack measurement: first listing **269 ms**, update planning **396 ms**, both on the window thread; no latency budget is established.
-- Agent status/key problems now use literal text: **4 cases pass in each build**, without provider/network/keychain operations.
-  **90 Linux wrapper/reporter cases pass**; first attempts/retries stay sequential.
+- The later replacement trust gap reproduced a write after permission changed. Copy now rechecks trust/busy work; **91 asset cases
+  pass in each build**, none failed/skipped, including refusal and a successful fresh request. Full game-build/Studio runs precede this guard.
+- Agent literal-text probes **4/build** and Linux wrapper/reporter **90 cases** pass; product attempts/retries stay sequential.
 - Benchmark launcher regressions reproduced reused evidence, ignored producer/client errors and equal-refresh acceptance.
   **16 launcher and 9 bundle fixture tests pass**, including malformed metrics, normal disconnects and failed inventories/writes. Bundles record program
   fingerprints and mark their build revision unverified. These tests use no real Qt/compositor/device; failed writes preserve prior archives.
@@ -32,8 +33,8 @@ Six spatial-audio findings remain a Qt metadata constraint. No warning was suppr
 
 ## Running, next and limits
 
-Both integration groups are complete; the QOR lock was checked free. Exact commit, commands,
-records and resume point: `build/autonomous-2026-11-04/HANDOFF.md`. Next probe: replacement confirmation must recheck trust.
+The checked trust guard is next to record. Exact commit, commands,
+records and resume point: `build/autonomous-2026-11-04/HANDOFF.md`. Next: reproduce/fix the benchmark sampling gap, then reduce lint.
 Recovery/provenance source is unchanged; listing/planning still occupy the window thread.
 Source review also found the benchmark omits long idle-classified gaps; its reproduction/fix is pending.
 

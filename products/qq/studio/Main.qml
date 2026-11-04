@@ -1,3 +1,4 @@
+// Changed for QOR OS: asset-copy confirmations recheck project trust and the current build state.
 // QQ Studio's window (DIRECTION P3.1): the scene's entities on the left, the world in the middle with handles on the
 // selection, the selected entity's fields on the right, and the project and the scene's file across the top.
 //
@@ -518,6 +519,13 @@ ApplicationWindow {
 
     /// Started off the window's thread; its answer comes to copied().
     function copyAssets(id, files, replace) {
+        // A delayed confirmation is not permission to write after trust or the build state has changed.
+        if (!projectTrusted) {
+            say(qsTr("Trust this project before bringing in assets."), true)
+            return false
+        }
+        if (refusedWhileBuilding(qsTr("bring in assets")))
+            return false
         assetsAsked = { id: id, files: files }
         if (!assetLibrary.startUse(project, id, files, replace)) {
             say(qsTr("The project's assets are being changed. When that has finished, try again."), true)

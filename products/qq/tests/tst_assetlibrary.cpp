@@ -1735,6 +1735,61 @@ private slots:
         QCOMPARE(snapshot(project.path()), before);
     }
 
+    /// Trust can change while a confirmation is open: its answer must not start a write after permission is gone.
+    void assetConfirmationsRecheckTrust_data()
+    {
+        QTest::addColumn<bool>("update");
+        QTest::newRow("replace") << false;
+        QTest::newRow("update") << true;
+    }
+    void assetConfirmationsRecheckTrust()
+    {
+        QFETCH(bool, update);
+        Store store;
+        store.add(kId, QStringLiteral("1.0.0"), firstVersion());
+        Project project;
+        project.saveScene();
+        trust(project.url());
+        if (update) {
+            QVERIFY(ok(AssetLibrary::usePack(project.path(), store.path(), kId, {}, false)));
+            store.add(kId, QStringLiteral("1.1.0"), secondVersion());
+        } else {
+            writeFile(project.copy(QStringLiteral("art/hero.png")), png(blue));
+        }
+        Studio s;
+        QVERIFY(s.open(project.url(), store.path()));
+        QVERIFY(s.get("projectTrusted").toBool());
+        const auto ask = [&] {
+            return update ? s.call("offerUpdate", kId).toBool() : s.call("useAssets", kId, QStringList()).toBool();
+        };
+        const char *dialog = update ? "updateDialog" : "conflictDialog";
+        const QString accept = update ? QStringLiteral("updateGo") : QStringLiteral("conflictReplace");
+        QVERIFY(ask());
+        QTRY_VERIFY(s.opened(dialog));
+        auto *library = qobject_cast<AssetLibrary *>(s.child(QStringLiteral("assetLibrary")));
+        QVERIFY(library);
+        const auto before = snapshot(project.path());
+        QSignalSpy finished(library, &AssetLibrary::finished);
+        QVERIFY(s.window->setProperty("projectTrusted", false));
+        s.click(accept);
+        QTRY_VERIFY_WITH_TIMEOUT(!library->busy(), 60000);
+        QCOMPARE(snapshot(project.path()), before);
+        QCOMPARE(finished.size(), 0);
+        QVERIFY(!s.opened(dialog));
+        // A later request with trust restored still copies or updates normally.
+        QVERIFY(s.window->setProperty("projectTrusted", true));
+        QVERIFY(ask());
+        QTRY_VERIFY(s.opened(dialog));
+        // Use reports the preliminary conflict before its confirmation opens; observe the accepted write separately.
+        finished.clear();
+        s.click(accept);
+        QTRY_COMPARE_WITH_TIMEOUT(finished.size(), 1, 60000);
+        QVERIFY(finished.first().at(1).toMap().value(QStringLiteral("ok")).toBool());
+        QCOMPARE(readBytes(project.copy(QStringLiteral("art/hero.png"))), png(update ? amber : red));
+        QCOMPARE(project.lockedPack().value(QStringLiteral("version")).toString(),
+                 update ? QStringLiteral("1.1.0") : QStringLiteral("1.0.0"));
+    }
+
     /// The update's question names the pack, which is someone else's text: its header is plain text, never markup.
     void theUpdatesQuestionIsPlainText()
     {

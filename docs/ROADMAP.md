@@ -335,10 +335,13 @@ unpublished builds stay out of reach.
 - [x] QQ Studio's asset library: browse, preview checked bytes, copy into a trusted project with `assets.lock.json`, and update
   without writing over a changed copy; the built game says what it uses. Recovery checks the project folder and each placed file,
   and every lock has its own change tag. Use and Update run off the window's thread; Save, Build and changing project wait.
+  Delayed replacement/update answers recheck trust before writing. The replacement gap reproduced in the real window, then
+  all 91 asset-library cases pass in Release and under sanitizers after the guard, with no failures/skips; fresh requests still work.
   The Store's listing provenance reaches the lock whole within its existing 8 MiB cap (`8b77c01`). On 4 November, Qt inputs at
   `6046e08` passed Release `tst_assetlibrary` 89 cases, `tst_gamebuild` 195 and `tst_studio` 25, none failed or skipped, including
   the opt-in largest-pack measurement and the real StoreEngine's demonstration pack. The matching current-source sanitizer group
-  also passes all 89/195/25 cases, none failed or skipped, with leak checking off. Fresh hardening passes 16 Release/8 sanitizer programs.
+  also passes all 89/195/25 cases, none failed or skipped, with leak checking off. The later trust guard has the 91-case asset checks
+  above; the full game-build/Studio runs precede it. Fresh hardening passes 16 Release/8 sanitizer programs.
   Earlier sanitizer runs passed 89 asset-library cases on 4 November and 195 game-build cases on 3 November;
   the unchanged recovery code's earlier build is preserved at `850a639`. These use WSL software rendering. Listing and planning
   still run on the window's thread: the latest Release largest-pack run measured first listing 269 ms, repeated listing 39 ms,
