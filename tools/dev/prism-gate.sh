@@ -301,8 +301,9 @@ fi
 [ -f "$out/report.json" ] || { echo "No report; the end of $out/prism.log:" >&2; tail -n 25 "$out/prism.log" >&2; exit 4; }
 
 status=0
-GATE_TRIAL=$([ "$action" = try ] && echo 1 || echo 0) GATE_DEVICE="$device" python3 - "$out" << 'PY' || status=$?
+GATE_TRIAL=$([ "$action" = try ] && echo 1 || echo 0) GATE_DEVICE="$device" GATE_OUTPUTS="$outputs" python3 - "$out" << 'PY' || status=$?
 import json
+import math
 import os
 import platform
 import subprocess
@@ -312,8 +313,48 @@ from datetime import date
 out = sys.argv[1]
 trial = os.environ.get("GATE_TRIAL") == "1"
 report = json.load(open(os.path.join(out, "report.json")))
+if not isinstance(report, dict):
+    raise SystemExit("Invalid benchmark report: expected an object")
 outputs = report.get("outputs", [])
 latency = report.get("inputToSwap", {})
+
+
+def number(value):
+    return type(value) in (int, float) and math.isfinite(value)
+
+
+def count(value):
+    return number(value) and value >= 0 and int(value) == value
+
+
+def invalid(field):
+    # Say which field failed, never echo arbitrary supplied values into a diagnostic.
+    raise SystemExit("Invalid benchmark report: " + field)
+
+
+if not isinstance(outputs, list) or len(outputs) != int(os.environ["GATE_OUTPUTS"]):
+    invalid("output count differs from the running setup")
+for index, output in enumerate(outputs):
+    field = f"output {index + 1}"
+    if not isinstance(output, dict) or not count(output.get("frames")):
+        invalid(field + " frame count")
+    refresh = output.get("refreshHz")
+    interval = output.get("p95Ms")
+    missed = output.get("missedPercent")
+    if not number(refresh) or refresh <= 0:
+        invalid(field + " refresh rate")
+    if not number(interval) or interval < 0:
+        invalid(field + " frame interval")
+    if not number(missed) or not 0 <= missed <= 100:
+        invalid(field + " missed percentage")
+if not isinstance(latency, dict) or not count(latency.get("samples")):
+    invalid("input sample count")
+for key in ("p50Ms", "p95Ms"):
+    value = latency.get(key)
+    if not number(value) or value < 0:
+        invalid("input " + key)
+if latency["p50Ms"] > latency["p95Ms"]:
+    invalid("input percentiles are not ordered")
 
 
 def run(command):

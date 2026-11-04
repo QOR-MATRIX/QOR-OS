@@ -22,7 +22,7 @@ with leak checking off.
 - Agent status/key problems now use literal text: **4 cases pass in each build**, without provider/network/keychain operations.
   **90 Linux wrapper/reporter cases pass**; first attempts/retries stay sequential.
 - Benchmark launcher regressions reproduced reused evidence, ignored producer/client errors and equal-refresh acceptance.
-  **12 launcher and 9 bundle fixture tests pass**, including normal disconnects and failed inventories/writes. Bundles record program
+  **16 launcher and 9 bundle fixture tests pass**, including malformed metrics, normal disconnects and failed inventories/writes. Bundles record program
   fingerprints and mark their build revision unverified. These tests use no real Qt/compositor/device; failed writes preserve prior archives.
 - Readiness unit checks: **14 pass**. Runner-boundary checks: **36 pass/1 Windows link-privilege skip**; that link case separately
   passes on Linux. VM preparation stand-ins: **138 pass**, none skipped; these establish no isolation proof.
@@ -35,6 +35,7 @@ Six spatial-audio findings remain a Qt metadata constraint. No warning was suppr
 One QOR heavy job is running the same current-source sanitizer suites; this group's result is pending. Exact commit, commands,
 records and resume point: `build/autonomous-2026-11-04/HANDOFF.md`. Next probe: replacement confirmation must recheck trust.
 Recovery/provenance source is unchanged; listing/planning still occupy the window thread.
+Source review also found the benchmark omits long idle-classified gaps; its reproduction/fix is pending.
 
 Full OS/core, actual Windows products, native Linux graphics/sound/controllers and image/install proof remain unrun; the
 zero-warning requirement is unmet. VM (virtual machine) Create/Prove commands are prepared in current `docs/CI.md`; neither ran.

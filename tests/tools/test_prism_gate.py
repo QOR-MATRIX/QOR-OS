@@ -47,8 +47,8 @@ class PrismGate(unittest.TestCase):
             "pathlib.Path(os.environ['GATE_TEST_MARKER']).write_text('launched')\n"
             "args=sys.argv[1:]\n"
             "out=pathlib.Path(args[args.index('--benchmark-out')+1])\n"
-            "print('Output fixture-1',flush=True)\n"
-            "print('Output fixture-2',flush=True)\n"
+            "for i in range(int(os.environ['GATE_TEST_OUTPUTS'])):\n"
+            " print('Output fixture-'+str(i+1),flush=True)\n"
             "print('Prism is running',flush=True)\n"
             "time.sleep(float(os.environ['GATE_TEST_PRISM_SECONDS']))\n"
             # ShellBenchmark writes its report after measurement, then shuts down the display.
@@ -72,7 +72,7 @@ class PrismGate(unittest.TestCase):
         path.write_text(f"#!{sys.executable}\n" + body)
         path.chmod(0o700)
 
-    def run_gate(self, *, status=0, write_report=True, rates=(60, 120), trial=False, client_status=0, client_seconds=60, prism_seconds=1.3, shutdown_seconds=0):
+    def run_gate(self, *, status=0, write_report=True, rates=(60, 120), trial=False, client_status=0, client_seconds=60, prism_seconds=1.3, shutdown_seconds=0, startup_outputs=2, mutate=None):
         report = {
             "graphicsApi": "fixture",
             "outputs": [
@@ -81,6 +81,8 @@ class PrismGate(unittest.TestCase):
             ],
             "inputToSwap": {"samples": 20, "p50Ms": 5, "p95Ms": 10},
         }
+        if mutate:
+            mutate(report)
         self.report.write_text(json.dumps(report))
         environment = {
             **os.environ,
@@ -95,6 +97,7 @@ class PrismGate(unittest.TestCase):
             "GATE_TEST_CLIENT_STATUS": str(client_status),
             "GATE_TEST_CLIENT_SECONDS": str(client_seconds),
             "GATE_TEST_SHUTDOWN_SECONDS": str(shutdown_seconds),
+            "GATE_TEST_OUTPUTS": str(startup_outputs),
         }
         environment.pop("WAYLAND_DISPLAY", None)
         environment.pop("DISPLAY", None)
@@ -186,6 +189,46 @@ class PrismGate(unittest.TestCase):
     def test_clients_can_disconnect_after_measurement_while_prism_shuts_down(self):
         result = self.run_gate(client_status=1, client_seconds=1.35, shutdown_seconds=0.8)
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+
+    def test_impossible_numeric_metrics_do_not_pass(self):
+        cases = (
+            ("negative-missed", "output", "missedPercent", -1),
+            ("negative-frame-interval", "output", "p95Ms", -1),
+            ("nan-frame-interval", "output", "p95Ms", float("nan")),
+            ("boolean-frame-count", "output", "frames", True),
+            ("boolean-refresh", "output", "refreshHz", True),
+            ("negative-latency", "input", "p95Ms", -1),
+            ("negative-median", "input", "p50Ms", -1),
+            ("boolean-sample-count", "input", "samples", True),
+        )
+        for name, where, key, value in cases:
+            with self.subTest(metric=name):
+                self.out = self.root / name
+                def mutate(report):
+                    target = report["outputs"][0] if where == "output" else report["inputToSwap"]
+                    target[key] = value
+                result = self.run_gate(mutate=mutate)
+                self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
+                self.assertFalse((self.out / "summary.md").exists())
+
+    def test_a_report_missing_a_discovered_output_cannot_pass(self):
+        result = self.run_gate(startup_outputs=3, prism_seconds=2.3)
+        self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
+
+    def test_malformed_metrics_are_not_a_successful_trial(self):
+        result = self.run_gate(trial=True, mutate=lambda report: report["inputToSwap"].update(p95Ms=-1))
+        self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
+
+    def test_zero_samples_can_be_a_valid_diagnostic_trial(self):
+        def empty(report):
+            for output in report["outputs"]:
+                output.update(frames=0, p95Ms=0, missedPercent=0)
+            report["inputToSwap"].update(samples=0, p50Ms=0, p95Ms=0)
+        for trial in (False, True):
+            with self.subTest(trial=trial):
+                self.out = self.root / f"empty-{trial}"
+                result = self.run_gate(trial=trial, mutate=empty)
+                self.assertEqual(result.returncode == 0, trial, result.stdout + result.stderr)
 
 
 if __name__ == "__main__":

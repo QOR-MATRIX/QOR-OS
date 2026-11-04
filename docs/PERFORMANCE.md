@@ -243,6 +243,9 @@ two outputs at different refresh rates as well as the numeric criteria. The laun
 stubbed hardware probe; they establish exit/evidence handling only, never hardware readiness.
 Clients must start before measurement ends and remain running until Prism writes its measurement report. An early client
 exit fails the run, including an exit with status zero; disconnecting during display shutdown after measurement is expected.
+The report must cover every output in that setup. Counts and timing/rate/percentage fields must be finite and nonnegative
+(refresh rates positive), with integer counts and ordered input percentiles. Invalid data fails even a trial; valid zero-sample
+trial data stays diagnostic and cannot pass the hardware gate.
 
 `--mode eDP-1=1920x1080@60` picks a display's mode, to separate frame pacing
 from raw GPU throughput on a very fast panel; `--no-atomic` falls back to
@@ -285,6 +288,9 @@ on a QOR OS device, Prism owns the KMS device.
 
 ## Known costs and next steps
 
+- Source review found that the shared `FrameStats` sampler omits intervals of 200 ms or more as idle, and the shell benchmark
+  currently reads that filtered series. Long benchmark stalls can therefore be absent from its report. Reproduction and
+  benchmark-specific capture are pending; report validation does not correct this sampling limitation. Preserve the Monitor's idle behavior.
 - On integrated GPUs the remaining p95 is dominated by re-capturing the scene
   backdrop while windows move. Planned work: capture only the region under
   visible glass, and skip the capture when no glass overlaps changed content.
