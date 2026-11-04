@@ -47,15 +47,21 @@ class PrismGate(unittest.TestCase):
             "pathlib.Path(os.environ['GATE_TEST_MARKER']).write_text('launched')\n"
             "args=sys.argv[1:]\n"
             "out=pathlib.Path(args[args.index('--benchmark-out')+1])\n"
-            "if os.environ['GATE_TEST_WRITE_REPORT']=='1':\n"
-            " out.write_bytes(pathlib.Path(os.environ['GATE_TEST_REPORT']).read_bytes())\n"
             "print('Output fixture-1',flush=True)\n"
             "print('Output fixture-2',flush=True)\n"
             "print('Prism is running',flush=True)\n"
-            "time.sleep(1.3)\n"
+            "time.sleep(float(os.environ['GATE_TEST_PRISM_SECONDS']))\n"
+            # ShellBenchmark writes its report after measurement, then shuts down the display.
+            "if os.environ['GATE_TEST_WRITE_REPORT']=='1':\n"
+            " out.write_bytes(pathlib.Path(os.environ['GATE_TEST_REPORT']).read_bytes())\n"
+            "time.sleep(float(os.environ['GATE_TEST_SHUTDOWN_SECONDS']))\n"
             "raise SystemExit(int(os.environ['GATE_TEST_STATUS']))\n",
         )
-        self.program(self.build / "tests/prism-test-client", "import time\ntime.sleep(60)\n")
+        self.program(
+            self.build / "tests/prism-test-client",
+            "import os,time\ntime.sleep(float(os.environ['GATE_TEST_CLIENT_SECONDS']))\n"
+            "raise SystemExit(int(os.environ['GATE_TEST_CLIENT_STATUS']))\n",
+        )
         self.program(self.commands / "lspci", "print('Fixture VGA controller')\n")
         self.program(self.commands / "id", "import sys\nprint('fixture input' if sys.argv[1:] == ['-nG'] else '1000')\n")
         # The summary uses platform metadata; its values are inert too.
@@ -66,7 +72,7 @@ class PrismGate(unittest.TestCase):
         path.write_text(f"#!{sys.executable}\n" + body)
         path.chmod(0o700)
 
-    def run_gate(self, *, status=0, write_report=True, rates=(60, 120), trial=False):
+    def run_gate(self, *, status=0, write_report=True, rates=(60, 120), trial=False, client_status=0, client_seconds=60, prism_seconds=1.3, shutdown_seconds=0):
         report = {
             "graphicsApi": "fixture",
             "outputs": [
@@ -85,6 +91,10 @@ class PrismGate(unittest.TestCase):
             "GATE_TEST_REPORT": str(self.report),
             "GATE_TEST_WRITE_REPORT": "1" if write_report else "0",
             "GATE_TEST_STATUS": str(status),
+            "GATE_TEST_PRISM_SECONDS": str(prism_seconds),
+            "GATE_TEST_CLIENT_STATUS": str(client_status),
+            "GATE_TEST_CLIENT_SECONDS": str(client_seconds),
+            "GATE_TEST_SHUTDOWN_SECONDS": str(shutdown_seconds),
         }
         environment.pop("WAYLAND_DISPLAY", None)
         environment.pop("DISPLAY", None)
@@ -149,6 +159,33 @@ class PrismGate(unittest.TestCase):
         result = self.run_gate(rates=(60, 60), trial=True)
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertIn("Trial inside a desktop session (not gate data)", (self.out / "summary.md").read_text())
+
+    def test_failed_clients_fail_both_gate_and_trial(self):
+        for trial in (False, True):
+            with self.subTest(trial=trial):
+                self.out = self.root / f"client-failed-{trial}"
+                result = self.run_gate(client_status=9, client_seconds=0, trial=trial)
+                self.assertEqual(result.returncode, 9, result.stdout + result.stderr)
+                self.assertFalse((self.out / "summary.md").exists())
+
+    def test_a_client_that_exits_successfully_too_early_still_fails_the_load(self):
+        result = self.run_gate(client_status=0, client_seconds=0)
+        self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
+
+    def test_a_client_failure_after_startup_does_not_pass(self):
+        result = self.run_gate(client_status=9, client_seconds=1.1, prism_seconds=3)
+        self.assertEqual(result.returncode, 9, result.stdout + result.stderr)
+
+    def test_the_producer_cannot_finish_before_the_clients_are_loaded(self):
+        for shutdown_seconds in (0, 0.8):
+            with self.subTest(shutdown_seconds=shutdown_seconds):
+                self.out = self.root / f"too-early-{shutdown_seconds}"
+                result = self.run_gate(prism_seconds=0.1, shutdown_seconds=shutdown_seconds)
+                self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
+
+    def test_clients_can_disconnect_after_measurement_while_prism_shuts_down(self):
+        result = self.run_gate(client_status=1, client_seconds=1.35, shutdown_seconds=0.8)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
 
 
 if __name__ == "__main__":

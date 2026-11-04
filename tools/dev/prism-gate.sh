@@ -197,10 +197,28 @@ PY
 fi
 
 pids=()
+client_pids=()
 cleanup() {
     if [ ${#pids[@]} -gt 0 ]; then
         kill "${pids[@]}" 2> /dev/null || true
     fi
+}
+
+# A measurement with the animating load gone cannot stand in for the requested gate.
+# ShellBenchmark writes the report at measurement's end, before closing the display. The new output folder ensures
+# this cannot be an older report. A later disconnect is expected; the producer must still exit successfully.
+check_clients() {
+    local pid client_status
+    [ ! -f "$out/report.json" ] || return 0
+    for pid in "${client_pids[@]}"; do
+        if ! kill -0 "$pid" 2> /dev/null && kill -0 "$prism_pid" 2> /dev/null; then
+            client_status=0
+            wait "$pid" || client_status=$?
+            echo "An animating client exited with status $client_status before Prism finished; this run cannot pass." >&2
+            [ "$client_status" -ne 0 ] || client_status=4
+            exit "$client_status"
+        fi
+    done
 }
 # The results, or the logs of a run that failed, packed for upload. A .zip:
 # GitHub issues refuse .tgz attachments.
@@ -249,10 +267,28 @@ grep '^Output ' "$out/prism.log" || true
 for i in $(seq 1 "$outputs"); do
     WAYLAND_DISPLAY="$socket" QT_QPA_PLATFORM=wayland "$client" --title "Gate client $i" \
         --app-id dev.qorsync.GateClient --size 900x560 --animate > "$out/client-$i.log" 2>&1 < /dev/null &
-    pids+=($!)
+    client_pid=$!
+    pids+=("$client_pid")
+    client_pids+=("$client_pid")
     sleep 0.5
+    if ! kill -0 "$prism_pid" 2> /dev/null; then
+        prism_status=0
+        wait "$prism_pid" || prism_status=$?
+        echo "Prism finished before the animating clients were ready; this run cannot pass." >&2
+        [ "$prism_status" -ne 0 ] || prism_status=4
+        exit "$prism_status"
+    fi
+    if [ -f "$out/report.json" ]; then
+        echo "Prism measured before all animating clients were ready; this run cannot pass." >&2
+        exit 4
+    fi
+    check_clients
 done
 echo "Measuring for about $((seconds + 15)) s. The screens return when it is done."
+while kill -0 "$prism_pid" 2> /dev/null; do
+    check_clients
+    sleep 0.1
+done
 prism_status=0
 wait "$prism_pid" || prism_status=$?
 cleanup

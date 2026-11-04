@@ -235,6 +235,8 @@ Each run requires a new output folder, including with `--out`; an existing folde
 A nonzero Prism exit or watchdog failure fails both the gate and a trial, even if a report was written. A gate pass requires
 two outputs at different refresh rates as well as the numeric criteria. The launcher regressions use inert programs and a
 stubbed hardware probe; they establish exit/evidence handling only, never hardware readiness.
+Clients must start before measurement ends and remain running until Prism writes its measurement report. An early client
+exit fails the run, including an exit with status zero; disconnecting during display shutdown after measurement is expected.
 
 `--mode eDP-1=1920x1080@60` picks a display's mode, to separate frame pacing
 from raw GPU throughput on a very fast panel; `--no-atomic` falls back to

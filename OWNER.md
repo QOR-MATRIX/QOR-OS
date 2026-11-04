@@ -20,8 +20,8 @@ with leak checking off.
   native waits, motion conditions and tolerances remain unchanged.
 - Agent status/key problems now use literal text: **4 cases pass in each build**, without provider/network/keychain operations.
   **90 Linux wrapper/reporter cases pass**; first attempts/retries stay sequential.
-- Benchmark launcher regressions reproduced reused evidence, ignored producer errors and equal-refresh acceptance. The fixes
-  pass **7 inert-program tests**; no compositor/display/device runs. Existing evidence folders stay intact.
+- Benchmark launcher regressions reproduced reused evidence, ignored producer/client errors and equal-refresh acceptance.
+  **12 inert-program tests pass**, including normal post-measurement disconnects; no compositor/display/device runs. Old folders stay intact.
 - Readiness unit checks: **14 pass**. Runner-boundary checks: **36 pass/1 Windows link-privilege skip**; that link case separately
   passes on Linux. VM preparation stand-ins: **138 pass**, none skipped; these establish no isolation proof.
 
