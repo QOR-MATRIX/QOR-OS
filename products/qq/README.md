@@ -1,6 +1,6 @@
 # QQ, the QOR Engine
 
-<!-- Changed for QOR OS: current project-document links; on Linux the Studio keeps the provider's key in the Secret Service (QOR OS's QOR-0011); gamepads come from QOR OS's controller service, QOR.Input, in place of XInput; each project's workspace in the Studio; the asset library; literal game-screen labels and their owning component context; literal Agent status/key problems; project-file list bindings and layout; literal logic problem descriptions; typed statistics overlay. -->
+<!-- Changed for QOR OS: current project-document links; on Linux the Studio keeps the provider's key in the Secret Service (QOR OS's QOR-0011); gamepads come from QOR OS's controller service, QOR.Input, in place of XInput; each project's workspace in the Studio; the asset library; literal game-screen labels and their owning component context; literal Agent status/key problems; project-file list bindings and layout; literal logic problem descriptions; typed statistics overlay; bound inspector field loaders and literal source filenames. -->
 
 An engine for virtual worlds and experiences, built on **Qt 6.12** under the owner's commercial licence
 ([the Qt rule](../../docs/decisions/qtos/QTOS-0004-commercial-qt-and-proprietary-repository.md)). QQ is developed in QOR OS
@@ -108,7 +108,8 @@ it; the QQ Player plays a scene on its own, natively and in a browser.
   tools quiet until pointed at, all with the shared focus ring and still under reduced motion. A game's screen buttons
   answer the keyboard too (Tab, Enter, Space), and a replay presses them as it presses a click.
 - **The Studio:** the scene's entities in a list, the selected one's fields in an inspector (built from what each type
-  declares), click to select in the viewport, handles to move along an axis, turn about the vertical or scale evenly,
+  declares). Source filenames and field labels are shown as plain text; loaded editors keep their selected field when
+  entity kinds change. Click to select in the viewport, handles to move along an axis, turn about the vertical or scale evenly,
   orbit and zoom, add (cube, sphere, cylinder, cone, lamp, model, player, emitter, sound, behaviour, the screen kinds,
   actions, and in 2D a sprite, a tile map and a 2D player) and delete. A 2D scene is edited flat: a drag pans, the wheel
   zooms, and the handles move things on the plane and turn them about its depth axis.
@@ -706,9 +707,10 @@ In Claude Desktop's `claude_desktop_config.json`, with the path written out:
 The Studio says in its notice line when an agent connects, and each change it makes. The client's model runs on the
 client's own account, as everything generative does here (ADR-086).
 
-## Not in CI yet
+## Local checks and paused CI
 
-GitHub Actions has no licensed Qt. ADR-083: until the owner adds Qt's installer and account to the repository's
-secrets, or a self-hosted runner, QQ is built and tested on the owner's machine and its runs are recorded in
-`HANDOFF.md`. The `qor_engine` suite in `docs/GATES.toml` is still the TypeScript preview's check until this replaces
-it (ADR-083 decision 6).
+QOR OS's Qt jobs and self-hosted runners remain paused pending actual isolation proof; see
+[CI.md](../../docs/CI.md#what-ci-trusts). Local results state their source revision, commands, environment,
+failures and skips. They do not establish native graphics, a complete operating-system build or release readiness.
+The first VM Create/Prove steps need the owner's separate go-ahead; a guest Qt kit also needs the documented
+licensing prerequisite. An online runner or a skipped job is no passing build.

@@ -357,9 +357,14 @@ unpublished builds stay out of reach.
   actual window typing and bound editor delegates leave 338 console messages/363 structured warning records, none added.
   The editor's 12 structured findings are gone. Three focused and 18 related Qt cases pass in each build without failures/skips,
   including exact save filenames, unsaved prompts, restore/discard, project switching and build interlocks/packaged logic.
-  Typing the statistics overlay as `World`/`RenderStats` then removes five more findings, none added: current QQ counts are
+  Typing the statistics overlay as `World`/`RenderStats` then removes five more findings, none added: that checkpoint has
   333 console messages/358 structured warning records. Its existing F3 statistics/play/collider-toggle check passes in
   Release and under sanitizers (three Qt cases each), none failed/skipped. All three native lint commands still fail.
+  The inspector's source filename also reproduced automatic markup detection in the real window. Its labels now use plain
+  text; bound components, typed loaders and explicit axis roles remove 76 more findings with none added, leaving 257 console
+  messages/282 structured warning records. Seven selected Qt cases per build pass without failures/skips: literal filenames,
+  actual loaded field edits and entity switches, undo, groups/prefabs and 2D editing. The checks caught and fixed a transient
+  text-row assignment warning. Fresh product hardening passes 16 Release/9 sanitizer programs. Native lint still fails.
   The latest 48 scene cases pass in Release and under sanitizers, including malformed-image readiness; six selected screen-play
   functions pass (8 Qt cases including setup/cleanup). The earlier broader play run and a clean detached baseline each had
   the same 11 failures. Test clock waits and guaranteed fake-controller cleanup subsequently bring all 53 play cases to a pass,

@@ -1,6 +1,6 @@
 # Where QOR OS stands
 
-For Andrew, 4 November 2026. Local branch: `integration/owner-brief`; product checkpoint: `eeac4c0`; sampler fix: `56ccb1e`.
+For Andrew, 4 November 2026. Local branch: `integration/owner-brief`; inspector validated from `e7e0533` plus the local changes.
 
 All 13 original worktrees
 (Git checkouts) and the added comparison checkout are preserved. This session owns implementation. Heavy jobs use the
@@ -20,8 +20,8 @@ two processors, a 1.25 GiB cap and one worker. ASan/UBSan check memory and undef
   and status redraw. Shell UI and **5-program hardening** pass. Controlled timing comparisons establish no speed improvement.
 - Statistics overlay: **3 Qt cases pass per build**, none failed/skipped: F3 statistics, play/collider counts and debug-drawing toggle.
 
-QQ lint (Qt's interface-language checker) still fails: **333 console messages/358 structured warning records**; structured
-reports include repeated/additional findings absent from console output. The panel/editor/overlay remove 14 console messages and 26 structured findings, none added.
+QQ lint (Qt's interface-language checker) still fails: **257 console messages/282 structured warning records**; structured
+reports include repeated/additional findings absent from console output. The inspector removes 76 console/structured findings, none added.
 Six spatial-audio findings remain a Qt metadata constraint. Last root aggregate lint passed incrementally; shell lint has
 **zero warnings/errors across 28 files**, plus one unchanged informational note. Its ID collision is fixed.
 **12 Wayland type-metadata warnings** seen during dependency generation remain unresolved.
@@ -29,10 +29,10 @@ Listing/planning remain on the window thread; last Release observations: **269/3
 
 ## Running, next and limits
 
-The shell UI script passes before/after the ID rename under sanitizers; software benchmark observations are recorded.
 Literal logic problems: **3 focused/18 related Qt cases pass per build**, none failed/skipped, including recovery/save/build interlocks.
-The idle fix and controlled comparisons are verified; all timing series are preserved. No heavy job is active.
-Next: inspect bound inspector components for a small lint batch, preserving editing and current journeys.
+Inspector filenames are literal; bound field editors pass **7 Qt cases per build**, none failed/skipped, covering actual edits,
+entity switches, undo, groups/prefabs and 2D editing. The checks caught and fixed a transient assignment warning.
+No heavy job is active. Next: a small agent-panel delegate batch, tested with inert model rows.
 Exact sources, commands, records, active job and resume point: `build/autonomous-2026-11-04/HANDOFF.md`.
 
 Full OS/core, actual Windows products, native Linux graphics/sound/controllers and image/install proof remain unrun; the

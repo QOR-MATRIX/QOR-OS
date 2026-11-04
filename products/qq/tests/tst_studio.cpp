@@ -9,6 +9,7 @@
 // controller on the machine joins in (virtualpads.cpp); and drawn in software alone, what play does to bodies is waited
 // for on the physics world's clock.
 // Changed for QOR OS: supplied logic problem descriptions are displayed literally.
+// Changed for QOR OS: source filenames are literal and loaded inspector editors keep their selected fields.
 
 #include <QDir>
 #include <QElapsedTimer>
@@ -867,6 +868,121 @@ private slots:
         QMetaObject::invokeMethod(s.entity(QStringLiteral("Stand 2")), "part", Q_RETURN_ARG(QVariant, second),
                                   Q_ARG(QVariant, QStringLiteral("Plinth")));
         QCOMPARE(second.value<QObject *>()->property("colour").value<QColor>(), QColor(QStringLiteral("#ff6a00")));
+    }
+
+    void inspectorEditorsChangeOnlyTheirSelectedFields()
+    {
+        Studio s;
+        QVERIFY(s.open());
+        auto *inspector = s.window->findChild<QQuickItem *>(QStringLiteral("inspector"));
+        QVERIFY(inspector);
+        auto descendants = [](QQuickItem *root) {
+            QList<QQuickItem *> result{root};
+            for (qsizetype i = 0; i < result.size(); ++i)
+                result.append(result[i]->childItems());
+            return result;
+        };
+        auto editor = [&](const char *field, const char *signal, const QString &axis = {}) -> QQuickItem * {
+            for (auto *row : descendants(inspector)) {
+                if (row->property("field").toString() != QLatin1String(field))
+                    continue;
+                auto *loaded = qobject_cast<QQuickItem *>(row->property("item").value<QObject *>());
+                if (!loaded)
+                    continue;
+                for (auto *control : descendants(loaded)) {
+                    if (control->metaObject()->indexOfSignal(signal) >= 0
+                        && (axis.isEmpty() || control->property("placeholderText").toString() == axis))
+                        return control;
+                }
+            }
+            return nullptr;
+        };
+        auto *shape = s.call("add", QStringLiteral("Shape"), QVariantMap{{QStringLiteral("name"), QStringLiteral("Inspector")}})
+                          .value<QObject *>();
+        QVERIFY(shape);
+        s.settle(2);
+        auto *name = editor("name", "editingFinished()");
+        QVERIFY(name);
+        QVERIFY(name->setProperty("text", QStringLiteral("Edited")));
+        QVERIFY(QMetaObject::invokeMethod(name, "editingFinished"));
+        QCOMPARE(shape->property("name").toString(), QStringLiteral("Edited"));
+
+        const QVector3D before = shape->property("position").value<QVector3D>();
+        auto *x = editor("position", "editingFinished()", QStringLiteral("x"));
+        QVERIFY(x);
+        QVERIFY(x->setProperty("text", QStringLiteral("2.5")));
+        QVERIFY(QMetaObject::invokeMethod(x, "editingFinished"));
+        QCOMPARE(shape->property("position").value<QVector3D>(), QVector3D(2.5f, before.y(), before.z()));
+
+        auto *colour = editor("colour", "editingFinished()");
+        QVERIFY(colour);
+        QVERIFY(colour->setProperty("text", QStringLiteral("#abcdef")));
+        QVERIFY(QMetaObject::invokeMethod(colour, "editingFinished"));
+        QCOMPARE(shape->property("colour").value<QColor>(), QColor(QStringLiteral("#abcdef")));
+
+        auto *metalness = editor("metalness", "moved()");
+        QVERIFY(metalness);
+        QVERIFY(metalness->setProperty("value", 0.25));
+        QVERIFY(QMetaObject::invokeMethod(metalness, "moved"));
+        QCOMPARE(shape->property("metalness").toDouble(), 0.25);
+
+        auto *form = editor("form", "activated(int)");
+        QVERIFY(form);
+        QCOMPARE(form->property("count").toInt(), 5);
+        QVERIFY(QMetaObject::invokeMethod(form, "activated", Q_ARG(int, 1)));
+        QCOMPARE(shape->property("form").toString(), QStringLiteral("sphere"));
+
+        // Changing entity kinds recreates the loaders: no field or optional dictionary carries over.
+        QVERIFY(s.window->setProperty("selection", QVariant::fromValue(s.scene())));
+        s.settle(2);
+        auto *bloom = editor("bloom", "toggled()");
+        QVERIFY(bloom);
+        QVERIFY(bloom->property("checked").toBool());
+        QVERIFY(bloom->setProperty("checked", false));
+        QVERIFY(QMetaObject::invokeMethod(bloom, "toggled"));
+        QVERIFY(!s.scene()->property("bloom").toBool());
+        QCOMPARE(shape->property("metalness").toDouble(), 0.25);
+
+        QVERIFY(s.window->setProperty("selection", QVariant::fromValue(shape)));
+        s.settle(2);
+        metalness = editor("metalness", "moved()");
+        QVERIFY(metalness);
+        QCOMPARE(metalness->property("value").toDouble(), 0.25);
+        name = editor("name", "editingFinished()");
+        QVERIFY(name);
+        QCOMPARE(name->property("text").toString(), QStringLiteral("Edited"));
+    }
+
+    void inspectorFilenamesArePlainText()
+    {
+        Studio s;
+        QVERIFY(s.open());
+        QObject *behaviour = s.call("addBehaviour").value<QObject *>();
+        QVERIFY(behaviour);
+        QVERIFY(!behaviour->property("live").toBool());
+        const QByteArray folder = QUrl::fromLocalFile(s.project.path() + QStringLiteral("/logic/")).toEncoded();
+        const QUrl source = QUrl::fromEncoded(folder + QByteArray("%3Cb%3Ean-inert-source.qml"));
+        QVERIFY(behaviour->setProperty("source", source));
+        s.window->setProperty("selection", QVariant::fromValue(behaviour));
+        s.settle(2);
+        auto *inspector = s.window->findChild<QQuickItem *>(QStringLiteral("inspector"));
+        QVERIFY(inspector);
+        QQuickItem *label = nullptr;
+        // No image or logic is loaded: the stopped Behaviour supplies an inert encoded filename to the real inspector.
+        QTRY_VERIFY(([&] {
+            QList<QQuickItem *> pending{inspector};
+            while (!pending.isEmpty()) {
+                auto *item = pending.takeLast();
+                pending.append(item->childItems());
+                if (item->property("textFormat").isValid()
+                    && item->property("text").toString() == QStringLiteral("<b>an-inert-source.qml")) {
+                    label = item;
+                    return true;
+                }
+            }
+            return false;
+        })());
+        QCOMPARE(label->property("textFormat").toInt(), int(Qt::PlainText));
     }
 
     void theProjectsFilesAreListedAndUsedByAClick()
