@@ -231,6 +231,11 @@ attachments); a live session forgets them at power off. It exits 0 when
 every criterion passes. <kbd>Ctrl</kbd>+<kbd>C</kbd> stops a run, and a
 watchdog ends one that hangs.
 
+Each run requires a new output folder, including with `--out`; an existing folder and its evidence stay untouched.
+A nonzero Prism exit or watchdog failure fails both the gate and a trial, even if a report was written. A gate pass requires
+two outputs at different refresh rates as well as the numeric criteria. The launcher regressions use inert programs and a
+stubbed hardware probe; they establish exit/evidence handling only, never hardware readiness.
+
 `--mode eDP-1=1920x1080@60` picks a display's mode, to separate frame pacing
 from raw GPU throughput on a very fast panel; `--no-atomic` falls back to
 legacy modesetting if a driver rejects atomic commits. With a Qt kit and a

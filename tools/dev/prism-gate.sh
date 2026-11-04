@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# The compositor decision gate (ADR-0003, issue #9) on real hardware.
+# SPDX-License-Identifier: LicenseRef-QOR-OS-Proprietary
+# The deferred compositor decision gate (QOR-0005) on real hardware.
 #
 # Runs Prism on Qt's eglfs platform with its KMS integration, one output per
 # display on the GPU, with an animating Wayland client on each. It records
@@ -18,7 +19,7 @@
 # --build-dir defaults to this script's folder in a gate bundle
 # (prism-gate-bundle.sh). --mode picks a display's mode, e.g. eDP-1=1920x1080@60
 # (connector names as --probe prints them). Writes report.json, summary.md (the
-# data for ADR-0011), the logs and a .zip of them all. Exits 0 when every
+# measurement and verdict), the logs and a .zip of them all. Exits 0 when every
 # criterion passes. See docs/PERFORMANCE.md, "Running the decision gate".
 
 set -euo pipefail
@@ -155,7 +156,12 @@ else
     fi
 fi
 
-mkdir -p "$out"
+# A failed run must never consume a previous run's report or replace its logs.
+mkdir -p -- "$(dirname -- "$out")"
+if ! mkdir -- "$out"; then
+    echo "Choose a new output folder; the gate never reuses an existing one: $out" >&2
+    exit 2
+fi
 out=$(cd "$out" && pwd)
 if [ "$action" = gate ]; then
     # Every display on the GPU is a screen, side by side, the built-in one first.
@@ -247,9 +253,15 @@ for i in $(seq 1 "$outputs"); do
     sleep 0.5
 done
 echo "Measuring for about $((seconds + 15)) s. The screens return when it is done."
-wait "$prism_pid" || true
+prism_status=0
+wait "$prism_pid" || prism_status=$?
 cleanup
 pids=()
+if [ "$prism_status" -ne 0 ]; then
+    echo "Prism exited with status $prism_status; this run cannot pass. The end of $out/prism.log:" >&2
+    tail -n 25 "$out/prism.log" >&2
+    exit "$prism_status"
+fi
 [ -f "$out/report.json" ] || { echo "No report; the end of $out/prism.log:" >&2; tail -n 25 "$out/prism.log" >&2; exit 4; }
 
 status=0
@@ -290,6 +302,7 @@ latency_ok = latency.get("samples", 0) > 0 and latency.get("p95Ms", 1e9) <= budg
 passed &= latency_ok
 distinct = len({round(o.get("refreshHz", 0)) for o in outputs}) > 1
 enough = len(outputs) >= 2
+gate_passed = passed and enough and distinct
 
 title = "Trial inside a desktop session (not gate data)" if trial else "Compositor decision gate: measurement"
 summary = f"""# {title} ({date.today().isoformat()})
@@ -309,12 +322,12 @@ Input to swap: p50 {latency.get("p50Ms", 0):.1f} ms, p95 {latency.get("p95Ms", 0
 ({latency.get("samples", 0)} samples); two refresh periods of output 1 are {budget:.1f} ms: \
 {"pass" if latency_ok else "FAIL"}.
 
-**Result: {"every criterion passes" if passed else "a criterion fails"}.** \
+**Result: {"every criterion passes" if gate_passed else "a criterion fails"}.** \
 {"" if enough and distinct else "The setup does not yet match the gate (two outputs at different refresh rates). "}\
-Record the decision in ADR-0011 (docs/adr/).
+Keep this report for the next compositor decision; docs/PERFORMANCE.md describes the gate.
 """
 open(os.path.join(out, "summary.md"), "w").write(summary)
 print(summary)
-sys.exit(0 if trial or (passed and enough) else 1)
+sys.exit(0 if trial or gate_passed else 1)
 PY
 exit $status
