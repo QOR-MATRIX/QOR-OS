@@ -1,39 +1,40 @@
 # Where QOR OS stands
 
-For Andrew, 4 November 2026. Autonomous local work continues; Windows validation now fails closed on missing test evidence.
+For Andrew, 4 November 2026. Autonomous local work continues; the latest QQ warning count is 429.
 
 QOR OS joins Prism (desktop and compositor), Lumen (design language), QQ, ARQADE and QOR Media. This run started clean at
-`a79a754` on `integration/owner-brief`, with all 13 QOR worktrees clean. This session owns implementation. Heavy jobs use the
-verified existing QOR-local lock sequentially; no cross-project prerequisite exists.
+`a79a754` on `integration/owner-brief`, preserving all 13 QOR worktrees. This session owns implementation. Heavy jobs use the
+verified QOR-local lock sequentially; no cross-project prerequisite exists.
 
-## Completed bounded tasks
+## Verified checkpoints
 
-Local checkpoint `be8bba3` fixes Windows-wrapper exit masking: it checks failed script/native exit codes as well as exceptions,
-clears inherited status and reports later successes. Six stand-in regression cases pass without opening product windows.
+`be8bba3` fixes Windows-wrapper exit masking. `eed562b` replaces executable scans with checked CTest (test runner)
+registrations, rejects empty/failed/whole-skipped runs and stale evidence, and forces sequential suites. Thirteen combined
+PowerShell/real-CTest stand-in cases pass without Qt windows. All 13 workflow contract tests passed on Linux. Actual Windows
+product runtime remains untested. The initial Windows directory diagnosis was corrected: Qt places executables in the build root.
 
-The next change replaces all three Windows scripts' executable scans with CTest (test runner) registrations through
-`products-tests.ps1`. Empty, failed or whole-skipped runs, missing/mismatched records and failed cleanup stop the product.
-Old records are invalidated before building/testing. Tests stay sequential even with inherited parallelism. **13 combined
-PowerShell/real-CTest regression cases pass, none skipped**, using fake builds rather than Qt windows.
+QQ now declares Qt Quick 3D as the owner of its C++ base types through DEPENDENCIES. This supplies tooling information without
+adding QML auto-imports. Fresh QML lint (Qt's interface-language checker): **431 → 429 diagnostics**, two removed, none added.
+The zero-warning bar still fails. Six spatial-audio diagnostics also reproduce in a minimal Qt-only probe; the installed
+module's metadata lacks the Qt Quick 3D dependency. The Qt kit was not changed and no warning was suppressed.
 
-The CI (continuous integration) file filters include the new helper on both platforms. **13 workflow contract tests pass under
-Linux**. The Windows run had 12 pass and one Linux-only check skipped; that check passed on Linux. Runner boundaries and
-isolation flags remain unchanged. No remote CI result is claimed.
+Current-root checks used commercial Qt 6.12 under hidden WSL (Linux inside Windows), software rendering and a graphics-processor
+fence, one compiler/rendering worker, two processors and a 1.25 GiB memory cap:
 
-Correction: Qt's Windows setup places executables in the build root. The initial claim that QQ's directory itself caused
-missed Windows suites was wrong. Verified scan defects are accepting none and relying on filenames rather than registrations.
-No earlier Windows run is declared empty without its logs.
+- Release (optimized): **43 scene cases passed**, none failed or skipped.
+- AddressSanitizer/UBSan (memory and undefined-behavior checks): **43 scene cases passed**, none failed or skipped. Leak checking was off.
+- Hardening (exploit-mitigation checks): **16 Release programs and the sanitizer scene program passed**.
 
 ## Next and limits
 
-Checkpoint this change, then reduce another small baseline QML lint (Qt's interface-language checker) batch or run the next
-warranted integration check. QML/CPP runtime and recovery code are unchanged in these script tasks; **431 diagnostics** is the
-last verified count, not a new lint run. Prior scene, sanitizer and asset-library results remain tied to their recorded revisions.
-Current commands, failures, checks and exact resume point: `build/autonomous-2026-11-04/HANDOFF.md`. No heavy job is active.
+Next: game-supplied ScreenText and ScreenButton labels lack explicit plain-text rendering. Reproduce with benign markup,
+add literal-text protection and focused binding checks, then checkpoint and continue. Do not collect private data or fetch an
+image to prove it. Exact commands, active-job state and resume point: `build/autonomous-2026-11-04/HANDOFF.md`.
+No heavy job remains active at this checkpoint. Recovery, transaction tags, trust and provenance code are unchanged.
 
-Full OS/core, actual Windows product suites, native Linux graphics/sound/controllers and image/install testing remain unrun.
-Listing/planning still occupy the window thread. The zero-warning bar remains open; no release readiness is claimed.
+Listing/planning still occupy the window thread. Full OS/core, actual Windows suites, native Linux graphics/sound/controllers
+and image/install testing remain unrun. Prior recovery evidence stays tied to its recorded revisions; no release readiness is claimed.
 
 VM (virtual machine) Create/Prove remains prepared in current `docs/CI.md`, requiring your separate go-ahead and prerequisites;
-neither ran. Qt's licensing answer and successful proof precede a guest kit/runner. No push, merge, deployment, publication,
-licence acceptance or account change was performed. Existing owner decisions remain in force.
+neither ran. Qt's licensing answer and successful proof precede a guest kit/runner. Runner settings and isolation flags remain
+unchanged. Nothing was pushed, merged, deployed or published; no licences or accounts changed.

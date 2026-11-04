@@ -5,12 +5,14 @@
 # Changed for QOR OS: controllers come from QOR OS's controller service, QOR.Input's backends (input/gamepads), in
 # place of XInput.
 # Changed for QOR OS: the watchdog, and Qt's private QML API for refusing what opens outside (QOR-0018).
+# Changed for QOR OS: declare the Qt Quick 3D module that owns the C++ base types exposed by QQ.
 
 qt_add_library(qqruntime STATIC)
 
 qt_add_qml_module(qqruntime
     URI QQ
     VERSION 1.0
+    DEPENDENCIES QtQuick3D
     QML_FILES
         World.qml
         Scene.qml

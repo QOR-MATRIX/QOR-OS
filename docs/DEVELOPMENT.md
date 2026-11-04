@@ -77,6 +77,9 @@ worker and lock state.
   offered events after their children. `shell_e2e` and `prism_e2e` catch
   regressions.
 - `all_qmllint` must stay at zero warnings.
+- A QML module exposing C++ types declares the QML modules owning their C++ base types in `qt_add_qml_module(DEPENDENCIES ...)`.
+  QQ declares `QtQuick3D` for SoftDot and TileGeometry. This supplies type information without adding auto-imports;
+  see [Qt's module-dependency guidance](https://doc.qt.io/qt-6/qt-add-qml-module.html#declaring-module-dependencies).
 
 ## 4. Performance rules
 
