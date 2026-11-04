@@ -1,6 +1,6 @@
 # QQ, the QOR Engine
 
-<!-- Changed for QOR OS: current project-document links; on Linux the Studio keeps the provider's key in the Secret Service (QOR OS's QOR-0011); gamepads come from QOR OS's controller service, QOR.Input, in place of XInput; each project's workspace in the Studio; the asset library; literal game-screen labels and their owning component context; literal Agent status/key problems; project-file list bindings and layout; literal logic problem descriptions. -->
+<!-- Changed for QOR OS: current project-document links; on Linux the Studio keeps the provider's key in the Secret Service (QOR OS's QOR-0011); gamepads come from QOR OS's controller service, QOR.Input, in place of XInput; each project's workspace in the Studio; the asset library; literal game-screen labels and their owning component context; literal Agent status/key problems; project-file list bindings and layout; literal logic problem descriptions; typed statistics overlay. -->
 
 An engine for virtual worlds and experiences, built on **Qt 6.12** under the owner's commercial licence
 ([the Qt rule](../../docs/decisions/qtos/QTOS-0004-commercial-qt-and-proprietary-repository.md)). QQ is developed in QOR OS
@@ -141,7 +141,8 @@ it; the QQ Player plays a scene on its own, natively and in a browser.
   (`SceneIO.checkLogic`), what does not build listed by line as plain text, and saved with its button or Ctrl+S while it has the
   keys, so a scene that is playing picks it up at once; a Behaviour's **Edit logic** opens its file there. **F3**
   (or Stats) shows what the world costs (`studio/StatsOverlay.qml`): frames a second and a frame's time, draw calls
-  and the graphics API, entities and bodies, and in play every body drawn as its collider.
+  and the graphics API, entities and bodies, and in play every body drawn as its collider. Its overlay reads the actual
+  World's Qt `RenderStats`; its labels are plain text and sampling stays twice a second while it is visible.
   **Workspaces (QOR OS, 1 November 2026):** each project comes back as it was left, across a switch and across a restart:
   its open scene, its open logic file, its panels, the camera and the window (`studio/projectworkspace.h`). What is kept is the
   person's, never in the project's folder: `<AppDataLocation>/workspaces/<SHA-256 of the project's real path>.json`, read

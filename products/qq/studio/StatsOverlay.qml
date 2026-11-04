@@ -1,8 +1,10 @@
 // What the world costs, over the viewport (DIRECTION P3.15, F3): frames a second and a frame's time, the renderer's
 // draw calls and the graphics API, the scene's entities, and while it plays its bodies, each drawn as its collider
 // (Qt Quick 3D Physics' own debug drawing), so what collides can be seen against what is drawn.
+// Changed for QOR OS: use the actual World and Qt RenderStats types; statistics labels are plain text.
 
 import QtQuick
+import QtQuick3D
 import QtQuick.Controls
 import QtQuick.Controls.Material
 import QtQuick.Layouts
@@ -12,10 +14,10 @@ Rectangle {
     id: overlay
 
     /// The World it measures, and the scene in it now (the play copy while playing).
-    required property QtObject world
+    required property World world
     property QtObject scene: null
 
-    readonly property QtObject stats: world ? world.renderStats : null
+    readonly property RenderStats stats: world ? world.renderStats : null
     property int entities: 0
     property int bodies: 0
 
@@ -44,6 +46,7 @@ Rectangle {
         spacing: 2
         Label {
             objectName: "statsFrames"
+            textFormat: Text.PlainText
             text: overlay.stats ? qsTr("%1 fps · %2 ms").arg(Math.round(overlay.stats.fps))
                                                         .arg(overlay.stats.frameTime.toFixed(1)) : ""
             font.family: Look.mono
@@ -51,6 +54,7 @@ Rectangle {
         }
         Label {
             objectName: "statsDraws"
+            textFormat: Text.PlainText
             text: overlay.stats ? qsTr("%1 draw calls · %2").arg(overlay.stats.drawCallCount).arg(overlay.stats.graphicsApiName)
                                 : ""
             font.family: Look.mono
@@ -59,6 +63,7 @@ Rectangle {
         }
         Label {
             objectName: "statsScene"
+            textFormat: Text.PlainText
             text: qsTr("%1 entities · %2 bodies").arg(overlay.entities).arg(overlay.bodies)
             font.family: Look.mono
             font.pixelSize: 12
