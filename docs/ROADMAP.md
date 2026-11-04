@@ -342,8 +342,10 @@ unpublished builds stay out of reach.
   and the real StoreEngine's demonstration pack. Listing and planning still run on the window's thread: the Release largest-pack
   run measured 257 ms and 402 ms respectively, without establishing a latency budget. Native Linux, a GPU and Windows still need
   their own evidence. QQ's full QML lint has 429 diagnostics after the runtime-id batch and the Qt Quick 3D C++ dependency
-  declaration; the latest comparison removes two with none added against 431. The 43 scene cases pass in Release and under
-  sanitizers. The remaining spatial-audio type metadata warnings reproduce in a Qt-only lint probe. The zero-warning gate remains open.
+  declaration; that comparison removed two with none added against 431. Plain-text game labels bring the scene suite to 45
+  passing cases in Release and under sanitizers, without changing lint. The remaining spatial-audio type metadata warnings
+  reproduce in a Qt-only lint probe. Native CMake lint now enforces zero warnings through `.qmllint.ini`; all three QQ module
+  commands fail with the same 429 diagnostics. The zero-warning requirement remains unmet.
 - [ ] Publishing in stages: private draft, preview, package checks, a declaration of rights, submission, review, publication
 - [ ] Editable projects in the Creator Store as editions linked to a game, with their engine, files, outside dependencies and permitted
   reuse; playable mods, per game, only where that game allows them

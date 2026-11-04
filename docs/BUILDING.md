@@ -379,6 +379,11 @@ python tools\ci\check_headers.py
 .\.venv\Scripts\pre-commit run --all-files
 ```
 
+The repository's `.qmllint.ini` sets `MaxWarnings=0`, so a native `all_qmllint` command fails on warnings as well as errors.
+It changes no diagnostic category or severity. Run it for a product's own build folder too:
+`cmake --build <product-build-folder> --target all_qmllint --parallel 1`. A failing lint command is separate from passing
+runtime tests; the existing warning backlog must be resolved before the zero-warning requirement passes.
+
 ## 5. Install and deploy
 
 ```powershell

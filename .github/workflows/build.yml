@@ -222,7 +222,7 @@ jobs:
           if ($env:EVENT -in 'push', 'pull_request' -and $env:BEFORE -and $env:BEFORE -notmatch '^0+$' -and -not $env:GITHUB_REF.StartsWith('refs/tags/')) {
             git fetch --quiet --no-tags --depth=1 origin $env:BEFORE
             $changed = git diff --name-only $env:BEFORE HEAD
-            $run = [bool]($changed | Where-Object { $_ -match '^(products/|tools/qor-media/|docs/design/tokens\.json$|cmake/QorHardening\.cmake$|tools/dev/(products\.(ps1|sh)|products-display\.qml|products-tests\.ps1|products-report\.py|secret-service\.py)$|tools/ci/(check_hardening|with_display)\.py$|\.github/(workflows/build\.yml|qt-packages\.json)$)' })
+            $run = [bool]($changed | Where-Object { $_ -match '^(products/|tools/qor-media/|\.qmllint\.ini$|docs/design/tokens\.json$|cmake/QorHardening\.cmake$|tools/dev/(products\.(ps1|sh)|products-display\.qml|products-tests\.ps1|products-report\.py|secret-service\.py)$|tools/ci/(check_hardening|with_display)\.py$|\.github/(workflows/build\.yml|qt-packages\.json)$)' })
           }
           "run=$($run.ToString().ToLower())" >> $env:GITHUB_OUTPUT
           "Carried products: $(if ($run) { 'built and tested' } else { 'unchanged, skipped' })" >> $env:GITHUB_STEP_SUMMARY
@@ -238,6 +238,15 @@ jobs:
       - name: Exploit mitigations (the products)
         if: steps.products.outputs.run == 'true'
         run: python tools/ci/check_hardening.py build/ci-products
+
+      - name: qmllint (the products)
+        if: steps.products.outputs.run == 'true'
+        shell: pwsh
+        run: |
+          foreach ($product in 'qq', 'arqade', 'media') {
+            cmake --build "build/ci-products/$product" --target all_qmllint --parallel 1
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          }
 
       - name: Package
         if: github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/')
@@ -415,7 +424,7 @@ jobs:
               && ! echo "$BEFORE" | grep -qE '^0+$' && [ "${GITHUB_REF#refs/tags/}" = "$GITHUB_REF" ]; then
             git fetch --quiet --no-tags --depth=1 origin "$BEFORE"
             git diff --name-only "$BEFORE" HEAD \
-              | grep -qE '^(products/|tools/qor-media/|docs/design/tokens\.json$|cmake/QorHardening\.cmake$|tools/dev/(products\.(ps1|sh)|products-display\.qml|products-tests\.ps1|products-report\.py|secret-service\.py)$|tools/ci/(check_hardening|with_display)\.py$|\.github/(workflows/build\.yml|qt-packages\.json)$)' \
+              | grep -qE '^(products/|tools/qor-media/|\.qmllint\.ini$|docs/design/tokens\.json$|cmake/QorHardening\.cmake$|tools/dev/(products\.(ps1|sh)|products-display\.qml|products-tests\.ps1|products-report\.py|secret-service\.py)$|tools/ci/(check_hardening|with_display)\.py$|\.github/(workflows/build\.yml|qt-packages\.json)$)' \
               || run=false
           fi
           echo "run=$run" >> "$GITHUB_OUTPUT"
@@ -432,6 +441,13 @@ jobs:
       - name: Exploit mitigations (the products)
         if: steps.products.outputs.run == 'true'
         run: python3 tools/ci/check_hardening.py build/ci-products
+
+      - name: qmllint (the products)
+        if: steps.products.outputs.run == 'true'
+        run: |
+          for product in qq arqade media; do
+            cmake --build "build/ci-products/$product" --target all_qmllint --parallel 1 || exit "$?"
+          done
 
   # A runner being allowed is not a build having passed. This reports each apart, and fails unless every required step ran and
   # passed, so a run that built nothing is never green. On a machine of GitHub's, whatever became of the jobs.

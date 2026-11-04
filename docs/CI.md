@@ -312,7 +312,7 @@ which both scripts fetch at a pinned release and check by SHA-256.
 The suites drive real windows, on Windows on the runner's desktop, so they run
 only when:
 
-- the push or pull request changes `products/`, `tools/qor-media/`,
+- the push or pull request changes `products/`, `tools/qor-media/`, `.qmllint.ini`,
   `docs/design/tokens.json`, `tools/dev/products.ps1` (`products.sh`,
   `products-display.qml`, `products-report.py`, `secret-service.py` and
   `.github/qt-packages.json` on Linux) or `build.yml`;
@@ -333,6 +333,13 @@ before configuring/building and before testing; a failed cleanup stops the run. 
 or missing/mismatched log/XML evidence fails the product. These paths are checked with real CTest and stand-in builds,
 without proving Windows Qt runtime behavior. An empty executable scan is not evidence that suites ran; no such diagnosis is
 asserted for earlier Windows runs without their logs.
+
+Both platform jobs also run `all_qmllint` for each changed product, one at a time, and stop at the first native failure.
+The root `.qmllint.ini` sets `MaxWarnings=0` without changing any category or severity, so the root and product CMake lint
+commands fail on warnings. Previously, native qmllint could exit zero while printing warnings. Local commercial-Qt tests
+verify clean input, warnings and syntax errors; extracted Windows/Linux workflow commands are tested with a failing native
+stand-in. The current QQ run has 429 diagnostics and fails this gate; enforcing it is not a claim that lint is clean or that
+the paused CI jobs ran.
 
 #### What Linux runs
 
