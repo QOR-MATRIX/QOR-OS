@@ -80,6 +80,18 @@ class PrismGateBundle(unittest.TestCase):
         self.program("git", "print('fixture-checkout')\n")
         self.program("sed", "print('Fixture Linux')\n")
         self.program("dpkg", "raise SystemExit('No package database is reachable by these tests')\n")
+        self.program(
+            "tar",
+            "import os,pathlib,sys\n"
+            "if os.environ['GATE_TEST_FAIL']=='noop-tar' and '-czf' in sys.argv:\n"
+            " raise SystemExit(0)\n"
+            "if os.environ['GATE_TEST_FAIL']=='tar':\n"
+            " path=pathlib.Path(sys.argv[sys.argv.index('-czf')+1])\n"
+            " assert path.resolve().is_relative_to(pathlib.Path(os.environ['GATE_TEST_ROOT']).resolve())\n"
+            " path.write_bytes(b'partial archive')\n"
+            " raise SystemExit(12)\n"
+            f"os.execv({shutil.which('tar')!r},['tar',*sys.argv[1:]])\n",
+        )
 
     def file(self, path, content, executable=False):
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -141,6 +153,25 @@ class PrismGateBundle(unittest.TestCase):
         self.assertIn("Launcher checkout HEAD: fixture-checkout", metadata)
         self.assertIn("Executable build revision: not established by this packager", metadata)
         self.assertIn(hashlib.sha256(self.prism.read_bytes()).hexdigest(), metadata)
+
+    def test_a_partial_archive_failure_preserves_earlier_evidence(self):
+        self.out.write_bytes(b"previous evidence")
+        result = self.run_bundle(fail="tar")
+        self.assertEqual(result.returncode, 12, result.stdout + result.stderr)
+        self.assertEqual(self.out.read_bytes(), b"previous evidence")
+
+    def test_a_successful_archive_replaces_the_previous_bundle(self):
+        self.out.write_bytes(b"previous evidence")
+        result = self.run_bundle()
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        with tarfile.open(self.out) as archive:
+            self.assertEqual(archive.extractfile("qor-gate/prism/compositor/prism").read(), self.prism.read_bytes())
+
+    def test_a_noop_archiver_cannot_report_success_using_an_earlier_archive(self):
+        self.out.write_bytes(b"previous evidence")
+        result = self.run_bundle(fail="noop-tar")
+        self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual(self.out.read_bytes(), b"previous evidence")
 
 
 if __name__ == "__main__":

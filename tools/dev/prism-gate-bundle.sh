@@ -38,7 +38,14 @@ for file in "$build/prism/compositor/prism" "$build/tests/prism-test-client" "$q
 done
 
 stage=$(mktemp -d)
-trap 'rm -rf "$stage"' EXIT
+archive=""
+cleanup() {
+    rm -rf -- "$stage"
+    if [ -n "$archive" ]; then
+        rm -f -- "$archive"
+    fi
+}
+trap cleanup EXIT
 root="$stage/qor-gate"
 mkdir -p "$root/prism/compositor" "$root/tests" "$root/qt/lib" "$root/qt/plugins" "$root/qt/qml"
 cp "$build/prism/compositor/prism" "$root/prism/compositor/"
@@ -139,6 +146,11 @@ bundled="${!packages[*]}"
     echo "Run ./prism-gate.sh --help for usage."
 } > "$root/BUNDLE.txt"
 
-tar -C "$stage" -czf "$out" qor-gate
+# Finish and read back a new archive on the destination filesystem before replacing any earlier evidence.
+archive=$(mktemp -- "$(dirname -- "$out")/.qor-gate-archive.XXXXXX")
+tar -C "$stage" -czf "$archive" qor-gate
+tar -tzf "$archive" > /dev/null
+mv -T -- "$archive" "$out"
+archive=""
 echo "Wrote $out ($(du -h "$out" | cut -f1); $(du -sh "$root" | cut -f1) unpacked)"
 echo "Bundled system packages: ${bundled:-none}"

@@ -21,8 +21,8 @@ with leak checking off.
 - Agent status/key problems now use literal text: **4 cases pass in each build**, without provider/network/keychain operations.
   **90 Linux wrapper/reporter cases pass**; first attempts/retries stay sequential.
 - Benchmark launcher regressions reproduced reused evidence, ignored producer/client errors and equal-refresh acceptance.
-  **12 launcher and 6 bundle fixture tests pass**, including normal disconnects and failed inventories. Bundles record program
-  fingerprints and mark their build revision unverified. No real Qt, compositor or device runs in these tests; old evidence stays intact.
+  **12 launcher and 9 bundle fixture tests pass**, including normal disconnects and failed inventories/writes. Bundles record program
+  fingerprints and mark their build revision unverified. These tests use no real Qt/compositor/device; failed writes preserve prior archives.
 - Readiness unit checks: **14 pass**. Runner-boundary checks: **36 pass/1 Windows link-privilege skip**; that link case separately
   passes on Linux. VM preparation stand-ins: **138 pass**, none skipped; these establish no isolation proof.
 
