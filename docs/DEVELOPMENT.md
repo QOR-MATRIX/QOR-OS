@@ -82,6 +82,10 @@ worker and lock state.
 - A QML module exposing C++ types declares the QML modules owning their C++ base types in `qt_add_qml_module(DEPENDENCIES ...)`.
   QQ declares `QtQuick3D` for SoftDot and TileGeometry. This supplies type information without adding auto-imports;
   see [Qt's module-dependency guidance](https://doc.qt.io/qt-6/qt-add-qml-module.html#declaring-module-dependencies).
+- ScreenText and ScreenButton bind their nested drawing Components to their owning screen part with
+  `pragma ComponentBehavior: Bound`. Their outer ids then have known types and remain tied to the same instance when
+  ScreenPart creates the visual on an overlay. Do not apply this to delegates using implicit model context properties;
+  Qt requires explicit properties there. See [Qt's component-context rules](https://doc.qt.io/qt-6/qtqml-documents-structure.html#componentbehavior).
 
 ## 4. Performance rules
 

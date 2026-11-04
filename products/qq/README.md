@@ -1,12 +1,14 @@
 # QQ, the QOR Engine
 
-<!-- Changed for QOR OS: on Linux the Studio keeps the provider's key in the Secret Service (QOR OS's QOR-0011); gamepads come from QOR OS's controller service, QOR.Input, in place of XInput; each project's workspace in the Studio; the asset library; literal game-screen labels. -->
+<!-- Changed for QOR OS: current project-document links; on Linux the Studio keeps the provider's key in the Secret Service (QOR OS's QOR-0011); gamepads come from QOR OS's controller service, QOR.Input, in place of XInput; each project's workspace in the Studio; the asset library; literal game-screen labels and their owning component context. -->
 
-An engine for virtual worlds and experiences, built on **Qt 6** under the owner's commercial licence
-([ADR-083](../../docs/decisions/ADR-083-qq-on-qt.md)). The blueprint is [`docs/blueprints/qq.md`](../../docs/blueprints/qq.md);
-the roadmap items are DIRECTION P3.1 to P3.16.
+An engine for virtual worlds and experiences, built on **Qt 6.12** under the owner's commercial licence
+([the Qt rule](../../docs/decisions/qtos/QTOS-0004-commercial-qt-and-proprietary-repository.md)). QQ is developed in QOR OS
+([QOR-0015](../../docs/decisions/QOR-0015-the-products-are-developed-here.md)). Use the current
+[architecture](../../docs/ARCHITECTURE.md), [roadmap](../../docs/ROADMAP.md) and [verified checkpoint](../../OWNER.md)
+for its place in the project, remaining work and validation limits.
 
-**Status, 10 October 2026: P3.1 and P3.2 done.** QQ Studio edits a 3D world, keeps it in a Qontrol project, and plays
+QQ Studio edits a 3D world, keeps it in a Qontrol project, and plays
 it; the QQ Player plays a scene on its own, natively and in a browser.
 
 - **The world:** a procedural sky that also lights the scene, a sun with soft shadows, lamps, filmic tonemapping, bloom,
@@ -287,6 +289,8 @@ description with no human edit, made by whoever runs it with their own key.
 
 ScreenText and ScreenButton labels render game-supplied text literally. Markup is shown as characters rather than parsed as
 rich text; changing one screen part updates its own drawing. ScreenButton keeps its existing uppercase label formatting.
+Their drawing Components are bound to their own screen part's context, including when ScreenPart creates them on the
+World's overlay. Text, sizing and actions continue to refer to that instance; neither drawing uses a delegate model context.
 
 ## Build, test, deploy
 

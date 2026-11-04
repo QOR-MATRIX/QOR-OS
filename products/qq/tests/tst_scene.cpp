@@ -9,10 +9,12 @@
 // Changed for QOR OS: the look takes the colours a host passes as the runtime starts (QOR_THEME_COLORS).
 // Changed for QOR OS: the Player's materials and TileMap's geometry keep their bindings when Qt has properties of the same name.
 // Changed for QOR OS: game-supplied screen text is literal and remains bound to its own screen part.
+// Changed for QOR OS: screen drawings made through ScreenPart keep per-instance edits and follow the overlay's scale.
 
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
+#include <QFont>
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
@@ -170,22 +172,24 @@ private slots:
     void screenLabelsShowGameTextLiterally()
     {
         QFETCH(QString, kind);
+        // Use ScreenPart.draw(), which creates the drawing from a different component's function, on an isolated overlay.
+        QQmlComponent host(engine);
+        host.setData("import QtQuick\nimport QtQuick3D\nNode { property QtObject qqView: QtObject { "
+                     "property Item overlay: Item { width: 1280; height: 720 } } }\n", QUrl());
+        std::unique_ptr<QObject> placed(host.create());
+        QVERIFY2(placed, qPrintable(host.errorString()));
         std::unique_ptr<QObject> scene(io->loadText(QStringLiteral(
             "import QQ\nScene { %1 { name: \"First\"; text: \"<b>First</b>\" } "
-            "%1 { name: \"Second\"; text: \"<i>Second</i>\" } }\n").arg(kind), QUrl(), nullptr));
+            "%1 { name: \"Second\"; text: \"<i>Second</i>\" } }\n").arg(kind), QUrl(), placed.get()));
         QVERIFY2(scene, qPrintable(io->lastError()));
         QObject *first = entityNamed(scene.get(), QStringLiteral("First"));
         QObject *second = entityNamed(scene.get(), QStringLiteral("Second"));
         QVERIFY(first);
         QVERIFY(second);
-        auto *firstDrawing = first->property("drawing").value<QQmlComponent *>();
-        auto *secondDrawing = second->property("drawing").value<QQmlComponent *>();
-        QVERIFY(firstDrawing);
-        QVERIFY(secondDrawing);
-        std::unique_ptr<QObject> firstVisual(firstDrawing->create(firstDrawing->creationContext()));
-        std::unique_ptr<QObject> secondVisual(secondDrawing->create(secondDrawing->creationContext()));
-        QVERIFY2(firstVisual, qPrintable(firstDrawing->errorString()));
-        QVERIFY2(secondVisual, qPrintable(secondDrawing->errorString()));
+        QObject *firstVisual = first->property("content").value<QObject *>();
+        QObject *secondVisual = second->property("content").value<QObject *>();
+        QVERIFY(firstVisual);
+        QVERIFY(secondVisual);
         const auto textIn = [](QObject *visual) -> QObject * {
             if (visual->metaObject()->indexOfProperty("textFormat") >= 0)
                 return visual;
@@ -195,8 +199,8 @@ private slots:
             }
             return nullptr;
         };
-        QObject *firstLabel = textIn(firstVisual.get());
-        QObject *secondLabel = textIn(secondVisual.get());
+        QObject *firstLabel = textIn(firstVisual);
+        QObject *secondLabel = textIn(secondVisual);
         QVERIFY(firstLabel);
         QVERIFY(secondLabel);
         const QMetaProperty format = firstLabel->metaObject()->property(firstLabel->metaObject()->indexOfProperty("textFormat"));
@@ -210,6 +214,24 @@ private slots:
         QVERIFY(first->setProperty("text", QStringLiteral("<b>Changed</b>")));
         QCOMPARE(firstLabel->property("text").toString(), shown(QStringLiteral("<b>Changed</b>")));
         QCOMPARE(secondLabel->property("text").toString(), shown(QStringLiteral("<i>Second</i>")));
+        const int firstSize = firstLabel->property("font").value<QFont>().pixelSize();
+        const int secondSize = secondLabel->property("font").value<QFont>().pixelSize();
+        QVERIFY(firstSize > 0);
+        QVERIFY(secondSize > 0);
+        QObject *layer = first->property("layer").value<QObject *>();
+        QVERIFY(layer);
+        QVERIFY(layer->setProperty("height", 1440));
+        QCOMPARE(firstLabel->property("font").value<QFont>().pixelSize(), firstSize * 2);
+        QCOMPARE(secondLabel->property("font").value<QFont>().pixelSize(), secondSize * 2);
+        if (kind == QStringLiteral("ScreenText")) {
+            QVERIFY(first->setProperty("size", 40));
+            QCOMPARE(firstLabel->property("font").value<QFont>().pixelSize(), 80);
+            QCOMPARE(secondLabel->property("font").value<QFont>().pixelSize(), secondSize * 2);
+        } else {
+            QVERIFY(first->setProperty("width", 230));
+            QCOMPARE(firstVisual->property("width").toDouble(), 460.0);
+            QVERIFY(secondVisual->property("width").toDouble() != 460.0);
+        }
     }
 
     void aSceneFileIsReadAndWrittenBackByteForByte()

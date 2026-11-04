@@ -341,11 +341,12 @@ unpublished builds stay out of reach.
   The 3 November sanitizer `tst_gamebuild` passed all 195 cases; it was not rerun on 4 November. These use WSL software rendering
   and the real StoreEngine's demonstration pack. Listing and planning still run on the window's thread: the Release largest-pack
   run measured 257 ms and 402 ms respectively, without establishing a latency budget. Native Linux, a GPU and Windows still need
-  their own evidence. QQ's full QML lint has 429 diagnostics after the runtime-id batch and the Qt Quick 3D C++ dependency
-  declaration; that comparison removed two with none added against 431. Plain-text game labels bring the scene suite to 45
-  passing cases in Release and under sanitizers, without changing lint. The remaining spatial-audio type metadata warnings
-  reproduce in a Qt-only lint probe. Native CMake lint now enforces zero warnings through `.qmllint.ini`; all three QQ module
-  commands fail with the same 429 diagnostics. The zero-warning requirement remains unmet.
+  their own evidence. Runtime ids and the Qt Quick 3D C++ dependency declaration reduced QQ lint to 429 diagnostics, none
+  added. Binding ScreenText/ScreenButton drawings to their owning context removes another 47, leaving 382 with none added.
+  The 45 scene cases pass in Release and under sanitizers, and six selected screen-play functions pass (8 Qt cases including
+  setup/cleanup). The broader play suite has 42 passing and 11 failing cases, none skipped; a detached baseline comparison
+  is pending. Spatial-audio type metadata findings still reproduce in a Qt-only probe. Native CMake lint enforces zero
+  warnings through `.qmllint.ini`; all three QQ module commands fail. The zero-warning requirement remains unmet.
 - [ ] Publishing in stages: private draft, preview, package checks, a declaration of rights, submission, review, publication
 - [ ] Editable projects in the Creator Store as editions linked to a game, with their engine, files, outside dependencies and permitted
   reuse; playable mods, per game, only where that game allows them

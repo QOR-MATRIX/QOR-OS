@@ -7,6 +7,9 @@
 // With an `action` (P3.9), it is also a touch control: the action is held while a finger, or the pointer, is on it, so
 // a phone plays with the same actions a keyboard and a gamepad have.
 // Changed for QOR OS: game-supplied labels are drawn literally, never parsed as markup.
+// Changed for QOR OS: the drawing stays bound to the screen part that supplies its label, size and action.
+
+pragma ComponentBehavior: Bound
 
 import QtQuick
 import QQ
@@ -48,8 +51,9 @@ ScreenPart {
             function press() {
                 if (!button.active)
                     return
-                if (button.parent && button.parent._click)
-                    button.parent._click(button)
+                const scene = button.parent as Scene
+                if (scene)
+                    scene._click(button)
                 else
                     button.clicked()
             }
