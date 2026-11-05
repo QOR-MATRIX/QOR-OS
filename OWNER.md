@@ -12,6 +12,8 @@ two processors, a 1.25 GiB cap and one worker. ASan/UBSan check memory and undef
 
 - Asset trust guard at `24d3b09`: **91 asset-library cases pass per build**, none failed/skipped, including trust changes
   and fresh retries. Earlier `6046e08`: **195 game-build cases per build pass**, before later interface changes.
+- Complete play at `89877cf`: **56 Qt cases pass per build**, none failed/skipped, all 51 functions unfiltered.
+  Fresh native records, product-source identity and post-run hardening are verified.
 - Complete Studio at `b2b084c`: **28 Qt cases pass per build**, none failed/skipped; these runs precede the latest fixes.
 - Current-program journeys at `6f14fe2`: **5 Qt cases pass per build**, none failed/skipped: Studio edit/save/build,
   project switch/reopen, actual Player copy independence and headless Studio trust/command checks.
@@ -30,7 +32,7 @@ Listing/planning remain on the window thread; Release observations: **269/396 ms
 
 ## Next and limits
 
-No active job. Next: complete, unfiltered play checks against the integrated runtime changes. Shape's attempted binding change exposed two parent-view
+No active job. Next: declare the saved-game store’s type for the checker. Shape's attempted binding change exposed two parent-view
 type warnings; only that experiment's lines were removed. A safe shared-parent contract remains to be worked out.
 Exact sources, commands, records and resume point: `build/autonomous-2026-11-04/HANDOFF.md`.
 

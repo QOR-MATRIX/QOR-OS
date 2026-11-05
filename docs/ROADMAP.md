@@ -403,6 +403,11 @@ unpublished builds stay out of reach.
   They remove 26 findings, none added: 185 console messages/210 structured warnings. Eight Qt cases per Release/sanitizer
   build pass, zero failed/skipped: placed/one-shot sounds, both music paths, projection switching and silent replay. Both
   programs are relinked; hardening passes 16/12. Physical sound/browser playback remains unproved.
+  At integrated runtime `89877cf`, complete unfiltered play then passes in both builds: 56 Qt cases, zero failed/skipped,
+  all 51 functions with 54 expanded rows plus setup/cleanup. Fresh native records, exact coverage and unchanged source/tree
+  hashes are verified. Release takes 1,878.98 seconds; ASan/UBSan 1,923.71 seconds, with leaks off. Post-run hardening passes
+  16 Release/12 sanitizer programs. All remaining 210 structured warnings occur in the first retained 381-warning snapshot:
+  171 removed, none added against that snapshot. The native lint gate still fails, and this is not native hardware/OS proof.
   The latest 48 scene cases pass in Release and under sanitizers, including malformed-image readiness; six selected screen-play
   functions pass (8 Qt cases including setup/cleanup). The earlier broader play run and a clean detached baseline each had
   the same 11 failures. Test clock waits and guaranteed fake-controller cleanup subsequently bring all 53 play cases to a pass,

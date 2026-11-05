@@ -309,6 +309,12 @@ text, including when the status changes during a run.
 
 ## Build, test, deploy
 
+At integrated runtime `89877cf`, the complete play suite passes unfiltered in Release and ASan/UBSan: 56 Qt cases per
+build, zero failures/skips, all 51 functions with 54 expanded rows plus setup/cleanup. Fresh native records/source hashes
+and hardening (16/12 programs) are verified. These are hidden WSL software checks with leak checking off; physical
+graphics, sound/controllers, browser playback and full OS readiness remain separate. QQ lint still fails at 185 console
+messages/210 structured warnings.
+
 `qq-player --measure <result.json>` returns exit code 1 if its report cannot be opened, fully written, flushed or closed.
 Automation must check the process status and use a fresh report path for each run. The Player retains its exact-file
 kernel permissions for the requested output.
