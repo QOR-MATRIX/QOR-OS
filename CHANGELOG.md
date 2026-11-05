@@ -257,6 +257,13 @@ QOR OS begins: QTOS and Demiurge's device-side products in one repository
 
 ### Fixed
 
+- **An allowed product skip no longer claims release readiness.** The summary says non-release checks passed and
+  release readiness is unproven when unchanged product suites stand down. All required outcomes and the existing
+  non-release exit 0/release-skip exit 1 policy stay intact. A synthetic-status probe and four failing regression
+  subcases reproduced the old claim; 16 readiness tests now pass on each platform, including actual child exits and
+  private summary files. Workflow checks pass 14 on Windows with one explicit Bash-only skip, and all 15 on Linux.
+  The policy instructions and 1,920 bounded before/after status comparisons agree; no actual CI or runner action ran.
+
 - **Inspector metadata keeps its structural entity interface.** The selected kind, name and field list use the existing
   dynamic metadata lookup, as the optional editor dictionaries already do. Public target typing, guards, edits and
   undo keys stay intact. Fresh Release/ASan Studio controls pass five Qt cases and all three selected functions per

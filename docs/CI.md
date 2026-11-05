@@ -35,6 +35,11 @@ four different things:
   the products run unrelaxed on a Linux machine with a graphics card, since in software some of their checks are eased; no job
   does that yet, so that line reads "not run" and no commit is ready for a release until one does. So a run that built
   nothing is red, as the Build workflow's result, by design. Its summary tells a step that failed from a step that did not run.
+  An allowed unchanged-product skip retains exit 0 for that non-release check, while its summary explicitly says
+  **Non-release checks passed** and **Not ready for a release**. Only every required step actually succeeding produces
+  **Ready**; skips at a release still fail. Synthetic-status tests exercise real child exits and private summary files:
+  16 readiness tests pass per Windows/Linux; workflow checks pass 14 with one Bash-only skip on Windows and all 15 on
+  Linux. This is tool validation, not a real CI run or isolation proof.
   `tests/tools/test_release_readiness.py` and `test_build_workflow.py` hold it to this.
 
 The workstation's Windows runner runs as the signed-in person. Its Linux runner runs in WSL in the `sudo` and `docker`
