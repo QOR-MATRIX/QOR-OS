@@ -14,6 +14,13 @@ QOR OS begins: QTOS and Demiurge's device-side products in one repository
 
 ### Added
 
+- **Current Player/Creator Store pages validation.** At `e5a67a4`, the complete Storefronts QML file passes all
+  18 Qt cases and 16 functions per main profile, zero failures/skips/blacklists. It covers view separation, literal licence
+  and provenance text, preview recovery/decode sizing, creator-toggle retention and updates. Fresh records, 116 unchanged
+  source/public inputs, Storefronts/parser sanitizer commands and profile settings are verified; hardening passes 30/28
+  main-build programs. Runs use documented offscreen software graphics, silent nonpersistent simulated services, temporary
+  Store data and test-generated signing keys. No production change, owner private-key access or fixture regeneration
+  is involved; full OS/hardware and warning gates remain unmet.
 - **Current Store-backed Library boundary validation.** At `2d290af`, all 23 Qt cases and 9 ordinary functions pass
   unfiltered in each main profile, zero failures/skips/blacklists. Changed installed files, escaping/cross-game scene
   records, Creator visibility and non-game entries retain their refusals. Fresh records, 116 unchanged source/public-input
