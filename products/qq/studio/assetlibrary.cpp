@@ -703,8 +703,20 @@ Settled settle(const QString &realProject, const Journal &journal)
     const auto drop = [&realProject] {
         QFile::remove(AssetLibrary::journalFor(realProject));
     };
+    const QString identity = ProjectWorkspace::folderIdentity(realProject);
+    if (identity.isEmpty() || journal.identity.isEmpty()) {
+        settled.stuck = tr("The project folder could not be identified. Its journal and staged files were kept.");
+        return settled;
+    }
+#ifdef Q_OS_WIN
+    static const QRegularExpression timestamp(QStringLiteral("^[0-9]+\\z"));
+    if (timestamp.match(journal.identity).hasMatch()) {
+        settled.stuck = tr("This older Windows journal records only a creation-time identity. It and the staged files were kept for manual review.");
+        return settled;
+    }
+#endif
     // Another folder where that one was, or that one with what the change wrote beside it gone: nothing here is the change's.
-    if (!journal.identity.isEmpty() && ProjectWorkspace::folderIdentity(realProject) != journal.identity) {
+    if (identity != journal.identity) {
         settled.refused = tr("this is not the folder it was made in, so nothing was moved.");
         drop();
         return settled;
@@ -795,6 +807,9 @@ QString apply(const QString &realProject, const Change &change, const QList<Asse
     // The lock it would write is one this Studio could read back, or nothing is done.
     if (const AssetLibrary::Lock check = AssetLibrary::parseLock(lock, realProject); !check.problem.isEmpty())
         return tr("The project's new lock would not be one this Studio can read (%1), so nothing was changed.").arg(check.problem);
+    const QString identity = ProjectWorkspace::folderIdentity(realProject);
+    if (identity.isEmpty())
+        return tr("The project folder could not be identified, so nothing was changed.");
 
     const QString staging = realProject + QLatin1Char('/') + stagingPrefix + tag;
     QJsonObject placed;
@@ -813,7 +828,7 @@ QString apply(const QString &realProject, const Change &change, const QList<Asse
     QDir().mkpath(QFileInfo(journalPath).path());
     const QJsonObject journal{{QStringLiteral("format"), journalFormat},
                               {QStringLiteral("project"), realProject},
-                              {QStringLiteral("identity"), ProjectWorkspace::folderIdentity(realProject)},
+                              {QStringLiteral("identity"), identity},
                               {QStringLiteral("tag"), tag},
                               {QStringLiteral("put"), QJsonArray::fromStringList(change.put)},
                               {QStringLiteral("placed"), placed},
@@ -911,6 +926,10 @@ Opened open(const QString &project)
         return opened;
     }
     opened.recovered = AssetLibrary::recover(opened.real);
+    if (exists(AssetLibrary::journalFor(opened.real))) {
+        opened.problem = tr("The previous asset change must be resolved before another can start. %1").arg(opened.recovered);
+        return opened;
+    }
     opened.lock = AssetLibrary::readLock(opened.real);
     if (!opened.lock.problem.isEmpty())
         opened.problem = tr("%1, so nothing it names was changed.").arg(opened.lock.problem);

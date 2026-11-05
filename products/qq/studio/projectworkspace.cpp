@@ -3,7 +3,6 @@
 #include "projectworkspace.h"
 
 #include <QCryptographicHash>
-#include <QDateTime>
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
@@ -27,6 +26,8 @@
 
 #ifdef Q_OS_UNIX
 #include <sys/stat.h>
+#elif defined(Q_OS_WIN)
+#include <QtCore/qt_windows.h>
 #endif
 
 namespace qq {
@@ -207,9 +208,29 @@ QString ProjectWorkspace::folderIdentity(const QString &realFolder)
     if (::stat(QFile::encodeName(realFolder).constData(), &seen) != 0)
         return {};
     return QStringLiteral("%1:%2").arg(quint64(seen.st_dev)).arg(quint64(seen.st_ino));
+#elif defined(Q_OS_WIN)
+    QString native = QDir::toNativeSeparators(realFolder);
+    if (!native.startsWith(QStringLiteral("\\\\?\\"))) {
+        native = native.startsWith(QStringLiteral("\\\\"))
+                     ? QStringLiteral("\\\\?\\UNC\\") + native.mid(2)
+                     : QStringLiteral("\\\\?\\") + native;
+    }
+    const HANDLE folder = CreateFileW(reinterpret_cast<LPCWSTR>(native.utf16()), FILE_READ_ATTRIBUTES,
+                                      FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr, OPEN_EXISTING,
+                                      FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OPEN_REPARSE_POINT, nullptr);
+    if (folder == INVALID_HANDLE_VALUE)
+        return {};
+    FILE_ID_INFO seen{};
+    const bool identified = GetFileInformationByHandleEx(folder, FileIdInfo, &seen, DWORD(sizeof(seen)));
+    CloseHandle(folder);
+    if (!identified)
+        return {};
+    const QByteArray id(reinterpret_cast<const char *>(seen.FileId.Identifier), sizeof(seen.FileId.Identifier));
+    if (std::all_of(id.cbegin(), id.cend(), [](char byte) { return byte == '\0'; }))
+        return {};
+    return QStringLiteral("win:%1:%2").arg(quint64(seen.VolumeSerialNumber), 0, 16).arg(QString::fromLatin1(id.toHex()));
 #else
-    const QDateTime made = QFileInfo(realFolder).birthTime();
-    return made.isValid() ? QString::number(made.toMSecsSinceEpoch()) : QString();
+    return {};
 #endif
 }
 
@@ -512,7 +533,15 @@ QVariantMap readCopy(const QString &path, const QString &root, QString *why)
     if (kept.value(QStringLiteral("project")).toString() != root)
         return refuse(ProjectWorkspace::tr("was written for another folder"));
     const QString identity = ProjectWorkspace::folderIdentity(root);
-    if (!identity.isEmpty() && kept.value(QStringLiteral("folder")).toString() != identity)
+    if (identity.isEmpty())
+        return refuse(ProjectWorkspace::tr("could not be tied to this project folder"));
+#ifdef Q_OS_WIN
+    const QString recorded = kept.value(QStringLiteral("folder")).toString();
+    static const QRegularExpression timestamp(QStringLiteral("^[0-9]+\\z"));
+    if (recorded.isEmpty() || timestamp.match(recorded).hasMatch())
+        return refuse(ProjectWorkspace::tr("records only an older creation-time identity and needs manual review"));
+#endif
+    if (kept.value(QStringLiteral("folder")).toString() != identity)
         return refuse(ProjectWorkspace::tr("was written for another folder that was at this place before"));
 
     static const QRegularExpression aScene(QStringLiteral("^scenes/[^/]+\\.qml$"));

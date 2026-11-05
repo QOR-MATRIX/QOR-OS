@@ -168,8 +168,10 @@ it; the QQ Player plays a scene on its own, natively and in a browser.
   past the trust check, the person is asked to **Restore** or **Discard** a copy that a Studio no longer running left, newest
   first, and told if a file has changed or gone since the copy was made; Restore changes no file, and what comes back is in
   this Studio's own copy before the old one goes. It is read back as a stranger's, as the workspace is, and a project's copy
-  reaches no other. A copy also records which folder it was made for (its device and inode on Linux and macOS, its creation time
-  on Windows), so another project put later where that one was is not offered it, and is told so. A project moved or renamed
+  reaches no other. A copy also records which folder it was made for (its device and inode on Linux and macOS, its volume and
+  128-bit file identifier on Windows), so another project put later where that one was is not offered it, even with the same
+  creation time. An unavailable folder identity, or an older Windows copy recording only a creation time, leaves the copy's
+  bytes alone and offers nothing for automatic restore; the older copy needs manual review. A project moved or renamed
   has a new real path, so its copies are not found there; moved back, they are offered again. A scene in no project has none.
 - **Building a game (QOR OS, 1 November 2026):** **Build** brings in what the scene names from outside the project, saves what
   is on the screen, and checks that the project's scenes, logic and prefabs build: at most 2,000 QML files of 16 MB each, since
@@ -235,13 +237,18 @@ it; the QQ Player plays a scene on its own, natively and in a browser.
   is as before.
   **Across a crash.** What is new is written beside the project first, in `.qq-assets-<tag>/`, a folder named with a dot that a build
   leaves behind. A journal in the person's own store, never the project's, says what is to move, the SHA-256 of each file it places, and
-  which folder it is for (its device and inode on Linux and macOS, its creation time on Windows). The new lock is checked as it would be
+  which folder it is for (its device and inode on Linux and macOS, its volume and 128-bit file identifier on Windows). The new lock is checked as it would be
   read before anything moves. Then the old files are set aside, the new ones are moved into place, and the lock is written, which is
   the moment it happens; it carries the change's own tag, so no lock is mistaken for the one before it. The next time the project is
   looked at, a change whose lock was written is finished and one whose lock was not is put back. Putting back moves a placed file back
   only while it still holds what was placed, and a set-aside file only where nothing now is. A file the person edited since stays as it
   is, and what was set aside and could not go back stays in the staging folder, and both are said. A journal for another folder now in
-  that place, or whose staging folder has gone (`git clean`, a restore), moves nothing and is dropped, and that is said. On Linux each
+  that place, or whose staging folder has gone (`git clean`, a restore), moves nothing and is dropped, and that is said. If the
+  project folder cannot be identified, its journal and staged files stay; bringing the original folder back permits recovery.
+  Older timestamp-only Windows journals also stay, for manual review rather than automatic migration. While a journal remains,
+  another asset transaction is refused, so it cannot overwrite the unresolved record. New transactions require a readable folder
+  identity; Windows uses the volume and file ID from [the Windows API](https://learn.microsoft.com/en-us/windows/win32/api/winbase/ns-winbase-file_id_info),
+  refusing unavailable or all-zero identifiers. On Linux each
   step is made durable before the next by one `syncfs` of the project's file system; elsewhere each file and folder is synced. One
   change to a project's assets, or one build of it, runs at a time, by a lock in the person's own store: that keeps apart the Studios
   sharing that store, and not another person, a Studio with another store, another computer on a shared folder, or any other program.
@@ -414,12 +421,15 @@ every frame `tst_world` judges.
 
 Native Windows asset data now has a separate, limited check: the existing commercial Qt 6.12/MSVC kit builds
 `tst_assetlibrary` and its Studio dependency in an isolated cache with warnings as errors and hardening enabled.
-The 31 selected file/JSON/image functions pass 68 Qt cases, zero failures/skips, including all selected link checks.
+The 35 selected file/JSON/image functions pass 72 Qt cases, zero failures/skips, including all selected link checks.
 Two pre-existing compiler warnings were corrected without changing option matching or provenance assertions.
-The tests use temporary projects and Qt's test-mode storage, offscreen software drawing, and
+The tests use temporary projects and Qt's test-mode storage, an offscreen/software configuration, and
 `QT_D3D_ADAPTER_INDEX=0` to bypass QQ's static adapter enumeration. They do not open Studio/Player windows, load
 3D scenes, use audio hardware or establish the full Windows product gate. Exact selections, source/program hashes,
 fresh XML and the original failed builds are in `build/autonomous-2026-11-04/HANDOFF.md`.
+The shared data subset passes 69 cases/32 functions per Linux Release/ASan/UBSan build. Three Windows-only functions
+are not compiled there. The new missing-folder, cloned-timestamp and older-journal cases first failed on unchanged
+Windows production code; a fourth workspace-copy check also verifies that newer records restore only to their own folder.
 
 ## The Player, measured (10 October 2026)
 

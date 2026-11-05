@@ -26,7 +26,7 @@
 // the new session's own copy, so nothing typed meanwhile goes unkept.
 //
 // A copy is read back as a stranger's too: too large, not JSON, of another version, written for another path, or for
-// another folder that was at that path (the folder's identity: its device and inode on POSIX, its creation time on Windows),
+// another folder that was at that path (the folder's identity: its device and inode on POSIX, its volume and file ID on Windows),
 // or naming a file that is not plainly in the project, and that much of it goes unused and is said. A project moved keeps
 // its copy under its old path: it is offered again if the project is opened there, and a different folder there is refused
 // it. Scene text runs when it is loaded, so this only hands it over, and the Studio shows it only past the trust check and a
@@ -117,7 +117,7 @@ public:
     static QString fileFor(const QString &realProject);
     /// A session's recovery copy of a project there, by the project's real path.
     static QString recoveryFileFor(const QString &realProject, const QString &session);
-    /// What a folder is, wherever it is: its device and inode on POSIX, its creation time on Windows; "" where that cannot be
+    /// What a folder is, wherever it is: its device and inode on POSIX, its volume and file ID on Windows; "" where that cannot be
     /// told.
     static QString folderIdentity(const QString &realFolder);
     /// The list of recent projects there.

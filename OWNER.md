@@ -11,7 +11,6 @@ Commercial Qt 6.12 runs hidden in WSL (Linux inside Windows), graphics-fenced, t
 ASan/UBSan check memory errors/undefined behavior; leaks unchecked. Windows: two processors/one worker, no memory cap.
 
 - QQ at `39b0768`: **91 asset-library/195 game-build/3 Store-to-Player cases per product build** pass, zero failures/skips.
-  Recovery, transaction tags, trust, checked previews and provenance retain regression checks.
 - Linux Store format 2/legacy/Library/pages/front-end: **621/11/23/18/39 cases per main profile** pass, zero failures/skips.
   Shape's **52 Scene/10 physics cases** and Inspector's **5 cases/3 functions** pass per product build.
 - The complete journey at `f99e007` passes per product build, including actual Player playback after project removal.
@@ -22,7 +21,8 @@ ASan/UBSan check memory errors/undefined behavior; leaks unchecked. Windows: two
   Four format-2 functions/two Library rows are Unix-only; excluded from Windows counts.
 - Hardening (exploit mitigations): **33 normal/31 sanitizer Linux main programs, 16/13 products, 24 Windows program headers** pass.
 - Windows services: **17 cases/15 functions pass**, zero failures/skips; private-pipe permissions verified.
-- Windows QQ asset data: **68 cases/31 functions pass**, zero failures/skips; two compiler warnings fixed.
+- QQ asset data: **Windows 72 cases/35 functions; Linux 69/32 per product build**, zero failures/skips.
+  Folder identifiers replace Windows timestamps. Missing-folder/older journals stay; unresolved changes block new transactions.
 - Readiness wording: **16 Python tests per platform pass**; workflow **Windows 14 pass/1 skip; Linux 15 pass**.
 
 ## Remaining and next
@@ -35,7 +35,7 @@ QQ lint (interface-language checking) fails at **149 console/174 structured warn
 none added. Windows root lint: **seven modules, zero warnings**. **12 Wayland metadata warnings** match baseline.
 A pinned Rust dependency fails its warning gate; repair belongs upstream. Listing/planning remain on the window thread without a latency budget.
 
-Next: reproduce Windows recovery's timestamp-identity concern. Exact commands: `build/autonomous-2026-11-04/HANDOFF.md`.
+Next: refresh workspace recovery in the Studio. Exact commands: `build/autonomous-2026-11-04/HANDOFF.md`.
 Full OS/Rust/Windows product suites, native Linux graphics/sound/controllers and image/install proof remain unrun.
 Software observations clear no hardware budget. Zero-warning gates remain unmet.
 

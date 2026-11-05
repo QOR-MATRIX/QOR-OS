@@ -12,6 +12,7 @@
 #include <QBuffer>
 #include <QCoreApplication>
 #include <QCryptographicHash>
+#include <QDateTime>
 #include <QDir>
 #include <QDirIterator>
 #include <QElapsedTimer>
@@ -31,6 +32,7 @@
 #include <QStandardPaths>
 #include <QTemporaryDir>
 #include <QSignalSpy>
+#include <QScopeGuard>
 #include <QTest>
 #include <QThread>
 #include <QtQml/qqmlextensionplugin.h>
@@ -42,6 +44,10 @@
 #include <functional>
 #include <memory>
 #include <system_error>
+
+#ifdef Q_OS_WIN
+#include <QtCore/qt_windows.h>
+#endif
 
 #include "assetlibrary.h"
 #include "confinement.h"
@@ -87,6 +93,32 @@ bool makeLink(const QString &target, const QString &where)
     std::filesystem::create_symlink(target.toStdString(), where.toStdString(), error);
     return !error;
 }
+
+#ifdef Q_OS_WIN
+bool copyFolderCreationTime(const QString &from, const QString &to)
+{
+    const QString source = QDir::toNativeSeparators(from);
+    const HANDLE old = CreateFileW(reinterpret_cast<LPCWSTR>(source.utf16()), FILE_READ_ATTRIBUTES,
+                                   FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr, OPEN_EXISTING,
+                                   FILE_FLAG_BACKUP_SEMANTICS, nullptr);
+    if (old == INVALID_HANDLE_VALUE)
+        return false;
+    FILETIME made{};
+    const bool read = GetFileTime(old, &made, nullptr, nullptr);
+    CloseHandle(old);
+    if (!read)
+        return false;
+    const QString target = QDir::toNativeSeparators(to);
+    const HANDLE replacement = CreateFileW(reinterpret_cast<LPCWSTR>(target.utf16()), FILE_WRITE_ATTRIBUTES,
+                                           FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr, OPEN_EXISTING,
+                                           FILE_FLAG_BACKUP_SEMANTICS, nullptr);
+    if (replacement == INVALID_HANDLE_VALUE)
+        return false;
+    const bool written = SetFileTime(replacement, &made, nullptr, nullptr);
+    CloseHandle(replacement);
+    return written;
+}
+#endif
 
 /// A folder copied file by file, dot-files and all, into a new folder of its own.
 bool copyTree(const QString &from, const QString &to)
@@ -1299,6 +1331,125 @@ private slots:
         QCOMPARE(snapshot(project.path()), before);
         QVERIFY(!QFileInfo::exists(AssetLibrary::journalFor(project.real())));
     }
+
+    /// A temporarily missing project is no proof that it was replaced: retain its journal until it comes back.
+    void recoveryWaitsWhileTheProjectFolderIsMissing()
+    {
+        Store store;
+        store.add(kId, QStringLiteral("1.0.0"), firstVersion());
+        Project project;
+        QVERIFY(ok(AssetLibrary::usePack(project.path(), store.path(), kId, {}, false)));
+        store.add(kId, QStringLiteral("1.1.0"), secondVersion());
+        QProcess dying;
+        dying.setProcessChannelMode(QProcess::MergedChannels);
+        dying.start(QCoreApplication::applicationFilePath(), {QStringLiteral("--die-at"), QStringLiteral("placed"), QStringLiteral("update"), project.path(), store.path()});
+        QVERIFY(dying.waitForFinished(120000));
+        QVERIFY2(dying.exitCode() == 42, dying.readAll().constData());
+        const QString real = project.real();
+        const QString journal = AssetLibrary::journalFor(real);
+        const QByteArray savedJournal = readBytes(journal);
+        const auto cleanUpJournal = qScopeGuard([journal] { QFile::remove(journal); });
+        const QString away = project.path() + QStringLiteral(".away");
+        QVERIFY(QDir().rename(project.path(), away));
+        const auto before = snapshot(away);
+        QVERIFY(!AssetLibrary::recover(real).isEmpty());
+        QCOMPARE(readBytes(journal), savedJournal);
+        QCOMPARE(snapshot(away), before);
+        QVERIFY(QDir().rename(away, project.path()));
+        QVERIFY(AssetLibrary::recover(real).contains(QStringLiteral("put back")));
+        QCOMPARE(readBytes(project.copy(QStringLiteral("art/hero.png"))), png(red));
+        QVERIFY(!QFileInfo::exists(journal));
+    }
+
+#ifdef Q_OS_WIN
+    /// A replacement can have the original creation time without being the original folder.
+    void aReplacementWithTheSameCreationTimeIsNotTouched()
+    {
+        Store store;
+        store.add(kId, QStringLiteral("1.0.0"), firstVersion());
+        Project project;
+        QVERIFY(ok(AssetLibrary::usePack(project.path(), store.path(), kId, {}, false)));
+        store.add(kId, QStringLiteral("1.1.0"), secondVersion());
+        QProcess dying;
+        dying.setProcessChannelMode(QProcess::MergedChannels);
+        dying.start(QCoreApplication::applicationFilePath(), {QStringLiteral("--die-at"), QStringLiteral("placed"), QStringLiteral("update"), project.path(), store.path()});
+        QVERIFY(dying.waitForFinished(120000));
+        QVERIFY2(dying.exitCode() == 42, dying.readAll().constData());
+        const QString journal = AssetLibrary::journalFor(project.real());
+        const auto cleanUpJournal = qScopeGuard([journal] { QFile::remove(journal); });
+        const QString away = project.path() + QStringLiteral(".away");
+        QVERIFY(QDir().rename(project.path(), away));
+        QVERIFY(copyTree(away, project.path()));
+        QVERIFY(copyFolderCreationTime(away, project.path()));
+        QCOMPARE(QFileInfo(project.path()).birthTime(), QFileInfo(away).birthTime());
+        const auto before = snapshot(project.path());
+        QVERIFY(AssetLibrary::recover(project.real()).contains(QStringLiteral("not the folder")));
+        QCOMPARE(snapshot(project.path()), before);
+    }
+
+    /// Timestamp-only journals cannot prove ownership: keep their bytes and block a new transaction over them.
+    void anOlderWindowsJournalIsKeptForReview()
+    {
+        Store store;
+        store.add(kId, QStringLiteral("1.0.0"), firstVersion());
+        Project project;
+        QVERIFY(ok(AssetLibrary::usePack(project.path(), store.path(), kId, {}, false)));
+        store.add(kId, QStringLiteral("1.1.0"), secondVersion());
+        QProcess dying;
+        dying.setProcessChannelMode(QProcess::MergedChannels);
+        dying.start(QCoreApplication::applicationFilePath(), {QStringLiteral("--die-at"), QStringLiteral("placed"), QStringLiteral("update"), project.path(), store.path()});
+        QVERIFY(dying.waitForFinished(120000));
+        QVERIFY2(dying.exitCode() == 42, dying.readAll().constData());
+        const QString journal = AssetLibrary::journalFor(project.real());
+        const auto cleanUpJournal = qScopeGuard([journal] { QFile::remove(journal); });
+        QJsonObject legacy = QJsonDocument::fromJson(readBytes(journal)).object();
+        legacy.insert(QStringLiteral("identity"), QString::number(QFileInfo(project.path()).birthTime().toMSecsSinceEpoch()));
+        const QByteArray savedJournal = QJsonDocument(legacy).toJson();
+        QVERIFY(writeFile(journal, savedJournal));
+        const auto before = snapshot(project.path());
+        QVERIFY(!AssetLibrary::recover(project.real()).isEmpty());
+        QCOMPARE(readBytes(journal), savedJournal);
+        QCOMPARE(snapshot(project.path()), before);
+        QVERIFY(!AssetLibrary::updatePack(project.path(), store.path(), kId, {}).value(QStringLiteral("ok")).toBool());
+        QCOMPARE(readBytes(journal), savedJournal);
+        QCOMPARE(snapshot(project.path()), before);
+    }
+
+    /// Unsaved text from an older identity or a replacement folder is preserved without being offered for restore.
+    void recoveryCopiesRequireTheOriginalWindowsFolder()
+    {
+        Project project;
+        QString copy;
+        {
+            qq::ProjectWorkspace writer;
+            QVERIFY(writer.keepRecovery(project.url(), {{QStringLiteral("scene"), QVariantMap{
+                {QStringLiteral("name"), QStringLiteral("Unsaved")}, {QStringLiteral("file"), QString()},
+                {QStringLiteral("text"), QStringLiteral("import QQ\nScene { name: \"Unsaved\" }\n")}}}}));
+            copy = qq::ProjectWorkspace::recoveryFileFor(project.real(), writer.session());
+        }
+        const auto cleanUpCopy = qScopeGuard([copy] { QFile::remove(copy); });
+        const QByteArray original = readBytes(copy);
+        QVERIFY(!original.isEmpty());
+        QJsonObject legacy = QJsonDocument::fromJson(original).object();
+        legacy.insert(QStringLiteral("folder"), QString::number(QFileInfo(project.path()).birthTime().toMSecsSinceEpoch()));
+        const QByteArray older = QJsonDocument(legacy).toJson();
+        QVERIFY(writeFile(copy, older));
+        qq::ProjectWorkspace reader;
+        const QVariantMap refused = reader.loadRecovery(project.url());
+        QVERIFY(!refused.value(QStringLiteral("found")).toBool());
+        QVERIFY(refused.value(QStringLiteral("problem")).toString().contains(QStringLiteral("manual review")));
+        QCOMPARE(readBytes(copy), older);
+        // The newly identified original still gets its own copy.
+        QVERIFY(writeFile(copy, original));
+        QVERIFY(reader.loadRecovery(project.url()).value(QStringLiteral("found")).toBool());
+        const QString away = project.path() + QStringLiteral(".away");
+        QVERIFY(QDir().rename(project.path(), away));
+        QVERIFY(copyTree(away, project.path()));
+        QVERIFY(copyFolderCreationTime(away, project.path()));
+        QVERIFY(!reader.loadRecovery(project.url()).value(QStringLiteral("found")).toBool());
+        QCOMPARE(readBytes(copy), original);
+    }
+#endif
 
     /// The person changes a copy while an update is on its way, after it was planned: it is not written over.
     void aCopyChangedDuringAnUpdateIsKept()

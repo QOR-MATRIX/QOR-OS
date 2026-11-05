@@ -300,6 +300,16 @@ QOR OS begins: QTOS and Demiurge's device-side products in one repository
 
 ### Fixed
 
+- **Recovery keeps records it cannot safely place.** A temporarily missing project retains its asset journal until
+  the original folder returns. Windows records volume/file identifiers instead of creation timestamps, so a replacement
+  with a cloned timestamp gets no asset rollback or unsaved workspace copy. Unavailable identities and older Windows
+  timestamp-only records are kept for review; a pending journal blocks the next asset transaction instead of being overwritten.
+  Three new cases first failed on unchanged Windows code, returning native/wrapper exit 3. The corrected native data
+  subset passes 72 cases/35 functions, and Linux Release/ASan/UBSan passes 69/32 per build, zero failures/skips. The fourth
+  workspace-copy check is additional coverage; three Windows-only functions are not compiled on Linux. Fresh source,
+  program, compiler, sanitizer and hardening records are checked. No personal recovery files were inspected or migrated;
+  full UI/product/hardware gates and the checkout-local Store rename failure remain separate.
+
 - **QQ's native Windows asset data build is warning-clean.** The Studio keeps the native string-length type when
   recognizing asset options, and a provenance field loop no longer shadows the public fixture-key variable. Both
   pre-existing warnings failed the strict MSVC build before these local fixes; warnings remain errors. The selected
