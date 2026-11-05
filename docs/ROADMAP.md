@@ -389,6 +389,9 @@ unpublished builds stay out of reach.
   sentinel; valid output replaces stale JSON; a later copy-playback run uses a fresh report filename. Four Player and three
   build-copy Qt cases per Release/sanitizer build pass, zero failed/skipped; fresh records/source hashes and unchanged
   sandbox sources are verified. Hardening passes 16 Release/12 sanitizer programs. No native audio/hardware claim follows.
+  Music’s bound private voice factories remove four more lint findings, none added: 239 console messages/264 structured
+  warnings. Ambient and WebVoice factory crossfades pass four Qt cases per Release/sanitizer build, zero failures/skips,
+  with unchanged gain/fade/release/stop assertions. Hardening passes 16/12; physical sound/browser playback remains unproved.
   The latest 48 scene cases pass in Release and under sanitizers, including malformed-image readiness; six selected screen-play
   functions pass (8 Qt cases including setup/cleanup). The earlier broader play run and a clean detached baseline each had
   the same 11 failures. Test clock waits and guaranteed fake-controller cleanup subsequently bring all 53 play cases to a pass,

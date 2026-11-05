@@ -60,6 +60,8 @@ it; the QQ Player plays a scene on its own, natively and in a browser.
     world where logic says or heard everywhere alike, and put away when it has played through.
   - **Music** (`Music`): a track heard everywhere from when play starts, and on through a pause, as a menu's would be.
     Logic changes it by setting `source`, and the old track fades out as the new one fades in, over `fade` seconds.
+    Both private voice factories bind to the owning Music. The crossfade check covers ambient and WebVoice creation,
+    gain, release and stop; passing it under private software tests does not demonstrate physical sound/browser playback.
   - **Volume groups** (`Mixer`): every sound is in one (`effects` unless named otherwise, `music` for music), and what
     is heard is its own volume times its group's level and the master level. Logic sets and reads them (`setVolume`,
     `volumeOf`), so a game's options screen turns the music down and leaves the effects alone. The Studio's Stop puts

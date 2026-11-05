@@ -2176,8 +2176,16 @@ private slots:
         QCOMPARE(voices->property("active").toList().size(), 0);
     }
 
+    void aScenesMusicFadesFromOneTrackToTheNext_data()
+    {
+        QTest::addColumn<bool>("web");
+        QTest::newRow("ambient") << false;
+        QTest::newRow("web") << true;
+    }
+
     void aScenesMusicFadesFromOneTrackToTheNext()
     {
+        QFETCH(bool, web);
         QTemporaryDir project;
         const QDir root(project.path());
         root.mkpath(QStringLiteral("assets"));
@@ -2185,7 +2193,8 @@ private slots:
             QVERIFY(QFile::copy(fixture(QStringLiteral("chime.wav")), root.filePath(QLatin1String(name))));
         Stage s;
         QVERIFY(s.open(sceneText(QStringLiteral(
-                           "    Music { name: \"Music\"; source: \"../assets/first.wav\"; volume: 0.8; fade: 10 }\n")),
+                           "    Music { name: \"Music\"; source: \"../assets/first.wav\"; volume: 0.8; fade: 10; web: %1 }\n")
+                               .arg(web ? QStringLiteral("true") : QStringLiteral("false"))),
                        true, QUrl::fromLocalFile(root.filePath(QStringLiteral("scenes/play.qml")))));
         QObject *music = s.entity(QStringLiteral("Music"));
         auto voice = [music](int index) {
@@ -2200,7 +2209,7 @@ private slots:
         QVERIFY(!voice(1));
         QCOMPARE(track(0), QStringLiteral("first.wav"));
         QVERIFY(qAbs(level(0) - 0.8) < 1e-6);  // a voice's volume is a float
-        QCOMPARE(voice(0)->property("loops").toInt(), -1);  // for ever
+        QCOMPARE(voice(0)->property("loops").toInt(), web ? -2 : -1);  // each backend's forever value
         // In the music group: its level is heard.
         auto *mixer = s.engine.singletonInstance<qq::Mixer *>("QQ", "Mixer");
         mixer->setLevel(QStringLiteral("music"), 0.5);

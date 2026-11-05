@@ -18,8 +18,8 @@ two processors, a 1.25 GiB cap and one worker. ASan/UBSan check memory and undef
 - Frame probe: **7 sanitizer cases pass**, none failed/skipped: stall capture, idle timer stop, threaded resume, queued detach
   and status redraw. Shell UI and **5-program hardening** pass. Controlled timing comparisons establish no speed improvement.
 
-Last verified QQ lint (Qt's interface-language checker) still fails: **243 console messages/268 structured warning records**; structured
-reports include repeated/additional findings absent from console output. The Ground batch removes four console/structured findings, none added.
+Last verified QQ lint (Qt's interface-language checker) still fails: **239 console messages/264 structured warning records**; structured
+reports include repeated/additional findings absent from console output. Music removes four console/structured findings, none added.
 Six spatial-audio findings remain a Qt metadata constraint. Last root aggregate lint passed incrementally; shell lint has
 **zero warnings/errors across 28 files**, plus one unchanged informational note.
 **12 Wayland type-metadata warnings** seen during dependency generation remain unresolved.
@@ -31,7 +31,7 @@ Literal logic problems: **3 focused/18 related Qt cases pass per build**, none f
 Group-selector AutoText is fixed; **7 Qt cases per build pass**, none failed/skipped, including popup activation.
 Ground: **5 physics/3 pixel Qt cases per build pass**, none failed/skipped; Studio/Player variants rebuilt and fingerprinted.
 The complete 28-case runs precede the latest fixes. Current-program journeys at `6f14fe2`: **5 Qt cases per build pass**, none failed/skipped. Player report failures now return nonzero; **4 report/3 copy Qt cases per build pass**, none failed/skipped; file-only
-sandbox unchanged. No heavy job runs. Next: a small bound-component lint batch.
+sandbox unchanged. Music’s ambient/WebVoice factory checks pass **4 Qt cases per build**, none failed/skipped; no physical sound proof.
 Exact sources, commands, records, active job and resume point: `build/autonomous-2026-11-04/HANDOFF.md`.
 
 Full OS/core, actual Windows products, native Linux graphics/sound/controllers and image/install proof remain unrun; the
