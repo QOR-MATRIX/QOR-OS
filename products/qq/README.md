@@ -314,7 +314,10 @@ Full Scene (52 Qt cases) and six physics functions (10 cases) pass per Release/A
 records/source fingerprints and hardening 16/13. Group waits use existing software physics/frame clocks; GPU waits,
 tolerances and the Player's frame-rate floor remain. Earlier failures are retained. Native QQ lint removes 13 findings,
 none added: 153 console/178 structured warnings remain, and native commands/the wrapper still fail. The results below
-describe earlier checkpoints; the complete Studio/build/Library/Player journey is next to refresh against this batch.
+describe earlier checkpoints. The complete journey at `d111bdc` subsequently passes once per product build, zero failures/
+skips, in 112.977/112.875 seconds: two Studio builds, three real Player launches, Prism Library discovery/request and
+playback after temporary-project removal. Fresh records, 22 source fingerprints and nine program identities are verified.
+Prism is an uninstrumented simulator using a recording stand-in; actual Player playback runs separately.
 
 Asset/build/Store checkpoint at `39b0768`: unfiltered Release and ASan/UBSan each pass 91 asset-library,
 195 game-build and three real Store-to-Player Qt cases, zero failures/skips, all 44/48/1 ordinary functions. This includes

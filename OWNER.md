@@ -19,10 +19,10 @@ Latest jobs have a 1.75 GiB hard memory cap; earlier jobs used 1.25 GiB.
 - Shape's private factories use their actual owner, preserving public interfaces and 2D axis locks.
   **52 Scene/10 selected physics cases pass per product build**, zero failures/skips. Group waits use existing software
   game clocks; GPU waits, position tolerances and frame-rate checks remain. Earlier failed runs are retained.
-- **The complete first journey at `3421d35` passes once per product build**, zero failures/skips: two Studio builds,
+- **The complete first journey at `d111bdc` passes once per product build**, zero failures/skips: two Studio builds,
   three real Player launches and Prism's Library request, including playback after deleting the temporary project.
   Prism, the compositor and shell, starts a recording stand-in; the real Player runs separately. Prism is not instrumented.
-  This result precedes the Shape batch and needs refreshing.
+  Release takes 112.977 seconds, sanitizers 112.875; 22 source fingerprints and nine program identities are verified.
 - **10 simulator/11 device-option cases pass per main profile**, zero failures/skips. The selected pinned-core C interface
   passes **9 normal-profile cases**; the sanitizer profile intentionally keeps the core off.
 - Imported-model startup/reload and animation/picking: **5 Play/3 Studio cases per build**, zero failures/skips.
@@ -34,7 +34,7 @@ QQ lint (Qt's interface-language checker) still fails: **153 console/178 structu
 13 existing findings, none added. **12 Wayland metadata warnings** match their baseline. An unchanged pinned Rust
 dependency fails its warning gate; repair belongs upstream. Listing/planning remain on the window thread without a latency budget.
 
-Next: refresh the complete journey, then check the Store's C++ storefront boundary.
+Next: check the Store's C++ storefront boundary, then independent service boundaries.
 Exact commands, failures and resume point: `build/autonomous-2026-11-04/HANDOFF.md`.
 
 Full OS/Rust suites, Windows products, native Linux graphics/sound/controllers and image/install proof remain unrun.

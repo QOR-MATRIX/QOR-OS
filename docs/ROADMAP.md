@@ -457,7 +457,11 @@ unpublished builds stay out of reach.
   failures/skips; fresh records/source hashes and hardening 16/13 are verified. Group waits use existing software clocks
   after the original raising wait failed with both old and candidate Shape sources. GPU waits/tolerances and the Player's
   frame-rate floor remain; earlier failures are retained. Lint drops to 153 console/178 structured warnings, 13 findings
-  removed, none added; native failures/overall exit 1 remain. The complete journey above precedes this batch and needs refreshing.
+  removed, none added; native failures/overall exit 1 remain. At `d111bdc`, the complete journey is refreshed after this
+  batch: one CTest per product build passes, zero failures/skips, in 112.977/112.875 seconds, keeping its 300-second limit.
+  Two Studio builds, three real Player launches, Prism Library discovery/request and playback after project removal run;
+  fresh records, 22 source fingerprints and nine program identities are verified. Prism remains a non-instrumented
+  simulator using a recording stand-in, with real Player playback separate. This clears no warning/hardware/isolation gate.
   Earlier, 48 scene cases passed in Release and under sanitizers, including malformed-image readiness; six selected screen-play
   functions pass (8 Qt cases including setup/cleanup). The earlier broader play run and a clean detached baseline each had
   the same 11 failures. Test clock waits and guaranteed fake-controller cleanup subsequently bring all 53 play cases to a pass,

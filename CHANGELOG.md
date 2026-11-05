@@ -14,6 +14,13 @@ QOR OS begins: QTOS and Demiurge's device-side products in one repository
 
 ### Added
 
+- **The complete journey is refreshed after the Shape batch.** At `d111bdc`, one complete native CTest passes per
+  Release/ASan product build, zero failures/skips, in 112.977/112.875 seconds under the unchanged 300-second deadline.
+  Two Studio builds, three real Player launches, Prism Library discovery/request and playback after temporary-project
+  removal all run. Fresh native records, 22 unchanged source fingerprints and nine program identities are verified.
+  Prism remains a non-instrumented simulator using a recording stand-in; real Player playback runs separately.
+  Memory high/maximum/OOM events are zero for this job. No hardware, isolated-runner or zero-warning gate is cleared.
+
 - **Current Player/Creator Store pages validation.** At `e5a67a4`, the complete Storefronts QML file passes all
   18 Qt cases and 16 functions per main profile, zero failures/skips/blacklists. It covers view separation, literal licence
   and provenance text, preview recovery/decode sizing, creator-toggle retention and updates. Fresh records, 116 unchanged
