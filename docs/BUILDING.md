@@ -391,6 +391,24 @@ It changes no diagnostic category or severity. Run it for a product's own build 
 `cmake --build <product-build-folder> --target all_qmllint --parallel 1`. A failing lint command is separate from passing
 runtime tests; the existing warning backlog must be resolved before the zero-warning requirement passes.
 
+The existing Qt 6.12 SpatialAudio metadata has a separate, reproduced dependency omission: its `qmldir` names
+QtQuick and QtMultimedia but omits QtQuick3D, whose `QQuick3DNode` base is used by its types. This minimal input
+reports two native Windows warnings with the installed kit:
+
+```qml
+import QtQuick3D
+import QtQuick3D.SpatialAudio
+Node { AudioListener {} }
+```
+
+`SpatialSound` reproduces the same omission. Byte-identical diagnostic copies retain it; adding only
+`depends QtQuick3D` in a temporary metadata copy clears these examples. An unknown-property control still fails.
+Using the actual QQ Runtime response file isolates exactly six `World.qml`/`Sound.qml`/`Voices.qml` findings,
+with zero added; both whole-module diagnostic commands still fail. The installed SDK files and generated response
+file retain their hashes. This is diagnosis, without a correction installed or connected to normal lint:
+whole QQ remains at 142 console/167 structured warnings. The command records and controls are in
+`build/autonomous-2026-11-04/spatial-runtime-diagnostic-verified.json`; this clears no runtime or hardware gate.
+
 The selected collector check also runs in the existing Windows kit without showing a window or using a graphics
 card. Use `ci-windows`, leaving a running `windows-release` shell alone:
 

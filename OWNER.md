@@ -18,7 +18,6 @@ ASan/UBSan check memory errors/undefined behavior; leaks unchecked. Windows: two
 - Windows Store: **614 format-2/11 legacy/21 Library/39 front-end/18 page cases** pass in private Temp, zero failures/skips.
   Unix-only: four format-2 functions/two Library rows, excluded.
 - Hardening (exploit mitigations): **33 normal/31 sanitizer Linux main programs, 16/13 products, 24 Windows program headers** pass.
-- Windows services: **17 cases/15 functions pass**, zero failures/skips; private-pipe permissions verified.
 - QQ asset data: **Windows 78 cases/35 functions; Linux 69/32 per product build**, zero failures/skips.
   Folder identifiers replace Windows timestamps. Missing-folder/older journals stay; unresolved changes block new transactions.
 - Gizmo (selected-object handles): **8 cases/6 functions per product build** pass, zero failures/skips.
@@ -35,9 +34,10 @@ No permissions/security settings changed; no other process interrupted.
 
 QQ lint (interface-language checking): **142 console/167 structured warnings** on Windows/Linux; two Player findings removed,
 none added; still failed. Windows root lint: **seven modules, zero warnings**. **12 Wayland metadata warnings** match baseline.
+Six QQ findings come from Qt's metadata (type descriptions); the installed kit remains unchanged.
 A pinned Rust dependency fails its warning gate; repair belongs upstream. Listing/planning remain on the window thread without a latency budget.
 
-Next: isolate 3D sound metadata warnings. Commands: `build/autonomous-2026-11-04/HANDOFF.md`.
+Next: audit the recorder's type contract. Commands: `build/autonomous-2026-11-04/HANDOFF.md`.
 Full OS/Rust/Windows product suites, native Linux graphics/sound/controllers and image/install proof remain unrun.
 Software observations clear no hardware budget. Zero-warning gates remain unmet.
 

@@ -14,6 +14,14 @@ QOR OS begins: QTOS and Demiurge's device-side products in one repository
 
 ### Added
 
+- **Six QQ lint findings are isolated to existing Qt metadata.** Minimal AudioListener/SpatialSound inputs fail
+  against the installed Qt 6.12 SpatialAudio dependency description and byte-identical diagnostic copies. Adding
+  only its missing QtQuick3D dependency in a temporary copy clears those inputs; an invalid property still fails.
+  The actual Runtime response file loses exactly six known import/type findings and adds none, with both full-module
+  commands still failing. SDK/response-file hashes are unchanged, and no diagnostic overlay is connected to a
+  production check. QQ's actual 142 console/167 structured warning gate remains failed. No kit installation, licence
+  action, runtime/hardware check or runner change occurred.
+
 - **The Studio recovery refresh has an explicit partial result.** At `229f930`, six existing interface functions,
   including 30 hostile-copy rows, trust, two Studios and folder replacement, pass 37 Qt cases under ASan/UBSan, zero
   failures/skips. The original Release selection reports 37 passes/1 failure, zero skips: the real Studio's initialization
