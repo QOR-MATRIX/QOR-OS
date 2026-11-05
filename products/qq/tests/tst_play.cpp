@@ -2257,6 +2257,19 @@ private slots:
         QObject *heardRight = right->property("playing").value<QObject *>();
         QObject *heardLeft = left->property("playing").value<QObject *>();
         QVERIFY(QString::fromLatin1(heardRight->metaObject()->className()).contains(QStringLiteral("WebVoice")));
+        // Both projections supply a Camera, and existing voices follow the active one when the view changes.
+        QObject *perspectiveEye = s.world->property("activeCamera").value<QObject *>();
+        QVERIFY(perspectiveEye);
+        QCOMPARE(heardRight->property("eye").value<QObject *>(), perspectiveEye);
+        QCOMPARE(heardLeft->property("eye").value<QObject *>(), perspectiveEye);
+        s.world->setProperty("flat", true);
+        QObject *flatEye = s.world->property("activeCamera").value<QObject *>();
+        QVERIFY(flatEye && flatEye != perspectiveEye);
+        QTRY_COMPARE(heardRight->property("eye").value<QObject *>(), flatEye);
+        QTRY_COMPARE(heardLeft->property("eye").value<QObject *>(), flatEye);
+        s.world->setProperty("flat", false);
+        QTRY_COMPARE(heardRight->property("eye").value<QObject *>(), perspectiveEye);
+        QTRY_COMPARE(heardLeft->property("eye").value<QObject *>(), perspectiveEye);
         // The eye at (0, 1, 6) looking down -z: (4, 1, 0) is to its right, 4/sqrt(52) of the way round.
         const double side = 4 / std::sqrt(52.0);
         QVERIFY2(qAbs(heardRight->property("pan").toDouble() - side) < 1e-3, qPrintable(heardRight->property("pan").toString()));
@@ -2278,6 +2291,7 @@ private slots:
                                   Q_ARG(QVariant, QVariant(options)));
         QObject *oneShot = shot.value<QObject *>();
         QVERIFY(oneShot);
+        QCOMPARE(oneShot->property("eye").value<QObject *>(), perspectiveEye);
         s.run(50);
         QVERIFY2(oneShot->property("pan").toDouble() < -0.99, qPrintable(oneShot->property("pan").toString()));
     }

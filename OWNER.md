@@ -17,19 +17,20 @@ two processors, a 1.25 GiB cap and one worker. ASan/UBSan check memory and undef
   project switch/reopen, actual Player copy independence and headless Studio trust/command checks.
 - Player report failures now return nonzero; **4 report/3 copy Qt cases pass per build**, none failed/skipped, with
   fresh records and unchanged file-only sandbox permissions. This does not establish atomic writes.
-- Music: **4 Qt cases pass per build** for both sound implementations. Sprite: **7** for pixels, animation and bodies.
+- Sound: **8 Qt cases pass per build**, including both music paths, one-shots, camera switching and silent replay.
+  Sprite: **7** for pixels, animation and bodies.
   Trigger: **6** for entry/exit, spherical pickup, moving groups and headless 2D detection. None failed/skipped.
   Hardening (exploit mitigations): **16 Release/12 sanitizer programs pass**. No physical sound/browser playback proof.
 
-Last verified QQ lint (Qt's interface-language checker) still fails: **211 console messages/236 structured warning records**;
-structured reports include findings absent from console output. Trigger removes nine, none added. Six spatial-audio findings
+Last verified QQ lint (Qt's interface-language checker) still fails: **185 console messages/210 structured warning records**;
+structured reports include findings absent from console output. Sound removes 26, none added. Six spatial-audio findings
 remain a Qt metadata constraint. Last root aggregate lint passed incrementally; shell lint has **zero warnings/errors across
 28 files**, plus one unchanged informational note. **12 Wayland type-metadata warnings** remain unresolved.
 Listing/planning remain on the window thread; Release observations: **269/396 ms**, with no latency budget established.
 
 ## Next and limits
 
-No active job. Next: sound-component bindings and camera types. Shape's attempted binding change exposed two parent-view
+No active job. Next: complete, unfiltered play checks against the integrated runtime changes. Shape's attempted binding change exposed two parent-view
 type warnings; only that experiment's lines were removed. A safe shared-parent contract remains to be worked out.
 Exact sources, commands, records and resume point: `build/autonomous-2026-11-04/HANDOFF.md`.
 

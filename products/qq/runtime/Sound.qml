@@ -9,6 +9,10 @@
 // only on its main thread (Web Audio is not there in a worker). There it is a WebVoice, QQ's own, on the page's Web
 // Audio: quieter with distance from the eye, silent beyond `reach`, and panned to the side of the eye it is on.
 
+// Changed for QOR OS: voice factories bind to their owner and follow the viewport’s actual camera types.
+
+pragma ComponentBehavior: Bound
+
 import QtQml
 import QtQuick
 import QtQuick3D
@@ -64,8 +68,8 @@ Node {
         active: sound.sounding && sound.web
         delegate: WebVoice {
             // Heard through the eye, as natively.
-            readonly property QtObject eye: sound.parent && SceneIO.viewOf(sound.parent)
-                                            ? SceneIO.viewOf(sound.parent).activeCamera : null
+            readonly property View3D view: sound.parent ? SceneIO.viewOf(sound.parent) as View3D : null
+            readonly property Camera eye: view ? view.camera : null
             readonly property real distance: eye ? eye.scenePosition.minus(sound.scenePosition).length() : 0
             source: SceneIO.resolvedUrl(sound, sound.source)
             // As SpatialSound's logarithmic model: full within a metre, half at each doubling, none beyond the reach.

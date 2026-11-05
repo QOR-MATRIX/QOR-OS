@@ -399,6 +399,10 @@ unpublished builds stay out of reach.
   Six Qt cases per Release/sanitizer build pass, zero failed/skipped: box entry/exit, spherical pickup, moving groups and
   headless 2D detection. Both programs are relinked; hardening passes 16/12. Shape’s separate experiment exposed two
   parent-view type warnings and was left out; resolving its shared-parent contract remains before that binding change.
+  Sound/one-shot factories then bind to their owner and use actual View3D/Camera types through the viewport’s camera.
+  They remove 26 findings, none added: 185 console messages/210 structured warnings. Eight Qt cases per Release/sanitizer
+  build pass, zero failed/skipped: placed/one-shot sounds, both music paths, projection switching and silent replay. Both
+  programs are relinked; hardening passes 16/12. Physical sound/browser playback remains unproved.
   The latest 48 scene cases pass in Release and under sanitizers, including malformed-image readiness; six selected screen-play
   functions pass (8 Qt cases including setup/cleanup). The earlier broader play run and a clean detached baseline each had
   the same 11 failures. Test clock waits and guaranteed fake-controller cleanup subsequently bring all 53 play cases to a pass,

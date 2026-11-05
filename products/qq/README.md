@@ -70,6 +70,8 @@ it; the QQ Player plays a scene on its own, natively and in a browser.
   - **In a browser** every sound is QQ's own voice on the page's Web Audio, each file decoded once. A placed one is
     quieter with distance from the eye and panned to the side of it it is on. The page's first touch or key starts its
     audio, as browsers require.
+    The private sound factories bind to their owner and read the viewport’s `Camera`; tests check live perspective/orthographic
+    switching and one-shot camera identity. Native logic checks do not demonstrate physical sound or browser playback.
   - **A replay makes no sound.** There `play()` returns nothing, so what it returns must not decide an outcome.
 - **Materials (P3.14, built 19 October 2026; ADR-105):**
   - **Pictures on shapes** (`image`, `imageSize`): one copy every `imageSize` units on every face, whatever the shape's
