@@ -267,6 +267,20 @@ if(TARGET prism)
                 "--client=$<TARGET_FILE:prism-test-client> --app-id arqade --title Pretender"
                 "--client=$<TARGET_FILE:prism-test-client> --unseen --after 9000 --title Unseen")
         set_tests_properties(prism_untrusted PROPERTIES TIMEOUT 120)
+
+        # A failed script keeps its supplied arguments out of diagnostics, while retaining its failure exit status.
+        qor_add_test(tst_scriptprivacy SOURCES prism/tst_scriptprivacy.cpp)
+        target_compile_definitions(tst_scriptprivacy PRIVATE
+            QOR_PYTHON_PROGRAM="${Python3_EXECUTABLE}"
+            QOR_PRISM_DRIVER="${CMAKE_SOURCE_DIR}/tools/dev/prism-products.py"
+            QOR_PRIVACY_SCRIPT="${CMAKE_CURRENT_SOURCE_DIR}/prism/payload-quiet.e2e.json"
+            QOR_PRISM_PROGRAM="$<TARGET_FILE:prism>"
+            QOR_TEST_ARQADE="$<TARGET_FILE:prism-test-arqade>"
+            QOR_TEST_MEDIA="$<TARGET_FILE:prism-test-media>"
+            QOR_TEST_STUDIO="$<TARGET_FILE:prism-test-qq-studio>"
+            QOR_TEST_PLAYER="$<TARGET_FILE:prism-test-qq-player>")
+        add_dependencies(tst_scriptprivacy prism prism-test-arqade prism-test-media prism-test-qq-studio prism-test-qq-player)
+        set_tests_properties(tst_scriptprivacy PROPERTIES TIMEOUT 120)
     endif()
 
     # Pointer lock and relative motion (QOR-0020), from the client's side: raw Wayland

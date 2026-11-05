@@ -248,6 +248,16 @@ QOR OS begins: QTOS and Demiurge's device-side products in one repository
 
 ### Fixed
 
+- **Failed script steps omit their complete request objects.** The shared shell/Prism runner retains the step number,
+  existing reason and native exit 4, while dropping the automatic JSON dump that exposed arbitrary nested arguments.
+  A new hardened process-level QtTest reproduces the disclosure before the fix and keeps captured child diagnostics in
+  memory even when its assertions fail. Its three Qt cases plus the existing 50-step client scenario and item-text
+  privacy control pass per normal/ASan profile, zero failures/skips. The first post-fix run exposed a nested temporary
+  socket path that was too long; controlled runs and WSL socket binds prove it, and a short private test root fixes it
+  without changing assertions or timeouts. Fresh records, 347 source fingerprints, actual sanitizer flags/libraries and
+  hardening (32/30 programs) are verified. Three before/after software benchmark reports each retain all 40 input samples;
+  their observations and limits are in PERFORMANCE.md. Original failed runs remain recorded; warning/hardware/CI gates stay unmet.
+
 - **Shape's private collision factories use their actual owner.** Dimensions, contact callbacks, mass and kinematic
   transforms are qualified through the owning Shape; public interfaces, materials and 2D axis locks stay unchanged.
   Native QQ lint removes 13 existing findings with none added: 153 console/178 structured warnings remain, all three

@@ -11,6 +11,13 @@ Workflows live in [`.github/workflows/`](../.github/workflows/).
 All three run on pushes to `main`, on pull requests and on demand; Build also runs on `v*` tags and Security every
 Monday. Pull-request runs cancel superseded runs. Each OS job runs only when that OS has a Qt source.
 
+The main suites register `tst_scriptprivacy` when Prism and Python are built. It drives an actual private simulated
+compositor with public synthetic nested arguments, checks native exit 4 and absence of those arguments from diagnostics,
+and keeps captured output in memory even on failure. Failed script steps report their number and existing reason without
+serializing the complete request object. The test uses a short private Unix temporary root to keep nested socket names
+within the operating system's limit. Local normal/ASan checks pass its three Qt cases plus the existing client-identity
+and item-text privacy controls, zero failures/skips; this does not mean paused CI or native hardware checks ran.
+
 ## What CI trusts
 
 **Build's jobs on the workstation are paused, and both of its runners are stopped, since 1 November 2026.** Lint and Security

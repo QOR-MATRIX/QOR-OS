@@ -1,0 +1,10 @@
+{
+  "_license": "SPDX-License-Identifier: LicenseRef-QOR-OS-Proprietary",
+  "description": "Public synthetic data only. An unsupported call fails with exit 4, and its arbitrary nested arguments must not be echoed into diagnostics.",
+  "steps": [
+    {
+      "call": "noSuchScriptAction",
+      "args": [{ "unrelated": { "value": "QOR_TEST_PRIVATE_SCRIPT_PAYLOAD" } }]
+    }
+  ]
+}

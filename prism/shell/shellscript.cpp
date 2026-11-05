@@ -122,7 +122,7 @@ private:
             }
             const QJsonObject step = m_steps.at(m_next++).toObject();
             if (!expand(step)) {
-                fail(step);
+                fail();
                 return;
             }
         }
@@ -130,17 +130,17 @@ private:
         m_queue.pop_front();
         const int delay = action();
         if (delay < 0) {
-            fail(m_steps.at(m_next - 1).toObject());
+            fail();
             return;
         }
         QTimer::singleShot(delay, this, [this] { pump(); });
     }
 
-    void fail(const QJsonObject &step)
+    void fail()
     {
-        const QByteArray json = QJsonDocument(step).toJson(QJsonDocument::Compact);
-        std::fprintf(stderr, "script: step %lld %s failed: %s\n", static_cast<long long>(m_next), json.constData(),
-                     qPrintable(m_error));
+        // A step can contain supplied credentials or other private arguments. Its number locates it without echoing
+        // them.
+        std::fprintf(stderr, "script: step %lld failed: %s\n", static_cast<long long>(m_next), qPrintable(m_error));
         QCoreApplication::exit(4);
     }
 

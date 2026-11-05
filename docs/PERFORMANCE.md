@@ -2,8 +2,8 @@
 
 QOR OS treats frame pacing as a feature. This document records the budgets,
 the measured baseline, how to measure, and the techniques that keep the
-shell fast. The measurements below were taken on QTOS's shell, which QOR OS
-carries unchanged.
+shell fast. Early measurements use QTOS's shell; later entries state the QOR OS
+change and environment measured.
 
 ## Budgets
 
@@ -90,6 +90,25 @@ three alternating runs of the same code built with and without
 runs above because the batch's other changes are in both, and the machine was
 busier. Ubuntu's compiler adds some of these flags even with `QOR_HARDENING`
 off, so this shows the added cost on that compiler, not the whole of it.
+
+### Script failure diagnostics (2026-11-05, software only)
+
+Before and after omitting the failed step's complete JSON request, three runs each of
+`prism --size 1600x1000 --benchmark 8 --benchmark-out <fresh-file>` on this machine, before the rebuild and after it.
+Both use the existing `ci-linux` normal profile (RelWithDebInfo), commercial Qt 6.12, a hidden offscreen platform and
+`QT_QUICK_BACKEND=software` in GPU-fenced WSL. Each run has private HOME/XDG/data directories, null audio and virtual
+controllers, a two-processor quota, one renderer worker and a 1.75 GiB hard memory cap. The reports say
+`graphicsApi: "unknown"`; these are software observations and establish no native hardware budget or speed improvement.
+All six reports are fresh, each with 40 posted and 40 measured input samples. Medians:
+
+| Version | Runs | Average frame interval | p95 frame interval | Input to swap p50 / p95 |
+|---------|------|------------------------|--------------------|-------------------------|
+| Before | 3 | 8.29 ms | 9.63 ms | 8.19 / 11.27 ms |
+| After | 3 | 8.10 ms | 9.32 ms | 7.96 / 10.82 ms |
+
+The tour measures ordinary shell behavior; failure-output correctness has its own process regression. The runs are
+sequential. Exact binary/report fingerprints, commands, context and individual observations are retained under
+`build/autonomous-2026-11-04/script-privacy-bench-*-record.json` and `script-privacy-bench-verified.json`.
 
 ### Input-to-swap latency (2026-10-24)
 

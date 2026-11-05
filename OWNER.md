@@ -7,37 +7,38 @@ heavy jobs sequential. No cross-project prerequisite exists. Nothing was pushed.
 
 ## Verified checks
 
-Commercial Qt 6.12 runs hidden in WSL (Linux inside Windows), with software graphics, a graphics processor fence,
+Commercial Qt 6.12 runs hidden in WSL (Linux inside Windows), with software graphics and a graphics processor fence,
 two processors and one worker. ASan/UBSan catch memory errors and undefined behavior; leak checking is off.
-Latest jobs have a 1.75 GiB hard memory cap; earlier jobs used 1.25 GiB.
+Latest jobs have a 1.75 GiB hard cap.
 
-- QQ code at `39b0768`: unfiltered **91 asset-library/195 game-build/3 Store-to-Player Qt cases pass per build**, zero
-  failures/skips. Recovery, tags, trust, checked previews and listing provenance retain regression checks.
-- Store **format 2/legacy/Library/pages/C++ boundary: 621/11/23/18/39 cases per main profile**, zero failures/skips; all **153/9/9/16/28 functions** ran.
-  Fresh records, source/input fingerprints and sanitizer flags are verified. Hardening (exploit mitigations) passes
-  **31 normal/29 sanitizer main-build programs** and **16/13 product programs**.
-- Shape's private factories use their actual owner, preserving public interfaces and 2D axis locks.
-  **52 Scene/10 selected physics cases pass per product build**, zero failures/skips. Group waits use existing software
-  game clocks; GPU waits, position tolerances and frame-rate checks remain. Earlier failed runs are retained.
-- **The complete first journey at `d111bdc` passes once per product build**, zero failures/skips: two Studio builds,
-  three real Player launches and Prism's Library request, including playback after deleting the temporary project.
-  Prism, the compositor and shell, starts a recording stand-in; the real Player runs separately. Prism is not instrumented.
-  Release takes 112.977 seconds, sanitizers 112.875; 22 source fingerprints and nine program identities are verified.
-- **10 simulator/11 device-option cases pass per main profile**, zero failures/skips. The selected pinned-core C interface
-  passes **9 normal-profile cases**; the sanitizer profile intentionally keeps the core off.
-
-- **17 service cases and Prism's client/lock-screen scenario pass per main profile**, zero failures/skips. Windows permissions and native hardware remain untested.
+- QQ at `39b0768`: unfiltered **91 asset-library/195 game-build/3 Store-to-Player Qt cases pass per build**, zero failures/skips.
+  Recovery, tags, trust, checked previews and provenance retain regression checks.
+- Store **format 2/legacy/Library/pages/front-end: 621/11/23/18/39 cases per main profile**, zero failures/skips;
+  all **153/9/9/16/28 functions** ran. Fresh records, fingerprints and sanitizer flags are verified.
+  Hardening (exploit mitigations) passes **32 normal/30 sanitizer main-build programs** and **16/13 product programs**.
+- Shape factories preserve public interfaces and 2D axis locks: **52 Scene/10 selected physics cases pass per product build**,
+  zero failures/skips. Group waits use software game clocks; GPU waits, tolerances and frame-rate checks remain.
+- Failed scripts omit the complete request object while keeping their step number, reason and **exit 4**.
+  An actual-process regression reproduced argument disclosure; **3 Qt cases plus client/text-privacy controls pass per
+  main profile**, zero failures/skips. Captured output stays in memory. A short private runtime fixes the new test's Unix
+  socket-path limit. Earlier failures remain recorded.
+- The complete journey at `d111bdc` passes once per product build: two Studio builds, three real Player launches,
+  Prism's Library request and playback after project removal. Prism, the compositor and shell, uses a recording stand-in;
+  actual Player playback runs separately. This journey's Prism is not instrumented.
+- **17 service/10 simulator/11 device-option cases pass per main profile**, zero failures/skips; the core C interface
+  passes **9 normal-profile cases**. The sanitizer profile keeps the core off.
 
 ## Remaining and next
 
-QQ lint (Qt's interface-language checker) still fails: **153 console/178 structured warnings**. This batch removes
-13 existing findings, none added. **12 Wayland metadata warnings** match their baseline. An unchanged pinned Rust
-dependency fails its warning gate; repair belongs upstream. Listing/planning remain on the window thread without a latency budget.
+QQ lint (Qt's interface-language checker) fails: **153 console/178 structured warnings**, 13 removed in the Shape batch,
+none added. **12 Wayland metadata warnings** match their baseline. A pinned Rust dependency fails its warning gate;
+repair belongs upstream. Listing/planning remain on the window thread without a latency budget.
 
-Next: reproduce script failure logging with synthetic data, then fix any confirmed leak.
-Exact commands, failures and resume point: `build/autonomous-2026-11-04/HANDOFF.md`.
+Next: reproduce benchmark report-write failure propagation with temporary data. Exact commands, failures, fingerprints
+and resume point: `build/autonomous-2026-11-04/HANDOFF.md`.
 
 Full OS/Rust suites, Windows products, native Linux graphics/sound/controllers and image/install proof remain unrun.
-Zero-warning gates are unmet. VM (virtual machine) Create/Prove commands are prepared in `docs/CI.md`; neither ran.
-Next owner decision: separate Create go-ahead. Licensing prerequisites and proof gate the guest Qt kit and runner.
-No runner settings, isolation flags, licences or accounts changed; nothing was merged, deployed or published.
+Software observations in `docs/PERFORMANCE.md` clear no hardware budget. Zero-warning gates are unmet.
+VM (virtual machine) Create/Prove commands are prepared in `docs/CI.md`; neither ran. Next owner decision: separate Create
+go-ahead. Licensing prerequisites and proof gate the guest Qt kit and runner. No runner settings, isolation flags,
+licences or accounts changed; nothing was merged, deployed or published.
