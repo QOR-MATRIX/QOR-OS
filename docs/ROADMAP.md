@@ -344,7 +344,7 @@ unpublished builds stay out of reach.
   above; those game-build/Studio runs precede it. Hardening at that checkpoint passes 16 Release/8 sanitizer programs.
   Earlier sanitizer runs passed 89 asset-library cases on 4 November and 195 game-build cases on 3 November;
   the unchanged recovery code's earlier build is preserved at `850a639`. These use WSL software rendering. Listing and planning
-  still run on the window's thread: the latest Release largest-pack run measured first listing 269 ms, repeated listing 39 ms,
+  still run on the window's thread: that Release largest-pack run measured first listing 269 ms, repeated listing 39 ms,
   new-version listing 345 ms and planning 396 ms. These are individual observations without a latency budget or an improvement claim.
   Native Linux, a GPU and Windows still need
   their own evidence. Runtime ids and the Qt Quick 3D C++ dependency declaration reduced QQ's console lint messages to 429,
@@ -444,6 +444,13 @@ unpublished builds stay out of reach.
   claim. All completed suites fall below the documented 5,400-second ceiling; the picked runner's missing aggregate-timeout
   argument is disclosed and corrected in the future local display clone. QQ lint stays 166 console/191 structured warnings,
   none added, and its native failures/overall exit 1 remain. No release gate is cleared by these software checks.
+  The complete first journey at `3421d35` then passes once with Release QQ and once with ASan/UBSan QQ, zero
+  failures/skips, in 113.07/113.31 seconds under its unchanged 300-second deadline. Each checks two Studio builds,
+  three real Player launches, current Prism Library discovery/request and playback after the temporary project is gone.
+  Fresh native records, source hashes and nine program identities are verified. Prism uses a recording stand-in and the
+  real Player runs separately; Root Prism itself is not sanitizer-instrumented. The selected strict Root build links with
+  its pinned core and hardening passes 25 programs, but its wrapper exits 1 for the same 12 inherited Wayland metadata
+  warnings, none added/removed. This is functional software evidence, with the warning/full-OS/hardware gates still unmet.
   Earlier, 48 scene cases passed in Release and under sanitizers, including malformed-image readiness; six selected screen-play
   functions pass (8 Qt cases including setup/cleanup). The earlier broader play run and a clean detached baseline each had
   the same 11 failures. Test clock waits and guaranteed fake-controller cleanup subsequently bring all 53 play cases to a pass,

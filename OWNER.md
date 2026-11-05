@@ -8,35 +8,36 @@ heavy jobs sequential. No cross-project prerequisite exists. Nothing was pushed.
 ## Verified checks
 
 Tests use commercial Qt 6.12 hidden in WSL (Linux inside Windows), software graphics, a graphics processor fence,
-two processors and one worker. ASan/UBSan check memory and undefined behavior; leaks are off. Latest runs use a
+two processors and one worker. ASan/UBSan check memory and undefined behavior; leaks are off. Latest runs have a
 1.75 GiB hard memory cap; earlier runs used 1.25 GiB.
 
-- Player startup problems now show filenames and supplied markup literally, retaining later changes and existing
-  styling. **52 Scene/5 real Player startup Qt cases pass per build**, zero failures/skips. Fresh records/source hashes
-  are verified. Production C++, Game and SceneIO are unchanged from `ad4aa3f`.
-- Startup fix at `ad4aa3f`: **51 Scene/11 selected Player cases pass per build**, zero failures/skips. Malformed roots
-  report a problem, are discarded and allow retry. Status 3 reports startup failure; 1 reports failed output. Ordinary
-  play stays open after its report; capture and record/replay pass. Earlier tighter-cap sanitizer failures remain recorded;
-  paging was observed, without a conclusive cause claim.
-- Fresh hardening (exploit mitigations): **16 Release/13 sanitizer programs pass**. Sandbox, confinement and watchdog
-  sources are unchanged. No atomic report-write claim is made.
-- Current refresh at `39b0768`: **91 asset-library/195 game-build/3 Store-to-Player Qt cases pass per build**, zero
-  failures/skips. All ordinary functions, fresh native records and 18 source hashes are verified; harness limits are recorded.
-- Historical, separate checks: **28 complete Studio** at `b2b084c`, **56 complete play** at `89877cf` and **5 program
-  journeys** at `6f14fe2`, all zero failures/skips per build. They precede later changes.
+- Integrated QQ code at `39b0768`: fresh unfiltered **91 asset-library/195 game-build/3 Store-to-Player Qt cases pass
+  per build**, zero failures/skips. Every test function, runner record and 18 source fingerprints are verified; limits
+  are recorded. Recovery, change tags, trust, checked previews and listing provenance retain their regression checks.
+- Startup checks: **52 Scene/5 real Player startup cases pass per build**, zero failures/skips. Supplied problems display
+  literally. The preceding startup fix also passes capture, report-write failure, ordinary play and record/replay checks.
+  Earlier tighter-cap sanitizer failures remain recorded; their cause was not established conclusively.
+- **The complete first journey now passes once per build**, zero failures/skips: two Studio builds, three real Player
+  launches and current Prism (compositor and shell) Library discovery/request, including playback after deleting the
+  temporary project.
+  Fresh records and all source/program identities are verified; Release takes 113.07 seconds, QQ sanitizers 113.31.
+  Prism starts a recording stand-in; the real Player runs separately. Prism itself is not sanitizer-instrumented.
+- The journey helper passes **15 Python regressions each on Windows/Linux**, zero skips. Failed children, stale reports
+  and missing first-frame markers are refused.
+- Hardening (exploit mitigations): **16 Release/13 sanitizer product programs and 25 main-build programs pass**. The selected
+  current simulator build links with its pinned core; its wrapper exits 1 for 12 inherited Wayland metadata warnings.
 
-QQ lint (Qt's interface-language checker) still fails: **166 console messages/191 structured warnings**, none added
-by either latest fix. Against the first retained 381-warning snapshot, 190 are removed and none added; this does not
-reconstruct the older reported 439. Six spatial-audio findings remain a Qt metadata constraint. **12 Wayland type-metadata
-warnings** remain unresolved. Listing/planning still run on the window thread; no latency budget is established.
+QQ lint (Qt's interface-language checker) still fails: **166 console messages/191 structured warnings**, none newly
+introduced in the retained comparisons. Against the first retained 381-warning snapshot, 190 are removed, none added;
+this does not reconstruct the older reported 439. The **12 Wayland warnings** match their retained baseline exactly.
+Listing/planning still run on the window thread; no latency budget is established.
 
 ## Next and limits
 
-First-journey helper fixes pass 15 Python tests each on Windows/Linux, zero skips: failed children, old reports and
-missing first-frame markers are refused. Next: current simulator prerequisite validation and the actual Qt/Prism journey.
-Exact records, harness limits and resume point: `build/autonomous-2026-11-04/HANDOFF.md`.
+Next: refresh simulator/device command-line restrictions and the selected core bridge (C interface), then reproduce runtime
+warnings. Exact commands, records, harness limits and resume point: `build/autonomous-2026-11-04/HANDOFF.md`.
 
-Full OS/core, actual Windows products, native Linux graphics/sound/controllers and image/install proof remain unrun;
-the zero-warning gate is unmet. VM (virtual machine) Create/Prove commands are prepared in `docs/CI.md`; neither ran.
+Full OS/core suites, actual Windows products, native Linux graphics/sound/controllers and image/install proof remain
+unrun; zero-warning gates are unmet. VM (virtual machine) Create/Prove commands are prepared in `docs/CI.md`; neither ran.
 Next owner decision: separate Create go-ahead. Licensing prerequisites and actual proof still gate the guest Qt kit and runner.
 No runner settings, isolation flags, licences or accounts changed; nothing was merged, deployed or published.
