@@ -14,6 +14,17 @@ QOR OS begins: QTOS and Demiurge's device-side products in one repository
 
 ### Added
 
+- **Group and Prefab state reads preserve mixed parent types.** Private structural readers retain strict boolean
+  checks, null/undefined guards, numeric/view defaults and live nested bindings. New compatibility rows first pass on
+  the unchanged implementation and then pass with identical test source. Fourteen Qt cases across seven functions
+  pass per QQ Release/ASan/UBSan build, zero failures/skips, covering state edits/reparenting, serialization, group
+  kinematics, gameplay and Studio editing. Seven native Windows node/data contract cases also pass, zero failures/skips.
+  An initial native harness guard stopped before testing because it expected `/WX`; the actual `-WX` spelling is
+  verified and accepted without changing the compiler or cache. Its failed wrapper result remains recorded.
+  Windows/Linux lint remove eighteen old findings and add none, leaving 122 console/137 structured warnings and
+  aggregate exit 1. Source/copied-QML/program records, freshly compiled Group/Prefab objects, actual sanitizer flags
+  and hardening 16/13 Linux product/three native product headers pass. No full product, hardware or CI gate is cleared.
+
 - **Scene's saved-state snapshot describes the existing GameStore.** One local cast exposes its `contents` method,
   preserving SceneIO's return interface, ownership, null guard and snapshot value. Ten Qt cases across four functions
   pass per QQ Release/ASan/UBSan build, zero failures/skips, including actual Player state retained across starts and

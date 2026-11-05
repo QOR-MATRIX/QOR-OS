@@ -17,11 +17,11 @@ ASan/UBSan check memory errors/undefined behavior; leaks unchecked. Windows: two
   **11 collector cases per Linux profile/9 on Windows** pass, zero failures/skips.
 - Windows Store: **614 format-2/11 legacy/21 Library/39 front-end/18 page cases** pass in private Temp, zero failures/skips.
   Unix-only: four format-2 functions/two Library rows, excluded.
-- Hardening (exploit mitigations): **33 normal/31 sanitizer Linux main programs, 16/13 products, 24 Windows program headers** pass.
+- Hardening (exploit mitigations): **33 normal/31 sanitizer Linux main programs, 16/13 products, 24 Windows main/three product headers** pass.
 - QQ asset data: **Windows 78 cases/35 functions; Linux 69/32 per product build**, zero failures/skips.
   Folder identifiers replace Windows timestamps. Missing-folder/older journals stay; unresolved changes block new transactions.
-- Recorder at `a7ebea3`: **15 cases/9 functions per product build** pass, zero failures/skips; actual Player records/replays.
-- Saved state: **10 cases/4 functions per product build** pass, zero failures/skips; actual Player retains state across starts.
+- Recorder and saved-state checks at `a7ebea3`/`53b346a`: **15/10 cases per product build**, zero failures/skips; actual Player exercised.
+- Group state: **14 cases/7 functions per product build; seven native node/data cases**, zero failures/skips.
 
 ## Remaining and next
 
@@ -32,12 +32,12 @@ Checkout-local Windows Store: **613 pass/1 fail**, zero skips. Diagnostics read 
 failure. Two checkout-root controls failed; two outside-root controls passed. Cause unresolved; diagnostics restored.
 No permissions/security settings changed; no other process interrupted.
 
-QQ lint (interface-language checking): **140 console/155 structured warnings** on Windows/Linux; one saved-state finding removed,
+QQ lint (interface-language checking): **122 console/137 structured warnings** on Windows/Linux; eighteen group-state findings removed,
 none added; still failed. Player lint passes. Windows root lint: **seven modules, zero warnings**. **12 Wayland metadata warnings** match baseline.
 Six QQ findings come from Qt's metadata (type descriptions); the installed kit remains unchanged.
 A pinned Rust dependency fails its warning gate; repair belongs upstream. Listing/planning remain on the window thread without a latency budget.
 
-Next: check grouped-state bindings and metadata. Commands: `build/autonomous-2026-11-04/HANDOFF.md`.
+Next: inspect remaining metadata contracts using private fixtures. Commands: `build/autonomous-2026-11-04/HANDOFF.md`.
 Full OS/Rust/Windows product suites, native Linux graphics/sound/controllers and image/install proof remain unrun.
 Software observations clear no hardware budget. Zero-warning gates remain unmet.
 

@@ -13,6 +13,7 @@
 // Changed for QOR OS: panels, bars and project images keep their own drawing values too.
 // Changed for QOR OS: the Player shows supplied startup problems and filenames literally.
 // Changed for QOR OS: Player labels follow edits to their different scene and follower objects.
+// Changed for QOR OS: groups and prefabs retain their structural parent-state bindings.
 
 #include <QDir>
 #include <QFile>
@@ -919,6 +920,76 @@ private slots:
     }
 
     // ── groups and prefabs (P3.15) ──
+
+    void groupsAndPrefabsKeepTheirNearestParentsState_data()
+    {
+        QTest::addColumn<QString>("kind");
+        QTest::newRow("group") << QStringLiteral("Group");
+        QTest::newRow("prefab") << QStringLiteral("Prefab");
+    }
+
+    void groupsAndPrefabsKeepTheirNearestParentsState()
+    {
+        QFETCH(QString, kind);
+        QQmlComponent component(engine);
+        component.setData(QStringLiteral("import QtQuick3D\nimport QQ\nNode {\n"
+                          "    property var playing: true\n    property var replaying: true\n    property var paused: true\n"
+                          "    property real _owed: 0.5\n    property string view: \"2d\"\n    property real pixelsPerUnit: 24\n"
+                          "    %1 { objectName: \"outer\"; Group { objectName: \"inner\" } }\n"
+                          "    Node { objectName: \"ordinary\" }\n}\n").arg(kind).toUtf8(),
+                          QUrl(QStringLiteral("qrc:/parent-state.qml")));
+        std::unique_ptr<QObject> object(component.create());
+        QVERIFY2(object, qPrintable(component.errorString()));
+        auto *root = qobject_cast<QQuick3DObject *>(object.get());
+        auto *outer = object->findChild<QQuick3DObject *>(QStringLiteral("outer"));
+        auto *inner = object->findChild<QQuick3DObject *>(QStringLiteral("inner"));
+        auto *ordinary = object->findChild<QQuick3DObject *>(QStringLiteral("ordinary"));
+        QVERIFY(root && outer && inner && ordinary);
+        const auto restore = qScopeGuard([&] { outer->setParentItem(root); outer->setParent(root); });
+        const auto state = [](QObject *node) {
+            QVariantMap values;
+            for (const char *field : {"playing", "replaying", "paused", "_owed", "view", "pixelsPerUnit", "live"})
+                values.insert(QLatin1String(field), node->property(field));
+            return values;
+        };
+        QVariantMap expected{{QStringLiteral("playing"), true}, {QStringLiteral("replaying"), true},
+                             {QStringLiteral("paused"), true}, {QStringLiteral("_owed"), 0.5},
+                             {QStringLiteral("view"), QStringLiteral("2d")}, {QStringLiteral("pixelsPerUnit"), 24.0},
+                             {QStringLiteral("live"), true}};
+        QCOMPARE(state(outer), expected);
+        QCOMPARE(state(inner), expected);
+        // State flags require the boolean true, rather than a truthy value from a structural parent.
+        QVERIFY(object->setProperty("playing", QStringLiteral("true")));
+        QVERIFY(object->setProperty("replaying", 1));
+        QVERIFY(object->setProperty("paused", QStringLiteral("false")));
+        for (const char *field : {"playing", "replaying", "paused", "live"})
+            expected.insert(QLatin1String(field), false);
+        QTRY_COMPARE(state(outer), expected);
+        QTRY_COMPARE(state(inner), expected);
+        QVERIFY(object->setProperty("playing", true));
+        QVERIFY(object->setProperty("_owed", 1.25));
+        QVERIFY(object->setProperty("view", QStringLiteral("3d")));
+        QVERIFY(object->setProperty("pixelsPerUnit", 48.0));
+        expected[QStringLiteral("playing")] = expected[QStringLiteral("live")] = true;
+        expected[QStringLiteral("_owed")] = 1.25;
+        expected[QStringLiteral("view")] = QStringLiteral("3d");
+        expected[QStringLiteral("pixelsPerUnit")] = 48.0;
+        QTRY_COMPARE(state(outer), expected);
+        QTRY_COMPARE(state(inner), expected);
+        const QVariantMap fallback{{QStringLiteral("playing"), false}, {QStringLiteral("replaying"), false},
+                                   {QStringLiteral("paused"), false}, {QStringLiteral("_owed"), 0.0},
+                                   {QStringLiteral("view"), QStringLiteral("3d")}, {QStringLiteral("pixelsPerUnit"), 16.0},
+                                   {QStringLiteral("live"), false}};
+        outer->setParentItem(ordinary);
+        QTRY_COMPARE(state(outer), fallback);
+        QTRY_COMPARE(state(inner), fallback);
+        outer->setParentItem(nullptr);
+        QTRY_COMPARE(state(outer), fallback);
+        QTRY_COMPARE(state(inner), fallback);
+        outer->setParentItem(root);
+        QTRY_COMPARE(state(outer), expected);
+        QTRY_COMPARE(state(inner), expected);
+    }
 
     void groupsNestEntitiesAndTheFileKeepsThem()
     {

@@ -8,6 +8,8 @@
 // and finds a part of it by name with `part(name)`. Its parts play (bodies, triggers, sounds, logic) but are not the
 // scene's own entities: the Studio shows the prefab, not them, and a Behaviour inside finds its target among them first.
 
+// Changed for QOR OS: state reads preserve the mixed parent types through their structural interface.
+
 import QtQuick
 import QtQuick3D
 import QQ
@@ -28,14 +30,17 @@ Node {
     property string error: ""
 
     // The scene's state, passed on to its parts as a group passes it on.
-    readonly property bool playing: parent !== null && parent.playing === true
-    readonly property bool replaying: parent !== null && parent.replaying === true
-    readonly property bool paused: parent !== null && parent.paused === true
-    readonly property real _owed: parent !== null && parent._owed !== undefined ? parent._owed : 0
-    readonly property string view: parent !== null && parent.view !== undefined ? parent.view : "3d"
-    readonly property real pixelsPerUnit: parent !== null && parent.pixelsPerUnit !== undefined ? parent.pixelsPerUnit : 16
+    readonly property bool playing: parent !== null && _parentValue("playing") === true
+    readonly property bool replaying: parent !== null && _parentValue("replaying") === true
+    readonly property bool paused: parent !== null && _parentValue("paused") === true
+    readonly property real _owed: parent !== null && _parentValue("_owed") !== undefined ? _parentValue("_owed") : 0
+    readonly property string view: parent !== null && _parentValue("view") !== undefined ? _parentValue("view") : "3d"
+    readonly property real pixelsPerUnit: parent !== null && _parentValue("pixelsPerUnit") !== undefined ? _parentValue("pixelsPerUnit") : 16
     /// True while the scene this belongs to plays.
     readonly property bool live: playing
+
+    // A parent can be a Scene, Group or Prefab; none is the sole parent type.
+    function _parentValue(field: string): var { return prefab.parent[field] }
 
     /// One of its parts, by name, or null.
     function part(name) {

@@ -480,6 +480,15 @@ replay. Native Windows/Linux lint remove one structured `contents` finding and a
 structured warnings and aggregate exit 1. Fresh source/program/copied-QML records, actual sanitizer flags/libraries
 and hardening 16/13 are verified in `build/autonomous-2026-11-04/store-snapshot-verified.json`.
 
+Group/Prefab state reads keep their mixed parent contract through private structural readers. New compatibility
+rows pass unchanged before and after the cleanup: strict booleans, live values, nested propagation, absent fields,
+null parents and reparenting. Fourteen Qt cases/seven functions pass per Release/ASan/UBSan build, zero failures/skips,
+including group/prefab serialization, kinematics, gameplay and Studio editing. Seven native Windows node/data cases
+also pass; the initial pre-test flag-guard failure is retained, and accepting the observed `-WX` spelling changes no
+build setting. Native Windows/Linux lint remove eighteen old findings and add none, leaving 122 console/137 structured
+warnings and aggregate exit 1. Exact scope, source/copied-QML/program/fresh-object records, actual sanitizer flags and
+hardening 16/13 Linux/three native product headers are in `build/autonomous-2026-11-04/group-state-verified.json`.
+
 ## The Player, measured (10 October 2026)
 
 On the owner's laptop (RTX 4060 Laptop GPU), on mains power, playing the bundled playground at 1280 × 720, locked down
