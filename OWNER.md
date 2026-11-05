@@ -19,20 +19,19 @@ two processors, a 1.25 GiB cap and one worker. ASan/UBSan check memory and undef
   project switch/reopen, actual Player copy independence and headless Studio trust/command checks.
 - Player report failures now return nonzero; **4 report/3 copy Qt cases pass per build**, none failed/skipped, with
   fresh records and unchanged file-only sandbox permissions. This does not establish atomic writes.
-- Sound: **8 Qt cases pass per build**, including both music paths, one-shots, camera switching and silent replay.
-  Sprite: **7** for pixels, animation and bodies.
-  Trigger: **6** for entry/exit, spherical pickup, moving groups and headless 2D detection. None failed/skipped.
-  Hardening (exploit mitigations): **16 Release/12 sanitizer programs pass**. No physical sound/browser playback proof.
+- Saved-game store type: **49 scene/3 Studio Qt cases pass per build**, none failed/skipped. QML accepts the runtime’s
+  instance, observes changes and keeps direct construction forbidden. Save algorithms and permissions are unchanged.
+  Hardening (exploit mitigations): **16 Release/12 sanitizer programs pass**.
 
-Last verified QQ lint (Qt's interface-language checker) still fails: **185 console messages/210 structured warning records**;
-structured reports include findings absent from console output. Sound removes 26, none added. Six spatial-audio findings
+Last verified QQ lint (Qt's interface-language checker) still fails: **180 console messages/205 structured warning records**;
+structured reports include findings absent from console output. The store type removes five, none added. Six spatial-audio findings
 remain a Qt metadata constraint. Last root aggregate lint passed incrementally; shell lint has **zero warnings/errors across
 28 files**, plus one unchanged informational note. **12 Wayland type-metadata warnings** remain unresolved.
 Listing/planning remain on the window thread; Release observations: **269/396 ms**, with no latency budget established.
 
 ## Next and limits
 
-No active job. Next: declare the saved-game store’s type for the checker. Shape's attempted binding change exposed two parent-view
+No active job. Next: Player2D component bindings. The complete 56-case play runs precede this store metadata batch. Shape's attempted binding change exposed two parent-view
 type warnings; only that experiment's lines were removed. A safe shared-parent contract remains to be worked out.
 Exact sources, commands, records and resume point: `build/autonomous-2026-11-04/HANDOFF.md`.
 

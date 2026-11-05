@@ -408,7 +408,12 @@ unpublished builds stay out of reach.
   hashes are verified. Release takes 1,878.98 seconds; ASan/UBSan 1,923.71 seconds, with leaks off. Post-run hardening passes
   16 Release/12 sanitizer programs. All remaining 210 structured warnings occur in the first retained 381-warning snapshot:
   171 removed, none added against that snapshot. The native lint gate still fails, and this is not native hardware/OS proof.
-  The latest 48 scene cases pass in Release and under sanitizers, including malformed-image readiness; six selected screen-play
+  The saved-game store’s existing C++ instance API is then declared as an uncreatable QML type; the project panel uses it.
+  Storage algorithms, formats, paths, limits and permissions are unchanged. All 49 scene cases and three actual Studio
+  save/Forget cases pass per Release/sanitizer build, zero failed/skipped, including a memory-only typed/creation-refusal
+  regression. Fresh records and hardening 16/12 are verified; both programs are relinked. Five lint findings are removed,
+  none added: 180 console messages/205 structured warnings remain. The 56-case play runs above precede this metadata batch.
+  Earlier, 48 scene cases passed in Release and under sanitizers, including malformed-image readiness; six selected screen-play
   functions pass (8 Qt cases including setup/cleanup). The earlier broader play run and a clean detached baseline each had
   the same 11 failures. Test clock waits and guaranteed fake-controller cleanup subsequently bring all 53 play cases to a pass,
   none skipped; that full run predates the latest panel/bar/image batch. Spatial-audio type metadata findings still reproduce

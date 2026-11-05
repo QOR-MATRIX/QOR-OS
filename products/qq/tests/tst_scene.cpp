@@ -1123,6 +1123,39 @@ private slots:
 
     // ── saving (P3.16, ADR-105) ──
 
+    void aStoreHasATypedQmlContractButCannotBeConstructedFromQml()
+    {
+        // A replay's copy stays in memory: this contract check needs no player's files.
+        qq::GameStore store(QVariantMap{{QStringLiteral("best"), 7}}, nullptr);
+        QQmlEngine::setObjectOwnership(&store, QQmlEngine::CppOwnership);
+        QQmlComponent view(engine);
+        view.setData("import QtQml\nimport QQ\nQtObject {\n"
+                     "    required property GameStore saved\n"
+                     "    readonly property int count: saved ? saved.keys.length : 0\n"
+                     "    readonly property int bytes: saved ? saved.size : 0\n"
+                     "    readonly property string problem: saved ? saved.problem : \"\"\n"
+                     "    function forget() { saved.clear() }\n}\n", QUrl(QStringLiteral("qrc:/store-contract.qml")));
+        QVERIFY2(view.isReady(), qPrintable(view.errorString()));
+        std::unique_ptr<QObject> object(view.createWithInitialProperties(
+            {{QStringLiteral("saved"), QVariant::fromValue(static_cast<QObject *>(&store))}}));
+        QVERIFY2(object, qPrintable(view.errorString()));
+        QCOMPARE(object->property("count").toInt(), 1);
+        QVERIFY(object->property("bytes").toInt() > 0);
+        QCOMPARE(object->property("problem").toString(), QString());
+        QVERIFY(!store.setValue(QStringLiteral("bad"), QJSValue(QJSValue::UndefinedValue)));
+        QVERIFY(!store.problem().isEmpty());
+        QTRY_COMPARE(object->property("problem").toString(), store.problem());
+        QVERIFY(QMetaObject::invokeMethod(object.get(), "forget"));
+        QVERIFY(store.keys().isEmpty());
+        QTRY_COMPARE(object->property("count").toInt(), 0);
+
+        // The type describes an instance supplied by the runtime; a game cannot choose its own store.
+        QQmlComponent direct(engine);
+        direct.setData("import QQ\nGameStore {}\n", QUrl(QStringLiteral("qrc:/chosen-store.qml")));
+        QCOMPARE(direct.status(), QQmlComponent::Error);
+        QVERIFY2(direct.errorString().contains(QStringLiteral("supplied by the runtime")), qPrintable(direct.errorString()));
+    }
+
     void aStoreKeepsWhatJsonKeepsAndRefusesTheRest()
     {
         QTemporaryDir game;

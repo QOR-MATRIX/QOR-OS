@@ -35,7 +35,7 @@ ColumnLayout {
     /// The project as SceneIO.project() gives it.
     property var info: ({ scenes: [], logic: [], prefabs: [], assets: [] })
     /// The game's store (SceneIO.storeOf), or null for a scene in no folder.
-    property QtObject store: null
+    property GameStore store: null
 
     function sizeText(bytes) {
         return bytes < 1024 ? qsTr("%1 bytes").arg(bytes) : qsTr("%1 KB").arg((bytes / 1024).toFixed(1))

@@ -312,8 +312,13 @@ text, including when the status changes during a run.
 At integrated runtime `89877cf`, the complete play suite passes unfiltered in Release and ASan/UBSan: 56 Qt cases per
 build, zero failures/skips, all 51 functions with 54 expanded rows plus setup/cleanup. Fresh native records/source hashes
 and hardening (16/12 programs) are verified. These are hidden WSL software checks with leak checking off; physical
-graphics, sound/controllers, browser playback and full OS readiness remain separate. QQ lint still fails at 185 console
-messages/210 structured warnings.
+graphics, sound/controllers, browser playback and full OS readiness remain separate.
+
+A later saved-game store metadata batch declares the existing `GameStore` instance API as an uncreatable QML type.
+The project panel receives that concrete type; save algorithms, formats, paths, limits and permissions are unchanged.
+All 49 scene cases and three Studio save/Forget cases pass per Release/sanitizer build, zero failures/skips, including
+a memory-only typed-instance and direct-construction-refusal check. Fresh records and hardening 16/12 pass. The full
+56-case play runs above precede this batch. QQ lint still fails at 180 console messages/205 structured warnings.
 
 `qq-player --measure <result.json>` returns exit code 1 if its report cannot be opened, fully written, flushed or closed.
 Automation must check the process status and use a fresh report path for each run. The Player retains its exact-file
