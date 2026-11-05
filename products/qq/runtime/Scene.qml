@@ -25,6 +25,10 @@
 // tells it things (`tell`). What it tells waits for the next tick, which delivers it after the clicks and before the
 // presses, and the record keeps it with that tick.
 
+// Changed for QOR OS: the private physics world binds to its owning scene.
+
+pragma ComponentBehavior: Bound
+
 import QtQml
 import QtQuick
 import QtQuick3D

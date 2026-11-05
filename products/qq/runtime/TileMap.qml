@@ -7,6 +7,10 @@
 // `bounds` is the level's frame: a 2D view following the player stops at its edges.
 // Changed for QOR OS: the root id is distinct from TileGeometry.tiles.
 
+// Changed for QOR OS: private collider factories bind to their owning tile map.
+
+pragma ComponentBehavior: Bound
+
 import QtQuick
 import QtQuick3D
 import QtQuick3D.Physics

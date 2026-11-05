@@ -5,6 +5,10 @@
 // `position` is where its feet are.
 // Changed for QOR OS: the body material's id is distinct from Model.skin.
 
+// Changed for QOR OS: the private character controller binds to its owning player.
+
+pragma ComponentBehavior: Bound
+
 import QtQuick
 import QtQuick3D
 import QtQuick3D.Physics

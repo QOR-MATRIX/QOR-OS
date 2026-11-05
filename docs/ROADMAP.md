@@ -416,6 +416,10 @@ unpublished builds stay out of reach.
   Player2D’s bound private carrier then removes six findings, none added: 174 console messages/199 structured warnings.
   Five Qt cases per Release/sanitizer build pass, zero failed/skipped, for tiled collision/rendering, top-down movement
   with its carried look and headless 2D trigger replay. Both programs are relinked; fresh hardening passes 16/12.
+  Bound private physics factories in Scene/Player/TileMap remove six findings, none added: 168 console messages/193
+  structured warnings. Six gameplay and three actual Studio Qt cases per Release/sanitizer build pass, zero failed/skipped,
+  for gravity, pause, player pickup, tiled collision and collider-debug toggling. Fresh records/exact functions and hardening
+  16/12 pass; both programs are relinked. Physics values, movement and signal handling are unchanged.
   Earlier, 48 scene cases passed in Release and under sanitizers, including malformed-image readiness; six selected screen-play
   functions pass (8 Qt cases including setup/cleanup). The earlier broader play run and a clean detached baseline each had
   the same 11 failures. Test clock waits and guaranteed fake-controller cleanup subsequently bring all 53 play cases to a pass,

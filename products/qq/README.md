@@ -321,8 +321,12 @@ a memory-only typed-instance and direct-construction-refusal check. Fresh record
 56-case play runs above precede this batch.
 
 Player2D’s later bound-carrier batch passes five Qt cases per Release/sanitizer build with zero failures/skips: tiled
-collision/rendering, top-down movement/carried look and headless 2D trigger replay. Hardening passes 16/12 programs;
-QQ lint still fails at 174 console messages/199 structured warnings, with six removed and none added.
+collision/rendering, top-down movement/carried look and headless 2D trigger replay. Hardening passes 16/12 programs.
+
+Scene/Player/TileMap’s later bound-factory batch passes six gameplay and three Studio Qt cases per Release/sanitizer
+build, zero failures/skips: gravity, pause, pickup, tiled collision and collider-debug toggling. Fresh records/exact
+functions and hardening 16/12 pass. QQ lint still fails at 168 console messages/193 structured warnings, six removed
+and none added.
 
 `qq-player --measure <result.json>` returns exit code 1 if its report cannot be opened, fully written, flushed or closed.
 Automation must check the process status and use a fresh report path for each run. The Player retains its exact-file
