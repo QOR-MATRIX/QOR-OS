@@ -318,7 +318,11 @@ A later saved-game store metadata batch declares the existing `GameStore` instan
 The project panel receives that concrete type; save algorithms, formats, paths, limits and permissions are unchanged.
 All 49 scene cases and three Studio save/Forget cases pass per Release/sanitizer build, zero failures/skips, including
 a memory-only typed-instance and direct-construction-refusal check. Fresh records and hardening 16/12 pass. The full
-56-case play runs above precede this batch. QQ lint still fails at 180 console messages/205 structured warnings.
+56-case play runs above precede this batch.
+
+Player2D’s later bound-carrier batch passes five Qt cases per Release/sanitizer build with zero failures/skips: tiled
+collision/rendering, top-down movement/carried look and headless 2D trigger replay. Hardening passes 16/12 programs;
+QQ lint still fails at 174 console messages/199 structured warnings, with six removed and none added.
 
 `qq-player --measure <result.json>` returns exit code 1 if its report cannot be opened, fully written, flushed or closed.
 Automation must check the process status and use a fresh report path for each run. The Player retains its exact-file

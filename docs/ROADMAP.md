@@ -413,6 +413,9 @@ unpublished builds stay out of reach.
   save/Forget cases pass per Release/sanitizer build, zero failed/skipped, including a memory-only typed/creation-refusal
   regression. Fresh records and hardening 16/12 are verified; both programs are relinked. Five lint findings are removed,
   none added: 180 console messages/205 structured warnings remain. The 56-case play runs above precede this metadata batch.
+  Player2D’s bound private carrier then removes six findings, none added: 174 console messages/199 structured warnings.
+  Five Qt cases per Release/sanitizer build pass, zero failed/skipped, for tiled collision/rendering, top-down movement
+  with its carried look and headless 2D trigger replay. Both programs are relinked; fresh hardening passes 16/12.
   Earlier, 48 scene cases passed in Release and under sanitizers, including malformed-image readiness; six selected screen-play
   functions pass (8 Qt cases including setup/cleanup). The earlier broader play run and a clean detached baseline each had
   the same 11 failures. Test clock waits and guaranteed fake-controller cleanup subsequently bring all 53 play cases to a pass,
