@@ -26,7 +26,7 @@ Latest jobs have a 1.75 GiB hard memory cap; earlier jobs used 1.25 GiB.
 - **10 simulator/11 device-option cases pass per main profile**, zero failures/skips. The selected pinned-core C interface
   passes **9 normal-profile cases**; the sanitizer profile intentionally keeps the core off.
 
-- **17 service cases pass per main profile**, zero failures/skips: Linux socket permissions and simulated replication; Windows permissions remain untested.
+- **17 service cases and Prism's client/lock-screen scenario pass per main profile**, zero failures/skips. Windows permissions and native hardware remain untested.
 
 ## Remaining and next
 
@@ -34,7 +34,7 @@ QQ lint (Qt's interface-language checker) still fails: **153 console/178 structu
 13 existing findings, none added. **12 Wayland metadata warnings** match their baseline. An unchanged pinned Rust
 dependency fails its warning gate; repair belongs upstream. Listing/planning remain on the window thread without a latency budget.
 
-Next: Prism's client-identity and lock-screen checks, using private software sessions.
+Next: reproduce script failure logging with synthetic data, then fix any confirmed leak.
 Exact commands, failures and resume point: `build/autonomous-2026-11-04/HANDOFF.md`.
 
 Full OS/Rust suites, Windows products, native Linux graphics/sound/controllers and image/install proof remain unrun.

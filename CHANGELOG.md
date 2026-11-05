@@ -14,6 +14,15 @@ QOR OS begins: QTOS and Demiurge's device-side products in one repository
 
 ### Added
 
+- **Current Prism client-identity and lock-screen validation.** At `f92a6d2`, the existing `prism_untrusted` scenario
+  passes once per main profile, zero failures/skips: all 50 steps and 17 expectations, in 19.902/19.457 seconds.
+  Claimed application identities, an undrawn window, virtual-controller input and a private simulated lock screen retain
+  their boundaries. Fresh records, 343 source fingerprints, six program identities per profile and unchanged settings
+  are verified; the sanitizer compositor's actual compiler flags/libraries and hardening (31/29 programs) pass.
+  Stand-in-only builds retain the existing compositors and their earlier 12-warning metadata gate failure. The actual
+  registered command, 120-second CTest and 100-second driver guards are unchanged. Test HOME/runtime/data/cache folders
+  are private; no host lock, account or real device is exercised. This remains software functional evidence.
+
 - **Current Linux service boundary validation.** At `d52bd58`, the unfiltered Qt Remote Objects suite passes 17 Qt
   cases and all 15 functions per main profile, zero failures/skips/blacklists, in 4.600/4.708 seconds. It covers private
   local-socket permissions, source/replica updates, settings and simulated network/media behavior. Fresh records,
