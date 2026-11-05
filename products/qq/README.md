@@ -309,7 +309,13 @@ text, including when the status changes during a run.
 
 ## Build, test, deploy
 
-Latest Shape batch, 5 November: private factories use their actual owner, preserving public interfaces and 2D axis locks.
+Latest Inspector batch, 5 November: selected kind/name/fields use the same dynamic metadata lookup as the optional
+editor dictionaries, preserving the public target interface, guards, writes and undo keys. Three existing real Studio
+controls (five Qt cases) pass per Release/ASan build, zero failures/skips, with fresh records, source hashes, actual
+sanitizer compiler commands and app/test relinks; hardening passes 16/13. Four lint findings are removed, none added:
+149 console/174 structured warnings remain. All native commands still exit 255 and the wrapper exits 1.
+
+The preceding Shape batch, 5 November: private factories use their actual owner, preserving public interfaces and 2D axis locks.
 Full Scene (52 Qt cases) and six physics functions (10 cases) pass per Release/ASan build, zero failures/skips, with fresh
 records/source fingerprints and hardening 16/13. Group waits use existing software physics/frame clocks; GPU waits,
 tolerances and the Player's frame-rate floor remain. Earlier failures are retained. Native QQ lint removes 13 findings,

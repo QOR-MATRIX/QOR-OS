@@ -5,6 +5,7 @@
 // Changed for QOR OS: Open outside opens only the project's own QML (QOR-0018).
 // Changed for QOR OS: the colour swatch gives its preferred size to the layout instead of competing with it.
 // Changed for QOR OS: field editors keep their inspector context, typed loader fields and literal source filenames.
+// Changed for QOR OS: selected entity metadata uses the existing dynamic lookup across its different types.
 
 pragma ComponentBehavior: Bound
 
@@ -45,19 +46,19 @@ ColumnLayout {
     // A file field is named for what it holds.
     readonly property var fileLabels: ({ Prop: qsTr("Model file"), Sound: qsTr("Sound file"), Behaviour: qsTr("Logic file") })
 
-    // Optional dictionaries belong to different entity types, not to their shared QObject base.
+    // Entity metadata is declared by each selected type rather than its shared QObject base.
     function metadata(field: string): var {
         return target ? target[field] : undefined
     }
 
     function labelFor(field) {
-        if (field === "source" && target && fileLabels[target.kind])
-            return fileLabels[target.kind]
+        if (field === "source" && target && fileLabels[metadata("kind")])
+            return fileLabels[metadata("kind")]
         return labels[field] ?? field
     }
     function set(field, value) {
         target[field] = value
-        lastEdit = target.name + "/" + field
+        lastEdit = metadata("name") + "/" + field
         inspector.edited()
     }
 
@@ -67,7 +68,7 @@ ColumnLayout {
     }
 
     Repeater {
-        model: inspector.target ? inspector.target.fields : []
+        model: inspector.target ? inspector.metadata("fields") : []
 
         delegate: FieldLoader {
             id: row

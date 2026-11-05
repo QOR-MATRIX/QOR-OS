@@ -248,6 +248,14 @@ QOR OS begins: QTOS and Demiurge's device-side products in one repository
 
 ### Fixed
 
+- **Inspector metadata keeps its structural entity interface.** The selected kind, name and field list use the existing
+  dynamic metadata lookup, as the optional editor dictionaries already do. Public target typing, guards, edits and
+  undo keys stay intact. Fresh Release/ASan Studio controls pass five Qt cases and all three selected functions per
+  build, zero failures/skips; source hashes, actual sanitizer commands, app/test relinks and hardening (16/13) are
+  verified. Four existing lint findings disappear with none added: 149 console/174 structured warnings remain. Native
+  lint exits 255 and its wrapper exits 1; the zero-warning gate remains failed. Hidden software tests prove no hardware
+  or release readiness.
+
 - **Benchmark output failures fail the command.** The shared shell/Prism collector checks requested-file opening,
   the complete write, flush and close, plus stdout writes/flushes. Failure emits a generic diagnostic and exits 1;
   successful output keeps its schema and replacement behavior. An actual compositor reproduced exit 0 for a directory

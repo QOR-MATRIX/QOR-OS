@@ -352,8 +352,8 @@ Both platform jobs also run `all_qmllint` for each changed product, one at a tim
 The root `.qmllint.ini` sets `MaxWarnings=0` without changing any category or severity, so the root and product CMake lint
 commands fail on warnings. Previously, native qmllint could exit zero while printing warnings. Local commercial-Qt tests
 verify clean input, warnings and syntax errors; extracted Windows/Linux workflow commands are tested with a failing native
-stand-in. The 5 November Shape batch retains 153 console messages/178 structured warnings, with 13 removed and none
-added against its preceding snapshot. All three native QQ commands exit 255 and the wrapper exits 1. The zero-warning
+stand-in. The 5 November Inspector batch retains 149 console messages/174 structured warnings, with four removed and
+none added against the preceding Shape snapshot (153/178). All three native QQ commands exit 255 and the wrapper exits 1. The zero-warning
 gate remains failed; the paused CI jobs did not run.
 
 #### What Linux runs
