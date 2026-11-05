@@ -23,3 +23,20 @@ regexTarget = "line"
 regexes = [
     '''^\s*"key":\s*"[A-Za-z0-9+/]{87}=",?\s*$''',
 ]
+
+# The startup manifest names token-definition files by path. These two values
+# are their SHA-256 source hashes, recomputed by tools/branding/check_assets.py,
+# not provider tokens. Match only these exact public lines in that manifest;
+# another field, digest or path still reaches the default rules.
+[[allowlists]]
+description = "Two verified public source hashes in startup provenance"
+targetRules = ["generic-api-key"]
+condition = "AND"
+paths = [
+    '''(^|/)kit/branding/manifest\.json$''',
+]
+regexTarget = "line"
+regexes = [
+    '''^\s*"kit/Tokens\.qml":\s*"1a9c9a167eac444dccaf97e43232f096aef04624854726d4417a43937117a03b",?\s*$''',
+    '''^\s*"kit/tokens/lumen\.tokens\.json":\s*"9717240bbbd228b457320064892304dd78f3c6b5fbc8596dd824a32dc4ec3818",?\s*$''',
+]

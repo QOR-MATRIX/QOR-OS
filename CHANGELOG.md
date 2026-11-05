@@ -34,6 +34,9 @@ QOR OS begins: QTOS and Demiurge's device-side products in one repository
   attempts remain archived; these focused results do not clear the existing product, warning, image or CI gates.
   Incremental root `all_qmllint` returns zero on both hosts; cached Wayland type generation was not rerun and its
   twelve earlier warnings are not claimed fixed.
+  The first history scan flags two public source digests whose file names contain “tokens.” Both hashes recompute
+  from the checked-in sources. Their exact lines are classified as nonsecrets using the existing rule/file/line
+  policy; controls still flag a different digest, another field and another path. Existing commits are preserved.
 
 - **Agent step fonts use the existing typed Application singleton.** The body startup font, tool mono face, literal
   text and model replacement pass five inert panel cases per QQ Release/ASan/UBSan/native Windows build, zero

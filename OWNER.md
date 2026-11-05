@@ -30,7 +30,7 @@ the sanitizer preset excludes the QOR core and has compiler-warning promotion of
   contain fresh frames and all input samples; they clear no hardware budget.
 - Native Windows startup: **12 cases**, zero failures/skips; hardening: **25 programs** pass. Earlier QQ recovery data:
   **78 native cases; 69 per Linux product build**, zero failures/skips.
-- Earlier tools: Windows **376 pass/56 skip**, Linux **305 pass/127 skip**; catalogue/tokens/headers pass.
+- Public source-hash scanner matches have exact-line classifications and negative controls; no credential exception.
 
 ## Remaining and next
 
