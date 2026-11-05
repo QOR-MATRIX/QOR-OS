@@ -435,6 +435,15 @@ unpublished builds stay out of reach.
   All 52 Scene and five actual Player startup Qt cases pass per Release/sanitizer build, zero failures/skips. Fresh records,
   source hashes and hardening 16/12 pass; production C++, Game and SceneIO are unchanged from `ad4aa3f`. Lint remains
   166 console/191 structured warnings with none added; the zero-warning gate still fails.
+  Integrated product code at `39b0768` then passes fresh unfiltered Release and ASan/UBSan refreshes: 91 asset-library,
+  195 game-build and three Store-to-Player Qt cases per build, zero failures/skips, all 44/48/1 ordinary functions.
+  Opt-in largest-pack measurements and the real StoreEngine demonstration-pack path run; native records, 18 source
+  hashes and unchanged product inputs are verified. Fresh hardening passes 16 Release/13 sanitizer programs. The installer
+  helper is from its separately recorded earlier build; it proves neither current compositor nor hardware readiness.
+  Release first-list/planning observations are 246/386 ms on the window thread, without a latency budget or improvement
+  claim. All completed suites fall below the documented 5,400-second ceiling; the picked runner's missing aggregate-timeout
+  argument is disclosed and corrected in the future local display clone. QQ lint stays 166 console/191 structured warnings,
+  none added, and its native failures/overall exit 1 remain. No release gate is cleared by these software checks.
   Earlier, 48 scene cases passed in Release and under sanitizers, including malformed-image readiness; six selected screen-play
   functions pass (8 Qt cases including setup/cleanup). The earlier broader play run and a clean detached baseline each had
   the same 11 failures. Test clock waits and guaranteed fake-controller cleanup subsequently bring all 53 play cases to a pass,

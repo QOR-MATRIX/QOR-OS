@@ -21,7 +21,7 @@ two processors and one worker. ASan/UBSan check memory and undefined behavior; l
 - Fresh hardening (exploit mitigations): **16 Release/13 sanitizer programs pass**. Sandbox, confinement and watchdog
   sources are unchanged. No atomic report-write claim is made.
 - Current refresh at `39b0768`: **91 asset-library/195 game-build/3 Store-to-Player Qt cases pass per build**, zero
-  failures/skips. All ordinary functions, fresh native records and 18 source hashes are verified.
+  failures/skips. All ordinary functions, fresh native records and 18 source hashes are verified; harness limits are recorded.
 - Historical, separate checks: **28 complete Studio** at `b2b084c`, **56 complete play** at `89877cf` and **5 program
   journeys** at `6f14fe2`, all zero failures/skips per build. They precede later changes.
 

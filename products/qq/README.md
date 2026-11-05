@@ -309,6 +309,19 @@ text, including when the status changes during a run.
 
 ## Build, test, deploy
 
+Current asset/build/Store refresh at `39b0768`: unfiltered Release and ASan/UBSan each pass 91 asset-library,
+195 game-build and three real Store-to-Player Qt cases, zero failures/skips, all 44/48/1 ordinary functions. This includes
+the opt-in largest-pack measurement and real StoreEngine demonstration-pack install/import path. Fresh native records,
+18 source hashes and unchanged product inputs are verified; post-run hardening passes 16 Release/13 sanitizer programs.
+The StoreEngine helper is from its separately recorded earlier build, not a current compositor/hardware proof.
+
+These are hidden WSL software runs, two CPUs, one worker, a 1.75 GiB hard cap and leak checking off. Every completed suite
+stays below the documented 5,400-second software ceiling. The picked CTest command omitted the aggregate timeout flag;
+this limitation is recorded, and future local checks use the corrected display clone. Release first-list/planning
+observations are 246/386 ms; sanitizer observations are 807/1,003 ms. Both operations remain on the window thread;
+no latency budget or speed improvement is established. QQ lint stays at 166 console/191 structured warnings, none added,
+with native failures preserved. Whole-OS, Windows and native hardware readiness remain separate and unproved.
+
 At integrated runtime `89877cf`, the complete play suite passes unfiltered in Release and ASan/UBSan: 56 Qt cases per
 build, zero failures/skips, all 51 functions with 54 expanded rows plus setup/cleanup. Fresh native records/source hashes
 and hardening (16/12 programs) are verified. These are hidden WSL software checks with leak checking off; physical
