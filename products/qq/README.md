@@ -440,6 +440,14 @@ failed. Private-pipe controls and a parent-debugger trace narrow the failure to 
 its cause. No production workaround or longer timeout was applied. Records and source/program/compiler hashes are
 in `build/autonomous-2026-11-04/workspace-recovery-ui-verified.json`.
 
+Gizmo's selected-object lookups now follow the same structural entity contract without changing the `QtObject`
+target or its visibility/field guards. Six existing picking/translation/scaling/flat-editing/snapping/group-prefab
+functions pass eight Qt cases per Release/ASan/UBSan build, zero failures/skips. Fresh native Windows and Linux lint
+both move from 149 console/174 structured warnings to 144/169: exactly five old Gizmo findings removed and none
+added. The remaining warning gates still fail, with the aggregate wrapper returning 1. Source/program/copied-QML
+hashes, actual sanitizer flags/libraries and hardening 16/13 are verified in
+`build/autonomous-2026-11-04/gizmo-entity-verified.json`; this does not clear the separate real Studio startup failure.
+
 ## The Player, measured (10 October 2026)
 
 On the owner's laptop (RTX 4060 Laptop GPU), on mains power, playing the bundled playground at 1280 × 720, locked down

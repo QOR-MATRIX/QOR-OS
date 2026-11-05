@@ -309,6 +309,15 @@ QOR OS begins: QTOS and Demiurge's device-side products in one repository
 
 ### Fixed
 
+- **Gizmo keeps the selected entity's structural interface.** Kind, field metadata and scene position use dynamic
+  property lookup across the different selected types, retaining the `QtObject` target, null/field guards and existing
+  visibility/transform behavior. Fresh Windows and Linux lint removes exactly five old findings and adds none:
+  149 console/174 structured warnings become 144/169. Every warning gate still fails. Six existing Studio functions
+  pass eight Qt cases per Release/ASan/UBSan build, zero failures/skips, covering picking, translation, scaling, flat
+  editing, snapping and groups/prefabs. Source/program/copied-QML records, actual sanitizer flags/libraries and
+  hardening 16/13 pass; the aggregate wrapper keeps exit 1 for remaining lint. The separate actual-Studio
+  initialization failure is unresolved.
+
 - **Recovery keeps records it cannot safely place.** A temporarily missing project retains its asset journal until
   the original folder returns. Windows records volume/file identifiers instead of creation timestamps, so a replacement
   with a cloned timestamp gets no asset rollback or unsaved workspace copy. Unavailable identities and older Windows

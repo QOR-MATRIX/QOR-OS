@@ -6,6 +6,8 @@
 // reads it from what a press lands on. On a flat (2D) scene there is no depth arrow, since it would point at the eye,
 // and the knob turns about the depth axis instead.
 
+// Changed for QOR OS: selected entity properties are read across their different types without narrowing the target.
+
 import QtQuick
 import QtQuick3D
 
@@ -16,11 +18,14 @@ Node {
     property vector3d eye: Qt.vector3d(0, 0, 10)
     property bool flat: false
 
+    // Each entity declares its fields and kind; a place in the scene belongs to the selected node.
+    function selectedValue(field: string): var { return target ? target[field] : undefined }
+
     // Handles for what a file keeps: an entity with no place (a sun, the ground, a behaviour) has none, and one that
     // keeps no turn or scale has no knob or cube.
-    function keeps(field) { return target !== null && target.fields !== undefined && target.fields.indexOf(field) >= 0 }
-    visible: target !== null && target.kind !== undefined && target.kind !== "Scene" && keeps("position")
-    position: target && visible ? target.scenePosition : Qt.vector3d(0, 0, 0)
+    function keeps(field) { return target !== null && selectedValue("fields") !== undefined && selectedValue("fields").indexOf(field) >= 0 }
+    visible: target !== null && selectedValue("kind") !== undefined && selectedValue("kind") !== "Scene" && keeps("position")
+    position: target && visible ? selectedValue("scenePosition") : Qt.vector3d(0, 0, 0)
     readonly property real size: Math.max(0.15, eye.minus(position).length() * 0.12)
     scale: Qt.vector3d(size, size, size)
 
