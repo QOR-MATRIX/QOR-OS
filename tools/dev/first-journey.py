@@ -36,6 +36,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import os
 import shutil
 import subprocess
@@ -92,14 +93,24 @@ def build(studio: str, project: Path, env: dict[str, str]) -> dict:
         timeout=120,
         check=False,
     )
-    for line in done.stdout.splitlines():
-        if line.startswith("QQ-BUILD "):
-            return json.loads(line.split("QQ-BUILD ", 1)[1])
-    raise Failed(f"qq-studio --build said no result on standard output, exit {done.returncode}: {done.stdout} {done.stderr}")
+    if done.returncode != 0:
+        raise Failed(f"qq-studio --build failed, exit {done.returncode}: {done.stdout} {done.stderr}")
+    lines = [line.split("QQ-BUILD ", 1)[1] for line in done.stdout.splitlines() if line.startswith("QQ-BUILD ")]
+    if len(lines) != 1:
+        raise Failed(f"qq-studio --build did not say exactly one QQ-BUILD result, exit {done.returncode}: {done.stdout} {done.stderr}")
+    try:
+        result = json.loads(lines[0])
+    except json.JSONDecodeError:
+        raise Failed("qq-studio --build said an invalid QQ-BUILD JSON result") from None
+    if not isinstance(result, dict):
+        raise Failed("qq-studio --build's result was not a JSON object")
+    return result
 
 
 def play(player: str, arguments: list[str], out: Path, env: dict[str, str]) -> dict:
     """The real Player, as asked, with its measurement written to a file. What it measured."""
+    if out.is_symlink() or out.exists():
+        raise Failed(f"the Player's report path already exists: {out}")
     done = subprocess.run(
         [player, "--measure", str(out), *arguments],
         env=env,
@@ -109,13 +120,22 @@ def play(player: str, arguments: list[str], out: Path, env: dict[str, str]) -> d
         timeout=180,
         check=False,
     )
-    if done.returncode != 0 or not out.exists():
+    if done.returncode != 0 or out.is_symlink() or not out.is_file():
         raise Failed(f"the Player, on {arguments}, exit {done.returncode}: {done.stdout}")
-    return json.loads(out.read_text(encoding="utf-8"))
+    try:
+        result = json.loads(out.read_text(encoding="utf-8"))
+    except (OSError, UnicodeError, json.JSONDecodeError):
+        raise Failed("the Player's report was not readable UTF-8 JSON") from None
+    if not isinstance(result, dict):
+        raise Failed("the Player's report was not a JSON object")
+    return result
 
 
 def check_played(measured: dict, scene: str) -> None:
     check(measured.get("problem") == "", f"it plays, with no problem: {measured.get('problem')!r}")
+    frame = measured.get("firstFrameMs")
+    frame_measured = (type(frame) is int and frame >= 0) or (type(frame) is float and math.isfinite(frame) and frame >= 0)
+    check(frame_measured, "its first frame was measured")
     check(measured.get("logicErrors") == [], f"its logic builds: {measured.get('logicErrors')}")
     check(measured.get("unloaded") == [], f"its model loads: {measured.get('unloaded')}")
     check(measured.get("scene") == Path(scene).as_uri(), f"what played is {measured.get('scene')}")

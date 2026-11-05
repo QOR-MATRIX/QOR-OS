@@ -18,11 +18,12 @@ two processors and one worker. ASan/UBSan check memory and undefined behavior; l
   report a problem, are discarded and allow retry. Status 3 reports startup failure; 1 reports failed output. Ordinary
   play stays open after its report; capture and record/replay pass. Earlier tighter-cap sanitizer failures remain recorded;
   paging was observed, without a conclusive cause claim.
-- Fresh hardening (exploit mitigations): **16 Release/12 sanitizer programs pass**. Sandbox, confinement and watchdog
+- Fresh hardening (exploit mitigations): **16 Release/13 sanitizer programs pass**. Sandbox, confinement and watchdog
   sources are unchanged. No atomic report-write claim is made.
-- Historical checks, all zero failures/skips per build: **91 asset-library** at `24d3b09`, **195 game-build** at `6046e08`,
-  **28 complete Studio** at `b2b084c`, **56 complete play** at `89877cf` and **5 current-program journeys** at `6f14fe2`.
-  They precede later changes and remain separate evidence.
+- Current refresh at `39b0768`: **91 asset-library/195 game-build/3 Store-to-Player Qt cases pass per build**, zero
+  failures/skips. All ordinary functions, fresh native records and 18 source hashes are verified.
+- Historical, separate checks: **28 complete Studio** at `b2b084c`, **56 complete play** at `89877cf` and **5 program
+  journeys** at `6f14fe2`, all zero failures/skips per build. They precede later changes.
 
 QQ lint (Qt's interface-language checker) still fails: **166 console messages/191 structured warnings**, none added
 by either latest fix. Against the first retained 381-warning snapshot, 190 are removed and none added; this does not
@@ -31,8 +32,9 @@ warnings** remain unresolved. Listing/planning still run on the window thread; n
 
 ## Next and limits
 
-Next: refresh asset/build/Store journey checks. Exact sources, commands, failed and passing records, active jobs and
-resume point: `build/autonomous-2026-11-04/HANDOFF.md`.
+First-journey helper fixes pass 15 Python tests each on Windows/Linux, zero skips: failed children, old reports and
+missing first-frame markers are refused. Next: current simulator prerequisite validation and the actual Qt/Prism journey.
+Exact records, harness limits and resume point: `build/autonomous-2026-11-04/HANDOFF.md`.
 
 Full OS/core, actual Windows products, native Linux graphics/sound/controllers and image/install proof remain unrun;
 the zero-warning gate is unmet. VM (virtual machine) Create/Prove commands are prepared in `docs/CI.md`; neither ran.

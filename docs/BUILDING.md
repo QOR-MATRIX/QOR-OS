@@ -514,8 +514,17 @@ tools/dev/products.sh --gpu                           # under WSL, on the GPU, w
       --tests '^first_journey$'
   ```
 
-  Any Linux build of Prism will do; that one is what the security bar runs
-  its suites under.
+  Prism must be a simulator-enabled Linux build with those stand-ins: a device build correctly refuses
+  `--script` and `--unlocked`. In software, Prism launches a recording stand-in; the real Player then plays
+  the recorded arguments on the test display. This checks the Library/build contract, not a real Player
+  window inside Prism or native hardware readiness.
+
+  Each child must exit successfully. Studio must emit exactly one `QQ-BUILD` JSON object; a success-looking
+  result never overrides a failed process. Each Player call requires an unoccupied report path before
+  launch, then a fresh regular file containing a UTF-8 JSON object. Existing reports are refused without
+  deleting or replacing them. Playback also requires a finite, nonnegative first-frame measurement;
+  a missing marker, boolean, string or invalid number does not show that a frame appeared. Malformed/ambiguous
+  results fail; missing Prism stages still return 77, which remains skipped rather than passed.
 
 The samples are QQ scenes you can open in QQ Studio, for example
 `products/qq/samples/orb-run`. Running them inside Prism, with Prism placing
