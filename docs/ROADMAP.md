@@ -420,6 +420,9 @@ unpublished builds stay out of reach.
   structured warnings. Six gameplay and three actual Studio Qt cases per Release/sanitizer build pass, zero failed/skipped,
   for gravity, pause, player pickup, tiled collision and collider-debug toggling. Fresh records/exact functions and hardening
   16/12 pass; both programs are relinked. Physics values, movement and signal handling are unchanged.
+  World’s explicit light-probe texture owners remove two findings, none added: 166 console messages/191 structured warnings.
+  Four Qt pixel cases per Release/sanitizer build pass, zero failed/skipped, for HDR lighting/rotation/bloom and pictured
+  versus plain procedural lighting. Fresh records/source hashes and hardening 16/12 pass; both programs are relinked.
   Earlier, 48 scene cases passed in Release and under sanitizers, including malformed-image readiness; six selected screen-play
   functions pass (8 Qt cases including setup/cleanup). The earlier broader play run and a clean detached baseline each had
   the same 11 failures. Test clock waits and guaranteed fake-controller cleanup subsequently bring all 53 play cases to a pass,

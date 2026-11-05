@@ -325,8 +325,11 @@ collision/rendering, top-down movement/carried look and headless 2D trigger repl
 
 Scene/Player/TileMap’s later bound-factory batch passes six gameplay and three Studio Qt cases per Release/sanitizer
 build, zero failures/skips: gravity, pause, pickup, tiled collision and collider-debug toggling. Fresh records/exact
-functions and hardening 16/12 pass. QQ lint still fails at 168 console messages/193 structured warnings, six removed
-and none added.
+functions and hardening 16/12 pass.
+
+World’s later light-probe qualification passes four Qt pixel cases per Release/sanitizer build with zero failures/skips,
+covering HDR lighting/rotation/bloom and procedural lighting. Fresh records/source hashes and hardening 16/12 pass.
+QQ lint still fails at 166 console messages/191 structured warnings, with two removed and none added.
 
 `qq-player --measure <result.json>` returns exit code 1 if its report cannot be opened, fully written, flushed or closed.
 Automation must check the process status and use a fresh report path for each run. The Player retains its exact-file

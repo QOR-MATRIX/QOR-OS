@@ -23,15 +23,15 @@ two processors, a 1.25 GiB cap and one worker. ASan/UBSan check memory and undef
   instance, observes changes and keeps direct construction forbidden. Save algorithms and permissions are unchanged.
   Hardening (exploit mitigations): **16 Release/12 sanitizer programs pass**.
 
-QQ lint (Qt's interface-language checker) still fails: **168 console messages/193 structured warning records**;
-structured reports include findings absent from console output. Physics bindings remove six, none added. Six spatial-audio findings
+QQ lint (Qt's interface-language checker) still fails: **166 console messages/191 structured warning records**;
+structured reports include findings absent from console output. World removes two, none added. Six spatial-audio findings
 remain a Qt metadata constraint. Last root aggregate lint passed incrementally; shell lint has **zero warnings/errors across
 28 files**, plus one unchanged informational note. **12 Wayland type-metadata warnings** remain unresolved.
 Listing/planning remain on the window thread; Release observations: **269/396 ms**, with no latency budget established.
 
 ## Next and limits
 
-Physics: **6 play/3 Studio Qt cases pass per build**, none failed/skipped. Next: World light-probe references. The complete 56-case play runs precede this store metadata batch. Shape's attempted binding change exposed two parent-view
+World: **4 pixel Qt cases pass per build**, none failed/skipped. Next: investigate scene-startup error reporting. The complete 56-case play runs precede this store metadata batch. Shape's attempted binding change exposed two parent-view
 type warnings; only that experiment's lines were removed. A safe shared-parent contract remains to be worked out.
 Exact sources, commands, records and resume point: `build/autonomous-2026-11-04/HANDOFF.md`.
 

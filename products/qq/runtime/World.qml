@@ -14,6 +14,8 @@
 // data it came from and works out its lighting only when it first sees it (QSSGBufferManager::loadTextureData), so a world
 // that lives on, as the Studio's does, kept the sky it was first drawn with however its colours were changed.
 
+// Changed for QOR OS: the environment selects this world’s own light-probe textures.
+
 import QtQuick
 import QtQuick3D
 import QtQuick3D.Helpers
@@ -81,7 +83,7 @@ View3D {
     environment: ExtendedSceneEnvironment {
         // Flat, the camera's rays are parallel and a sky box would be one colour: a 2D world draws its backdrop below.
         backgroundMode: world.flat ? SceneEnvironment.Transparent : SceneEnvironment.SkyBox
-        lightProbe: world.skyImage ? photographed : made
+        lightProbe: world.skyImage ? world.photographed : world.made
         probeOrientation: Qt.vector3d(0, world.skyTurn, 0)
         probeExposure: world.skyLight
         // A made sky is soft; a sky image is seen as it is.
