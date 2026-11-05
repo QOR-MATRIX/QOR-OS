@@ -14,6 +14,15 @@ QOR OS begins: QTOS and Demiurge's device-side products in one repository
 
 ### Added
 
+- **The remaining Store layers are checked on native Windows.** Full ordinary-build legacy/Library/front-end/page
+  suites pass 11/21/39/18 Qt cases and all 9/9/28/16 functions, zero failures/skips. The two Unix-only Library symlink
+  rows are not compiled on Windows; the demonstration startup/engine branch and Linux compositor binary scan are
+  outside the ordinary Windows build. Fresh records, 130 source/public-input hashes, actual compiler flags and five
+  program identities are verified; hardening reads 24 program headers. The Library checks scene-path requests without
+  launching the Player or scanning personal folders; the shell dependency is built and read, not started. Pages draw
+  offscreen in software over private engines and nonpersistent simulated services. The separate checkout-local
+  many-file Store rename failure remains unresolved, and no hardware/full-OS/isolation gate is cleared.
+
 - **Windows root lint is checked at zero warnings.** The configured `all_qmllint` target runs seven root modules
   successfully with `MaxWarnings=0`, unchanged categories and severities. Fresh invocations, 112 source/config hashes
   and response files are verified. Six direct/generated-launcher controls preserve clean exit 0 and the raw Windows

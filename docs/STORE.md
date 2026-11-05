@@ -486,6 +486,16 @@ holder has not been identified. The diagnostic source was restored exactly befor
 assertions, time limits, permissions, other processes or security settings were changed. The outside-temp result does
 not resolve this checkout-local failure, or prove hardware, full OS builds, CI execution or runner isolation.
 
+The other Store layers are also checked natively on Windows at `82a301b`: unfiltered legacy/Library/front-end/page
+suites pass 11/21/39/18 Qt cases and all 9/9/28/16 functions, zero failures/skips. Two Unix-only Library symlink data
+rows are not compiled; the ordinary build also excludes the demonstration startup/engine branch and the Linux
+compositor binary check. Fresh records, 130 source/public-input hashes, actual compiler commands and five program
+identities are verified; hardening reads 24 existing program headers. These Library cases use the injected temporary
+Store and test-mode history; they never refresh personal folders or launch the Player. The shell is rebuilt and its
+bytes checked for the demonstration key, with no shell startup. The real pages draw offscreen in software over
+private stores and a nonpersistent silent simulator. These results do not resolve the checkout-local many-file
+Access-denied failure above or establish hardware, full OS, CI or isolation readiness.
+
 ## Roadmap
 
 **QOR OS 1.0 moves no money**
