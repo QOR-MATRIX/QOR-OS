@@ -447,6 +447,7 @@ or planted-fault record is not a fresh passing suite.
   - logic hears its target's body meet another entity, once as they meet;
   - a Trigger hears a falling body enter and leave, and lets it through;
   - a Trigger hears the player walk in;
+    its private volume and box/sphere collider factories bind to that Trigger, including when its group moves;
   - a ray meets the first entity in its way, passing through triggers and starting inside its own target;
   - logic makes three bodies, refuses an unknown kind, removes one with its body, and keeps timers on its own clock,
     `every` and `after` and a cancel;

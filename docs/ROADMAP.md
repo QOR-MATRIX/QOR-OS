@@ -395,6 +395,10 @@ unpublished builds stay out of reach.
   Sprite’s bound collider/body factories remove 19 findings, none added: 220 console messages/245 structured warnings.
   Seven Qt cases per Release/sanitizer build pass, zero failed/skipped: crisp/animated pixels and dynamic sprites landing
   on static/kinematic sprite floors with contact reports and plane locks. Both programs are relinked; hardening passes 16/12.
+  Trigger’s bound volume/collider factories remove nine findings, none added: 211 console messages/236 structured warnings.
+  Six Qt cases per Release/sanitizer build pass, zero failed/skipped: box entry/exit, spherical pickup, moving groups and
+  headless 2D detection. Both programs are relinked; hardening passes 16/12. Shape’s separate experiment exposed two
+  parent-view type warnings and was left out; resolving its shared-parent contract remains before that binding change.
   The latest 48 scene cases pass in Release and under sanitizers, including malformed-image readiness; six selected screen-play
   functions pass (8 Qt cases including setup/cleanup). The earlier broader play run and a clean detached baseline each had
   the same 11 failures. Test clock waits and guaranteed fake-controller cleanup subsequently bring all 53 play cases to a pass,
