@@ -512,7 +512,7 @@ vendor's claim. No firmware turns an output-only HDMI port into an input, so thi
   the owner's machine)
 - [ ] CI that cannot reach the owner's keys or credentials ([CI.md](CI.md#what-ci-trusts)). Build's workstation jobs fail closed
   until their runner is isolated (pull request #2, merged 1 November 2026), both runners are stopped, and Release readiness fails
-  while a required build did not run (pull request #3, for the owner to merge)
+  while a required build or test did not run
   - [ ] The Store's keys and their backup off the workstation (the owner's act)
   - [ ] Linux jobs in a distribution of their own, with no Windows drive, no Windows programs and no credentials. `qor-ci` is
     built and its boundary tried ([CI.md](CI.md#an-isolated-place-for-linux-jobs)), but a distribution shares WSL's kernel, and
@@ -524,6 +524,11 @@ vendor's claim. No firmware turns an output-only HDMI port into an input, so thi
   - [ ] Windows jobs under an account or a virtual machine that cannot reach the owner's profile
   - [ ] The GitHub Apps with workflow access to every repository limited, so that they cannot reach the runners (the owner's act)
 - [x] Prism: the bus, the keyboard, the lock screen, what a client's name and title can do, the Store's widgets
+  Fresh local command-line checks at `af8fc43` pass 10 simulator/11 device-option Qt cases in each main profile,
+  zero failures/skips, verifying device refusal of script/unlock/screenshot/benchmark-only options. Native records,
+  unchanged sources/settings and sanitizer instrumentation are verified. The selected core C interface separately passes
+  9 normal-profile cases; the sanitizer profile intentionally has no core. Hardening passes 27/25 main-build programs,
+  while the pinned Rust dependency warning still fails its guard/overall wrapper. Full OS/Rust and hardware proof remain unrun.
 - [x] QQ and QOR Media: what a package can reach, the Studio's trust in a project, the agent's logic; the QQ Player
   walled in by the kernel on Linux
 - [ ] The Store's own catalogue in format 2. Format 2 carries a sequence and an expiry, and its checks are done. The first-party

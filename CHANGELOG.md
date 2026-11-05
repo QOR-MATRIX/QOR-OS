@@ -14,6 +14,13 @@ QOR OS begins: QTOS and Demiurge's device-side products in one repository
 
 ### Added
 
+- **Fresh simulator/device restrictions and selected core bridge.** At `af8fc43`, the unfiltered command-line tests pass
+  10 simulator/11 device-option Qt cases in each existing main profile; the pinned core's C interface passes 9 cases in
+  `ci-linux`, all zero failures/skips. Fresh records/source fingerprints, unchanged settings, sanitizer instrumentation
+  and hardening (27 normal/25 sanitizer programs) are verified. The sanitizer profile intentionally keeps the core off.
+  The wrapper still exits 1 for the same `proc-macro-error2` 2.0.1 future-compatibility warning in the pinned core.
+  An earlier private-home build's Qt licence lookup failure is retained; recompilation with the normal tool environment
+  has no licence-failure diagnostics, without bypass/registration/settings changes. Full OS/Rust and hardware gates remain unmet.
 - **Current first-journey validation.** At `3421d35`, one complete journey passes with Release QQ and one with
   ASan/UBSan QQ, zero failures/skips, in 113.07/113.31 seconds within the unchanged 300-second deadline. Both check
   two builds, three real Player launches, current Prism Library discovery/request and playback after removing the
