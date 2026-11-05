@@ -28,7 +28,7 @@ Hard cap: 1.75 GiB.
 - Benchmark output failures return **exit 1**. All **11 collector cases/8 functions per main profile** pass,
   zero failures/skips, alongside actual compositor failed/successful report checks.
 
-Inspector edits, filenames and undo pass **5 Qt cases/3 functions per product build**, zero failures/skips.
+Inspector: **5 Qt cases/3 functions per product build pass**, zero failures/skips.
 
 ## Remaining and next
 
@@ -36,9 +36,9 @@ QQ lint (Qt's interface-language checker) fails: **149 console/174 structured wa
 none added. **12 Wayland metadata warnings** match their baseline. A pinned Rust dependency fails its warning gate;
 repair belongs upstream. Listing/planning remain on the window thread without a latency budget.
 
-Readiness summaries distinguish allowed skips from release proof: **16 Python tests per platform** pass.
-Workflow checks: **14 pass/1 skip on Windows; 15 pass on Linux**.
-Next: inspect Windows build prerequisites: `build/autonomous-2026-11-04/HANDOFF.md`.
+Readiness: **16 Python tests per platform pass**; workflow **Windows 14 pass/1 skip; Linux 15 pass**.
+Windows collector: **9 cases/7 functions pass**, zero failures/skips; hardening reads 21 program headers.
+Next: check Windows Store validation. Commands: `build/autonomous-2026-11-04/HANDOFF.md`.
 
 Full OS/Rust suites, Windows products, native Linux graphics/sound/controllers and image/install proof remain unrun.
 Software observations in `docs/PERFORMANCE.md` clear no hardware budget. Zero-warning gates are unmet.

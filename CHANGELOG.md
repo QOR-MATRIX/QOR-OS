@@ -14,6 +14,15 @@ QOR OS begins: QTOS and Demiurge's device-side products in one repository
 
 ### Added
 
+- **The collector is checked on native Windows.** Existing commercial Qt 6.12/MSVC 19.44 builds the selected
+  `ci-windows` target cleanly. Its hidden software suite passes all nine Qt cases/seven functions, zero failures/skips,
+  covering directory-output exit 1, complete stale-report replacement, stalls and idle/thread behavior. Fresh records,
+  ten source hashes, actual compiler flags and unchanged program identity are verified; hardening reads 21 existing
+  program headers with none falling short. Two Linux-only failure cases are not compiled on Windows. The first
+  dashboard invocation selected the source folder, exited 8 and ran no tests; its artifacts remain preserved. A
+  test-only follow-up with the explicit build folder passes without rebuilding. No hardware or full-build gate is
+  cleared, and no installation, licence, account or runner changes were needed.
+
 - **The complete journey is refreshed after the Inspector batch.** At `f99e007`, one complete CTest per product build
   passes, zero failures/skips, in 126.656/114.105 seconds with its unchanged 300-second limit. Two Studio builds, three
   real Player launches, Prism Library discovery/request and playback after temporary-project removal run. Both apps

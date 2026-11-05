@@ -391,6 +391,21 @@ It changes no diagnostic category or severity. Run it for a product's own build 
 `cmake --build <product-build-folder> --target all_qmllint --parallel 1`. A failing lint command is separate from passing
 runtime tests; the existing warning backlog must be resolved before the zero-warning requirement passes.
 
+The selected collector check also runs in the existing Windows kit without showing a window or using a graphics
+card. Use `ci-windows`, leaving a running `windows-release` shell alone:
+
+```powershell
+cmake --build --preset ci-windows --target tst_framecapture --parallel 1
+ctest --preset ci-windows --test-dir build/ci-windows -T Test -R "^tst_framecapture$" --no-tests=error --parallel 1 --verbose --output-on-failure --timeout 120
+```
+
+The explicit folder is needed for this recorded CTest dashboard invocation; the first preset-only dashboard command
+selected the source folder and exited 8 with no tests. Its failed record is retained. The corrected test-only run
+passes nine cases/seven functions with zero failures/skips; source hashes, compiler commands and the fresh program
+are verified. Directory failure and complete report replacement run on Windows; the two `/dev/full` cases are
+Linux-only and do not count as Windows passes or skips. This synthetic hidden software check, plus a 21-program
+header hardening audit, proves neither hardware timing nor a full Windows or OS build.
+
 ## 5. Install and deploy
 
 ```powershell
