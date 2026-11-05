@@ -464,6 +464,15 @@ Common Linux Release/ASan/UBSan still passes 69 cases per build; the Windows-onl
 The same test source was used red/green, and neither trust nor automatic recovery was loosened. No personal records
 were inspected. Exact proof is `build/autonomous-2026-11-04/legacy-negative-verified.json`.
 
+Scene's recorder property now names its documented `RunRecord` type. The regression rejects an unrelated object
+without replacing the previous recorder, accepts the real run through the existing QObject interface, and clears
+through an invalid QVariant. It first failed on the previous slot and passed unchanged after the type refinement.
+Fifteen Qt cases across nine functions pass per Release/ASan/UBSan build, zero failures/skips, including actual Player
+record/replay and its altered-run/malformed-input error exits. Game and Player public object interfaces stay unchanged.
+Windows and Linux lint remove eleven existing recorder findings and add none, leaving 140 console/156 structured
+warnings and aggregate exit 1. Source/program/copied-Scene hashes, actual sanitizer flags/libraries and hardening
+16/13 are checked in `build/autonomous-2026-11-04/recorder-type-verified.json`; no full product or hardware pass is claimed.
+
 ## The Player, measured (10 October 2026)
 
 On the owner's laptop (RTX 4060 Laptop GPU), on mains power, playing the bundled playground at 1280 × 720, locked down

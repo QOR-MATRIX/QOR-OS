@@ -26,6 +26,7 @@
 // presses, and the record keeps it with that tick.
 
 // Changed for QOR OS: the private physics world binds to its owning scene.
+// Changed for QOR OS: the recorder slot names its documented RunRecord type.
 
 pragma ComponentBehavior: Bound
 
@@ -132,7 +133,7 @@ Node {
     /// Frames tick no further than this many ticks (the Player's --ticks); 0, no limit.
     property int tickLimit: 0
     /// What keeps this run (a RunRecord), or null.
-    property QtObject recorder: null
+    property RunRecord recorder: null
     /// The play's random numbers (Logic.random, randomInt).
     readonly property QtObject random: rng
 

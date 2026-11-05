@@ -14,6 +14,16 @@ QOR OS begins: QTOS and Demiurge's device-side products in one repository
 
 ### Added
 
+- **A Scene enforces its documented RunRecord slot.** An unrelated object is refused while the previous recorder
+  remains; real RunRecord objects passed through the existing object interface and invalid-variant clearing still
+  work. The new regression first fails on the previous implementation, then passes unchanged with the typed slot.
+  Fifteen Qt cases across nine functions pass per QQ Release/ASan/UBSan build, zero failures/skips: serialization,
+  stored-state/host-message/animation/silent/screen-input replay and the actual Player's record/replay/error exits.
+  Game and Player public object interfaces remain unchanged. Native Windows and Linux lint remove exactly eleven
+  Scene recorder findings and add none, leaving 140 console/156 structured warnings; the aggregate returns 1.
+  Fresh records, 152 source/public-input hashes, four program identities per build, actual sanitizer flags/libraries
+  and hardening 16/13 are verified. These focused software checks clear no full product, hardware or CI gate.
+
 - **Six QQ lint findings are isolated to existing Qt metadata.** Minimal AudioListener/SpatialSound inputs fail
   against the installed Qt 6.12 SpatialAudio dependency description and byte-identical diagnostic copies. Adding
   only its missing QtQuick3D dependency in a temporary copy clears those inputs; an invalid property still fails.

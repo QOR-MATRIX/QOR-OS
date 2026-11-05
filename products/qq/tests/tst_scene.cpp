@@ -1158,6 +1158,22 @@ private slots:
         QVERIFY2(direct.errorString().contains(QStringLiteral("supplied by the runtime")), qPrintable(direct.errorString()));
     }
 
+    void aSceneRecorderAcceptsRunsAndRefusesUnrelatedObjects()
+    {
+        std::unique_ptr<QObject> scene(io->loadText(QStringLiteral("import QQ\nScene {}\n"), QUrl(), nullptr));
+        QVERIFY2(scene, qPrintable(io->lastError()));
+        QVERIFY(!scene->property("recorder").value<QObject *>());
+        qq::RunRecord record;
+        QVERIFY(scene->setProperty("recorder", QVariant::fromValue(static_cast<QObject *>(&record))));
+        QCOMPARE(scene->property("recorder").value<QObject *>(), static_cast<QObject *>(&record));
+        QObject unrelated;
+        QVERIFY(!scene->setProperty("recorder", QVariant::fromValue(&unrelated)));
+        QCOMPARE(scene->property("recorder").value<QObject *>(), static_cast<QObject *>(&record));
+        // Existing callers clear through an invalid QVariant rather than a typed pointer.
+        QVERIFY(scene->setProperty("recorder", QVariant()));
+        QVERIFY(!scene->property("recorder").value<QObject *>());
+    }
+
     void playerLabelsFollowTheirSceneAndFollower()
     {
         QTemporaryDir project;

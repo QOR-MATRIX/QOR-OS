@@ -21,7 +21,7 @@ ASan/UBSan check memory errors/undefined behavior; leaks unchecked. Windows: two
 - QQ asset data: **Windows 78 cases/35 functions; Linux 69/32 per product build**, zero failures/skips.
   Folder identifiers replace Windows timestamps. Missing-folder/older journals stay; unresolved changes block new transactions.
 - Gizmo (selected-object handles): **8 cases/6 functions per product build** pass, zero failures/skips.
-- Player labels: **6 Scene/8 actual Player cases per product build** pass, zero failures/skips; Player lint passes.
+- Recorder: **15 cases/9 functions per product build** pass, zero failures/skips; actual Player records/replays.
 
 ## Remaining and next
 
@@ -32,12 +32,12 @@ Checkout-local Windows Store: **613 pass/1 fail**, zero skips. Diagnostics read 
 failure. Two checkout-root controls failed; two outside-root controls passed. Cause unresolved; diagnostics restored.
 No permissions/security settings changed; no other process interrupted.
 
-QQ lint (interface-language checking): **142 console/167 structured warnings** on Windows/Linux; two Player findings removed,
-none added; still failed. Windows root lint: **seven modules, zero warnings**. **12 Wayland metadata warnings** match baseline.
+QQ lint (interface-language checking): **140 console/156 structured warnings** on Windows/Linux; eleven recorder findings removed,
+none added; still failed. Player lint passes. Windows root lint: **seven modules, zero warnings**. **12 Wayland metadata warnings** match baseline.
 Six QQ findings come from Qt's metadata (type descriptions); the installed kit remains unchanged.
 A pinned Rust dependency fails its warning gate; repair belongs upstream. Listing/planning remain on the window thread without a latency budget.
 
-Next: audit the recorder's type contract. Commands: `build/autonomous-2026-11-04/HANDOFF.md`.
+Next: qualify store metadata, then grouped-state reads. Commands: `build/autonomous-2026-11-04/HANDOFF.md`.
 Full OS/Rust/Windows product suites, native Linux graphics/sound/controllers and image/install proof remain unrun.
 Software observations clear no hardware budget. Zero-warning gates remain unmet.
 
