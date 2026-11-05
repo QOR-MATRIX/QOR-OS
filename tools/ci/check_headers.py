@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: LicenseRef-QOR-OS-Proprietary
 """Verifies every QOR OS source file carries an SPDX license identifier.
 
 The products developed here since QOR-0015 (QQ, ARQADE's app and games, QOR
@@ -16,7 +17,7 @@ import sys
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[2]
-ROOTS = ["kit", "services", "sim", "prism", "apps", "platform", "tools", "tests", "store", "input", "audio", "products"]
+ROOTS = ["kit", "services", "sim", "prism", "apps", "setup", "platform", "tools", "tests", "store", "input", "audio", "products"]
 PRODUCTS = ("products/qq/", "products/arqade/qt/", "products/arqade/games/", "tools/qor-media/")
 FROM_DEMIURGE = "LICENSES/from-demiurge-chain.txt"
 EXTENSIONS = {".cpp", ".h", ".qml", ".frag", ".vert", ".js", ".rep"}

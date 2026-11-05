@@ -14,6 +14,30 @@ QOR OS begins: QTOS and Demiurge's device-side products in one repository
 
 ### Added
 
+- **Installation groundwork with explicit capability limits.** The private `qor-setup` app
+  introduces the desktop with the official QorMark, Lumen, keyboard navigation and finite
+  reduced-motion-aware page transitions. It preserves unknown/changed completion records,
+  publishes its own small record without overwriting, and leaves welcome pending on close
+  or failure. Prism requests it once after device-session unlock, excluding simulation and
+  live media; an already-unlocked launch still reports failure to the host.
+  Motion/contrast preferences reach the welcome at launch; unknown motion hints keep it still.
+  The image target stages 25 checked files: startup branding, QOR identity, original
+  Calamares theme data and deliberately inactive installer settings. A saved data-only
+  Docker image is checked byte-for-byte against current source. The separate device recipe
+  requires an approved existing immutable base and rejects development apps, missing device
+  components and active unproved installer settings. The header gate includes `setup/`.
+  [QOR-0023](docs/decisions/QOR-0023-installation-uses-proven-backends.md) and the
+  [capability map](image/README.md#installation-capability-map) record the boundary:
+  no working live session, partitioning/deployment adapter, bootloader installer or installed
+  OS has been demonstrated. No host partitions, boot settings, firmware, VM, licences or runner
+  configuration changed. This is development progress, not bare-metal readiness.
+  Final first-run checks pass 20 Qt cases per normal/sanitizer Linux and Windows, with no
+  failures/skips. Fifteen image and three archive tests pass per host, and the saved data
+  image contains 25 current source-matching files. Hardening passes 37/35/28/5 programs in
+  normal Linux/sanitizer/Windows/device caches. Three real app captures are inspected.
+  The new layout warning and Windows completion failures were fixed; the separate warning
+  guard still fails on 12 existing Wayland type-generation diagnostics. Incremental passes
+  do not clear that baseline, product failures, full OS suites or hardware/VM evidence.
 - **The existing QorMark now introduces the shared Prism session.** A dark, responsive startup surface releases on
   the first valid output frame with Lumen's 280 ms cosmetic fade, reduced-motion handling, Escape dismissal and a
   bounded watchdog. Zero-size surfaces stay hidden until layout is ready; a new regression first fails on the

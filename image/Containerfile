@@ -1,0 +1,7 @@
+# SPDX-License-Identifier: LicenseRef-QOR-OS-Proprietary
+# The base is supplied by digest by tools/image/assemble.py. It must
+# already contain the approved real device payload and licensed runtime.
+ARG QOR_BASE_IMAGE
+FROM ${QOR_BASE_IMAGE} AS device
+COPY . /
+RUN ["python3", "/usr/libexec/qor-os/check-image.py"]

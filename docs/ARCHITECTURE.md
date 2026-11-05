@@ -38,6 +38,21 @@ reviewed QorMark rendering is checked before linking and staged for Plymouth thr
 `qor_boot_payload`; the image/bootloader/KMS handoff remains unproven
 ([image](../image/README.md#branding-the-startup-stages)).
 
+**First run and installation.** `setup/` builds the private `qor-setup` application
+(`QOR.Setup`, not a public SDK). It uses Kit/Lumen and the same official mark.
+Prism requests it once after an external device session unlocks, excluding simulation
+and a live-media marker. Closing leaves it pending; completion publishes a small
+per-user record without replacing unrecognised data. It creates no account and performs
+no installation. The real authentication services, live environment and OS installer
+are still missing. The welcome receives a launch snapshot of the session's motion/contrast
+preferences, defaults to no motion without a known hint, and changes no system preference.
+`qor_image_payload` packages the startup theme, first-run source,
+identity and inactive Calamares branding/settings. The explicit device Containerfile
+requires an existing approved device base; the data-only image cannot boot.
+[QOR-0023](decisions/QOR-0023-installation-uses-proven-backends.md) sets the backend
+and disk-review boundaries; [the capability map](../image/README.md#installation-capability-map)
+distinguishes code, configuration and missing runtime evidence.
+
 **Simulation and device share all QML.** The shell and the apps never talk to
 a service implementation directly. They bind to Qt Remote Objects *replicas*.
 In simulation the *sources* are the classes in `sim/`; on a device they are the

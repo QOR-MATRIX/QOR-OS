@@ -14,6 +14,15 @@ inside this checkout's `build/`; it does not build a bootable image, install a t
 on the host or regenerate an initramfs. Commands and remaining boot evidence are in
 [image/README.md](../image/README.md#branding-the-startup-stages).
 
+`qor-setup`, `tst_setup` and `qor_setup_qmllint` build and check the private first-run
+app. Simulator builds expose development captures; device builds omit those options.
+`qor-setup --build-capabilities` reports that distinction without graphics or user-state
+access. `qor_image_payload` stages 25 checked image-data files under `build/image-payload`;
+it refuses different existing content. Use a fresh output folder for changed inputs.
+The data-only Containerfile can verify packaging with existing Docker; the device recipe
+needs a separately approved existing device base and runtime. Neither is an installer ISO.
+Exact commands and missing prerequisites are in [image/README.md](../image/README.md).
+
 ## 1. Prerequisites
 
 ### Windows (primary development platform)

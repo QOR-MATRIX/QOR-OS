@@ -10,3 +10,8 @@ add_custom_target(qor_boot_payload
         --output "${CMAKE_SOURCE_DIR}/build/boot-branding-payload"
     DEPENDS qor_boot_branding_check
     VERBATIM)
+add_custom_target(qor_image_payload
+    COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tools/image/assemble.py"
+        stage --output "${CMAKE_SOURCE_DIR}/build/image-payload"
+    DEPENDS qor_boot_branding_check
+    VERBATIM)

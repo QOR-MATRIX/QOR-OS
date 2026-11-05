@@ -417,6 +417,17 @@ commands and limits are in the local `build/autonomous-2026-11-04/` checkpoint. 
 no recurring QML animation after release; a first valid frame releases its 280 ms fade and
 the watchdog stops when settled. Native display pacing, GPU, audio and controller gates remain.
 
+The first-run welcome hook was compared separately on 5 November, from `dad071d` to
+the frozen installer changes, with three tours on each side and the same software fence
+and resource limits above. Median frame p95 was **10.009 → 10.401 ms**; median input-to-swap
+p95 was **10.445 → 12.034 ms**. All six reports contain fresh frames and 40/40 input samples.
+The after samples were slower; these observations establish neither a causal regression
+nor a hardware budget pass. The simulated tour does not launch welcome, so it measures
+neither first-run app launch nor a real device login. Exact binaries, reports and command
+records are under `build/install-experience-2026-11-05/`: `install-bench-before-record.json`
+and `install-final-bench-after-record.json`. The app's page fade is finite; unknown/manual
+motion hints keep it still. Actual device startup/login timing remains unmeasured.
+
 - On integrated GPUs the remaining p95 is dominated by re-capturing the scene
   backdrop while windows move. Planned work: capture only the region under
   visible glass, and skip the capture when no glass overlaps changed content.

@@ -16,7 +16,7 @@ what each holds. A step is done when it is integrated and its checks have eviden
 
 1. **The real baseline.** Checked on 1 November against an outside review of `a3a2fd4`: the repository was public against its
    documents, and is now private ([SECURITY.md](../SECURITY.md#known-limits)); Linux CI skipped the products; `image/` is a plan
-   without a bootable builder (startup branding now has a staged filesystem payload); Unreal is a decision, not code;
+   without a bootable builder (startup/installer branding now has a checked data layer and first-run app); Unreal is a decision, not code;
    and Epic changed its clause on AI, which QOR-0020 missed
    ([QOR-0022](decisions/QOR-0022-assistants-and-unreal-engine-after-epics-change.md), proposed).
 2. **The first whole journey, on native Linux:** open a QQ project workspace, import an authorised asset, edit, save, build a Linux
@@ -574,7 +574,10 @@ the owner's advisers.
 
 ## Release deliverable · The image
 
-[QOR-0021](decisions/QOR-0021-projects-engines-and-two-stores.md), decision 12. **Nothing builds yet:** [image/](../image/README.md) is a plan.
+[QOR-0021](decisions/QOR-0021-projects-engines-and-two-stores.md), decision 12. **No bootable OS image or installer yet:**
+[image/](../image/README.md) now assembles a checked, data-only branding image and an explicit device-layer recipe.
+The private first-run app works locally. Calamares is an inactive native Qt framework candidate under
+[QOR-0023](decisions/QOR-0023-installation-uses-proven-backends.md); its disk/deployment backend is not integrated.
 QOR OS is not ready to ship because its desktop applications compile.
 
 - **Who:** the lead engineer builds it. The owner gives the hardware and says when anything is published.

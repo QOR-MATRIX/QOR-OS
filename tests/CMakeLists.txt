@@ -19,6 +19,14 @@ function(qor_add_test name)
 endfunction()
 
 qor_add_test(tst_spring SOURCES kit/tst_spring.cpp LIBRARIES qor_kit)
+qt_add_executable(tst_setup_child setup/welcome_child.cpp)
+target_link_libraries(tst_setup_child PRIVATE Qt6::Core qor::compiler_settings)
+qor_add_test(tst_setup SOURCES setup/tst_setup.cpp LIBRARIES
+    qor_setup qor_setupplugin qor_setup_session qor_kitplugin qor_lumen_styleplugin Qt6::QuickControls2)
+target_compile_definitions(tst_setup PRIVATE QOR_SETUP_TEST_CHILD="$<TARGET_FILE:tst_setup_child>")
+add_dependencies(tst_setup tst_setup_child)
+set_tests_properties(tst_setup PROPERTIES LABELS "gpu" TIMEOUT 90
+    ENVIRONMENT "${QOR_TEST_ENV};QT_QPA_FONTDIR=${CMAKE_SOURCE_DIR}/kit/fonts")
 qor_add_test(tst_oklch SOURCES kit/tst_oklch.cpp LIBRARIES qor_kit)
 qor_add_test(tst_framecapture
     SOURCES kit/tst_framecapture.cpp ../prism/shell/shellbenchmark.cpp

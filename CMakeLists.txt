@@ -113,6 +113,7 @@ if(QOR_BUILD_SIMULATOR)
     add_subdirectory(sim)
 endif()
 add_subdirectory(apps)
+add_subdirectory(setup)
 add_subdirectory(prism)
 
 if(QOR_BUILD_CORE)

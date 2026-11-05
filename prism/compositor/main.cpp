@@ -21,6 +21,7 @@
 #include "refusednetwork.h"
 #include "serviceendpoint.h"
 #include "services.h"
+#include "sessionwelcome.h"
 #ifdef QOR_HAS_SIMULATOR
 #include "shellbenchmark.h"
 #include "shellscript.h"
@@ -28,6 +29,7 @@
 #endif
 
 #include <QtCore/QCommandLineParser>
+#include <QtCore/QFileInfo>
 #include <QtCore/QTemporaryDir>
 #include <QtCore/QTimer>
 #include <QtGui/QGuiApplication>
@@ -159,6 +161,19 @@ int main(int argc, char *argv[])
     engine.loadFromModule("QOR.Prism", "Compositor");
     if (engine.rootObjects().isEmpty())
         return 2;
+
+    // First-run welcome is an ordinary, unprivileged client after an actual
+    // device unlock. Simulation and live media never start it automatically.
+    if (!simulated && !QFileInfo::exists(u"/usr/lib/qor-os/live-session"_s)) {
+        QObject *desktop = engine.rootObjects().first()->findChild<QObject *>(u"desktop"_s);
+        auto *appearance = engine.singletonInstance<QObject *>("QOR.Kit", "Theme");
+        auto *welcome = new qor::SessionWelcome(desktop, QCoreApplication::applicationDirPath() + u"/qor-setup"_s,
+                                                appearance, &app);
+        QObject::connect(welcome, &qor::SessionWelcome::launchAttempted, &app, [](bool started) {
+            if (!started)
+                qWarning("The first-run welcome could not start; it remains pending for the next session.");
+        });
+    }
 
     const QByteArray socketName = engine.rootObjects().constFirst()->property("socketName").toByteArray();
     qInfo("Prism is running. Start clients with WAYLAND_DISPLAY=%s", socketName.constData());

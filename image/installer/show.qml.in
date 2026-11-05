@@ -1,0 +1,30 @@
+// SPDX-License-Identifier: LicenseRef-QOR-OS-Proprietary
+import QtQuick
+
+// Original QOR OS artwork/text using the upstream slideshow interface. No
+// progress fiction or timer: Calamares owns actual jobs and progress reporting.
+Rectangle {
+    color: "@background@"
+    Image {
+        id: mark
+        source: "qor-mark.png"
+        width: Math.min(parent.width * 0.2, parent.height * 0.3)
+        height: width
+        fillMode: Image.PreserveAspectFit
+        anchors.horizontalCenter: parent.horizontalCenter
+        anchors.verticalCenter: parent.verticalCenter
+        anchors.verticalCenterOffset: -parent.height * 0.1
+    }
+    Text {
+        anchors.top: mark.bottom
+        anchors.topMargin: @spacing_xl@
+        anchors.horizontalCenter: parent.horizontalCenter
+        width: parent.width * 0.8
+        text: qsTr("Your next chapter starts here.")
+        textFormat: Text.PlainText
+        color: "@textPrimary@"
+        font.pixelSize: @title_size@
+        horizontalAlignment: Text.AlignHCenter
+        wrapMode: Text.Wrap
+    }
+}

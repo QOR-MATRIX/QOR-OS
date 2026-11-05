@@ -1,0 +1,36 @@
+{
+  "componentName": "qor-os",
+  "welcomeStyleCalamares": false,
+  "welcomeExpandingLogo": false,
+  "windowExpanding": "normal",
+  "windowSize": "72em,48em",
+  "windowPlacement": "center",
+  "sidebar": "widget",
+  "navigation": "widget",
+  "strings": {
+    "productName": "QOR OS",
+    "shortProductName": "QOR OS",
+    "version": "Development",
+    "shortVersion": "Development",
+    "versionedName": "QOR OS Development",
+    "shortVersionedName": "QOR OS Development",
+    "bootloaderEntryName": "QOR OS",
+    "productUrl": "",
+    "supportUrl": "",
+    "knownIssuesUrl": "",
+    "releaseNotesUrl": "",
+    "donateUrl": ""
+  },
+  "images": {
+    "productIcon": "qor-mark.png",
+    "productLogo": "qor-mark.png",
+    "productWelcome": "qor-mark.png"
+  },
+  "style": {
+    "SidebarBackground": "@surfaceSunken@",
+    "SidebarText": "@textPrimary@",
+    "SidebarTextCurrent": "@onAccent@",
+    "SidebarBackgroundCurrent": "@accent@"
+  },
+  "slideshow": "show.qml"
+}

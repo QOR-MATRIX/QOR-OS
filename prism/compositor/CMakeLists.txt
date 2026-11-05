@@ -80,3 +80,4 @@ if(QOR_BUILD_SIMULATOR)
 endif()
 
 install(TARGETS prism RUNTIME DESTINATION bin)
+target_link_libraries(prism PRIVATE qor_setup_session)
