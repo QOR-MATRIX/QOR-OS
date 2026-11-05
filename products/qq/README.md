@@ -331,6 +331,16 @@ World’s later light-probe qualification passes four Qt pixel cases per Release
 covering HDR lighting/rotation/bloom and procedural lighting. Fresh records/source hashes and hardening 16/12 pass.
 QQ lint still fails at 166 console messages/191 structured warnings, with two removed and none added.
 
+Malformed scene startup now reports a problem, discards the rejected object and allows a valid file to be tried again.
+A scene root must be a 3D object, matching the existing play/discard contract; complete custom 3D scene interfaces remain
+supported. A measured startup failure exits 3, with exit 1 taking precedence when its report cannot be written. The first
+terminal result is retained. Ordinary play stays open after its console report; capture-only runs finish after saving.
+All 51 Scene and 11 selected Player Qt cases pass per Release/ASan/UBSan build, zero failures/skips, including both rejected
+root kinds, retry, failed/stale output, ordinary play, capture and record/replay. Fresh records/source hashes and hardening
+16/12 are verified; sandbox, confinement and watchdog sources are unchanged. Final runs use two CPUs and a 1.75 GiB hard
+memory cap. Earlier tighter-cap sanitizer failures and observed paging are retained; their precise cause is not established.
+QQ lint remains 166 console messages/191 structured warnings, none added; its native failure propagates.
+
 `qq-player --measure <result.json>` returns exit code 1 if its report cannot be opened, fully written, flushed or closed.
 Automation must check the process status and use a fresh report path for each run. The Player retains its exact-file
 kernel permissions for the requested output.
@@ -586,12 +596,12 @@ or planted-fault record is not a fresh passing suite.
   launcher nothing. **Proven to fail** by four planted faults: publishing without the commit (three cases);
   publishing without saving first; Publish greyed out on a folder that is not versioned (the owner's first run, 10
   October 2026); the whole notice not shown on hover (15 October 2026). The launcher's side, the channel's proofs and a run against a development node, is in the launcher's tests.
-- **`tst_player`** (6 cases, the real executable): the playground plays and its start is measured; its first frame is
+- **`tst_player`** (the real executable): the playground plays and its start is measured; its first frame is
   the game (hundreds of colours, not an empty window); a scene file from disk plays too, with every model loaded in it
   and in the playground; a 2D game (Ember Climb) plays, measured and captured; a run is kept with `--record`,
   `--seed` and `--ticks`, replayed with `--replay` to the same outcome (exit 0), not with another seed (exit 4), and
   refused when it is not a run or the game's logic does not build (exit 3); a scene that is not there is said, not
-  hidden. **Proven to fail** (10 October 2026) by putting
+  hidden. Later cases cover incomplete roots, retained report failures and ordinary play staying open after its report. **Proven to fail** (10 October 2026) by putting
   back `Prop`'s old loader line: both playing cases fail with `Orb: IO Error: File not found`.
 - **Proven to fail** (10 October 2026) by five planted faults, each caught by its own check: no gamepad dead zone (the
   gamepad case); a logic file not watched (the rebuild); Play on the scene itself, not a copy (`tst_scene` and

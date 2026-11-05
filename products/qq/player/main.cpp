@@ -32,6 +32,8 @@
 // it would map a compiled unit lying beside a game's file straight in as code, past every check on source, and past the
 // wall's interceptor, since that is no URL. The report says so.
 
+// Changed for QOR OS: report startup failures before a frame, preserving a failed report write’s exit status.
+
 #include <QCommandLineParser>
 #include <QDateTime>
 #include <QDir>
@@ -286,8 +288,18 @@ int main(int argc, char *argv[])
         }
     }
 
-    auto report = [&] {
-        const qint64 elapsed = measure.sustained.elapsed();
+    const bool once = !captureFile.isEmpty() || !measureFile.isEmpty();
+    bool finishing = false;
+    auto finish = [&](int code) {
+        if (finishing)
+            return;
+        finishing = true;
+        QCoreApplication::exit(code);
+    };
+    auto report = [&](int code) {
+        if (finishing)
+            return;
+        const qint64 elapsed = measure.sustained.isValid() ? measure.sustained.elapsed() : 0;
         const double seconds = elapsed / 1000.0;
         // Logic that does not build leaves a game that plays and is not its creator's, as a missing model does.
         QVariant logicErrors;
@@ -318,33 +330,40 @@ int main(int argc, char *argv[])
                 out.close();
             if (!written || out.error() != QFileDevice::NoError) {
                 qWarning("The measurement report could not be written.");
-                QCoreApplication::exit(1);
+                finish(1);
                 return;
             }
-            QCoreApplication::exit(0);
         }
+        // A capture-only run finishes when its image is saved, not when the console report is printed.
+        if (code != 0 || !measureFile.isEmpty())
+            finish(code);
     };
 
-    const bool once = !captureFile.isEmpty() || !measureFile.isEmpty();
+    auto stopForProblem = [&] {
+        if (finishing)
+            return true;
+        if (!once || measure.firstFrameMs >= 0 || window->property("problem").toString().isEmpty())
+            return false;
+        report(3);
+        return true;
+    };
     QObject::connect(window, &QQuickWindow::frameSwapped, window, [&] {
         if (measure.firstFrameMs < 0) {
             // A scene that cannot play is said on the window; asked for one result, the player says so and stops.
-            if (once && !window->property("problem").toString().isEmpty()) {
-                report();
-                QCoreApplication::exit(3);
+            if (stopForProblem())
                 return;
-            }
             if (!window->property("settled").toBool())
                 return;
             measure.firstFrameMs = sinceStart();
             measure.sustained.start();
             if (!captureFile.isEmpty()) {
                 // The first frame proper, then a few more so what is saved is what a player sees.
-                QTimer::singleShot(250, window, [window, captureFile] {
-                    QCoreApplication::exit(window->grabWindow().save(captureFile) ? 0 : 1);
+                QTimer::singleShot(250, window, [&, window, captureFile] {
+                    if (!finishing)
+                        finish(window->grabWindow().save(captureFile) ? 0 : 1);
                 });
             }
-            QTimer::singleShot(3000, window, report);
+            QTimer::singleShot(3000, window, [&] { report(0); });
             return;
         }
         ++measure.frames;
@@ -355,12 +374,15 @@ int main(int argc, char *argv[])
     // changed. (In play the game's own animation keeps them coming.)
     if (!captureFile.isEmpty() || !measureFile.isEmpty()) {
         auto *pump = new QTimer(window);
-        QObject::connect(pump, &QTimer::timeout, window, [window] { window->update(); });
+        QObject::connect(pump, &QTimer::timeout, window, [&, window] {
+            if (!stopForProblem())
+                window->update();
+        });
         pump->start(4);
     }
     QTimer::singleShot(30000, window, [&] {
-        if (measure.firstFrameMs < 0 && (!captureFile.isEmpty() || !measureFile.isEmpty()))
-            QCoreApplication::exit(2);
+        if (!finishing && measure.firstFrameMs < 0 && (!captureFile.isEmpty() || !measureFile.isEmpty()))
+            finish(2);
     });
 
     return QGuiApplication::exec();

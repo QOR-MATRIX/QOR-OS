@@ -423,6 +423,13 @@ unpublished builds stay out of reach.
   World’s explicit light-probe texture owners remove two findings, none added: 166 console messages/191 structured warnings.
   Four Qt pixel cases per Release/sanitizer build pass, zero failed/skipped, for HDR lighting/rotation/bloom and pictured
   versus plain procedural lighting. Fresh records/source hashes and hardening 16/12 pass; both programs are relinked.
+  A later startup fix rejects non-3D scene roots and discards incomplete 3D roots with a reported problem and a valid retry.
+  The actual Player retains one terminal result: startup failure 3, failed report write 1; ordinary play stays open after
+  its console report and capture waits for its image. All 51 Scene and 11 selected Player Qt cases pass per Release and
+  ASan/UBSan build, zero failures/skips, including capture and record/replay. Fresh native records/source hashes and
+  hardening 16/12 are verified. The final local bound is two CPUs and 1.75 GiB; earlier tighter-cap startup failures and
+  observed paging remain recorded, without a conclusive cause claim. Lint stays at 166 console/191 structured warnings,
+  none added, with its native failure preserved. Full OS/hardware readiness remains unproved.
   Earlier, 48 scene cases passed in Release and under sanitizers, including malformed-image readiness; six selected screen-play
   functions pass (8 Qt cases including setup/cleanup). The earlier broader play run and a clean detached baseline each had
   the same 11 failures. Test clock waits and guaranteed fake-controller cleanup subsequently bring all 53 play cases to a pass,

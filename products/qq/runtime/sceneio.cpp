@@ -1,6 +1,8 @@
 // Changed for QOR OS: places are compared where they really are; the Studio's guard, what it reads and whether a project
 // is trusted; a glTF's files are looked at decoded (QOR-0018). Logic is written to the file it was read from, and over no
 // other; nothing is saved through a link that leads away; prefabs are code like any other; and what does not build is found.
+// Changed for QOR OS: a loaded scene must be a 3D object, as playing and discarding it already require.
+
 #include <QDesktopServices>
 #include <QStandardPaths>
 #include "sceneio.h"
@@ -404,7 +406,7 @@ QObject *SceneIO::loadText(const QString &text, const QUrl &file, QObject *paren
     // Owned by its parent, or by whoever asked for it: never collected out from under the Studio.
     QQmlEngine::setObjectOwnership(scene, QQmlEngine::CppOwnership);
     component.completeCreate();
-    if (scene->property("kind").toString() != QStringLiteral("Scene")) {
+    if (!qobject_cast<QQuick3DObject *>(scene) || scene->property("kind").toString() != QStringLiteral("Scene")) {
         delete scene;
         fail(QStringLiteral("That file is not a QQ scene: its root is not a Scene."));
         return nullptr;

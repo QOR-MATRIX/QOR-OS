@@ -1156,6 +1156,42 @@ private slots:
         QVERIFY2(direct.errorString().contains(QStringLiteral("supplied by the runtime")), qPrintable(direct.errorString()));
     }
 
+    void aGameReportsSceneStartupFailuresAndCanRetry_data()
+    {
+        QTest::addColumn<QByteArray>("text");
+        QTest::newRow("object") << QByteArray("import QtQml\nQtObject { objectName: \"rejectedScene\"; property string kind: \"Scene\" }\n");
+        QTest::newRow("node") << QByteArray("import QtQuick3D\nNode { objectName: \"rejectedScene\"; property string kind: \"Scene\" }\n");
+    }
+
+    void aGameReportsSceneStartupFailuresAndCanRetry()
+    {
+        QFETCH(QByteArray, text);
+        QTemporaryDir project;
+        auto write = [&](const QString &name, const QByteArray &contents) {
+            QFile file(QDir(project.path()).filePath(name));
+            return file.open(QIODevice::WriteOnly) && file.write(contents) == contents.size();
+        };
+        QVERIFY(write(QStringLiteral("bad.qml"), text));
+        QVERIFY(write(QStringLiteral("good.qml"), "import QQ\nScene { name: \"recovered\" }\n"));
+        QQmlComponent component(engine);
+        component.setData("import QQ\nGame { hearing: false }\n", QUrl(QStringLiteral("qrc:/game-errors.qml")));
+        std::unique_ptr<QObject> game(component.create());
+        QVERIFY2(game, qPrintable(component.errorString()));
+        QVERIFY(game->setProperty("file", QUrl::fromLocalFile(QDir(project.path()).filePath(QStringLiteral("bad.qml")))));
+        QTRY_VERIFY2(!game->property("problem").toString().isEmpty(), "a scene that could not start needs a reported problem");
+        QVERIFY(!game->property("scene").value<QObject *>());
+        QVERIFY(!game->property("settled").toBool());
+        QTRY_VERIFY(!game->findChild<QObject *>(QStringLiteral("rejectedScene")));
+
+        // A failed attempt neither leaves a scene behind nor prevents a valid file from starting.
+        QVERIFY(game->setProperty("file", QUrl::fromLocalFile(QDir(project.path()).filePath(QStringLiteral("good.qml")))));
+        QTRY_VERIFY(game->property("scene").value<QObject *>());
+        QCOMPARE(game->property("scene").value<QObject *>()->property("name").toString(), QStringLiteral("recovered"));
+        QCOMPARE(game->property("problem").toString(), QString());
+        QVERIFY(game->property("settled").toBool());
+        QVERIFY(QMetaObject::invokeMethod(game.get(), "release"));
+    }
+
     void aStoreKeepsWhatJsonKeepsAndRefusesTheRest()
     {
         QTemporaryDir game;

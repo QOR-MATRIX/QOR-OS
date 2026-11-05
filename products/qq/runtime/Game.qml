@@ -7,6 +7,8 @@
 // the player and stopped at the level's edges, or with no player on the scene from the ground up. `restart()` plays the
 // scene again from its file.
 
+// Changed for QOR OS: failed scene startup is reported and its loaded object is discarded before retry.
+
 import QtQuick
 import QtQuick3D
 import QQ
@@ -87,15 +89,23 @@ World {
             problem = SceneIO.lastError
             return false
         }
-        if (seed !== 0)
-            next.playSeed = seed
-        next.recorder = recorder
-        next.asked.connect(game.asked)
-        next.playing = true
-        problem = ""
-        scene = next
-        entityList = SceneIO.entities(next)
-        return true
+        try {
+            if (seed !== 0)
+                next.playSeed = seed
+            next.recorder = recorder
+            next.asked.connect(game.asked)
+            next.playing = true
+            problem = ""
+            scene = next
+            entityList = SceneIO.entities(next)
+            return true
+        } catch (error) {
+            scene = null
+            entityList = []
+            SceneIO.discard(next)
+            problem = qsTr("This scene could not start.")
+            return false
+        }
     }
 
     /// Put the scene away in a safe order (its bodies before their world): what the player does as it quits.
