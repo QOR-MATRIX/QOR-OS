@@ -531,8 +531,10 @@ private slots:
                                             "    Behaviour { name: \"Rule\"; source: \"../logic/rule.qml\"; target: \"Orb\" }\n}\n")));
         QVERIFY(build(project, games.path()).value(QStringLiteral("ok")).toBool());
         QVERIFY(QDir(project.path()).removeRecursively());
-        QCOMPARE(runPlayer({played, QStringLiteral("--measure"), measure}, &said), 0);
-        const QJsonObject without = QJsonDocument::fromJson(readBytes(measure)).object();
+        // A fresh output path prevents the earlier report from satisfying this later Player launch.
+        const QString withoutMeasure = out.filePath(QStringLiteral("without-project.json"));
+        QCOMPARE(runPlayer({played, QStringLiteral("--measure"), withoutMeasure}, &said), 0);
+        const QJsonObject without = QJsonDocument::fromJson(readBytes(withoutMeasure)).object();
         QVERIFY2(!without.isEmpty(), said.constData());
         QCOMPARE(without.value(QStringLiteral("problem")).toString(), QString());
         QCOMPARE(without.value(QStringLiteral("logicErrors")).toArray(), QJsonArray());

@@ -384,6 +384,11 @@ unpublished builds stay out of reach.
   Studio edit/save/build and project switch/reopen; actual Player built-copy independence; actual headless Studio trust and
   command-line protocol. Fresh records/product-source matches and hardening 16/11 pass. The CLI reports `compiled:false`;
   these remain copy/rendering checks under private WSL, with native hardware/audio unverified.
+  A Player report-write failure then reproduced exit 0 after measurement generation. Checked open/full-write/flush/close
+  now returns exit 1 on failure, with the exact-file kernel permissions unchanged. Failed output preserves its directory
+  sentinel; valid output replaces stale JSON; a later copy-playback run uses a fresh report filename. Four Player and three
+  build-copy Qt cases per Release/sanitizer build pass, zero failed/skipped; fresh records/source hashes and unchanged
+  sandbox sources are verified. Hardening passes 16 Release/12 sanitizer programs. No native audio/hardware claim follows.
   The latest 48 scene cases pass in Release and under sanitizers, including malformed-image readiness; six selected screen-play
   functions pass (8 Qt cases including setup/cleanup). The earlier broader play run and a clean detached baseline each had
   the same 11 failures. Test clock waits and guaranteed fake-controller cleanup subsequently bring all 53 play cases to a pass,

@@ -8,6 +8,7 @@
 
 // Changed for QOR OS: the kernel's wall around a game (QOR-0018).
 // Changed for QOR OS: a measured Player was still drawing as its time ended, and was drawn by what products.sh expected.
+// Changed for QOR OS: a measurement artifact that cannot be written is a failed Player run.
 #include <QDir>
 #include <QFile>
 #include <QImage>
@@ -101,6 +102,62 @@ private slots:
         QFile f(playgroundStore);
         QVERIFY(f.open(QIODevice::WriteOnly));
         f.write(playgroundBefore);
+    }
+
+    void aMeasurementThatCannotBeWrittenIsAnError()
+    {
+        QTemporaryDir out;
+        QVERIFY(out.isValid());
+        const QString destination = out.filePath(QStringLiteral("report-directory"));
+        QVERIFY(QDir().mkpath(destination));
+        const QString kept = QDir(destination).filePath(QStringLiteral("keep.txt"));
+        {
+            QFile sentinel(kept);
+            QVERIFY(sentinel.open(QIODevice::WriteOnly));
+            QCOMPARE(sentinel.write(QByteArrayLiteral("kept")), qint64(4));
+        }
+        QProcess player;
+        player.setProgram(QStringLiteral(QQ_PLAYER));
+        player.setArguments({fixture(QStringLiteral("scenes/sample.qml")), QStringLiteral("--measure"), destination});
+        player.setProcessChannelMode(QProcess::MergedChannels);
+        player.start();
+        const bool finished = player.waitForFinished(60000);
+        const QByteArray said = player.readAll();
+        if (!finished) {
+            player.kill();
+            player.waitForFinished();
+        }
+        QVERIFY2(finished, said.constData());
+        QCOMPARE(player.exitStatus(), QProcess::NormalExit);
+        // Reaching the measurement stage rules out an unrelated startup failure.
+        QVERIFY2(said.contains("QQ-MEASURE "), said.constData());
+        QCOMPARE(player.exitCode(), 1);
+        QVERIFY(QDir(destination).exists());
+        QFile sentinel(kept);
+        QVERIFY(sentinel.open(QIODevice::ReadOnly));
+        QCOMPARE(sentinel.readAll(), QByteArrayLiteral("kept"));
+    }
+
+    void aMeasurementReplacesAnEarlierReport()
+    {
+        QTemporaryDir out;
+        QVERIFY(out.isValid());
+        const QString result = out.filePath(QStringLiteral("measure.json"));
+        {
+            QFile earlier(result);
+            QVERIFY(earlier.open(QIODevice::WriteOnly));
+            const QByteArray stale = QByteArrayLiteral("{\"stale\":true}\n");
+            QCOMPARE(earlier.write(stale), qint64(stale.size()));
+        }
+        QCOMPARE(runPlayer({fixture(QStringLiteral("scenes/sample.qml")), QStringLiteral("--measure"), result}), 0);
+        const QJsonObject measured = readJson(result);
+        QVERIFY(!measured.isEmpty());
+        QVERIFY(!measured.contains(QStringLiteral("stale")));
+        QVERIFY(measured.value(QStringLiteral("scene")).toString().endsWith(QStringLiteral("sample.qml")));
+        QCOMPARE(measured.value(QStringLiteral("problem")).toString(), QString());
+        QCOMPARE(measured.value(QStringLiteral("unloaded")).toArray(), QJsonArray());
+        QCOMPARE(measured.value(QStringLiteral("logicErrors")).toArray(), QJsonArray());
+        QVERIFY2(rendererAsExpected(measured), qPrintable(measured.value(QStringLiteral("renderer")).toString()));
     }
 
     void thePlaygroundPlaysAndItsStartIsMeasured()

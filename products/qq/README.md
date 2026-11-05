@@ -1,6 +1,6 @@
 # QQ, the QOR Engine
 
-<!-- Changed for QOR OS: current project-document links; on Linux the Studio keeps the provider's key in the Secret Service (QOR OS's QOR-0011); gamepads come from QOR OS's controller service, QOR.Input, in place of XInput; each project's workspace in the Studio; the asset library; literal game-screen labels and their owning component context; literal Agent status/key problems; project-file list bindings and layout; literal logic problem descriptions; typed statistics overlay; bound inspector field loaders and literal source filenames; bound Agent step rows; literal group-selector names; bound ground/slab and texture context. -->
+<!-- Changed for QOR OS: current project-document links; on Linux the Studio keeps the provider's key in the Secret Service (QOR OS's QOR-0011); gamepads come from QOR OS's controller service, QOR.Input, in place of XInput; each project's workspace in the Studio; the asset library; literal game-screen labels and their owning component context; literal Agent status/key problems; project-file list bindings and layout; literal logic problem descriptions; typed statistics overlay; bound inspector field loaders and literal source filenames; bound Agent step rows; literal group-selector names; bound ground/slab and texture context; checked Player measurement output. -->
 
 An engine for virtual worlds and experiences, built on **Qt 6.12** under the owner's commercial licence
 ([the Qt rule](../../docs/decisions/qtos/QTOS-0004-commercial-qt-and-proprietary-repository.md)). QQ is developed in QOR OS
@@ -303,6 +303,10 @@ The Agent panel also shows supplied status, key-storage problems and messages li
 text, including when the status changes during a run.
 
 ## Build, test, deploy
+
+`qq-player --measure <result.json>` returns exit code 1 if its report cannot be opened, fully written, flushed or closed.
+Automation must check the process status and use a fresh report path for each run. The Player retains its exact-file
+kernel permissions for the requested output.
 
 Needs Qt 6.12 (MSVC 2022 64-bit kit, with Qt Quick 3D, Quick 3D Physics, Spatial Audio and Multimedia) and Visual
 Studio Build Tools 2022 with the C++ workload. The browser build also needs Qt's WebAssembly kit (multithreaded), the

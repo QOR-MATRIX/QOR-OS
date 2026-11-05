@@ -1,3 +1,4 @@
+// Changed for QOR OS: failed measurement writes fail the run without widening the file-only kernel wall.
 // The QQ Player: plays one QQ scene as a game (DIRECTION P3.2), natively and, built with Qt for WebAssembly, in a browser.
 //
 //   qq-player [scene.qml] [--capture <frame.png>] [--measure <result.json>]
@@ -310,8 +311,16 @@ int main(int argc, char *argv[])
         qInfo("QQ-MEASURE %s", line.constData());
         if (!measureFile.isEmpty()) {
             QFile out(measureFile);
-            if (out.open(QIODevice::WriteOnly))
-                out.write(line + '\n');
+            const QByteArray payload = line + '\n';
+            // The kernel wall grants this exact file; it does not grant sibling temporary files or renames.
+            const bool written = out.open(QIODevice::WriteOnly) && out.write(payload) == payload.size() && out.flush();
+            if (out.isOpen())
+                out.close();
+            if (!written || out.error() != QFileDevice::NoError) {
+                qWarning("The measurement report could not be written.");
+                QCoreApplication::exit(1);
+                return;
+            }
             QCoreApplication::exit(0);
         }
     };
