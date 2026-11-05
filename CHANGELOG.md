@@ -14,6 +14,12 @@ QOR OS begins: QTOS and Demiurge's device-side products in one repository
 
 ### Added
 
+- **Current Store-backed Library boundary validation.** At `2d290af`, all 23 Qt cases and 9 ordinary functions pass
+  unfiltered in each main profile, zero failures/skips/blacklists. Changed installed files, escaping/cross-game scene
+  records, Creator visibility and non-game entries retain their refusals. Fresh records, 116 unchanged source/public-input
+  fingerprints and actual Store-reader/Library sanitizer commands are verified; hardening passes 29/27 main-build programs.
+  These check listing/playable-path metadata over temporary signed test data, not a Player launch. No production change,
+  owner private-key access or fixture regeneration is involved; full OS/hardware and warning gates remain unmet.
 - **Current legacy Store compatibility validation.** At `6dc80cf`, the unfiltered legacy suite passes all 11 Qt cases
   and 9 ordinary functions per main profile, zero failures/skips/blacklists, in 0.79/0.99 seconds. Fresh records and
   113 unchanged source/public-input fingerprints are verified; sanitizer reader flags/linkage and hardening (28/26
