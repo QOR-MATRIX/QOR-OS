@@ -448,6 +448,15 @@ added. The remaining warning gates still fail, with the aggregate wrapper return
 hashes, actual sanitizer flags/libraries and hardening 16/13 are verified in
 `build/autonomous-2026-11-04/gizmo-entity-verified.json`; this does not clear the separate real Studio startup failure.
 
+Player window labels read the scene name and follower style through their structural object interface, with the same
+guards and fallback strings. Compatibility coverage checks live name/style edits, absent followers, the 3D hint and
+release fallback, alongside the existing literal-error/startup checks and actual Player launches. Six Scene/eight
+Player Qt cases pass per Release/ASan/UBSan build, zero failures/skips. Windows and Linux Player lint now pass with
+zero warnings; whole QQ still fails at 142 console/167 structured warnings, two old findings removed and none added.
+Fresh records and the exact scope, including the unrun full 2D frame-rate gate, are in
+`build/autonomous-2026-11-04/player-labels-verified.json`. Review's next recovery fix is the legacy Windows matcher:
+it currently misses negative timestamps from dates before 1970; no personal records were inspected.
+
 ## The Player, measured (10 October 2026)
 
 On the owner's laptop (RTX 4060 Laptop GPU), on mains power, playing the bundled playground at 1280 × 720, locked down

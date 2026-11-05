@@ -12,6 +12,7 @@
 // Changed for QOR OS: screen drawings made through ScreenPart keep per-instance edits and follow the overlay's scale.
 // Changed for QOR OS: panels, bars and project images keep their own drawing values too.
 // Changed for QOR OS: the Player shows supplied startup problems and filenames literally.
+// Changed for QOR OS: Player labels follow edits to their different scene and follower objects.
 
 #include <QDir>
 #include <QFile>
@@ -1155,6 +1156,49 @@ private slots:
         direct.setData("import QQ\nGameStore {}\n", QUrl(QStringLiteral("qrc:/chosen-store.qml")));
         QCOMPARE(direct.status(), QQmlComponent::Error);
         QVERIFY2(direct.errorString().contains(QStringLiteral("supplied by the runtime")), qPrintable(direct.errorString()));
+    }
+
+    void playerLabelsFollowTheirSceneAndFollower()
+    {
+        QTemporaryDir project;
+        QVERIFY(project.isValid());
+        QFile source(project.filePath(QStringLiteral("labels.qml")));
+        QVERIFY(source.open(QIODevice::WriteOnly));
+        const QByteArray text("import QQ\nScene { name: \"First\"; view: \"2d\"; Player2D { style: \"top-down\" } }\n");
+        QCOMPARE(source.write(text), qint64(text.size()));
+        source.close();
+        QQmlComponent component(engine, QUrl::fromLocalFile(QDir(QStringLiteral(QQ_FIXTURES)).filePath(QStringLiteral("../../player/Main.qml"))));
+        std::unique_ptr<QObject> window(component.createWithInitialProperties({
+            {QStringLiteral("scene"), QUrl::fromLocalFile(source.fileName())}, {QStringLiteral("visible"), false}}));
+        QVERIFY2(window, qPrintable(component.errorString()));
+        QObject *game = window->findChild<QObject *>(QStringLiteral("game"));
+        QVERIFY(game);
+        QTRY_COMPARE(window->property("title").toString(), QStringLiteral("First — QQ Player"));
+        QObject *scene = game->property("scene").value<QObject *>();
+        QObject *follower = game->property("follow").value<QObject *>();
+        QVERIFY(scene);
+        QVERIFY(follower);
+        QObject *hint = nullptr;
+        for (QObject *child : window->findChildren<QObject *>()) {
+            if (child->metaObject()->indexOfProperty("text") >= 0
+                && child->property("text").toString().startsWith(QStringLiteral("WASD or the left stick"))) {
+                hint = child;
+                break;
+            }
+        }
+        QVERIFY(hint);
+        QVERIFY(scene->setProperty("name", QStringLiteral("Renamed <b>scene</b>")));
+        QTRY_COMPARE(window->property("title").toString(), QStringLiteral("Renamed <b>scene</b> — QQ Player"));
+        QVERIFY(follower->setProperty("style", QStringLiteral("platform")));
+        QTRY_VERIFY(hint->property("text").toString().startsWith(QStringLiteral("A and D or the left stick")));
+        QVERIFY(follower->setProperty("style", QStringLiteral("top-down")));
+        QTRY_VERIFY(hint->property("text").toString().startsWith(QStringLiteral("WASD or the left stick")));
+        QVERIFY(scene->setProperty("player", QVariant::fromValue<QObject *>(nullptr)));
+        QTRY_COMPARE(hint->property("text").toString(), QString());
+        QVERIFY(scene->setProperty("view", QStringLiteral("3d")));
+        QTRY_VERIFY(hint->property("text").toString().startsWith(QStringLiteral("Drag to turn")));
+        QVERIFY(QMetaObject::invokeMethod(window.get(), "release"));
+        QTRY_COMPARE(window->property("title").toString(), QStringLiteral("QQ — QQ Player"));
     }
 
     void playerStartupErrorsShowFilenamesAsPlainText()

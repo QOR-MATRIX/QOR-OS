@@ -309,6 +309,14 @@ QOR OS begins: QTOS and Demiurge's device-side products in one repository
 
 ### Fixed
 
+- **Player labels retain their scene and follower interfaces.** Dynamic property reads keep titles and movement hints
+  bound to different scene/player types, preserving the existing guards, text and fallback branches. New compatibility
+  coverage checks name/style edits, absent followers, the 3D hint and release fallback; existing plain-text/error and
+  actual Player startup/report checks remain intact. Six Scene/eight Player Qt cases pass per Release/ASan/UBSan build,
+  zero failures/skips. Fresh source/program/copied-Main/sanitizer/hardening records pass. Two old lint findings disappear
+  and none are added: Windows/Linux both report 142 console/167 structured warnings. The Player leaf passes; whole-QQ
+  warning gates still fail and the wrapper returns 1. The separate Studio startup failure remains unresolved.
+
 - **Gizmo keeps the selected entity's structural interface.** Kind, field metadata and scene position use dynamic
   property lookup across the different selected types, retaining the `QtObject` target, null/field guards and existing
   visibility/transform behavior. Fresh Windows and Linux lint removes exactly five old findings and adds none:

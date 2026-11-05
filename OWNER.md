@@ -10,7 +10,6 @@ no cross-project prerequisite exists. Nothing was pushed.
 Commercial Qt 6.12 runs hidden in WSL (Linux inside Windows), graphics-fenced, two processors/one worker, 1.75 GiB cap.
 ASan/UBSan check memory errors/undefined behavior; leaks unchecked. Windows: two processors/one worker, no memory cap.
 
-- QQ at `39b0768`: **91 asset-library/195 game-build/3 Store-to-Player cases per product build** pass, zero failures/skips.
 - Linux Store format 2/legacy/Library/pages/front-end: **621/11/23/18/39 cases per main profile** pass, zero failures/skips.
 - The complete journey at `f99e007` passes per product build, including actual Player playback after project removal.
   Prism (compositor and shell) records a stand-in, without sanitizers in this journey.
@@ -23,6 +22,7 @@ ASan/UBSan check memory errors/undefined behavior; leaks unchecked. Windows: two
 - QQ asset data: **Windows 72 cases/35 functions; Linux 69/32 per product build**, zero failures/skips.
   Folder identifiers replace Windows timestamps. Missing-folder/older journals stay; unresolved changes block new transactions.
 - Gizmo (selected-object handles): **8 cases/6 functions per product build** pass, zero failures/skips.
+- Player labels: **6 Scene/8 actual Player cases per product build** pass, zero failures/skips; Player lint passes.
 
 ## Remaining and next
 
@@ -33,11 +33,11 @@ Checkout-local Windows Store: **613 pass/1 fail**, zero skips. Diagnostics read 
 failure. Two checkout-root controls failed; two outside-root controls passed. Cause unresolved; diagnostics restored.
 No permissions/security settings changed; no other process interrupted.
 
-QQ lint (interface-language checking): **144 console/169 structured warnings** on Windows/Linux, five Gizmo findings removed,
+QQ lint (interface-language checking): **142 console/167 structured warnings** on Windows/Linux; two Player findings removed,
 none added; still failed. Windows root lint: **seven modules, zero warnings**. **12 Wayland metadata warnings** match baseline.
 A pinned Rust dependency fails its warning gate; repair belongs upstream. Listing/planning remain on the window thread without a latency budget.
 
-Next: refresh real Studio initialization on rebuilt apps. Exact commands: `build/autonomous-2026-11-04/HANDOFF.md`.
+Next: fix negative Windows recovery timestamps. Commands: `build/autonomous-2026-11-04/HANDOFF.md`.
 Full OS/Rust/Windows product suites, native Linux graphics/sound/controllers and image/install proof remain unrun.
 Software observations clear no hardware budget. Zero-warning gates remain unmet.
 
