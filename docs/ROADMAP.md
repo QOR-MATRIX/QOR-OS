@@ -430,6 +430,11 @@ unpublished builds stay out of reach.
   hardening 16/12 are verified. The final local bound is two CPUs and 1.75 GiB; earlier tighter-cap startup failures and
   observed paging remain recorded, without a conclusive cause claim. Lint stays at 166 console/191 structured warnings,
   none added, with its native failure preserved. Full OS/hardware readiness remains unproved.
+  The Player’s startup-error label is then made plain text, preserving its binding, font, wrapping and color. A real-QML
+  regression reproduces automatic parsing, then verifies missing filenames, inert supplied markup and later changes.
+  All 52 Scene and five actual Player startup Qt cases pass per Release/sanitizer build, zero failures/skips. Fresh records,
+  source hashes and hardening 16/12 pass; production C++, Game and SceneIO are unchanged from `ad4aa3f`. Lint remains
+  166 console/191 structured warnings with none added; the zero-warning gate still fails.
   Earlier, 48 scene cases passed in Release and under sanitizers, including malformed-image readiness; six selected screen-play
   functions pass (8 Qt cases including setup/cleanup). The earlier broader play run and a clean detached baseline each had
   the same 11 failures. Test clock waits and guaranteed fake-controller cleanup subsequently bring all 53 play cases to a pass,

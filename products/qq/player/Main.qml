@@ -1,6 +1,8 @@
 // The QQ Player's window: one game, full bleed, with a line of help that fades once play is under way. F11 fills the
 // screen; Ctrl+R plays the scene again from the start.
 
+// Changed for QOR OS: startup problems, including supplied filenames, stay literal text.
+
 import QtQuick
 import QtQuick3D
 import QQ
@@ -75,6 +77,7 @@ Window {
             wrapMode: Text.Wrap
             color: "#f2c4cc"
             font.pixelSize: 14
+            textFormat: Text.PlainText
             text: qsTr("This game could not start: %1").arg(game.problem)
         }
     }

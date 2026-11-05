@@ -335,11 +335,17 @@ Malformed scene startup now reports a problem, discards the rejected object and 
 A scene root must be a 3D object, matching the existing play/discard contract; complete custom 3D scene interfaces remain
 supported. A measured startup failure exits 3, with exit 1 taking precedence when its report cannot be written. The first
 terminal result is retained. Ordinary play stays open after its console report; capture-only runs finish after saving.
-All 51 Scene and 11 selected Player Qt cases pass per Release/ASan/UBSan build, zero failures/skips, including both rejected
+At `ad4aa3f`, all 51 Scene and 11 selected Player Qt cases pass per Release/ASan/UBSan build, zero failures/skips, including both rejected
 root kinds, retry, failed/stale output, ordinary play, capture and record/replay. Fresh records/source hashes and hardening
 16/12 are verified; sandbox, confinement and watchdog sources are unchanged. Final runs use two CPUs and a 1.75 GiB hard
 memory cap. Earlier tighter-cap sanitizer failures and observed paging are retained; their precise cause is not established.
 QQ lint remains 166 console messages/191 structured warnings, none added; its native failure propagates.
+
+The Player’s error label now shows filenames and supplied problems as plain text, with its live binding, font,
+wrapping and color preserved. The regression drives the actual Player QML through a real missing-file problem,
+inert supplied markup and a later filename change. All 52 Scene and five real Player startup Qt cases pass per
+Release/sanitizer build, zero failures/skips, with fresh records/source hashes and hardening 16/12. Production C++,
+Game and SceneIO are unchanged from `ad4aa3f`; lint remains 166 console/191 structured warnings, none added.
 
 `qq-player --measure <result.json>` returns exit code 1 if its report cannot be opened, fully written, flushed or closed.
 Automation must check the process status and use a fresh report path for each run. The Player retains its exact-file

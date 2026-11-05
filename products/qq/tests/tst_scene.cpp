@@ -11,6 +11,7 @@
 // Changed for QOR OS: game-supplied screen text is literal and remains bound to its own screen part.
 // Changed for QOR OS: screen drawings made through ScreenPart keep per-instance edits and follow the overlay's scale.
 // Changed for QOR OS: panels, bars and project images keep their own drawing values too.
+// Changed for QOR OS: the Player shows supplied startup problems and filenames literally.
 
 #include <QDir>
 #include <QFile>
@@ -1154,6 +1155,41 @@ private slots:
         direct.setData("import QQ\nGameStore {}\n", QUrl(QStringLiteral("qrc:/chosen-store.qml")));
         QCOMPARE(direct.status(), QQmlComponent::Error);
         QVERIFY2(direct.errorString().contains(QStringLiteral("supplied by the runtime")), qPrintable(direct.errorString()));
+    }
+
+    void playerStartupErrorsShowFilenamesAsPlainText()
+    {
+        QTemporaryDir project;
+        QVERIFY(project.isValid());
+        const auto missing = [&](const QString &name) {
+            return QUrl::fromLocalFile(QDir(project.path()).filePath(name));
+        };
+        QQmlComponent component(engine, QUrl::fromLocalFile(QDir(QStringLiteral(QQ_FIXTURES)).filePath(QStringLiteral("../../player/Main.qml"))));
+        std::unique_ptr<QObject> window(component.createWithInitialProperties({
+            {QStringLiteral("scene"), missing(QStringLiteral("<b>First.qml"))},
+            {QStringLiteral("visible"), false}}));
+        QVERIFY2(window, qPrintable(component.errorString()));
+        QObject *game = window->findChild<QObject *>(QStringLiteral("game"));
+        QVERIFY(game);
+        QTRY_VERIFY(window->property("problem").toString().contains(QStringLiteral("First.qml")));
+        QObject *label = nullptr;
+        for (QObject *child : window->findChildren<QObject *>()) {
+            if (child->metaObject()->indexOfProperty("textFormat") >= 0
+                && child->property("text").toString().startsWith(QStringLiteral("This game could not start: "))) {
+                label = child;
+                break;
+            }
+        }
+        QVERIFY(label);
+        QCOMPARE(label->property("textFormat").toInt(), int(Qt::PlainText));
+        QCOMPARE(label->property("text").toString(), QStringLiteral("This game could not start: ") + window->property("problem").toString());
+        QVERIFY(game->setProperty("problem", QStringLiteral("<b>External game problem</b>")));
+        QTRY_VERIFY(label->property("text").toString().contains(QStringLiteral("<b>External game problem</b>")));
+        QCOMPARE(label->property("textFormat").toInt(), int(Qt::PlainText));
+        QVERIFY(game->setProperty("file", missing(QStringLiteral("<i>Second.qml"))));
+        QTRY_VERIFY(label->property("text").toString().contains(QStringLiteral("Second.qml")));
+        QCOMPARE(label->property("textFormat").toInt(), int(Qt::PlainText));
+        QVERIFY(QMetaObject::invokeMethod(window.get(), "release"));
     }
 
     void aGameReportsSceneStartupFailuresAndCanRetry_data()
