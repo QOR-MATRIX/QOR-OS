@@ -2,46 +2,42 @@
 
 For Andrew, 5 November 2026. Local branch: `integration/owner-brief`.
 
-14 worktrees (Git checkouts) remain. This session owns implementation; the QOR-local lock serializes heavy jobs. No cross-project prerequisite exists. Nothing was pushed.
+All 14 worktrees (Git checkouts) remain. This session owns implementation. The QOR-local lock serializes heavy jobs;
+no cross-project prerequisite exists. Nothing was pushed.
 
 ## Verified checks
 
-Commercial Qt 6.12 runs hidden in WSL (Linux inside Windows), with software graphics and a graphics processor fence,
-two processors, one worker. ASan/UBSan catch memory errors and undefined behavior; leak checking is off.
-Hard cap: 1.75 GiB.
+Commercial Qt 6.12 runs hidden in WSL (Linux inside Windows), fenced from the graphics processor, with two processors,
+one worker and a 1.75 GiB hard cap. ASan/UBSan check memory errors and undefined behavior; leak checking is off.
+Windows checks use two processors and one worker, without a memory-cap claim.
 
-- QQ at `39b0768`: unfiltered **91 asset-library/195 game-build/3 Store-to-Player Qt cases pass per build**, zero failures/skips.
-  Recovery, tags, trust, checked previews and provenance retain regression checks.
-- Store **format 2/legacy/Library/pages/front-end: 621/11/23/18/39 cases per main profile**, zero failures/skips;
-  all **153/9/9/16/28 functions** ran. Fresh records, fingerprints and sanitizer flags are verified.
-  Hardening (exploit mitigations) passes **33 normal/31 sanitizer main-build programs** and **16/13 product programs**.
-- Shape preserves public interfaces and 2D axis locks: **52 Scene/10 physics cases per product build** pass, zero failures/skips.
-  Software waits use game clocks; GPU waits, tolerances and frame-rate checks remain.
-- Failed scripts omit the complete request object while keeping their step number, reason and **exit 4**.
-  An actual-process regression reproduced argument disclosure; **3 Qt cases plus client/text-privacy controls pass per
-  main profile**, zero failures/skips. Earlier failures remain recorded.
-- The complete journey at `f99e007` passes per product build, including real Player playback after project removal.
-  Prism (compositor and shell) records a stand-in. Prism has no sanitizers in this journey.
-- **17 service/10 simulator/11 device-option cases pass per main profile**, zero failures/skips; the core C interface
-  passes **9 normal-profile cases**. The sanitizer profile keeps the core off.
-
-- Benchmark output failures return **exit 1**. All **11 collector cases/8 functions per main profile** pass,
-  zero failures/skips, alongside actual compositor failed/successful report checks.
-
-Inspector: **5 Qt cases/3 functions per product build pass**, zero failures/skips.
+- QQ at `39b0768`: **91 asset-library/195 game-build/3 Store-to-Player cases per product build** pass, zero failures/skips.
+  Recovery, transaction tags, trust, checked previews and provenance retain regression checks.
+- Linux Store format 2/legacy/Library/pages/front-end: **621/11/23/18/39 cases per main profile** pass, zero failures/skips.
+  Shape's **52 Scene/10 physics cases** and Inspector's **5 cases/3 functions** pass per product build.
+- The complete journey at `f99e007` passes per product build, including actual Player playback after project removal.
+  Prism (compositor and shell) records a stand-in; actual Player playback runs separately. Prism is not under sanitizers here.
+- Failed scripts omit the complete request object while keeping **exit 4**. Benchmark output failures return **exit 1**;
+  **11 collector cases per Linux profile/9 on Windows** pass, zero failures/skips.
+- Windows Store: **614 cases/all 149 Windows functions pass** in standard private Windows Temp, zero failures/skips.
+  Four Unix-only functions are not compiled there. Source hashes, fresh records and actual compiler commands are verified.
+- Hardening (exploit mitigations): **33 normal/31 sanitizer Linux main programs, 16/13 products, 21 Windows program headers** pass.
+- Readiness wording: **16 Python tests per platform pass**; workflow **Windows 14 pass/1 skip; Linux 15 pass**.
 
 ## Remaining and next
 
-QQ lint (Qt's interface-language checker) fails: **149 console/174 structured warnings**, four Inspector findings removed,
-none added. **12 Wayland metadata warnings** match their baseline. A pinned Rust dependency fails its warning gate;
-repair belongs upstream. Listing/planning remain on the window thread without a latency budget.
+Checkout-local Windows Store still fails: **613 pass/1 fail**, zero skips. Diagnostics read **Access denied (5)** after the
+staging rename failed. Two checkout-root controls fail; two outside-root controls pass. Cause unresolved; temporary
+diagnostics were restored. No permissions or security settings changed, and no other process was interrupted.
 
-Readiness: **16 Python tests per platform pass**; workflow **Windows 14 pass/1 skip; Linux 15 pass**.
-Windows collector: **9 cases/7 functions pass**, zero failures/skips; hardening reads 21 program headers.
-Next: check Windows Store validation. Commands: `build/autonomous-2026-11-04/HANDOFF.md`.
+QQ lint (interface-language checking) fails at **149 console/174 structured warnings**, four Inspector findings removed,
+none added. **12 Wayland metadata warnings** match baseline. A pinned Rust dependency fails its warning gate; repair belongs
+upstream. Listing/planning remain on the window thread without a latency budget.
 
+Next: independent Windows Store/service checks. Exact commands and resume point: `build/autonomous-2026-11-04/HANDOFF.md`.
 Full OS/Rust suites, Windows products, native Linux graphics/sound/controllers and image/install proof remain unrun.
-Software observations in `docs/PERFORMANCE.md` clear no hardware budget. Zero-warning gates are unmet.
-VM (virtual machine) Create/Prove commands are prepared in `docs/CI.md`; neither ran. Next owner decision: Create
-go-ahead. Licensing prerequisites and proof gate the guest Qt kit and runner. No runner settings, isolation flags,
-licences or accounts changed; nothing was merged, deployed or published.
+Software observations clear no hardware budget. Zero-warning gates remain unmet.
+
+VM (virtual machine) Create/Prove commands are prepared in `docs/CI.md`; neither ran. Next owner decision: Create go-ahead.
+Licensing prerequisites and actual proof gate the guest Qt kit and runner. No runner settings, isolation flags, licences
+or accounts changed; nothing was merged, deployed or published.

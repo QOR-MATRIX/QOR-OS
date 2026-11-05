@@ -14,6 +14,16 @@ QOR OS begins: QTOS and Demiurge's device-side products in one repository
 
 ### Added
 
+- **Native Windows Store checks retain a location-specific failure.** In a standard private Windows Temp root, the
+  unfiltered format-2 suite passes 614 Qt cases and all 149 Windows functions, zero failures/skips/blacklists. The
+  original checkout-local root passes 613 and fails the many-file install. The same unchanged case fails in two
+  checkout roots and passes in private roots on C: and X: outside the checkout. Temporary diagnostics read Windows
+  error 5 after the staging rename failed; the cause remains unresolved. That logging was restored byte-for-byte,
+  with no retry, deadline, predicate, process or security-policy change. Fresh rebuilt-program records, 115 source/public
+  input hashes, Windows CNG compiler commands and hardening (21 existing program headers) are verified. Four Unix-only
+  functions are not compiled on Windows. The standard-temp pass does not clear the original failed gate or prove
+  native hardware, full-build or isolation readiness.
+
 - **The collector is checked on native Windows.** Existing commercial Qt 6.12/MSVC 19.44 builds the selected
   `ci-windows` target cleanly. Its hidden software suite passes all nine Qt cases/seven functions, zero failures/skips,
   covering directory-output exit 1, complete stale-report replacement, stalls and idle/thread behavior. Fresh records,

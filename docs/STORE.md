@@ -470,6 +470,22 @@ marked and so shaped. A record rebuilt from the folders has none, and says `"pro
 nothing of it. An engine that does not know these fields reads the rest of the entry as before. QQ Studio's asset library reads
 it into a project's `assets.lock.json`.
 
+**Native Windows validation, 5 November 2026.** With the existing commercial Qt 6.12/MSVC kit and a private standard
+Windows Temp root, the unfiltered format-2 suite passes 614 Qt cases/all 149 Windows functions, zero failures/skips.
+It uses temporary stores, in-memory CNG test keys and a loopback shop. Fresh records, the rebuilt executable, 115
+source/public-input hashes and actual Windows compiler commands are verified; hardening reads 21 existing program
+headers with none falling short. Four Unix-only functions are not compiled on Windows: link-cleanup, rollback/removal
+that cannot delete, and deep-tree handle bounds. The live-holder test runs, but its optional lock-file age change
+compiles out on Windows. These exclusions count as neither Windows passes nor skips.
+
+The checkout-local temporary root still fails the many-file install: 613 cases pass, one fails, none skip. Two
+unchanged-program controls fail inside the checkout and two pass outside it, on C: and on the same X: volume.
+Both volumes report NTFS with 4 KiB allocation units; the checkout test roots are not case-sensitive. Temporary
+diagnostics read native error 5 (Access denied) immediately after the staging-directory rename failed; its cause or
+holder has not been identified. The diagnostic source was restored exactly before the passing full run. No retries,
+assertions, time limits, permissions, other processes or security settings were changed. The outside-temp result does
+not resolve this checkout-local failure, or prove hardware, full OS builds, CI execution or runner isolation.
+
 ## Roadmap
 
 **QOR OS 1.0 moves no money**
