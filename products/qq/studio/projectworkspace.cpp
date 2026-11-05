@@ -537,7 +537,7 @@ QVariantMap readCopy(const QString &path, const QString &root, QString *why)
         return refuse(ProjectWorkspace::tr("could not be tied to this project folder"));
 #ifdef Q_OS_WIN
     const QString recorded = kept.value(QStringLiteral("folder")).toString();
-    static const QRegularExpression timestamp(QStringLiteral("^[0-9]+\\z"));
+    static const QRegularExpression timestamp(QStringLiteral("^-?[0-9]+\\z"));
     if (recorded.isEmpty() || timestamp.match(recorded).hasMatch())
         return refuse(ProjectWorkspace::tr("records only an older creation-time identity and needs manual review"));
 #endif

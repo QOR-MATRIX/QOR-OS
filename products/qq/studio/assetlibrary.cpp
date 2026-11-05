@@ -709,7 +709,7 @@ Settled settle(const QString &realProject, const Journal &journal)
         return settled;
     }
 #ifdef Q_OS_WIN
-    static const QRegularExpression timestamp(QStringLiteral("^[0-9]+\\z"));
+    static const QRegularExpression timestamp(QStringLiteral("^-?[0-9]+\\z"));
     if (timestamp.match(journal.identity).hasMatch()) {
         settled.stuck = tr("This older Windows journal records only a creation-time identity. It and the staged files were kept for manual review.");
         return settled;

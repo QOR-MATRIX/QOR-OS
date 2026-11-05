@@ -245,7 +245,8 @@ it; the QQ Player plays a scene on its own, natively and in a browser.
   is, and what was set aside and could not go back stays in the staging folder, and both are said. A journal for another folder now in
   that place, or whose staging folder has gone (`git clean`, a restore), moves nothing and is dropped, and that is said. If the
   project folder cannot be identified, its journal and staged files stay; bringing the original folder back permits recovery.
-  Older timestamp-only Windows journals also stay, for manual review rather than automatic migration. While a journal remains,
+  Older timestamp-only Windows journals also stay, including negative values for dates before 1970, for manual review rather
+  than automatic migration. While a journal remains,
   another asset transaction is refused, so it cannot overwrite the unresolved record. New transactions require a readable folder
   identity; Windows uses the volume and file ID from [the Windows API](https://learn.microsoft.com/en-us/windows/win32/api/winbase/ns-winbase-file_id_info),
   refusing unavailable or all-zero identifiers. On Linux each
@@ -421,7 +422,7 @@ every frame `tst_world` judges.
 
 Native Windows asset data now has a separate, limited check: the existing commercial Qt 6.12/MSVC kit builds
 `tst_assetlibrary` and its Studio dependency in an isolated cache with warnings as errors and hardening enabled.
-The 35 selected file/JSON/image functions pass 72 Qt cases, zero failures/skips, including all selected link checks.
+The 35 selected file/JSON/image functions pass 78 Qt cases, zero failures/skips, including all selected link checks.
 Two pre-existing compiler warnings were corrected without changing option matching or provenance assertions.
 The tests use temporary projects and Qt's test-mode storage, an offscreen/software configuration, and
 `QT_D3D_ADAPTER_INDEX=0` to bypass QQ's static adapter enumeration. They do not open Studio/Player windows, load
@@ -454,8 +455,14 @@ release fallback, alongside the existing literal-error/startup checks and actual
 Player Qt cases pass per Release/ASan/UBSan build, zero failures/skips. Windows and Linux Player lint now pass with
 zero warnings; whole QQ still fails at 142 console/167 structured warnings, two old findings removed and none added.
 Fresh records and the exact scope, including the unrun full 2D frame-rate gate, are in
-`build/autonomous-2026-11-04/player-labels-verified.json`. Review's next recovery fix is the legacy Windows matcher:
-it currently misses negative timestamps from dates before 1970; no personal records were inspected.
+`build/autonomous-2026-11-04/player-labels-verified.json`.
+
+The legacy Windows matcher now includes pre-1970 timestamps. Positive, zero, negative and missing identities have
+native preservation/review checks for both journals and workspace copies. The two negative rows first failed on the
+digits-only matcher; adding an optional minus sign makes all 78 native data cases pass, with zero failures/skips.
+Common Linux Release/ASan/UBSan still passes 69 cases per build; the Windows-only methods are not compiled there.
+The same test source was used red/green, and neither trust nor automatic recovery was loosened. No personal records
+were inspected. Exact proof is `build/autonomous-2026-11-04/legacy-negative-verified.json`.
 
 ## The Player, measured (10 October 2026)
 

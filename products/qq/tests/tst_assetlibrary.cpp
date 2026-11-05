@@ -95,6 +95,15 @@ bool makeLink(const QString &target, const QString &where)
 }
 
 #ifdef Q_OS_WIN
+void oldWindowsIdentities()
+{
+    QTest::addColumn<QString>("recordedIdentity");
+    QTest::newRow("positive") << QString::number(qint64(1000));
+    QTest::newRow("zero") << QString::number(qint64(0));
+    QTest::newRow("negative") << QString::number(qint64(-1000));
+    QTest::newRow("missing") << QString();
+}
+
 bool copyFolderCreationTime(const QString &from, const QString &to)
 {
     const QString source = QDir::toNativeSeparators(from);
@@ -1388,8 +1397,11 @@ private slots:
     }
 
     /// Timestamp-only journals cannot prove ownership: keep their bytes and block a new transaction over them.
+    void anOlderWindowsJournalIsKeptForReview_data() { oldWindowsIdentities(); }
+
     void anOlderWindowsJournalIsKeptForReview()
     {
+        QFETCH(QString, recordedIdentity);
         Store store;
         store.add(kId, QStringLiteral("1.0.0"), firstVersion());
         Project project;
@@ -1403,7 +1415,7 @@ private slots:
         const QString journal = AssetLibrary::journalFor(project.real());
         const auto cleanUpJournal = qScopeGuard([journal] { QFile::remove(journal); });
         QJsonObject legacy = QJsonDocument::fromJson(readBytes(journal)).object();
-        legacy.insert(QStringLiteral("identity"), QString::number(QFileInfo(project.path()).birthTime().toMSecsSinceEpoch()));
+        legacy.insert(QStringLiteral("identity"), recordedIdentity);
         const QByteArray savedJournal = QJsonDocument(legacy).toJson();
         QVERIFY(writeFile(journal, savedJournal));
         const auto before = snapshot(project.path());
@@ -1416,8 +1428,11 @@ private slots:
     }
 
     /// Unsaved text from an older identity or a replacement folder is preserved without being offered for restore.
+    void recoveryCopiesRequireTheOriginalWindowsFolder_data() { oldWindowsIdentities(); }
+
     void recoveryCopiesRequireTheOriginalWindowsFolder()
     {
+        QFETCH(QString, recordedIdentity);
         Project project;
         QString copy;
         {
@@ -1431,7 +1446,7 @@ private slots:
         const QByteArray original = readBytes(copy);
         QVERIFY(!original.isEmpty());
         QJsonObject legacy = QJsonDocument::fromJson(original).object();
-        legacy.insert(QStringLiteral("folder"), QString::number(QFileInfo(project.path()).birthTime().toMSecsSinceEpoch()));
+        legacy.insert(QStringLiteral("folder"), recordedIdentity);
         const QByteArray older = QJsonDocument(legacy).toJson();
         QVERIFY(writeFile(copy, older));
         qq::ProjectWorkspace reader;

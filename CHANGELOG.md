@@ -309,6 +309,15 @@ QOR OS begins: QTOS and Demiurge's device-side products in one repository
 
 ### Fixed
 
+- **Pre-1970 Windows recovery records keep the same protection.** The legacy matcher recognizes the optional minus
+  sign emitted by the old timestamp identity format. Negative journals now stay for review and block a new transaction;
+  negative workspace copies keep the correct review explanation. Two synthetic negative rows first failed with native
+  and wrapper exit 2 while positive/zero/missing identities passed. The same tests now pass within 78 native data
+  cases/35 functions, zero failures/skips; shared Linux Release/ASan/UBSan passes 69/32 per build. The three Windows
+  functions are not compiled on Linux. The two production changes only add the optional sign; automatic migration,
+  file-ID checks and trust rules remain unchanged. Fresh source/program/ASan/hardening records pass, without reading
+  any personal recovery records.
+
 - **Player labels retain their scene and follower interfaces.** Dynamic property reads keep titles and movement hints
   bound to different scene/player types, preserving the existing guards, text and fallback branches. New compatibility
   coverage checks name/style edits, absent followers, the 3D hint and release fallback; existing plain-text/error and
