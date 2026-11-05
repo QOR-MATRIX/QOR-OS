@@ -448,8 +448,9 @@ unpublished builds stay out of reach.
   failures/skips, in 113.07/113.31 seconds under its unchanged 300-second deadline. Each checks two Studio builds,
   three real Player launches, current Prism Library discovery/request and playback after the temporary project is gone.
   Fresh native records, source hashes and nine program identities are verified. Prism uses a recording stand-in and the
-  real Player runs separately; Root Prism itself is not sanitizer-instrumented. The selected strict Root build links with
-  its pinned core and hardening passes 25 programs, but its wrapper exits 1 for the same 12 inherited Wayland metadata
+  real Player runs separately; Root Prism itself is not sanitizer-instrumented. The selected strict Root build uses
+  the core-enabled profile, but Prism itself does not link the core. Hardening passes 25 programs; the wrapper exits 1
+  for the same 12 inherited Wayland metadata
   warnings, none added/removed. This is functional software evidence, with the warning/full-OS/hardware gates still unmet.
   Earlier, 48 scene cases passed in Release and under sanitizers, including malformed-image readiness; six selected screen-play
   functions pass (8 Qt cases including setup/cleanup). The earlier broader play run and a clean detached baseline each had
