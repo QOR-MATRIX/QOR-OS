@@ -14,6 +14,13 @@ QOR OS begins: QTOS and Demiurge's device-side products in one repository
 
 ### Added
 
+- **Current Store format-2 security validation.** At `80de855`, all 621 Qt cases and 153 ordinary test functions pass
+  unfiltered in each main profile, zero failures/skips/blacklists. Fresh records, 112 unchanged source/public-fixture
+  fingerprints, sanitizer flags on all six parser/engine readers, library linkage and unchanged profile settings are verified.
+  Normal/sanitizer runs take 33.59/78.32 seconds; hardening passes 28/26 main-build programs. The job exits 0 without
+  build/licence-failure diagnostics. Application builds use GCC 15.2/CMake 4.2.3; Qt's GCC 11.5 string describes its library.
+  Test-generated keys and localhost data remain separate from owner keys. No fixture regeneration, core/OS/hardware
+  readiness or zero-warning claim is made; the separate pinned-core Rust warning and known lint gates remain failed.
 - **QQ imported-model coverage.** Two focused real-window tests cover Game startup and a pick box across empty,
   valid, cleared, failed and repeated loads, with the reported undefined-vector diagnostic made fatal. Alongside existing
   animation and Studio selection controls, 5 Play/3 Studio Qt cases pass per Release/ASan build, zero failures/skips.
