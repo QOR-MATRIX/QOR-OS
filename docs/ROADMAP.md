@@ -392,6 +392,9 @@ unpublished builds stay out of reach.
   Music’s bound private voice factories remove four more lint findings, none added: 239 console messages/264 structured
   warnings. Ambient and WebVoice factory crossfades pass four Qt cases per Release/sanitizer build, zero failures/skips,
   with unchanged gain/fade/release/stop assertions. Hardening passes 16/12; physical sound/browser playback remains unproved.
+  Sprite’s bound collider/body factories remove 19 findings, none added: 220 console messages/245 structured warnings.
+  Seven Qt cases per Release/sanitizer build pass, zero failed/skipped: crisp/animated pixels and dynamic sprites landing
+  on static/kinematic sprite floors with contact reports and plane locks. Both programs are relinked; hardening passes 16/12.
   The latest 48 scene cases pass in Release and under sanitizers, including malformed-image readiness; six selected screen-play
   functions pass (8 Qt cases including setup/cleanup). The earlier broader play run and a clean detached baseline each had
   the same 11 failures. Test clock waits and guaranteed fake-controller cleanup subsequently bring all 53 play cases to a pass,

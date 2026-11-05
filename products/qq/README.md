@@ -35,7 +35,8 @@ it; the QQ Player plays a scene on its own, natively and in a browser.
   platformer's hero or a top-down one, under the same input as everything else, carrying a Sprite as its look and
   saying what it is doing (`activity`) so logic plays the right frames; `respawn()` puts it back. Since P3.11 it moves
   by QQ's own kinematics, not PhysX. Shapes and sprites with bodies stay on the plane and turn only about its depth
-  axis.
+  axis. Sprite’s private collider and body factories bind to its owning instance; tests cover dynamic sprites landing on
+  static and kinematic sprite floors, contact reports, plane locks and crisp/animated pixels.
 - **Steps, seeds and replay (P3.11, built 19 October 2026; ADR-105 decision 6):** play moves in ticks of 1/60 s,
   whatever the frame rate. Each frame's time is paid in whole ticks, at most eight a frame. Each tick takes the player's
   hands and the buttons clicked, and then, unless the world is paused, steps.

@@ -2915,15 +2915,38 @@ private slots:
                  qPrintable(QStringLiteral("look at %1, %2").arg(carried.x()).arg(carried.y())));
     }
 
+    void aDynamicBodyInA2DSceneStaysOnThePlane_data()
+    {
+        QTest::addColumn<QString>("floor");
+        QTest::addColumn<QString>("crateText");
+        QTest::newRow("shapes")
+            << QStringLiteral("Shape { name: \"Floor\"; position: Qt.vector3d(0, -0.5, 0); scale: Qt.vector3d(20, 1, 4) }")
+            << QStringLiteral("Shape { name: \"Crate\"; position: Qt.vector3d(0, 3, 0); eulerRotation: Qt.vector3d(0, 0, 30); "
+                              "body: \"dynamic\" }");
+        for (const char *body : {"static", "kinematic"})
+            QTest::newRow(body)
+                << QStringLiteral("Sprite { name: \"Floor\"; source: \"../assets/sheet.png\"; columns: 4; rows: 2; "
+                                  "position: Qt.vector3d(0, -0.5, 0); scale: Qt.vector3d(40, 2, 1); body: \"%1\" }")
+                       .arg(QLatin1String(body))
+                << QStringLiteral("Sprite { name: \"Crate\"; source: \"../assets/sheet.png\"; columns: 4; rows: 2; "
+                                  "position: Qt.vector3d(0, 3, 0); eulerRotation: Qt.vector3d(0, 0, 30); "
+                                  "scale: Qt.vector3d(2, 2, 1); body: \"dynamic\" }");
+    }
+
     void aDynamicBodyInA2DSceneStaysOnThePlane()
     {
+        QFETCH(QString, floor);
+        QFETCH(QString, crateText);
+        FlatProject project;
         Stage s;
-        QVERIFY(s.open(flatText(QStringLiteral(
-            "    Shape { name: \"Floor\"; position: Qt.vector3d(0, -0.5, 0); scale: Qt.vector3d(20, 1, 4) }\n"
-            "    Shape { name: \"Crate\"; position: Qt.vector3d(0, 3, 0); eulerRotation: Qt.vector3d(0, 0, 30); "
-            "body: \"dynamic\" }\n"))));
+        QVERIFY(s.open(flatText(floor + QLatin1Char('\n') + crateText + QLatin1Char('\n')), true, project.scene()));
         s.flat(16, 12, QVector3D(0, 1, 0));
         QObject *crate = s.entity(QStringLiteral("Crate"));
+        QObject *floorEntity = s.entity(QStringLiteral("Floor"));
+        QSignalSpy floorContact(floorEntity, SIGNAL(contact(QObject *, QVector3D, QVector3D)));
+        QSignalSpy crateContact(crate, SIGNAL(contact(QObject *, QVector3D, QVector3D)));
+        QVERIFY(floorContact.isValid());
+        QVERIFY(crateContact.isValid());
         QVERIFY(s.runUntil([&s] { return s.where(QStringLiteral("Crate")).y() < 2.5f; }, 5000));
         // Pushed into the depth and spun about every axis: it moves only on the plane and turns only about the depth axis.
         QVERIFY(QMetaObject::invokeMethod(crate, "push", Q_ARG(QVariant, QVariant::fromValue(QVector3D(2, 0, 8)))));
@@ -2931,6 +2954,10 @@ private slots:
         const QVector3D at = s.where(QStringLiteral("Crate"));
         QVERIFY2(qAbs(at.z()) < 0.01f, qPrintable(QStringLiteral("moved to z %1").arg(at.z())));
         QVERIFY(at.x() > 0.2f);
+        // The frame-sized collider lands on the floor, and both body factories report the contact.
+        QVERIFY2(at.y() > 0.35f && at.y() < 1.0f, qPrintable(QStringLiteral("landed at y %1").arg(at.y())));
+        QVERIFY(!floorContact.isEmpty());
+        QVERIFY(!crateContact.isEmpty());
         const QVector3D turned = crate->property("physics").value<QObject *>()->property("eulerRotation").value<QVector3D>();
         QVERIFY2(qAbs(turned.x()) < 0.5f && qAbs(turned.y()) < 0.5f,
                  qPrintable(QStringLiteral("turned %1, %2, %3").arg(turned.x()).arg(turned.y()).arg(turned.z())));

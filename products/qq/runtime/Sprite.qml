@@ -8,6 +8,10 @@
 // plane and turns only about the depth axis, or not at all when `turns` is off (a character, a crate that slides).
 // Logic hears its contacts and pushes it as it does a Shape's.
 
+// Changed for QOR OS: frame colliders and all private body factories bind to their owning sprite.
+
+pragma ComponentBehavior: Bound
+
 import QtQuick
 import QtQuick3D
 import QtQuick3D.Physics
