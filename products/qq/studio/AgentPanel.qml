@@ -12,6 +12,7 @@
 // Changed for QOR OS: whether the agent's logic may run; answers, status and key problems are text, never markup (QOR-0018).
 
 // Changed for QOR OS: step delegates keep their panel context and read roles from their own row.
+// Changed for QOR OS: body step fonts name the startup application's typed singleton.
 
 pragma ComponentBehavior: Bound
 
@@ -175,7 +176,7 @@ ColumnLayout {
                 textFormat: Text.PlainText
                 text: stepRow.modelData.text
                 font.pixelSize: stepRow.modelData.kind === "said" ? 13 : 12
-                font.family: stepRow.modelData.kind === "tool" || stepRow.modelData.kind === "frame" ? Look.mono : Qt.application.font.family
+                font.family: stepRow.modelData.kind === "tool" || stepRow.modelData.kind === "frame" ? Look.mono : Application.font.family
                 color: stepRow.modelData.failed ? Look.bad : stepRow.modelData.kind === "done" ? Look.ok : Look.inkBody
                 opacity: stepRow.modelData.kind === "tool" ? 0.65 : 1
             }

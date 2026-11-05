@@ -13,6 +13,7 @@
 // Changed for QOR OS: supplied status and key-problem labels must remain literal text.
 
 // Changed for QOR OS: inert step rows verify the actual agent panel's model bindings and literal text.
+// Changed for QOR OS: body and tool rows retain their startup application and mono font choices.
 
 #include <QColor>
 #include <QDir>
@@ -20,6 +21,7 @@
 #include <QFile>
 #include <QFileInfo>
 #include <QFont>
+#include <QGuiApplication>
 #include <QImage>
 #include <QJsonArray>
 #include <QJsonDocument>
@@ -55,6 +57,7 @@
 #include "gamebuild.h"
 #include "gpu.h"
 #include "keychain.h"
+#include "look.h"
 #include "mcpserver.h"
 #include "sceneio.h"
 #include "studiotools.h"
@@ -364,6 +367,11 @@ private slots:
     void agentStepRowsStayBoundAndPlain()
     {
         // Real panel and two inert model rows: no provider, keychain or outside image.
+        const QFont originalFont = QGuiApplication::font();
+        const auto restoreFont = qScopeGuard([originalFont] { QGuiApplication::setFont(originalFont); });
+        QFont bodyFont = originalFont;
+        bodyFont.setFamily(QStringLiteral("Test startup body family"));
+        QGuiApplication::setFont(bodyFont);
         QQuickWindow window;
         QQmlEngine engine;
         QQmlComponent state(&engine);
@@ -408,6 +416,10 @@ private slots:
         QCOMPARE(label(tool)->property("textFormat").toInt(), int(Qt::PlainText));
         QCOMPARE(label(said)->property("font").value<QFont>().pixelSize(), 13);
         QCOMPARE(label(tool)->property("font").value<QFont>().pixelSize(), 12);
+        auto *look = engine.singletonInstance<qq::Look *>("QQ", "Look");
+        QVERIFY(look);
+        QCOMPARE(label(said)->property("font").value<QFont>().family(), bodyFont.family());
+        QCOMPARE(label(tool)->property("font").value<QFont>().family(), look->mono());
 
         const QString later = QStringLiteral("<u>Inert replacement</u>");
         QVERIFY(designer->setProperty("steps", QVariantList{row(QStringLiteral("tool"), later)}));
@@ -415,6 +427,7 @@ private slots:
         QTRY_VERIFY(!label(said) && !label(tool));
         QCOMPARE(label(later)->property("textFormat").toInt(), int(Qt::PlainText));
         QCOMPARE(label(later)->property("font").value<QFont>().pixelSize(), 12);
+        QCOMPARE(label(later)->property("font").value<QFont>().family(), look->mono());
     }
 
     // ── the protocol ──

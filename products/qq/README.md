@@ -489,6 +489,20 @@ build setting. Native Windows/Linux lint remove eighteen old findings and add no
 warnings and aggregate exit 1. Exact scope, source/copied-QML/program/fresh-object records, actual sanitizer flags and
 hardening 16/13 Linux/three native product headers are in `build/autonomous-2026-11-04/group-state-verified.json`.
 
+Agent body rows now qualify the startup font through the existing QtQuick `Application` singleton. Five inert panel
+cases pass per Release/ASan/UBSan/native Windows build, zero failures/skips, retaining startup body/mono choices,
+literal text and replacement rows. Additive startup coverage passes unchanged before/after; no old assertion is removed.
+An exploratory notification expectation failed in both forms; Qt's property is constant, so no live-update feature is
+claimed. That experiment was retained and the original tests restored before the startup-only additions. Native/Linux
+lint remove one old font finding and add none, leaving 121 console/136 structured warnings and aggregate exit 1.
+Source/copied-QML/program/object records, actual compiler flags and hardening 16/13 Linux/five native product headers
+are verified in `build/autonomous-2026-11-04/application-font-startup-verified.json`. No provider or keychain flow runs.
+
+At the authorised push checkpoint, recovery data is refreshed at 69 cases/32 functions per Release/ASan/UBSan build,
+zero failures/skips. The current real Studio crash case still fails before crash/restore at the initialization helper
+(2 passes/1 failure, CTest/wrapper 8); its sanitizer counterpart remains unrun. Passing data tests do not clear that
+interface failure. Exact fresh records use `build/autonomous-2026-11-04/authorized-push-*`.
+
 ## The Player, measured (10 October 2026)
 
 On the owner's laptop (RTX 4060 Laptop GPU), on mains power, playing the bundled playground at 1280 × 720, locked down

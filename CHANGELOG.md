@@ -14,6 +14,24 @@ QOR OS begins: QTOS and Demiurge's device-side products in one repository
 
 ### Added
 
+- **Agent step fonts use the existing typed Application singleton.** The body startup font, tool mono face, literal
+  text and model replacement pass five inert panel cases per QQ Release/ASan/UBSan/native Windows build, zero
+  failures/skips. The same additive startup checks pass before and after the one-expression qualifier change;
+  every pre-existing assertion remains. Native/Linux lint remove one old finding and add none, leaving 121 console/
+  136 structured warnings and aggregate exit 1. Actual objects/programs/compiler flags and hardening 16/13 Linux/
+  five native product headers are verified. An exploratory live-font-update expectation failed in both forms and
+  was discarded because Qt declares this property constant; original tests were restored before adding the valid
+  startup coverage. Those failed experiments remain recorded, and no live-update feature or full product pass is claimed.
+
+- **The authorised push checkpoint refreshes its failures as well as passes.** Recovery data passes 69 Qt cases/
+  32 functions per QQ Release/ASan/UBSan build, zero failures/skips. The actual Studio crash case still fails at its
+  initialization helper before any crash/restore (2 passes/1 failure, exit 8); its sanitizer counterpart remains unrun.
+  The current checkout-local Windows Store full suite still reports 613 passes/1 failure, zero skips, exit 8, although
+  the same-program isolated many-file case passes. Earlier Access-denied diagnostics remain a lead, with no cause
+  or source fix established. Windows Python tools pass 376 tests/56 skips and Linux 305/127, zero failures; skips
+  remain skips. Signed catalogue, token, header and tracked-file credential checks pass. This is development progress,
+  with required warning/build/hardware/isolation gates still unmet.
+
 - **Group and Prefab state reads preserve mixed parent types.** Private structural readers retain strict boolean
   checks, null/undefined guards, numeric/view defaults and live nested bindings. New compatibility rows first pass on
   the unchanged implementation and then pass with identical test source. Fourteen Qt cases across seven functions
