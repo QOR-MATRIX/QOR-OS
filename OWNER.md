@@ -15,18 +15,20 @@ Latest jobs have a 1.75 GiB hard cap.
   Recovery, tags, trust, checked previews and provenance retain regression checks.
 - Store **format 2/legacy/Library/pages/front-end: 621/11/23/18/39 cases per main profile**, zero failures/skips;
   all **153/9/9/16/28 functions** ran. Fresh records, fingerprints and sanitizer flags are verified.
-  Hardening (exploit mitigations) passes **32 normal/30 sanitizer main-build programs** and **16/13 product programs**.
+  Hardening (exploit mitigations) passes **33 normal/31 sanitizer main-build programs** and **16/13 product programs**.
 - Shape factories preserve public interfaces and 2D axis locks: **52 Scene/10 selected physics cases pass per product build**,
   zero failures/skips. Group waits use software game clocks; GPU waits, tolerances and frame-rate checks remain.
 - Failed scripts omit the complete request object while keeping their step number, reason and **exit 4**.
   An actual-process regression reproduced argument disclosure; **3 Qt cases plus client/text-privacy controls pass per
-  main profile**, zero failures/skips. Captured output stays in memory. A short private runtime fixes the new test's Unix
-  socket-path limit. Earlier failures remain recorded.
-- The complete journey at `d111bdc` passes once per product build: two Studio builds, three real Player launches,
-  Prism's Library request and playback after project removal. Prism, the compositor and shell, uses a recording stand-in;
-  actual Player playback runs separately. This journey's Prism is not instrumented.
+  main profile**, zero failures/skips. A short private runtime fixes the new test's Unix
+  socket-path limit. Failures remain recorded.
+- The complete journey at `d111bdc` passes per product build, including real Player playback after project removal.
+  Prism (compositor and shell) records a stand-in. Prism has no sanitizers in this journey.
 - **17 service/10 simulator/11 device-option cases pass per main profile**, zero failures/skips; the core C interface
   passes **9 normal-profile cases**. The sanitizer profile keeps the core off.
+
+- Benchmark output failures return **exit 1**. All **11 collector cases/8 functions per main profile** pass,
+  zero failures/skips, alongside actual compositor failed/successful report checks.
 
 ## Remaining and next
 
@@ -34,7 +36,7 @@ QQ lint (Qt's interface-language checker) fails: **153 console/178 structured wa
 none added. **12 Wayland metadata warnings** match their baseline. A pinned Rust dependency fails its warning gate;
 repair belongs upstream. Listing/planning remain on the window thread without a latency budget.
 
-Next: reproduce benchmark report-write failure propagation with temporary data. Exact commands, failures, fingerprints
+Next: reduce remaining QQ metadata findings in small batches. Exact commands, failures, fingerprints
 and resume point: `build/autonomous-2026-11-04/HANDOFF.md`.
 
 Full OS/Rust suites, Windows products, native Linux graphics/sound/controllers and image/install proof remain unrun.

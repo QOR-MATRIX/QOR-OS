@@ -75,6 +75,80 @@ class FrameCaptureTest : public QObject
 {
     Q_OBJECT
 private slots:
+    void reportWriteFailureFailsTheCommand_data()
+    {
+        QTest::addColumn<bool>("fullSink");
+        QTest::newRow("directory") << false;
+#if defined(Q_OS_LINUX)
+        // A kernel-provided sink that always refuses writes, with no physical disk or user data involved.
+        QTest::newRow("full-sink") << true;
+#endif
+    }
+
+    void reportWriteFailureFailsTheCommand()
+    {
+        QFETCH(bool, fullSink);
+        QTemporaryDir folder;
+        QVERIFY(folder.isValid());
+        const QString sentinel = folder.filePath(QStringLiteral("keep"));
+        QFile keep(sentinel);
+        QVERIFY(keep.open(QIODevice::WriteOnly));
+        QCOMPARE(keep.write("unchanged"), 9);
+        keep.close();
+
+        QProcess child;
+        child.start(QCoreApplication::applicationFilePath(),
+                    { QStringLiteral("--capture"), fullSink ? QStringLiteral("/dev/full") : folder.path() });
+        QVERIFY2(child.waitForFinished(15000), qPrintable(child.errorString()));
+        QCOMPARE(child.exitStatus(), QProcess::NormalExit);
+        QCOMPARE(child.exitCode(), 1);
+        QVERIFY(child.readAllStandardError().contains("Could not write benchmark report."));
+        QVERIFY(keep.open(QIODevice::ReadOnly));
+        QCOMPARE(keep.readAll(), QByteArrayLiteral("unchanged"));
+    }
+
+    void aReportReplacesStaleOutputWithCompleteJson()
+    {
+        QTemporaryDir folder;
+        QVERIFY(folder.isValid());
+        const QString path = folder.filePath(QStringLiteral("report.json"));
+        QFile file(path);
+        QVERIFY(file.open(QIODevice::WriteOnly));
+        const QByteArray stale(16384, 'x');
+        QCOMPARE(file.write(stale), stale.size());
+        file.close();
+
+        QProcess child;
+        child.start(QCoreApplication::applicationFilePath(), { QStringLiteral("--capture"), path });
+        QVERIFY2(child.waitForFinished(15000), qPrintable(child.errorString()));
+        QCOMPARE(child.exitStatus(), QProcess::NormalExit);
+        QCOMPARE(child.exitCode(), 0);
+        QVERIFY(file.open(QIODevice::ReadOnly));
+        QJsonParseError error;
+        const QJsonDocument document = QJsonDocument::fromJson(file.readAll(), &error);
+        QCOMPARE(error.error, QJsonParseError::NoError);
+        QVERIFY(document.isObject());
+        QCOMPARE(document.object().value(QStringLiteral("tool")).toString(), QStringLiteral("synthetic-frame-test"));
+        QVERIFY(document.object().value(QStringLiteral("frames")).toInt() > 0);
+    }
+
+#if defined(Q_OS_LINUX)
+    void stdoutWriteFailureFailsTheCommand()
+    {
+        QTemporaryDir folder;
+        QVERIFY(folder.isValid());
+        const QString path = folder.filePath(QStringLiteral("report.json"));
+        QProcess child;
+        child.setStandardOutputFile(QStringLiteral("/dev/full"));
+        child.start(QCoreApplication::applicationFilePath(), { QStringLiteral("--capture"), path });
+        QVERIFY2(child.waitForFinished(15000), qPrintable(child.errorString()));
+        QCOMPARE(child.exitStatus(), QProcess::NormalExit);
+        QCOMPARE(child.exitCode(), 1);
+        QVERIFY(child.readAllStandardError().contains("Could not write benchmark report."));
+        QVERIFY(QFile::exists(path));
+    }
+#endif
+
     void continuousBenchmarkRetainsAStall()
     {
         QTemporaryDir folder;

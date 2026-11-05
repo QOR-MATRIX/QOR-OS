@@ -110,6 +110,23 @@ The tour measures ordinary shell behavior; failure-output correctness has its ow
 sequential. Exact binary/report fingerprints, commands, context and individual observations are retained under
 `build/autonomous-2026-11-04/script-privacy-bench-*-record.json` and `script-privacy-bench-verified.json`.
 
+### Benchmark report-write checks (2026-11-05, software only)
+
+The subsequent report-write fix is measured in the same private WSL/software context above. The preceding three after
+runs serve as this change's before baseline: their exact binary matches the actual failed-write reproducer, and the
+benchmark source was unchanged. Three new after reports use the rebuilt normal compositor. All reports are fresh with
+40 posted/measured input samples; the report's graphics API remains `unknown`. Medians:
+
+| Version | Runs | Average frame interval | p95 frame interval | Input to swap p50 / p95 |
+|---------|------|------------------------|--------------------|-------------------------|
+| Before | 3 | 8.10 ms | 9.32 ms | 7.96 / 10.82 ms |
+| After | 3 | 8.07 ms | 9.19 ms | 7.94 / 10.99 ms |
+
+Report I/O happens after the measured tour and input samples. These sequential observations establish no speed or
+native hardware budget result. Exact source/binary/report fingerprints and baseline provenance are retained in
+`build/autonomous-2026-11-04/benchmark-report-bench-verified.json`. Process regressions separately verify failed output
+returns exit 1 and successful fresh reports remain complete. No atomic-write or power-loss guarantee is implied.
+
 ### Input-to-swap latency (2026-10-24)
 
 `inputToSwap` times a pointer move over the Shelf. The clock starts when the

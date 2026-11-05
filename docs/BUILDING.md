@@ -302,6 +302,13 @@ modules in `build/<preset>/qml/`, plugins in `build/<preset>/plugins/`.
 | `--benchmark <seconds> [--benchmark-out file]` | Scripted animation tour, prints frame-pacing JSON, exits |
 | `--script <file>` | Drive the shell with a JSON script and exit ([DEVELOPMENT.md](DEVELOPMENT.md)) |
 
+For both `qor-shell` and `prism`, benchmark report output is part of the command's result. A failed requested-file
+open, incomplete write, flush/close failure or stdout write/flush failure returns exit 1 with a generic diagnostic.
+Successful reports keep their JSON schema and replace an existing report. Automation must check the native exit
+status and require its own fresh, regular report file; an older file does not establish a successful run. These writes
+are not an atomic replacement or a power-loss durability guarantee. `tst_framecapture` covers directory failure,
+Linux virtual-full-sink file/stdout failure and complete stale-file replacement through actual subprocesses.
+
 `--screenshot`, `--benchmark` and `--script` render audio silently (the
 engine's null output; see [AUDIO.md](AUDIO.md)), see only virtual game
 controllers (`QOR_GAMEPADS=virtual`; see [CONTROLLERS.md](CONTROLLERS.md)),

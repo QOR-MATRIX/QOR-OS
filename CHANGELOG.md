@@ -248,6 +248,17 @@ QOR OS begins: QTOS and Demiurge's device-side products in one repository
 
 ### Fixed
 
+- **Benchmark output failures fail the command.** The shared shell/Prism collector checks requested-file opening,
+  the complete write, flush and close, plus stdout writes/flushes. Failure emits a generic diagnostic and exits 1;
+  successful output keeps its schema and replacement behavior. An actual compositor reproduced exit 0 for a directory
+  destination before the fix; three process regressions reproduced the directory, virtual-full-sink report and stdout
+  failures. The full existing collector suite passes all 11 Qt cases/8 functions per normal/ASan profile, zero failures/
+  skips, including stall/idle/thread controls and complete stale-output replacement. Actual compositor checks verify
+  failed-report exit 1 with an intact sentinel and fresh-report exit 0 with matching JSON and 40 input samples.
+  Source fingerprints, sanitizer commands/libraries, native records and hardening (33/31 programs) are verified.
+  Same-machine software observations are in PERFORMANCE.md; original failures remain recorded and no native hardware,
+  full-build or zero-warning gate is cleared. Windows-specific execution remains unrun.
+
 - **Failed script steps omit their complete request objects.** The shared shell/Prism runner retains the step number,
   existing reason and native exit 4, while dropping the automatic JSON dump that exposed arbitrary nested arguments.
   A new hardened process-level QtTest reproduces the disclosure before the fix and keeps captured child diagnostics in
