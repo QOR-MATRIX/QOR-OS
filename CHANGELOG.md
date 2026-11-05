@@ -14,6 +14,15 @@ QOR OS begins: QTOS and Demiurge's device-side products in one repository
 
 ### Added
 
+- **The Studio recovery refresh has an explicit partial result.** At `229f930`, six existing interface functions,
+  including 30 hostile-copy rows, trust, two Studios and folder replacement, pass 37 Qt cases under ASan/UBSan, zero
+  failures/skips. The original Release selection reports 37 passes/1 failure, zero skips: the real Studio's initialization
+  reply is missing before the crash/restore exercise. An isolated same-program run reproduces it; that crash function
+  remains unrun under sanitizers. Synthetic private clients connect but receive no reply with either software render
+  loop; parent-debugger frames show a render wait, without proving its cause. Source/program/compiler/archive checks
+  and 13 existing sanitizer program headers pass. The original failed selection stays failed, and no timeout or gate
+  was loosened. Tests use private HOME/data/keyring and a hidden display with the GPU device masked.
+
 - **The remaining Store layers are checked on native Windows.** Full ordinary-build legacy/Library/front-end/page
   suites pass 11/21/39/18 Qt cases and all 9/9/28/16 functions, zero failures/skips. The two Unix-only Library symlink
   rows are not compiled on Windows; the demonstration startup/engine branch and Linux compositor binary scan are

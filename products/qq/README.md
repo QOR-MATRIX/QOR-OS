@@ -431,6 +431,15 @@ The shared data subset passes 69 cases/32 functions per Linux Release/ASan/UBSan
 are not compiled there. The new missing-folder, cloned-timestamp and older-journal cases first failed on unchanged
 Windows production code; a fourth workspace-copy check also verifies that newer records restore only to their own folder.
 
+The workspace interface refresh at `229f930` is partial: the original Release selection reports 37 passes/1 failure,
+zero skips. The real Studio accepts a private agent-pipe connection but does not reply to initialization before the
+crash test can proceed; the same binaries fail in an isolated case. Six independent interface functions pass 37 Qt
+cases under ASan/UBSan, zero failures/skips, covering 30 hostile-copy rows, trust/restore, two Studios and folder
+replacement. The actual-program crash case is **not run under sanitizers** and the original failed selection remains
+failed. Private-pipe controls and a parent-debugger trace narrow the failure to a software-render wait without proving
+its cause. No production workaround or longer timeout was applied. Records and source/program/compiler hashes are
+in `build/autonomous-2026-11-04/workspace-recovery-ui-verified.json`.
+
 ## The Player, measured (10 October 2026)
 
 On the owner's laptop (RTX 4060 Laptop GPU), on mains power, playing the bundled playground at 1280 × 720, locked down
