@@ -20,8 +20,8 @@ ASan/UBSan check memory errors/undefined behavior; leaks unchecked. Windows: two
 - Hardening (exploit mitigations): **33 normal/31 sanitizer Linux main programs, 16/13 products, 24 Windows program headers** pass.
 - QQ asset data: **Windows 78 cases/35 functions; Linux 69/32 per product build**, zero failures/skips.
   Folder identifiers replace Windows timestamps. Missing-folder/older journals stay; unresolved changes block new transactions.
-- Gizmo (selected-object handles): **8 cases/6 functions per product build** pass, zero failures/skips.
-- Recorder: **15 cases/9 functions per product build** pass, zero failures/skips; actual Player records/replays.
+- Recorder at `a7ebea3`: **15 cases/9 functions per product build** pass, zero failures/skips; actual Player records/replays.
+- Saved state: **10 cases/4 functions per product build** pass, zero failures/skips; actual Player retains state across starts.
 
 ## Remaining and next
 
@@ -32,15 +32,14 @@ Checkout-local Windows Store: **613 pass/1 fail**, zero skips. Diagnostics read 
 failure. Two checkout-root controls failed; two outside-root controls passed. Cause unresolved; diagnostics restored.
 No permissions/security settings changed; no other process interrupted.
 
-QQ lint (interface-language checking): **140 console/156 structured warnings** on Windows/Linux; eleven recorder findings removed,
+QQ lint (interface-language checking): **140 console/155 structured warnings** on Windows/Linux; one saved-state finding removed,
 none added; still failed. Player lint passes. Windows root lint: **seven modules, zero warnings**. **12 Wayland metadata warnings** match baseline.
 Six QQ findings come from Qt's metadata (type descriptions); the installed kit remains unchanged.
 A pinned Rust dependency fails its warning gate; repair belongs upstream. Listing/planning remain on the window thread without a latency budget.
 
-Next: qualify store metadata, then grouped-state reads. Commands: `build/autonomous-2026-11-04/HANDOFF.md`.
+Next: check grouped-state bindings and metadata. Commands: `build/autonomous-2026-11-04/HANDOFF.md`.
 Full OS/Rust/Windows product suites, native Linux graphics/sound/controllers and image/install proof remain unrun.
 Software observations clear no hardware budget. Zero-warning gates remain unmet.
 
 VM (virtual machine) Create/Prove commands are prepared in `docs/CI.md`; neither ran. Next owner decision: Create go-ahead.
-Licensing prerequisites and actual proof gate the guest Qt kit and runner. No runner settings, isolation flags, licences
-or accounts changed; nothing was merged, deployed or published.
+Licensing prerequisites and actual proof gate the guest Qt kit and runner. Runner unchanged; nothing merged, deployed or published.

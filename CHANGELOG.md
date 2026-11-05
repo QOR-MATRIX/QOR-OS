@@ -14,6 +14,13 @@ QOR OS begins: QTOS and Demiurge's device-side products in one repository
 
 ### Added
 
+- **Scene's saved-state snapshot describes the existing GameStore.** One local cast exposes its `contents` method,
+  preserving SceneIO's return interface, ownership, null guard and snapshot value. Ten Qt cases across four functions
+  pass per QQ Release/ASan/UBSan build, zero failures/skips, including actual Player state retained across starts and
+  a replay that leaves it unchanged. Native Windows/Linux lint remove one structured finding and add none, leaving
+  140 console/155 structured warnings and aggregate exit 1. Fresh source/program/copied-QML records, actual sanitizer
+  flags/libraries and hardening 16/13 pass; no full product, hardware or CI gate is cleared.
+
 - **A Scene enforces its documented RunRecord slot.** An unrelated object is refused while the previous recorder
   remains; real RunRecord objects passed through the existing object interface and invalid-variant clearing still
   work. The new regression first fails on the previous implementation, then passes unchanged with the typed slot.
@@ -29,7 +36,7 @@ QOR OS begins: QTOS and Demiurge's device-side products in one repository
   only its missing QtQuick3D dependency in a temporary copy clears those inputs; an invalid property still fails.
   The actual Runtime response file loses exactly six known import/type findings and adds none, with both full-module
   commands still failing. SDK/response-file hashes are unchanged, and no diagnostic overlay is connected to a
-  production check. QQ's actual 142 console/167 structured warning gate remains failed. No kit installation, licence
+  production check. That checkpoint's 142 console/167 structured warning gate stayed failed. No kit installation, licence
   action, runtime/hardware check or runner change occurred.
 
 - **The Studio recovery refresh has an explicit partial result.** At `229f930`, six existing interface functions,

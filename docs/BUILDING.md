@@ -406,7 +406,8 @@ Node { AudioListener {} }
 Using the actual QQ Runtime response file isolates exactly six `World.qml`/`Sound.qml`/`Voices.qml` findings,
 with zero added; both whole-module diagnostic commands still fail. The installed SDK files and generated response
 file retain their hashes. This is diagnosis, without a correction installed or connected to normal lint:
-whole QQ remains at 142 console/167 structured warnings. The command records and controls are in
+whole QQ failed at 142 console/167 structured warnings at that checkpoint, before later source cleanup.
+The command records and controls are in
 `build/autonomous-2026-11-04/spatial-runtime-diagnostic-verified.json`; this clears no runtime or hardware gate.
 
 The selected collector check also runs in the existing Windows kit without showing a window or using a graphics

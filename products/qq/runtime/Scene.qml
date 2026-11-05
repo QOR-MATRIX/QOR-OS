@@ -27,6 +27,7 @@
 
 // Changed for QOR OS: the private physics world binds to its owning scene.
 // Changed for QOR OS: the recorder slot names its documented RunRecord type.
+// Changed for QOR OS: the store snapshot describes the GameStore supplied by SceneIO.
 
 pragma ComponentBehavior: Bound
 
@@ -201,7 +202,7 @@ Node {
             recorder.scene = name
             recorder.seed = playSeed
             // The store as this run finds it (P3.16): a replay plays from this copy and never touches the store.
-            const store = SceneIO.storeOf(root)
+            const store = SceneIO.storeOf(root) as GameStore
             recorder.store = store ? store.contents() : ({})
         }
     }

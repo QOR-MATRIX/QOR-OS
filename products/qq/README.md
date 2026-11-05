@@ -473,6 +473,13 @@ Windows and Linux lint remove eleven existing recorder findings and add none, le
 warnings and aggregate exit 1. Source/program/copied-Scene hashes, actual sanitizer flags/libraries and hardening
 16/13 are checked in `build/autonomous-2026-11-04/recorder-type-verified.json`; no full product or hardware pass is claimed.
 
+The Scene store snapshot also names the existing `GameStore` returned by SceneIO, without changing the C++ interface
+or object ownership. Ten Qt cases/four functions pass per Release/ASan/UBSan build, zero failures/skips: the supplied
+store type, serialized runs, replay without writes, and two actual Player starts retaining saved state followed by
+replay. Native Windows/Linux lint remove one structured `contents` finding and add none, leaving 140 console/155
+structured warnings and aggregate exit 1. Fresh source/program/copied-QML records, actual sanitizer flags/libraries
+and hardening 16/13 are verified in `build/autonomous-2026-11-04/store-snapshot-verified.json`.
+
 ## The Player, measured (10 October 2026)
 
 On the owner's laptop (RTX 4060 Laptop GPU), on mains power, playing the bundled playground at 1280 × 720, locked down
