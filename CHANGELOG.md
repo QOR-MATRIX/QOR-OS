@@ -14,6 +14,11 @@ QOR OS begins: QTOS and Demiurge's device-side products in one repository
 
 ### Added
 
+- **Current legacy Store compatibility validation.** At `6dc80cf`, the unfiltered legacy suite passes all 11 Qt cases
+  and 9 ordinary functions per main profile, zero failures/skips/blacklists, in 0.79/0.99 seconds. Fresh records and
+  113 unchanged source/public-input fingerprints are verified; sanitizer reader flags/linkage and hardening (28/26
+  main-build programs) pass. The suite uses pre-signed public fixtures and temporary install data. No fixture regeneration,
+  owner signing-key access or production change is involved; full OS/hardware and warning gates remain unmet.
 - **Current Store format-2 security validation.** At `80de855`, all 621 Qt cases and 153 ordinary test functions pass
   unfiltered in each main profile, zero failures/skips/blacklists. Fresh records, 112 unchanged source/public-fixture
   fingerprints, sanitizer flags on all six parser/engine readers, library linkage and unchanged profile settings are verified.
