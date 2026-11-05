@@ -14,6 +14,15 @@ QOR OS begins: QTOS and Demiurge's device-side products in one repository
 
 ### Added
 
+- **Current C++ Storefronts boundary validation.** At `6a4d6a4`, the unfiltered ordinary-build suite passes 39 Qt cases
+  and all 28 active functions per main profile, zero failures/skips/blacklists. It checks view separation, checked
+  previews/licences, creator-switch races and absence of the demonstration key from the actual programs. Fresh records,
+  118 unchanged source/public inputs, reader/frontend sanitizer commands and profile settings are verified; hardening
+  passes 31/29 main-build programs. The sanitizer build's 12 Wayland metadata warnings exactly match the retained baseline,
+  so its strict wrapper exits 1 before runtime. A separate test-only run uses the successful build, keeps those diagnostics
+  and also exits 1 to retain the failed warning gate. Nothing is rebuilt to erase warnings. Demonstration-enabled startup
+  is a different compile branch and did not run here; no owner signing keys, fixture regeneration or hardware proof is involved.
+
 - **The complete journey is refreshed after the Shape batch.** At `d111bdc`, one complete native CTest passes per
   Release/ASan product build, zero failures/skips, in 112.977/112.875 seconds under the unchanged 300-second deadline.
   Two Studio builds, three real Player launches, Prism Library discovery/request and playback after temporary-project
