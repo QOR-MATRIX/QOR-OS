@@ -14,6 +14,14 @@ QOR OS begins: QTOS and Demiurge's device-side products in one repository
 
 ### Added
 
+- **Current Linux service boundary validation.** At `d52bd58`, the unfiltered Qt Remote Objects suite passes 17 Qt
+  cases and all 15 functions per main profile, zero failures/skips/blacklists, in 4.600/4.708 seconds. It covers private
+  local-socket permissions, source/replica updates, settings and simulated network/media behavior. Fresh records,
+  52 unchanged source inputs, actual service/simulator/audio sanitizer commands and profile settings are verified;
+  hardening remains 31/29 main-build programs. Tests use a nonpersistent simulator, private HOME/runtime directories,
+  null audio and virtual controllers. The Windows permissions branch did not compile here. The wrapper exits 0 without
+  build/licence diagnostics; existing QQ/Wayland/Rust, hardware and isolated-runner gates remain unmet.
+
 - **Current C++ Storefronts boundary validation.** At `6a4d6a4`, the unfiltered ordinary-build suite passes 39 Qt cases
   and all 28 active functions per main profile, zero failures/skips/blacklists. It checks view separation, checked
   previews/licences, creator-switch races and absence of the demonstration key from the actual programs. Fresh records,
