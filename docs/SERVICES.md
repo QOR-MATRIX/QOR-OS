@@ -170,6 +170,14 @@ shell can, and crash whatever hosts it. Nothing sandboxed is ever given it. The
 socket, and the named pipe that stands for it on Windows, admit only the person's
 own account (`QLocalServer::UserAccessOption`).
 
+On 5 November 2026 the full native Windows service suite passes 17 Qt cases/all 15 functions, zero failures/skips,
+in 4.77 seconds with the existing commercial Qt 6.12 kit. Its Windows test reads the actual private pipe's access-control
+list and requires every allowance to match this test process's user identifier, held in memory and never printed.
+The simulator is nonpersistent, with synthetic network/media/settings, null audio and virtual controllers; no ambient
+music-directory opt-in is present. Fresh records, 53 source hashes, actual compiler commands and the rebuilt executable
+are verified; hardening reads 21 existing program headers with none falling short. This validates the private pipe's
+Windows permissions and the service round trips, not an attack by another account, runner isolation or hardware.
+
 The embedded host (`qor-shell`) and `qor-simd` fall back to
 `…-<pid>` if the default is taken. Override with `--services-url` /
 `--url`.

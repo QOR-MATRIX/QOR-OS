@@ -14,6 +14,14 @@ QOR OS begins: QTOS and Demiurge's device-side products in one repository
 
 ### Added
 
+- **The Windows service boundary is checked natively.** The full existing suite passes 17 Qt cases and all 15
+  functions, zero failures/skips, in 4.77 seconds. Its Windows branch reads the actual private named pipe's access-control
+  list and requires every allowance to name this test process's user; identity values stay in memory. The nonpersistent
+  simulator supplies synthetic network, media and settings with null audio and virtual controllers. Fresh records,
+  53 source hashes, compiler commands and the rebuilt program are verified; hardening reads 21 program headers.
+  This is neither another-user attack nor runner isolation/hardware proof. The separate checkout-local Store rename
+  failure remains unresolved.
+
 - **Native Windows Store checks retain a location-specific failure.** In a standard private Windows Temp root, the
   unfiltered format-2 suite passes 614 Qt cases and all 149 Windows functions, zero failures/skips/blacklists. The
   original checkout-local root passes 613 and fails the many-file install. The same unchanged case fails in two

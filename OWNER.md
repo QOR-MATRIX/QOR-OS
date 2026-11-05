@@ -9,7 +9,7 @@ no cross-project prerequisite exists. Nothing was pushed.
 
 Commercial Qt 6.12 runs hidden in WSL (Linux inside Windows), fenced from the graphics processor, with two processors,
 one worker and a 1.75 GiB hard cap. ASan/UBSan check memory errors and undefined behavior; leak checking is off.
-Windows checks use two processors and one worker, without a memory-cap claim.
+Windows: two processors, one worker; no memory-cap claim.
 
 - QQ at `39b0768`: **91 asset-library/195 game-build/3 Store-to-Player cases per product build** pass, zero failures/skips.
   Recovery, transaction tags, trust, checked previews and provenance retain regression checks.
@@ -22,6 +22,7 @@ Windows checks use two processors and one worker, without a memory-cap claim.
 - Windows Store: **614 cases/all 149 Windows functions pass** in standard private Windows Temp, zero failures/skips.
   Four Unix-only functions are not compiled there. Source hashes, fresh records and actual compiler commands are verified.
 - Hardening (exploit mitigations): **33 normal/31 sanitizer Linux main programs, 16/13 products, 21 Windows program headers** pass.
+- Windows services: **17 cases/15 functions pass**, zero failures/skips; private-pipe permissions verified.
 - Readiness wording: **16 Python tests per platform pass**; workflow **Windows 14 pass/1 skip; Linux 15 pass**.
 
 ## Remaining and next
