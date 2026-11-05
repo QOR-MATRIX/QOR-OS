@@ -357,9 +357,17 @@ Both platform jobs also run `all_qmllint` for each changed product, one at a tim
 The root `.qmllint.ini` sets `MaxWarnings=0` without changing any category or severity, so the root and product CMake lint
 commands fail on warnings. Previously, native qmllint could exit zero while printing warnings. Local commercial-Qt tests
 verify clean input, warnings and syntax errors; extracted Windows/Linux workflow commands are tested with a failing native
-stand-in. The 5 November Inspector batch retains 149 console messages/174 structured warnings, with four removed and
+stand-in. The 5 November Inspector batch in WSL retains 149 console messages/174 structured warnings, with four removed and
 none added against the preceding Shape snapshot (153/178). All three native QQ commands exit 255 and the wrapper exits 1. The zero-warning
 gate remains failed; the paused CI jobs did not run.
+
+A separate native Windows check of the configured root `all_qmllint` target passes all seven modules with zero
+warnings: Kit, Lumen style, Input, Services, Store, Apps and Shell. Fresh commands, 112 source/config hashes and
+response files are verified. `MaxWarnings=0` and all diagnostic categories/severities are unchanged. Direct and
+generated-tool-launcher controls both return 0 for clean input and raw Windows status 4294967295 for planted
+warnings/syntax errors. The first control driver assumed the WSL status 255; its failed assertion is retained, and the
+corrected comparison preserves the exact platform-native status. Products and the Linux-only compositor are outside
+this Windows root result; the QQ and Linux metadata gates above remain failed.
 
 #### What Linux runs
 

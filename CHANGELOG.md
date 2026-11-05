@@ -14,6 +14,13 @@ QOR OS begins: QTOS and Demiurge's device-side products in one repository
 
 ### Added
 
+- **Windows root lint is checked at zero warnings.** The configured `all_qmllint` target runs seven root modules
+  successfully with `MaxWarnings=0`, unchanged categories and severities. Fresh invocations, 112 source/config hashes
+  and response files are verified. Six direct/generated-launcher controls preserve clean exit 0 and the raw Windows
+  warning/syntax failure status 4294967295. These synthetic failures are expected controls. Products and the Linux-only
+  compositor are outside this result: QQ remains at 149 console/174 structured warnings and Linux retains its
+  12 Wayland metadata warnings; neither failed gate is cleared by the Windows root pass.
+
 - **The Windows service boundary is checked natively.** The full existing suite passes 17 Qt cases and all 15
   functions, zero failures/skips, in 4.77 seconds. Its Windows branch reads the actual private named pipe's access-control
   list and requires every allowance to name this test process's user; identity values stay in memory. The nonpersistent

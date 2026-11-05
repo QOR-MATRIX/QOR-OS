@@ -20,7 +20,7 @@ Windows: two processors, one worker; no memory-cap claim.
 - Failed scripts omit the complete request object while keeping **exit 4**. Benchmark output failures return **exit 1**;
   **11 collector cases per Linux profile/9 on Windows** pass, zero failures/skips.
 - Windows Store: **614 cases/all 149 Windows functions pass** in standard private Windows Temp, zero failures/skips.
-  Four Unix-only functions are not compiled there. Source hashes, fresh records and actual compiler commands are verified.
+  Four Unix-only functions are not compiled there.
 - Hardening (exploit mitigations): **33 normal/31 sanitizer Linux main programs, 16/13 products, 21 Windows program headers** pass.
 - Windows services: **17 cases/15 functions pass**, zero failures/skips; private-pipe permissions verified.
 - Readiness wording: **16 Python tests per platform pass**; workflow **Windows 14 pass/1 skip; Linux 15 pass**.
@@ -32,7 +32,7 @@ staging rename failed. Two checkout-root controls fail; two outside-root control
 diagnostics were restored. No permissions or security settings changed, and no other process was interrupted.
 
 QQ lint (interface-language checking) fails at **149 console/174 structured warnings**, four Inspector findings removed,
-none added. **12 Wayland metadata warnings** match baseline. A pinned Rust dependency fails its warning gate; repair belongs
+none added. Windows root lint: **seven modules, zero warnings**. **12 Wayland metadata warnings** match baseline. A pinned Rust dependency fails its warning gate; repair belongs
 upstream. Listing/planning remain on the window thread without a latency budget.
 
 Next: independent Windows Store/service checks. Exact commands and resume point: `build/autonomous-2026-11-04/HANDOFF.md`.
