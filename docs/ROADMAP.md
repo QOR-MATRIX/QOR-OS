@@ -460,7 +460,10 @@ unpublished builds stay out of reach.
   removed, none added; native failures/overall exit 1 remain. At `d111bdc`, the complete journey is refreshed after this
   batch: one CTest per product build passes, zero failures/skips, in 112.977/112.875 seconds, keeping its 300-second limit.
   Two Studio builds, three real Player launches, Prism Library discovery/request and playback after project removal run;
-  fresh records, 22 source fingerprints and nine program identities are verified. Prism remains a non-instrumented
+  fresh records, 22 source fingerprints and nine program identities are verified. At `f99e007`, this journey is refreshed
+  after Inspector: one CTest per product build passes in 126.656/114.105 seconds, zero failures/skips, with the same
+  300-second limit. Current app rebuilds, 26 sources, nine program identities and sanitizer flags/libraries are verified;
+  lint remains failed at 149 console/174 structured warnings, with none added or removed against Inspector. Prism remains a non-instrumented
   simulator using a recording stand-in, with real Player playback separate. This clears no warning/hardware/isolation gate.
   Earlier, 48 scene cases passed in Release and under sanitizers, including malformed-image readiness; six selected screen-play
   functions pass (8 Qt cases including setup/cleanup). The earlier broader play run and a clean detached baseline each had

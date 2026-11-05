@@ -315,6 +315,13 @@ controls (five Qt cases) pass per Release/ASan build, zero failures/skips, with 
 sanitizer compiler commands and app/test relinks; hardening passes 16/13. Four lint findings are removed, none added:
 149 console/174 structured warnings remain. All native commands still exit 255 and the wrapper exits 1.
 
+At `f99e007`, the complete journey is refreshed after Inspector: one CTest per product build passes, zero failures/skips,
+in 126.656/114.105 seconds with its 300-second limit unchanged. Fresh records, 26 sources and nine program identities
+are verified, including rebuilt current apps and sanitizer flags/libraries; hardening remains 16/13. Native lint stays
+at 149 console/174 structured findings with no additions/removals, and the combined wrapper exits 1. Prism is the
+ordinary simulator with a recording stand-in; real Player playback runs separately. An attempted Shape context change
+added two parent-view findings and was restored byte-for-byte; its runtime checks were not run.
+
 The preceding Shape batch, 5 November: private factories use their actual owner, preserving public interfaces and 2D axis locks.
 Full Scene (52 Qt cases) and six physics functions (10 cases) pass per Release/ASan build, zero failures/skips, with fresh
 records/source fingerprints and hardening 16/13. Group waits use existing software physics/frame clocks; GPU waits,

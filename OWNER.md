@@ -2,14 +2,13 @@
 
 For Andrew, 5 November 2026. Local branch: `integration/owner-brief`.
 
-All 14 worktrees (Git checkouts) remain; this session owns implementation. The QOR-local build lock keeps
-heavy jobs sequential. No cross-project prerequisite exists. Nothing was pushed.
+All 14 worktrees (Git checkouts) remain. This session owns implementation; the QOR-local lock serializes heavy jobs. No cross-project prerequisite exists. Nothing was pushed.
 
 ## Verified checks
 
 Commercial Qt 6.12 runs hidden in WSL (Linux inside Windows), with software graphics and a graphics processor fence,
 two processors and one worker. ASan/UBSan catch memory errors and undefined behavior; leak checking is off.
-Jobs have a 1.75 GiB hard cap.
+Hard cap: 1.75 GiB.
 
 - QQ at `39b0768`: unfiltered **91 asset-library/195 game-build/3 Store-to-Player Qt cases pass per build**, zero failures/skips.
   Recovery, tags, trust, checked previews and provenance retain regression checks.
@@ -21,7 +20,7 @@ Jobs have a 1.75 GiB hard cap.
 - Failed scripts omit the complete request object while keeping their step number, reason and **exit 4**.
   An actual-process regression reproduced argument disclosure; **3 Qt cases plus client/text-privacy controls pass per
   main profile**, zero failures/skips. Earlier failures remain recorded.
-- The complete journey at `d111bdc` passes per product build, including real Player playback after project removal.
+- The complete journey at `f99e007` passes per product build, including real Player playback after project removal.
   Prism (compositor and shell) records a stand-in. Prism has no sanitizers in this journey.
 - **17 service/10 simulator/11 device-option cases pass per main profile**, zero failures/skips; the core C interface
   passes **9 normal-profile cases**. The sanitizer profile keeps the core off.
@@ -29,15 +28,16 @@ Jobs have a 1.75 GiB hard cap.
 - Benchmark output failures return **exit 1**. All **11 collector cases/8 functions per main profile** pass,
   zero failures/skips, alongside actual compositor failed/successful report checks.
 
+Inspector edits, filenames and undo pass **5 Qt cases/3 functions per product build**, zero failures/skips.
+
 ## Remaining and next
 
-Inspector edits, filenames and undo pass **5 Qt cases/3 functions per product build**, zero failures/skips.
 QQ lint (Qt's interface-language checker) fails: **149 console/174 structured warnings**, four removed in this batch,
 none added. **12 Wayland metadata warnings** match their baseline. A pinned Rust dependency fails its warning gate;
 repair belongs upstream. Listing/planning remain on the window thread without a latency budget.
 
-Next: check Shape factory contexts, preserving parent/body interfaces and 2D guards. Exact commands, failures, fingerprints
-and resume point: `build/autonomous-2026-11-04/HANDOFF.md`.
+Shape candidate added two findings and was restored; runtime checks did not run.
+Next: fix readiness wording for unchanged product skips. Records and commands: `build/autonomous-2026-11-04/HANDOFF.md`.
 
 Full OS/Rust suites, Windows products, native Linux graphics/sound/controllers and image/install proof remain unrun.
 Software observations in `docs/PERFORMANCE.md` clear no hardware budget. Zero-warning gates are unmet.

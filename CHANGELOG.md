@@ -14,6 +14,15 @@ QOR OS begins: QTOS and Demiurge's device-side products in one repository
 
 ### Added
 
+- **The complete journey is refreshed after the Inspector batch.** At `f99e007`, one complete CTest per product build
+  passes, zero failures/skips, in 126.656/114.105 seconds with its unchanged 300-second limit. Two Studio builds, three
+  real Player launches, Prism Library discovery/request and playback after temporary-project removal run. Both apps
+  rebuild cleanly after restoring an unsuccessful Shape context experiment. Fresh records, 26 source fingerprints,
+  nine program identities, sanitizer commands/libraries and hardening (16/13 products) are verified. Native lint still
+  fails at 149 console/174 structured warnings, unchanged against the retained Inspector snapshot; the combined wrapper
+  exits 1. Prism remains an ordinary simulator with a recording stand-in, with separate actual Player playback;
+  software results clear no native hardware or release gate.
+
 - **Current Prism client-identity and lock-screen validation.** At `f92a6d2`, the existing `prism_untrusted` scenario
   passes once per main profile, zero failures/skips: all 50 steps and 17 expectations, in 19.902/19.457 seconds.
   Claimed application identities, an undrawn window, virtual-controller input and a private simulated lock screen retain
