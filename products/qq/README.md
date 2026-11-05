@@ -412,6 +412,15 @@ and a page gets the shared memory threads need only when it is cross-origin isol
 The tests open real windows and render on the GPU, so they need a desktop session. `QQ_SAVE_FRAMES=<folder>` keeps
 every frame `tst_world` judges.
 
+Native Windows asset data now has a separate, limited check: the existing commercial Qt 6.12/MSVC kit builds
+`tst_assetlibrary` and its Studio dependency in an isolated cache with warnings as errors and hardening enabled.
+The 31 selected file/JSON/image functions pass 68 Qt cases, zero failures/skips, including all selected link checks.
+Two pre-existing compiler warnings were corrected without changing option matching or provenance assertions.
+The tests use temporary projects and Qt's test-mode storage, offscreen software drawing, and
+`QT_D3D_ADAPTER_INDEX=0` to bypass QQ's static adapter enumeration. They do not open Studio/Player windows, load
+3D scenes, use audio hardware or establish the full Windows product gate. Exact selections, source/program hashes,
+fresh XML and the original failed builds are in `build/autonomous-2026-11-04/HANDOFF.md`.
+
 ## The Player, measured (10 October 2026)
 
 On the owner's laptop (RTX 4060 Laptop GPU), on mains power, playing the bundled playground at 1280 × 720, locked down

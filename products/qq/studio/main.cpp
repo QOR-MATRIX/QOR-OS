@@ -187,7 +187,7 @@ int main(int argc, char *argv[])
         if (qstrcmp(argv[i], "--build") == 0 || qstrncmp(argv[i], "--build=", 8) == 0)
             return buildAndExit(argc, argv);
         for (const char *option : {"--use-pack", "--update-pack"}) {
-            const uint length = qstrlen(option);
+            const auto length = qstrlen(option);
             if (qstrcmp(argv[i], option) == 0 || (qstrncmp(argv[i], option, length) == 0 && argv[i][length] == '='))
                 return assetsAndExit(argc, argv);
         }

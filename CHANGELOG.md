@@ -300,6 +300,13 @@ QOR OS begins: QTOS and Demiurge's device-side products in one repository
 
 ### Fixed
 
+- **QQ's native Windows asset data build is warning-clean.** The Studio keeps the native string-length type when
+  recognizing asset options, and a provenance field loop no longer shadows the public fixture-key variable. Both
+  pre-existing warnings failed the strict MSVC build before these local fixes; warnings remain errors. The selected
+  native data subset passes all 68 Qt cases/31 functions, zero failures/skips, including crash recovery and link checks.
+  Fresh source/program/XML records and two hardened program headers are verified. This runs no Studio/Player window,
+  3D scene or audio device, and does not establish the full Windows product gate or resolve the timestamp-identity lead.
+
 - **An allowed product skip no longer claims release readiness.** The summary says non-release checks passed and
   release readiness is unproven when unchanged product suites stand down. All required outcomes and the existing
   non-release exit 0/release-skip exit 1 policy stay intact. A synthetic-status probe and four failing regression

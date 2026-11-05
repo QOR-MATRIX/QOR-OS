@@ -1923,8 +1923,8 @@ private slots:
             const QJsonObject record = QJsonDocument::fromJson(readBytes(store.filePath(QStringLiteral("installed.json")))).object()
                                            .value(QStringLiteral("items")).toObject().value(kDemoPack).toObject();
             QCOMPARE(record.value(QStringLiteral("provenanceFrom")).toString(), QStringLiteral("listing"));
-            for (const char *key : {"origin", "author", "source", "permission"})
-                QCOMPARE(provenance.value(QLatin1String(key)).toString(), record.value(QStringLiteral("provenance")).toObject().value(QLatin1String(key)).toString());
+            for (const char *field : {"origin", "author", "source", "permission"})
+                QCOMPARE(provenance.value(QLatin1String(field)).toString(), record.value(QStringLiteral("provenance")).toObject().value(QLatin1String(field)).toString());
             QCOMPARE(provenance.value(QStringLiteral("origin")).toString(), QStringLiteral("QOR-MATRIX/demiurge-chain"));
 
             // The project is edited with the copy, saved and built.

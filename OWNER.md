@@ -7,9 +7,8 @@ no cross-project prerequisite exists. Nothing was pushed.
 
 ## Verified checks
 
-Commercial Qt 6.12 runs hidden in WSL (Linux inside Windows), fenced from the graphics processor, with two processors,
-one worker and a 1.75 GiB hard cap. ASan/UBSan check memory errors and undefined behavior; leak checking is off.
-Windows: two processors, one worker; no memory-cap claim.
+Commercial Qt 6.12 runs hidden in WSL (Linux inside Windows), graphics-fenced, two processors/one worker, 1.75 GiB cap.
+ASan/UBSan check memory errors/undefined behavior; leaks unchecked. Windows: two processors/one worker, no memory cap.
 
 - QQ at `39b0768`: **91 asset-library/195 game-build/3 Store-to-Player cases per product build** pass, zero failures/skips.
   Recovery, transaction tags, trust, checked previews and provenance retain regression checks.
@@ -23,6 +22,7 @@ Windows: two processors, one worker; no memory-cap claim.
   Four format-2 functions/two Library rows are Unix-only; excluded from Windows counts.
 - Hardening (exploit mitigations): **33 normal/31 sanitizer Linux main programs, 16/13 products, 24 Windows program headers** pass.
 - Windows services: **17 cases/15 functions pass**, zero failures/skips; private-pipe permissions verified.
+- Windows QQ asset data: **68 cases/31 functions pass**, zero failures/skips; two compiler warnings fixed.
 - Readiness wording: **16 Python tests per platform pass**; workflow **Windows 14 pass/1 skip; Linux 15 pass**.
 
 ## Remaining and next
@@ -35,8 +35,8 @@ QQ lint (interface-language checking) fails at **149 console/174 structured warn
 none added. Windows root lint: **seven modules, zero warnings**. **12 Wayland metadata warnings** match baseline.
 A pinned Rust dependency fails its warning gate; repair belongs upstream. Listing/planning remain on the window thread without a latency budget.
 
-Next: inspect native QQ asset-library data checks. Exact commands and resume point: `build/autonomous-2026-11-04/HANDOFF.md`.
-Full OS/Rust suites, Windows products, native Linux graphics/sound/controllers and image/install proof remain unrun.
+Next: reproduce Windows recovery's timestamp-identity concern. Exact commands: `build/autonomous-2026-11-04/HANDOFF.md`.
+Full OS/Rust/Windows product suites, native Linux graphics/sound/controllers and image/install proof remain unrun.
 Software observations clear no hardware budget. Zero-warning gates remain unmet.
 
 VM (virtual machine) Create/Prove commands are prepared in `docs/CI.md`; neither ran. Next owner decision: Create go-ahead.
