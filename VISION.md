@@ -106,9 +106,12 @@ not purity for its own sake.
 ### Boot
 
 - UEFI Secure Boot → signed kernel → measured boot into TPM2 PCRs.
-- **Flicker-free boot:** firmware logo (BGRT) → early splash that reuses the BGRT logo → Prism takes over **without a
+- **Coherent boot:** the vendor-controlled firmware logo → QOR OS's early loading splash → Prism takes over **without a
   modeset** (same mode, same framebuffer contents) → greeter. The handoff should feel like a single continuous
   animation.
+  The firmware logo remains the manufacturer's. Session branding and a staged Plymouth
+  payload exist; the bootable image and this complete handoff still need Phase 3 proof
+  ([image](image/README.md#branding-the-startup-stages)).
 
 ### Updates
 

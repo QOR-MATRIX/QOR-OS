@@ -102,6 +102,7 @@ set(QT_QML_GENERATE_QMLLS_INI ON CACHE BOOL "Write .qmlls.ini files for qmlls in
 
 include(QorCompilerSettings)
 include(QorHardening)
+include(CheckBootBranding)
 
 add_subdirectory(kit)
 add_subdirectory(audio)
@@ -119,6 +120,7 @@ if(QOR_BUILD_CORE)
 endif()
 
 if(QOR_BUILD_TOOLS)
+    add_subdirectory(tools/branding)
     add_subdirectory(tools/qorctl)
     add_subdirectory(tools/gamepads)
 endif()

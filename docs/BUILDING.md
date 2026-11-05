@@ -8,6 +8,12 @@ QOR OS has two kinds of build:
 - **The products**: QQ, ARQADE and QOR Media, each built by its own script,
   as it was upstream ([§6](#6-the-products-qq-arqade-qor-media)).
 
+Normal shell builds check the approved startup rendering against its original logo
+sources. The optional `qor_boot_payload` target stages the image's branding files
+inside this checkout's `build/`; it does not build a bootable image, install a theme
+on the host or regenerate an initramfs. Commands and remaining boot evidence are in
+[image/README.md](../image/README.md#branding-the-startup-stages).
+
 ## 1. Prerequisites
 
 ### Windows (primary development platform)

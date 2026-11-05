@@ -7,6 +7,19 @@ visual language is in [LUMEN.md](LUMEN.md).
 
 ## Surfaces
 
+### Startup (`StartupSplash.qml` in QOR.Kit)
+
+Before the first swapped frame, Desktop and additional display desktops show the
+approved QorMark rendering on Lumen's dark background. The first frame releases a
+280 ms cosmetic fade using the existing snappy motion token; it never waits for
+services or inserts a minimum logo duration. Reduced motion releases immediately.
+Escape dismisses it, and a 1.5-second watchdog releases it if readiness never arrives.
+It does not replace the lock screen or alter authentication. A display created after
+readiness skips the intro. Controller hints and display-adjustment overlays stay above it.
+Zero-size output surfaces stay hidden until initial layout supplies their dimensions.
+Missing/disabled image drawing has a plain QOR OS text fallback. Firmware/boot-menu
+branding and the planned OS splash are described separately in [the image guide](../../image/README.md).
+
 ### Lock screen (`LockScreen.qml`)
 
 - Shown at start (unless `--unlocked`, which only a build with the simulator has) and on lock. Drawn above all windows,

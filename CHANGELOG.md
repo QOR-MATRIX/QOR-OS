@@ -14,6 +14,27 @@ QOR OS begins: QTOS and Demiurge's device-side products in one repository
 
 ### Added
 
+- **The existing QorMark now introduces the shared Prism session.** A dark, responsive startup surface releases on
+  the first valid output frame with Lumen's 280 ms cosmetic fade, reduced-motion handling, Escape dismissal and a
+  bounded watchdog. Zero-size surfaces stay hidden until layout is ready; a new regression first fails on the
+  earlier implementation. The lock screen and authentication remain underneath. A host-only renderer exports the
+  original mark for software rendering and the planned OS splash; source/recipe hashes, bounded PNG decoding and
+  explicit write failures protect the reviewed asset. The optional `qor_boot_payload` target stages seven reviewed
+  Plymouth/dracut files in the build directory and verifies them without overwriting existing work. Firmware stays
+  vendor-controlled; there is no packaged bootloader or bootable image builder. The OS-loading theme, initramfs
+  inclusion and the complete boot handoff still require actual image/VM/hardware evidence. No host boot setting,
+  disk, firmware, VM, licence or runner configuration was changed.
+  Normal/sanitizer Linux startup checks pass 12 Qt cases each, zero failures/skips; the existing Kit passes ten
+  normal cases and the real exporter passes three tests per build. Sixteen hostile asset/payload tests pass per
+  Windows/Linux host, zero failures/skips. Actual private host/two-output simulated Prism captures are inspected,
+  and three before/three after software benchmarks are recorded separately from boot/hardware evidence.
+  Native Windows startup also passes 12 cases, zero failures/skips; its offscreen fixture explicitly uses the
+  repository fonts, retaining the warning gate after an initial missing-default-font-directory failure. Exploit
+  mitigation checks pass 34 normal/32 sanitizer Linux and 25 native Windows programs. Early failed harness/capture
+  attempts remain archived; these focused results do not clear the existing product, warning, image or CI gates.
+  Incremental root `all_qmllint` returns zero on both hosts; cached Wayland type generation was not rerun and its
+  twelve earlier warnings are not claimed fixed.
+
 - **Agent step fonts use the existing typed Application singleton.** The body startup font, tool mono face, literal
   text and model replacement pass five inert panel cases per QQ Release/ASan/UBSan/native Windows build, zero
   failures/skips. The same additive startup checks pass before and after the one-expression qualifier change;

@@ -21,6 +21,8 @@ import QOR.Store
 // windows samples `wallpaperBackdrop` (blurred wallpaper only).
 FocusScope {
     id: desktop
+    // The first platform expose can precede the output's initial layout.
+    visible: width > 0 && height > 0
 
     property var options: ({})
 
@@ -31,6 +33,9 @@ FocusScope {
     readonly property int spaceCount: 3
     readonly property bool overview: surface === "overview"
     property bool startupAppsOpened: false
+    property bool _startupFrameSeen: false
+    readonly property bool startupReady: _startupFrameSeen
+    readonly property bool startupComplete: startup.settled
 
     readonly property real railHeight: 34
     readonly property rect workArea: Qt.rect(10, railHeight + 18, width - 20, height - railHeight - 18 - 96)
@@ -984,6 +989,27 @@ FocusScope {
         history: notifications.history
         simulated: desktop.options.simulated === true
         unlockedBy: secret => desktop.tryUnlock(secret)
+    }
+
+    StartupSplash {
+        id: startup
+        objectName: "startupSplash"
+        anchors.fill: parent
+        ready: desktop._startupFrameSeen
+    }
+    Connections {
+        target: desktop.Window.window
+        enabled: !desktop._startupFrameSeen
+        function onFrameSwapped() {
+            if (desktop.width > 0 && desktop.height > 0)
+                desktop._startupFrameSeen = true;
+        }
+    }
+    Shortcut {
+        sequence: "Escape"
+        context: Qt.WindowShortcut
+        enabled: startup.active
+        onActivated: startup.dismiss()
     }
 
     // ── Controller interface surfaces (above the lock screen too) ──────────

@@ -141,7 +141,24 @@ target_link_libraries(tst_kit_qml PRIVATE Qt6::QuickTest qor_kit qor_kitplugin q
 target_compile_definitions(tst_kit_qml PRIVATE QUICK_TEST_SOURCE_DIR="${CMAKE_CURRENT_SOURCE_DIR}/kit")
 set_target_properties(tst_kit_qml PROPERTIES WIN32_EXECUTABLE OFF)
 add_test(NAME tst_kit_qml COMMAND tst_kit_qml -input "${CMAKE_CURRENT_SOURCE_DIR}/kit/tst_kit.qml")
+add_test(NAME tst_startup_qml COMMAND tst_kit_qml -input "${CMAKE_CURRENT_SOURCE_DIR}/kit/tst_startup.qml")
+set_tests_properties(tst_startup_qml PROPERTIES
+    LABELS "gpu"
+    ENVIRONMENT "${QOR_TEST_ENV}"
+    TIMEOUT 60)
+if(WIN32)
+    # The offscreen platform has no system-font backend on Windows. Use the
+    # repository's licensed fonts instead of an absent Qt SDK lib/fonts folder.
+    set_property(TEST tst_startup_qml APPEND PROPERTY ENVIRONMENT "QT_QPA_FONTDIR=${CMAKE_SOURCE_DIR}/kit/fonts")
+endif()
+add_dependencies(tst_kit_qml qor_boot_branding_check)
 set_tests_properties(tst_kit_qml PROPERTIES LABELS "gpu" ENVIRONMENT "${QOR_TEST_ENV}")
+if(TARGET qor-brand-assets)
+    add_test(NAME tst_brand_exporter
+        COMMAND Python3::Interpreter "${CMAKE_CURRENT_SOURCE_DIR}/kit/test_brand_exporter.py"
+            $<TARGET_FILE:qor-brand-assets> -v)
+    set_tests_properties(tst_brand_exporter PROPERTIES LABELS "gpu" ENVIRONMENT "${QOR_TEST_ENV}" TIMEOUT 90)
+endif()
 
 # ── Golden-image tests (GPU) ────────────────────────────────────────────────
 # Renders golden/scenes in every variant and compares them perceptually with
@@ -164,8 +181,14 @@ add_custom_target(update_golden
     USES_TERMINAL)
 
 find_package(Python3 3.10 COMPONENTS Interpreter)
+add_test(NAME tst_boot_payload
+    COMMAND Python3::Interpreter -m unittest -v test_boot_branding)
+set_tests_properties(tst_boot_payload PROPERTIES WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/tools" TIMEOUT 60)
 
 # ── Shell end-to-end (GPU) ──────────────────────────────────────────────────
+add_test(NAME shell_startup
+    COMMAND qor-shell --size 1280x800 --script "${CMAKE_CURRENT_SOURCE_DIR}/shell/startup.e2e.json")
+set_tests_properties(shell_startup PROPERTIES LABELS "gpu" ENVIRONMENT "${QOR_TEST_ENV}" TIMEOUT 30)
 # First-party apps driven through qor-shell --script with synthetic input:
 # controls receive clicks, and maximise, snap, minimise, restore, Overview and
 # close work. The script asserts on its own ("expect" steps).

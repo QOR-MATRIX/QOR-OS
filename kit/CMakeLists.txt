@@ -31,6 +31,8 @@ qt_add_qml_module(qor_kit
         AppIcon.qml
         Artwork.qml
         QorMark.qml
+        StartupIdentity.qml
+        StartupSplash.qml
         IconButton.qml
         SidebarItem.qml
         SectionHeader.qml
@@ -52,6 +54,8 @@ qt_add_qml_module(qor_kit
         fonts/InterVariable.ttf
         fonts/InterVariable-Italic.ttf
         fonts/JetBrainsMono-Variable.ttf
+        branding/qor-mark.png
+        branding/manifest.json
         ${QOR_KIT_ICONS}
         sounds/notification.wav
         sounds/lock.wav

@@ -1,0 +1,5 @@
+SPDX-License-Identifier: LicenseRef-QOR-OS-Proprietary
+
+Rendered without redrawing from kit/QorMark.qml. Source inputs and the PNG
+digest are recorded in manifest.json. This is an intentional source asset,
+shared by the OS loading splash and the Qt session handoff.

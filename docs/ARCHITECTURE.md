@@ -30,6 +30,14 @@ Wayland clients of Prism and moves their theming and controller input onto
 QOR.Kit and QOR.Input. The QOR core is linked into a test today. Phase 2
 makes it the vault service, a process of its own.
 
+**Startup identity.** The shared Desktop/DisplayDesktop path uses Kit's finite
+`StartupSplash` over the existing lock/session surfaces. It releases on the first
+swapped frame, skips replay on hotplug, respects reduced motion and has Escape and
+a bounded watchdog. It starts no service and changes no sign-in decision. The same
+reviewed QorMark rendering is checked before linking and staged for Plymouth through
+`qor_boot_payload`; the image/bootloader/KMS handoff remains unproven
+([image](../image/README.md#branding-the-startup-stages)).
+
 **Simulation and device share all QML.** The shell and the apps never talk to
 a service implementation directly. They bind to Qt Remote Objects *replicas*.
 In simulation the *sources* are the classes in `sim/`; on a device they are the

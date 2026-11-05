@@ -16,7 +16,8 @@ what each holds. A step is done when it is integrated and its checks have eviden
 
 1. **The real baseline.** Checked on 1 November against an outside review of `a3a2fd4`: the repository was public against its
    documents, and is now private ([SECURITY.md](../SECURITY.md#known-limits)); Linux CI skipped the products; `image/` is a plan
-   with nothing that builds; Unreal is a decision, not code; and Epic changed its clause on AI, which QOR-0020 missed
+   without a bootable builder (startup branding now has a staged filesystem payload); Unreal is a decision, not code;
+   and Epic changed its clause on AI, which QOR-0020 missed
    ([QOR-0022](decisions/QOR-0022-assistants-and-unreal-engine-after-epics-change.md), proposed).
 2. **The first whole journey, on native Linux:** open a QQ project workspace, import an authorised asset, edit, save, build a Linux
    game, and launch the packaged result from the player library. Switching between two projects and restarting restore the right

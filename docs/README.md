@@ -14,6 +14,7 @@ kept true.
 | [UPSTREAM.md](UPSTREAM.md) | know what QOR OS shares with demiurge-chain (ARQADE's rules and runs, the one look, the QOR core), how it moves, and where the products came from |
 | [ARCHITECTURE.md](ARCHITECTURE.md) | understand how the code is organised and how the pieces talk |
 | [BUILDING.md](BUILDING.md) | set up the toolchain, build, run, deploy and troubleshoot |
+| [../image/README.md](../image/README.md) | prepare the Fedora image, startup branding payload and boot evidence still required |
 | [DEVELOPMENT.md](DEVELOPMENT.md) | follow conventions, use recipes (add a service, app or control), debug |
 | [CI.md](CI.md) | configure CI with the commercial Qt kit and the shared runners |
 | [design/LUMEN.md](design/LUMEN.md) | apply the Lumen design language correctly |

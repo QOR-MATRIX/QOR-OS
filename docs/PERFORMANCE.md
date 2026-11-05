@@ -397,6 +397,26 @@ on a QOR OS device, Prism owns the KMS device.
 
 ## Known costs and next steps
 
+Startup branding was compared locally on 5 November 2026: three sequential eight-second
+`prism --size 1600x1000 --benchmark 8` tours before (`8b3bfb8`) and after the startup changes,
+on the same Windows/WSL machine, commercial Qt 6.12, offscreen Qt Quick software, GPU access
+masked, CPU quota two processors, one compiler/render worker and 1.75 GiB memory cap.
+The root profile was `ci-linux` (`RelWithDebInfo`, warnings as errors); this was not native
+GPU testing. All six fresh reports contain frames and all 40 input samples per run.
+
+| Measurement, milliseconds | Before: median (range) | After: median (range) |
+|---------------------------|------------------------|-----------------------|
+| Frame interval p95 | 11.925 (11.570–12.689) | 11.386 (10.788–12.224) |
+| Frame interval p99 | 13.645 (12.741–14.281) | 13.250 (11.792–14.565) |
+| Input to swap p95 | 14.924 (13.927–16.316) | 12.522 (12.047–13.325) |
+
+These small software samples describe the observed runs, not a causal speedup or a hardware
+budget pass. The early forced-capture run and its intermediate benchmark remain archived
+separately; the table uses the final zero-extent fix. Source/program hashes, fresh report hashes,
+commands and limits are in the local `build/autonomous-2026-11-04/` checkpoint. Startup adds
+no recurring QML animation after release; a first valid frame releases its 280 ms fade and
+the watchdog stops when settled. Native display pacing, GPU, audio and controller gates remain.
+
 - On integrated GPUs the remaining p95 is dominated by re-capturing the scene
   backdrop while windows move. Planned work: capture only the region under
   visible glass, and skip the capture when no glass overlaps changed content.
