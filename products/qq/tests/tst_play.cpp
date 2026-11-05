@@ -10,6 +10,7 @@
 // Changed for QOR OS: a controller comes from QOR OS's controller service, QOR.Input; here, only its virtual ones.
 // Changed for QOR OS: drawn in software alone, what is measured over the game's time is waited for on its clocks (Stage).
 // Changed for QOR OS: physics/controller checks use those clocks too; a failed controller case still unplugs its virtual pad.
+// Changed for QOR OS: imported models cover window startup and empty, failed and repeated loads.
 
 #include <QDir>
 #include <QElapsedTimer>
@@ -24,6 +25,7 @@
 #include <QQmlEngine>
 #include <QQuickItem>
 #include <QQuickWindow>
+#include <QRegularExpression>
 #include <QSaveFile>
 #include <QScopeGuard>
 #include <QSet>
@@ -1902,6 +1904,102 @@ private slots:
     }
 
     // ── animation (P3.12, ADR-105) ──
+
+    void aGameWindowStartsWithAnImportedModel()
+    {
+        QTest::failOnWarning(QRegularExpression(
+            QStringLiteral(".*Prop\\.qml.*Unable to assign \\[undefined\\] to QVector3D")));
+        QTemporaryDir project;
+        QVERIFY(project.isValid());
+        QVERIFY(QFile::copy(fixture(QStringLiteral("orb.gltf")), QDir(project.path()).filePath(QStringLiteral("orb.gltf"))));
+        QFile file(QDir(project.path()).filePath(QStringLiteral("first.qml")));
+        QVERIFY(file.open(QIODevice::WriteOnly));
+        const QByteArray scene = sceneText(QStringLiteral("    Prop { name: \"First model\"; source: \"orb.gltf\" }\n")).toUtf8();
+        QCOMPARE(file.write(scene), scene.size());
+        file.close();
+
+        QQmlEngine engine;
+        QQmlComponent component(&engine);
+        component.setData(R"(
+            import QtQuick
+            import QQ
+            Window {
+                id: host
+                property url sceneFile
+                width: 320; height: 240; visible: true
+                Game { objectName: "game"; anchors.fill: parent; file: host.sceneFile; hearing: false }
+            }
+        )", QUrl(QStringLiteral("qrc:/tst_play/first-model.qml")));
+        std::unique_ptr<QQuickWindow> window(qobject_cast<QQuickWindow *>(component.createWithInitialProperties(
+            {{QStringLiteral("sceneFile"), QUrl::fromLocalFile(file.fileName())}})));
+        QVERIFY2(window, qPrintable(component.errorString()));
+        QObject *game = window->findChild<QObject *>(QStringLiteral("game"));
+        QVERIFY(game);
+        const auto release = qScopeGuard([game] { QMetaObject::invokeMethod(game, "release"); });
+        QVERIFY(QTest::qWaitForWindowExposed(window.get()));
+        [[maybe_unused]] const bool software = qq::drawnInSoftware(window.get());
+        QTRY_VERIFY_WITH_TIMEOUT(game->property("settled").toBool(), 5000);
+        QCOMPARE(game->property("problem").toString(), QString());
+        auto *io = engine.singletonInstance<qq::SceneIO *>("QQ", "SceneIO");
+        QVERIFY(io);
+        QObject *model = nullptr;
+        for (const QVariant &e : io->entities(game->property("scene").value<QObject *>())) {
+            if (e.value<QObject *>()->property("name").toString() == QStringLiteral("First model"))
+                model = e.value<QObject *>();
+        }
+        QVERIFY(model);
+        QCOMPARE(model->property("status").toInt(), 1);
+    }
+
+    void aModelsPickBoxSurvivesEmptyAndFailedLoads()
+    {
+        QTest::failOnWarning(QRegularExpression(
+            QStringLiteral(".*Prop\\.qml.*Unable to assign \\[undefined\\] to QVector3D")));
+        Stage s;
+        QVERIFY(s.open(sceneText(QStringLiteral("    Prop { name: \"Changing model\" }\n")), false));
+        auto *model = qobject_cast<QQuick3DObject *>(s.entity(QStringLiteral("Changing model")));
+        QVERIFY(model);
+        QObject *box = nullptr;
+        for (QQuick3DObject *child : model->childItems()) {
+            if (child->property("pickable").toBool()) {
+                QVERIFY(!box);
+                box = child;
+            }
+        }
+        QVERIFY(box);
+        QCOMPARE(model->property("status").toInt(), 0);
+        QVERIFY(!box->property("visible").toBool());
+
+        const QUrl source = QUrl::fromLocalFile(fixture(QStringLiteral("orb.gltf")));
+        auto loaded = [model, box] {
+            return model->property("status").toInt() == 1 && box->property("visible").toBool()
+                && box->property("scale").value<QVector3D>().lengthSquared() > 0;
+        };
+        auto finite = [](const QVector3D &v) { return std::isfinite(v.x()) && std::isfinite(v.y()) && std::isfinite(v.z()); };
+        QVERIFY(model->setProperty("source", source));
+        QVERIFY(s.runUntil(loaded, 5000));
+        const QVector3D position = box->property("position").value<QVector3D>();
+        const QVector3D scale = box->property("scale").value<QVector3D>();
+        QVERIFY(finite(position) && finite(scale));
+
+        QVERIFY(model->setProperty("source", QUrl()));
+        QVERIFY(s.runUntil([model] { return model->property("status").toInt() == 0; }, 5000));
+        QVERIFY(!box->property("visible").toBool());
+
+        QTemporaryDir missing;
+        QVERIFY(missing.isValid());
+        const QString absent = QDir(missing.path()).filePath(QStringLiteral("missing.gltf"));
+        QVERIFY(!QFile::exists(absent));
+        QVERIFY(model->setProperty("source", QUrl::fromLocalFile(absent)));
+        QVERIFY(s.runUntil([model] { return model->property("status").toInt() == 2; }, 5000));
+        QVERIFY(!box->property("visible").toBool());
+        QVERIFY(!model->property("errorString").toString().isEmpty());
+
+        QVERIFY(model->setProperty("source", source));
+        QVERIFY(s.runUntil(loaded, 5000));
+        QCOMPARE(box->property("position").value<QVector3D>(), position);
+        QCOMPARE(box->property("scale").value<QVector3D>(), scale);
+    }
 
     void aModelPlaysItsGltfClipsOnTheGamesClock()
     {

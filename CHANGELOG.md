@@ -14,6 +14,11 @@ QOR OS begins: QTOS and Demiurge's device-side products in one repository
 
 ### Added
 
+- **QQ imported-model coverage.** Two focused real-window tests cover Game startup and a pick box across empty,
+  valid, cleared, failed and repeated loads, with the reported undefined-vector diagnostic made fatal. Alongside existing
+  animation and Studio selection controls, 5 Play/3 Studio Qt cases pass per Release/ASan build, zero failures/skips.
+  Fresh records/source fingerprints and hardening (16/13 product programs) are verified. The reported warning did not
+  reproduce; production QML is unchanged. This adds coverage and does not claim a production fix or clear the lint gate.
 - **Fresh simulator/device restrictions and selected core bridge.** At `af8fc43`, the unfiltered command-line tests pass
   10 simulator/11 device-option Qt cases in each existing main profile; the pinned core's C interface passes 9 cases in
   `ci-linux`, all zero failures/skips. Fresh records/source fingerprints, unchanged settings, sanitizer instrumentation

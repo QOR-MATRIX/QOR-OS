@@ -1,6 +1,6 @@
 # Where QOR OS stands
 
-For Andrew, 4 November 2026. Local branch: `integration/owner-brief`.
+For Andrew, 5 November 2026. Local branch: `integration/owner-brief`.
 
 All 14 worktrees (Git checkouts) remain; this session owns implementation. One verified QOR-local build lock keeps
 heavy jobs sequential. No cross-project prerequisite exists. Nothing was pushed.
@@ -17,14 +17,15 @@ Latest jobs have a 1.75 GiB hard memory cap; earlier jobs used 1.25 GiB.
 - **The complete first journey passes once per build**, zero failures/skips: two Studio builds, three real Player launches,
   and Prism's Library request, including playback after deleting the temporary project. Prism is the compositor and shell;
   it starts a recording stand-in here, with the real Player run separately. This journey's Prism is not instrumented.
-  Fresh records/source/program fingerprints are verified; Release takes 113.07 seconds, QQ sanitizers 113.31.
+  Release takes 113.07 seconds, QQ sanitizers 113.31.
 - **10 simulator/11 device-option Qt cases pass in each main profile**, zero failures/skips. The selected pinned-core
   bridge (C interface) passes **9 cases in the normal profile**. The sanitizer profile intentionally keeps the core off.
   Fresh records, unchanged source/settings and actual sanitizer instrumentation are verified.
+- Imported-model startup/reload coverage and animation/picking controls: **5 Play/3 Studio cases per build**, zero
+  failures/skips. The reported vector warning did not reproduce; production code is unchanged.
 - Journey helper: **15 Python regressions each on Windows/Linux**, zero skips. Failed children, stale reports and missing
   first-frame markers are refused.
 - Hardening (exploit mitigations) passes **16 normal/13 sanitizer product programs and 27/25 main-build programs**.
-  Main profiles are existing `ci-linux`/`linux-asan`. Core-enabled configuration alone does not prove core linkage.
 
 ## Remaining and next
 
@@ -33,7 +34,7 @@ in retained comparisons. Against the first retained 381-warning snapshot, 190 ar
 metadata warnings** match their baseline. An unchanged pinned Rust dependency also warns; the latest wrapper correctly
 exits 1. Its repair belongs upstream. Listing/planning still run on the window thread; no latency budget is established.
 
-Next: reproduce Prop (imported model) runtime warnings. Exact commands, earlier checks/failures, harness limits and resume point:
+Next: fresh main Store catalogue/security checks. Exact commands, earlier checks/failures, limits and resume point:
 `build/autonomous-2026-11-04/HANDOFF.md`.
 
 Full OS/Rust suites, Windows products, native Linux graphics/sound/controllers and image/install proof remain unrun;
