@@ -309,7 +309,14 @@ text, including when the status changes during a run.
 
 ## Build, test, deploy
 
-Current asset/build/Store refresh at `39b0768`: unfiltered Release and ASan/UBSan each pass 91 asset-library,
+Latest Shape batch, 5 November: private factories use their actual owner, preserving public interfaces and 2D axis locks.
+Full Scene (52 Qt cases) and six physics functions (10 cases) pass per Release/ASan build, zero failures/skips, with fresh
+records/source fingerprints and hardening 16/13. Group waits use existing software physics/frame clocks; GPU waits,
+tolerances and the Player's frame-rate floor remain. Earlier failures are retained. Native QQ lint removes 13 findings,
+none added: 153 console/178 structured warnings remain, and native commands/the wrapper still fail. The results below
+describe earlier checkpoints; the complete Studio/build/Library/Player journey is next to refresh against this batch.
+
+Asset/build/Store checkpoint at `39b0768`: unfiltered Release and ASan/UBSan each pass 91 asset-library,
 195 game-build and three real Store-to-Player Qt cases, zero failures/skips, all 44/48/1 ordinary functions. This includes
 the opt-in largest-pack measurement and real StoreEngine demonstration-pack install/import path. Fresh native records,
 18 source hashes and unchanged product inputs are verified; post-run hardening passes 16 Release/13 sanitizer programs.

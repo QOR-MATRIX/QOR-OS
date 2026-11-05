@@ -215,6 +215,16 @@ QOR OS begins: QTOS and Demiurge's device-side products in one repository
 
 ### Fixed
 
+- **Shape's private collision factories use their actual owner.** Dimensions, contact callbacks, mass and kinematic
+  transforms are qualified through the owning Shape; public interfaces, materials and 2D axis locks stay unchanged.
+  Native QQ lint removes 13 existing findings with none added: 153 console/178 structured warnings remain, all three
+  commands exit 255 and the wrapper exits 1. Full Scene (52 cases) and six physics functions (10 cases) pass per
+  Release/ASan build, zero failures/skips, with fresh records/source fingerprints and hardening 16/13 verified.
+  An existing group test's wall/frame-clock mismatch reproduced with both original and candidate Shape sources; its
+  software waits now use the existing bounded physics/frame helpers. GPU waits, tolerances and the Player's frame-rate
+  floor remain. Earlier failed runs are retained. Production QML/apps were built in the preceding check; the final
+  test-only revision rebuilt the test and reused those verified apps. Software checks do not prove hardware readiness.
+
 - **Asset replacement confirmation rechecks trust at the write entry.** A real-window regression reproduced copying and locking files after the window's trust state changed to false; Update already refused that case. Copy now checks trust and current build/asset work before starting, including delayed confirmations. Two rows cover refusal without file changes and successful fresh requests after trust is restored. All 91 asset-library cases pass in Release and under sanitizers without skips; hardening passes 16/8 programs. QQ lint stays at 347 diagnostics, none added, with its native gate failing.
 - **Long benchmark stalls reach the report.** Continuous shell benchmarks now retain intervals of 200 ms or more; the interactive Monitor keeps its idle filtering and the sampler's cap is unchanged. A hidden synthetic-frame regression reproduced a missing 500 ms pause, then passed under ASan/UBSan with four other cases and no skips. Same-machine synthetic probe-cost measurements establish no speed change or rendering/hardware readiness.
 - **The shell's window manager uses an unambiguous private ID.** Renaming `layer` to `windowLayer` removes two pre-existing shadowing diagnostics that appeared only in Qt's JSON output, despite its failing native status. Native shell lint now checks all 28 files with zero warnings/errors and one unchanged informational note; aggregate root lint passes on the incremental build. The existing shell UI script passes before and after under sanitizers, with fresh records. Same-machine software benchmarks are recorded without a speed claim. Twelve Wayland metadata warnings seen during dependency generation remain unresolved.

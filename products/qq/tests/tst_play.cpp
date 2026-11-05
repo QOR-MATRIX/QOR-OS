@@ -11,6 +11,7 @@
 // Changed for QOR OS: drawn in software alone, what is measured over the game's time is waited for on its clocks (Stage).
 // Changed for QOR OS: physics/controller checks use those clocks too; a failed controller case still unplugs its virtual pad.
 // Changed for QOR OS: imported models cover window startup and empty, failed and repeated loads.
+// Changed for QOR OS: group motion uses the physics and frame clocks in software and reports failed waits.
 
 #include <QDir>
 #include <QElapsedTimer>
@@ -1141,21 +1142,41 @@ private slots:
                        true, QUrl::fromLocalFile(QDir(project.path()).filePath(QStringLiteral("scenes/play.qml")))));
         // On the deck, and staying there (not only passing on its way down): its top at 0.5 + 0.1, the crate's middle a
         // quarter above.
-        QVERIFY2(s.runUntil([&] { return qAbs(s.where(QStringLiteral("Crate")).y() - 0.85f) < 0.05f; }, 5000),
-                 qPrintable(QString::number(s.where(QStringLiteral("Crate")).y())));
-        s.run(600);
+        const double landingPhysics = s.physicsClock();
+        const double landingFrames = s.frameClock();
+        QElapsedTimer landingWall;
+        landingWall.start();
+        QVERIFY2(s.playUntil([&] { return qAbs(s.where(QStringLiteral("Crate")).y() - 0.85f) < 0.05f; }, 5000),
+                 qPrintable(QStringLiteral("crate=%1, physics=%2 ms, frames=%3 ms, wall=%4 ms")
+                                .arg(s.where(QStringLiteral("Crate")).y())
+                                .arg(s.physicsClock() - landingPhysics)
+                                .arg(s.frameClock() - landingFrames)
+                                .arg(landingWall.elapsed())));
+        QVERIFY(s.play(600));
         QVERIFY2(qAbs(s.where(QStringLiteral("Crate")).y() - 0.85f) < 0.05f,
                  qPrintable(QString::number(s.where(QStringLiteral("Crate")).y())));
         QCOMPARE(s.where(QStringLiteral("Deck")), QVector3D(3, 0.5f, 0));
         QObject *sensor = s.entity(QStringLiteral("Sensor"));
-        QVERIFY(s.runUntil([&] { return sensor->property("inside").toInt() >= 1; }, 2000));
+        QVERIFY(s.playUntil([&] { return sensor->property("inside").toInt() >= 1; }, 2000));
         // Raised a unit by logic.
         QObject *raise = s.entity(QStringLiteral("Raise"))->property("logic").value<QObject *>();
         QVERIFY(raise);
         raise->setProperty("go", true);
-        QVERIFY(s.runUntil([&] { return s.entity(QStringLiteral("Lift"))->property("position").value<QVector3D>().y() >= 1.499f; },
-                           4000));
-        s.run(500);
+        const double raisingPhysics = s.physicsClock();
+        const double raisingFrames = s.frameClock();
+        QElapsedTimer raisingWall;
+        raisingWall.start();
+        const auto raised = [&] { return s.entity(QStringLiteral("Lift"))->property("position").value<QVector3D>().y() >= 1.499f; };
+        // Behaviour's onFrame uses its own clamped frame clock; software can draw less than 1.25 seconds in four wall seconds.
+        // Keep the existing GPU wait and give software the same four seconds on that frame clock.
+        const bool raisedInTime = s.software ? (s.playFrames(4000) && raised()) : s.runUntil(raised, 4000);
+        QVERIFY2(raisedInTime,
+                 qPrintable(QStringLiteral("lift=%1, physics=%2 ms, frames=%3 ms, wall=%4 ms")
+                                .arg(s.entity(QStringLiteral("Lift"))->property("position").value<QVector3D>().y())
+                                .arg(s.physicsClock() - raisingPhysics)
+                                .arg(s.frameClock() - raisingFrames)
+                                .arg(raisingWall.elapsed())));
+        QVERIFY(s.play(500));
         QVERIFY2(qAbs(s.where(QStringLiteral("Crate")).y() - 1.85f) < 0.08f,
                  qPrintable(QString::number(s.where(QStringLiteral("Crate")).y())));
         QVERIFY(qAbs(s.where(QStringLiteral("Deck")).y() - 1.5f) < 1e-4f);

@@ -17,6 +17,8 @@
 // for pixel art: each of its pixels a sharp square however near the eye comes. The pictures are projected along the
 // shape's own three axes (shaders/surface.frag), so they move and turn with it.
 
+// Changed for QOR OS: private collision factories read dimensions and callbacks through their actual Shape owner.
+
 import QtQuick
 import QtQuick3D
 import QtQuick3D.Helpers
@@ -186,23 +188,28 @@ Node {
     Component {
         id: box
         BoxShape {
-            extents: shape.form === "plane" ? Qt.vector3d(shape.sceneScale.x, shape.sceneScale.y,
-                                                          Math.max(0.02, shape.sceneScale.z * 0.02))
-                                            : shape.sceneScale
+            readonly property Shape ownerShape: shape
+            extents: ownerShape.form === "plane" ? Qt.vector3d(ownerShape.sceneScale.x, ownerShape.sceneScale.y,
+                                                          Math.max(0.02, ownerShape.sceneScale.z * 0.02))
+                                            : ownerShape.sceneScale
         }
     }
     Component {
         id: ball
-        SphereShape { diameter: shape.sceneScale.x }
+        SphereShape {
+            readonly property Shape ownerShape: shape
+            diameter: ownerShape.sceneScale.x
+        }
     }
     Component {
         id: hull
         ConvexMeshShape {
-            scale: shape.sceneScale.times(0.01)
+            readonly property Shape ownerShape: shape
+            scale: ownerShape.sceneScale.times(0.01)
             // Raised to stand on its base like Qt's cone. Qt Physics scales a shape's position by the shape's own scale
             // (qphysxactorbody.cpp), so the lift is in the mesh's units: half its hundred.
-            position: Qt.vector3d(0, shape.form === "cone" ? 50 : 0, 0)
-            geometry: shape.form === "cone" ? coneMesh : shape.form === "cylinder" ? cylinderMesh : sphereMesh
+            position: Qt.vector3d(0, ownerShape.form === "cone" ? 50 : 0, 0)
+            geometry: ownerShape.form === "cone" ? coneMesh : ownerShape.form === "cylinder" ? cylinderMesh : sphereMesh
             ConeGeometry { id: coneMesh; topRadius: 0; bottomRadius: 50; length: 100; rings: 2; segments: 24; asynchronous: false }
             CylinderGeometry { id: cylinderMesh; radius: 50; length: 100; segments: 24; asynchronous: false }
             SphereGeometry { id: sphereMesh; radius: 50; rings: 8; segments: 16; asynchronous: false }
@@ -218,21 +225,21 @@ Node {
     Component {
         id: standingBody
         StaticRigidBody {
-            readonly property QtObject entity: shape
+            readonly property Shape entity: shape
             physicsMaterial: surface
             sendContactReports: true
             receiveContactReports: true
             sendTriggerReports: true
-            onBodyContact: (other, positions, impulses, normals) => shape.reportContact(other, positions, normals)
+            onBodyContact: (other, positions, impulses, normals) => entity.reportContact(other, positions, normals)
         }
     }
     Component {
         id: movingBody
         DynamicRigidBody {
-            readonly property QtObject entity: shape
+            readonly property Shape entity: shape
             physicsMaterial: surface
             massMode: DynamicRigidBody.Mass
-            mass: shape.mass
+            mass: entity.mass
             // In a 2D scene (P3.10) it moves on the plane and turns only about the depth axis.
             linearAxisLock: shape.parent && shape.parent.view === "2d" ? DynamicRigidBody.LockZ : DynamicRigidBody.LockNone
             angularAxisLock: shape.parent && shape.parent.view === "2d" ? DynamicRigidBody.LockX | DynamicRigidBody.LockY
@@ -240,22 +247,22 @@ Node {
             sendContactReports: true
             receiveContactReports: true
             sendTriggerReports: true
-            onBodyContact: (other, positions, impulses, normals) => shape.reportContact(other, positions, normals)
+            onBodyContact: (other, positions, impulses, normals) => entity.reportContact(other, positions, normals)
         }
     }
     // Led by the shape: its place and turn are the body's, so logic moves it by moving the shape.
     Component {
         id: ledBody
         DynamicRigidBody {
-            readonly property QtObject entity: shape
+            readonly property Shape entity: shape
             physicsMaterial: surface
             isKinematic: true
-            kinematicPosition: shape.scenePosition
-            kinematicRotation: shape.sceneRotation
+            kinematicPosition: entity.scenePosition
+            kinematicRotation: entity.sceneRotation
             sendContactReports: true
             receiveContactReports: true
             sendTriggerReports: true
-            onBodyContact: (other, positions, impulses, normals) => shape.reportContact(other, positions, normals)
+            onBodyContact: (other, positions, impulses, normals) => entity.reportContact(other, positions, normals)
         }
     }
 

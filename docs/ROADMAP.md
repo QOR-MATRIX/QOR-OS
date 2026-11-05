@@ -452,6 +452,12 @@ unpublished builds stay out of reach.
   the core-enabled profile, but Prism itself does not link the core. Hardening passes 25 programs; the wrapper exits 1
   for the same 12 inherited Wayland metadata
   warnings, none added/removed. This is functional software evidence, with the warning/full-OS/hardware gates still unmet.
+  The 5 November Shape batch then qualifies private factories through their actual owner, preserving public interfaces
+  and 2D axis locks. Full Scene (52 cases) and six physics functions (10 cases) pass per Release/sanitizer build, zero
+  failures/skips; fresh records/source hashes and hardening 16/13 are verified. Group waits use existing software clocks
+  after the original raising wait failed with both old and candidate Shape sources. GPU waits/tolerances and the Player's
+  frame-rate floor remain; earlier failures are retained. Lint drops to 153 console/178 structured warnings, 13 findings
+  removed, none added; native failures/overall exit 1 remain. The complete journey above precedes this batch and needs refreshing.
   Earlier, 48 scene cases passed in Release and under sanitizers, including malformed-image readiness; six selected screen-play
   functions pass (8 Qt cases including setup/cleanup). The earlier broader play run and a clean detached baseline each had
   the same 11 failures. Test clock waits and guaranteed fake-controller cleanup subsequently bring all 53 play cases to a pass,

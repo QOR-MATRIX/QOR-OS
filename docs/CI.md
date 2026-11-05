@@ -345,8 +345,9 @@ Both platform jobs also run `all_qmllint` for each changed product, one at a tim
 The root `.qmllint.ini` sets `MaxWarnings=0` without changing any category or severity, so the root and product CMake lint
 commands fail on warnings. Previously, native qmllint could exit zero while printing warnings. Local commercial-Qt tests
 verify clean input, warnings and syntax errors; extracted Windows/Linux workflow commands are tested with a failing native
-stand-in. The current QQ run has 429 diagnostics and fails this gate; enforcing it is not a claim that lint is clean or that
-the paused CI jobs ran.
+stand-in. The 5 November Shape batch retains 153 console messages/178 structured warnings, with 13 removed and none
+added against its preceding snapshot. All three native QQ commands exit 255 and the wrapper exits 1. The zero-warning
+gate remains failed; the paused CI jobs did not run.
 
 #### What Linux runs
 
@@ -357,8 +358,12 @@ Gameplay checks measure body movement against the existing game-clock helpers wh
 physics/controller, trigger, impulse and Orb Run movement waits now use those helpers, retaining their durations, conditions
 and tolerances. Native waits retain their wall-clock behavior; UI opacity, music and pause controls keep their existing
 waits. A virtual controller is removed even when its case returns early, so a failure cannot hold input in later cases.
-The clean and component baselines each failed the same 11 play cases; the corrected full suite passes all 53 under the
-same software fence. This is functional evidence, not native graphics, sound or controller proof.
+Earlier clean and component baselines each failed the same 11 play cases; that corrected full-suite snapshot passed
+53 cases. The 5 November Shape check runs full Scene (52 cases) and six physics functions (10 cases) per Release/sanitizer
+build, zero failures/skips. Its group test uses existing physics helpers for landing, stability, contact and settling,
+and the frame helper for frame-driven raising. The original raising wait failed with both pre-change and candidate Shape
+sources; height and elapsed frame time agreed. GPU waits and all tolerances remain unchanged. This is functional evidence,
+not native graphics, sound or controller proof.
 
 **`QOR_RUN_LINUX_PRODUCTS` is not set and Build is paused, so today CI runs none of this.** With it set, the job runs
 every suite each product registers with CTest, hidden: **in software under WSL or with no GPU device, and on the GPU
@@ -439,8 +444,8 @@ where only the first did. What follows is eased **in software alone**: where the
   second fails a world below two thirds of real time. In software these wait instead on the clock the thing goes by, with the same numbers,
   and a limit on the wall's time that stops a hung game. A game has three clocks, which agree at 30 frames a second or more: a body moves
   by the physics world's (at most 1/30 s a frame), the Player's turn, fall and jump speeds go by the frame clock (at most 1/20 s), and
-  logic by the scene's ticks (at most 8/60 s). Other cases still wait on the wall in software, such as `tst_play`'s falling shapes, whose
-  2½ and 3 seconds leave a world room to run well under real time, so they check it far less than a GPU's walk does.
+  logic by the scene's ticks (at most 8/60 s). Falling-shape and group-body waits now use those helpers too. UI opacity,
+  music and pause controls retain their separate wall-clock waits; these do not measure body movement.
 - **That frames pay logic's ticks at the right rate, against what moves bodies.** On a GPU `tst_play`'s
   `logicMakesAndRemovesEntitiesOnItsOwnClock` is paid by frames, so logic running more than about 1.6 times ahead of bodies fails it: the
   drops have not fallen 2 metres when logic's clock says they should have. In software logic's clock runs up to four times ahead of the physics
