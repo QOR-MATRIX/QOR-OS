@@ -23,6 +23,16 @@ The data-only Containerfile can verify packaging with existing Docker; the devic
 needs a separately approved existing device base and runtime. Neither is an installer ISO.
 Exact commands and missing prerequisites are in [image/README.md](../image/README.md).
 
+The private disposable-VM work is separate from that data target and the full
+device recipe. `tools/image/build_vm_probe.py` builds an explicitly incomplete
+UEFI live-display ISO from an exact local tooling image and a host-built runtime;
+`tools/image/vmguard.py` and `vmrun.py` constrain its disposable raw disk and
+private firmware variables. The opt-in Linux-only `QOR_BUILD_VM_INSTALLER`
+requires `QOR_BUILD_SIMULATOR=OFF`; it is development work, not a readiness flag.
+See the [VM lab boundaries](../image/README.md#private-disposable-vm-lab),
+including unfinished installation and second-reboot evidence. Do not install a
+Qt kit in the VM or run an image/partitioning command against workstation disks.
+
 ## 1. Prerequisites
 
 ### Windows (primary development platform)

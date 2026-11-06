@@ -14,6 +14,32 @@ QOR OS begins: QTOS and Demiurge's device-side products in one repository
 
 ### Added
 
+- **Private disposable-VM image and installation development.** A digest-pinned
+  Fedora 44 bootc lab prepares a UEFI live-display ISO with the official mark,
+  GRUB diagnostics, Plymouth files and a host-built Qt runtime. It is explicitly
+  a probe with installation unavailable, not a release or installed-system pass.
+  A separate opt-in Qt installer and stock-bootc adapter are under development;
+  encryption and QOR ID authentication remain unavailable. Fresh regular-file
+  targets/private firmware variables, pinned Windows ancestry and open QEMU file
+  descriptors prevent host-device/path substitution. Guest UUID, serial,
+  capacity, VirtIO/PCI ancestry and inactive-use checks precede each transaction.
+  Inert regression tests exercise hostile targets, output/exit propagation and
+  process-group cleanup. Actual install, media-free boot, first run and second
+  reboot evidence remain required by QOR-0024. Build attempts and resource failures
+  are retained; no readiness gate is cleared by synthetic tests.
+  The first real ISO reaches the live console after manual GRUB recovery; clean
+  boot and the Qt display service failed. Source fixes retain embedded modules,
+  bound the official menu mark and use software DRM; a missing PulseAudio client
+  library was reproduced and corrected in the target dependency closure. The new
+  audit checks 62 ELF files and rejects a missing dependency even on loader exit
+  zero. Runtime receipts retain the actual compiler revision and fail on changed
+  files; future staging builds and checks frozen source inputs before publication.
+  Windows passes 13 installer and 20 first-run cases, module lint and hardening of
+  30 programs. Guard/provenance checks pass 27 cases per Windows/Linux, plus four
+  Linux transaction and two Windows asset cases, without failures/skips in those
+  targeted suites. Linux installer/sanitizer compilation is blocked by the observed
+  Ubuntu WSL service timeout. Installation, media-free boot and persistence remain
+  untested; encryption stays disabled and no QOR ID flow is offered.
 - **Installation groundwork with explicit capability limits.** The private `qor-setup` app
   introduces the desktop with the official QorMark, Lumen, keyboard navigation and finite
   reduced-motion-aware page transitions. It preserves unknown/changed completion records,

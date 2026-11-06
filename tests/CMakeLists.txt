@@ -25,6 +25,14 @@ qor_add_test(tst_setup SOURCES setup/tst_setup.cpp LIBRARIES
     qor_setup qor_setupplugin qor_setup_session qor_kitplugin qor_lumen_styleplugin Qt6::QuickControls2)
 target_compile_definitions(tst_setup PRIVATE QOR_SETUP_TEST_CHILD="$<TARGET_FILE:tst_setup_child>")
 add_dependencies(tst_setup tst_setup_child)
+qt_add_executable(tst_installer_child setup/installer_child.cpp)
+target_link_libraries(tst_installer_child PRIVATE Qt6::Core qor::compiler_settings)
+qor_add_test(tst_installer SOURCES setup/tst_installer.cpp LIBRARIES
+    qor_setup qor_setupplugin qor_kitplugin qor_lumen_styleplugin Qt6::QuickControls2)
+target_compile_definitions(tst_installer PRIVATE QOR_INSTALL_TEST_CHILD="$<TARGET_FILE:tst_installer_child>")
+add_dependencies(tst_installer tst_installer_child)
+set_tests_properties(tst_installer PROPERTIES TIMEOUT 90
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen;QT_QUICK_BACKEND=software;${QOR_TEST_ENV};QT_QPA_FONTDIR=${CMAKE_SOURCE_DIR}/kit/fonts")
 set_tests_properties(tst_setup PROPERTIES LABELS "gpu" TIMEOUT 90
     ENVIRONMENT "${QOR_TEST_ENV};QT_QPA_FONTDIR=${CMAKE_SOURCE_DIR}/kit/fonts")
 qor_add_test(tst_oklch SOURCES kit/tst_oklch.cpp LIBRARIES qor_kit)

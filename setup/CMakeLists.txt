@@ -9,8 +9,8 @@ qt_add_qml_module(qor_setup
     VERSION 1.0
     DEPENDENCIES QtQml QtQuick QOR.Kit
     RESOURCE_PREFIX /qt/qml
-    QML_FILES Welcome.qml
-    SOURCES setupstate.h setupstate.cpp)
+    QML_FILES Welcome.qml Installer.qml
+    SOURCES setupstate.h setupstate.cpp installerstate.h installerstate.cpp)
 target_link_libraries(qor_setup PUBLIC Qt6::Quick Qt6::QuickControls2 qor_kit PRIVATE qor::compiler_settings)
 target_include_directories(qor_setup PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
 add_dependencies(qor_setup qor_boot_branding_check)
@@ -23,3 +23,11 @@ if(QOR_BUILD_SIMULATOR)
 endif()
 set_target_properties(qor-setup PROPERTIES WIN32_EXECUTABLE OFF)
 install(TARGETS qor-setup RUNTIME DESTINATION bin)
+if(QOR_BUILD_VM_INSTALLER)
+    qt_add_executable(qor-install installer_main.cpp)
+    target_link_libraries(qor-install PRIVATE qor_setup qor_setupplugin qor_kitplugin
+        qor_lumen_styleplugin Qt6::QuickControls2 qor::compiler_settings)
+    install(TARGETS qor-install RUNTIME DESTINATION bin)
+    install(FILES ../tools/image/vmguard.py ../tools/image/guest_inventory.py ../tools/image/vm_install_backend.py
+        DESTINATION libexec/qor-os)
+endif()

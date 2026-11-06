@@ -29,6 +29,10 @@ option(QOR_WARNINGS_AS_ERRORS "Treat compiler warnings as errors" OFF)
 # (SECURITY.md). A device's image is built without it, and without qor-shell and
 # the tests, which need it: Prism then has the system's own services or none.
 option(QOR_BUILD_SIMULATOR "Build the simulated services (never in anything installed on a device)" ON)
+option(QOR_BUILD_VM_INSTALLER "Build the guarded private VM installer (never a release-readiness claim)" OFF)
+if(QOR_BUILD_VM_INSTALLER AND (QOR_BUILD_SIMULATOR OR WIN32))
+    message(FATAL_ERROR "The private VM installer requires a Linux device build without simulated services")
+endif()
 # The two storefronts, on a catalogue signed with a throwaway key (docs/STORE.md). A choice of a build, never a release:
 # tst_storefronts fails if a CI or release preset leaves it to a build folder's cache instead of turning it off, a device's
 # image cannot have it, nothing built with it installs, and tools/ci/check_hardening.py fails a build folder that has it.

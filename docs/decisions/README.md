@@ -33,6 +33,7 @@ record supersedes it, and both say so.
 | [QOR-0021](QOR-0021-projects-engines-and-two-stores.md) | The owner's brief and next-actions direction: a workspace for every project, engines through small adapters (Unity's gated operation by operation), "supported" meaning run, two stores on shared services with typed listings, free and curated first, optional Qt apps as a backlog, the image a release deliverable, console capture proposed | Accepted 2026-11-01 |
 | [QOR-0022](QOR-0022-assistants-and-unreal-engine-after-epics-change.md) | After Epic's update 22 of 30 October, a rule for each operation in place of the blanket one: no training, agents on project code and source once the owner has accepted that version and its clauses are read, NoAI assets kept out of every model's input | **Proposed** 2026-11-01; not in force |
 | [QOR-0023](QOR-0023-installation-uses-proven-backends.md) | Proven installation backends; Calamares as the native Qt candidate; inactive disk/deployment integration until verified; real first-run app and checked image data kept separate from install readiness | Accepted for local development, 2026-11-05; no installer certified |
+| [QOR-0024](QOR-0024-disposable-vm-installation-lab.md) | Private Fedora bootc/Qt installation lab, restricted QEMU, pinned regular-file target and guest ancestry guard; actual install and two boots required | Accepted for local development, 2026-11-06; proof pending |
 
 ## QTOS (inherited)
 

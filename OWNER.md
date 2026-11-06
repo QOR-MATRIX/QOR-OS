@@ -1,47 +1,44 @@
 # Where QOR OS stands
 
-For Andrew, 5 November 2026. Branch: `integration/owner-brief`; session base `dad071d`.
+For Andrew, 6 November 2026. Branch `integration/owner-brief`; session base `9d6c7c9`.
 
-This session alone implements QOR. All 14 worktrees (Git checkouts) remain; the other 13 are clean.
-Heavy jobs run sequentially under QOR's local lock. Commit/push is authorised to
-`origin/integration/owner-brief`; final references and resume point are in the local handoff.
+This session alone implements QOR. All 14 worktrees (Git checkouts) are preserved; the other 13 are clean.
+Commits/pushes and disposable installation VM work are authorised. Host disks, EFI (firmware boot storage),
+security/network/runner settings and other projects remain outside scope. One heavy QOR job runs at a time
+under the verified project-local lock; no cross-project lock applies.
 
-## Installation and first run
+## Actual image and VM results
 
-There is **no bootable OS image, live environment or working installer**. Application packages and a desktop do not prove installation.
-The image target stages 25 checked files. A data-only Docker image contains every source-matching file;
-it cannot boot. The device recipe requires an approved existing Fedora device base and licensed runtime.
+The private Fedora 44 bootc image (whole-image deployment) produces a real UEFI ISO.
+The first artifact is 1,926,746,112 bytes; checksum and exact input hashes are in
+`build/vm-install-2026-11-06/probe-build-v6/build-result.json`.
+It reached the QOR OS Development live login console **after manual GRUB recovery**.
+Clean boot failed on a module-prefix error; the logo was oversized. The Qt display service failed on
+missing PulseAudio client libraries and a nonexistent legacy framebuffer. No installation has run.
 
-Calamares is the native Qt installer candidate, with the official logo and generated Lumen colours.
-Its settings remain inactive, with no destructive choice/reboot selected. No partitioning backend,
-final physical-disk review, bootc deployment adapter or bootloader installer is integrated.
-QOR-0023 records that boundary; `image/README.md` maps capabilities and prerequisites.
+Source fixes preserve embedded GRUB modules, derive a 112-pixel official mark, use software DRM
+(direct rendering) and validate every packaged runtime library/plugin. All 62 ELF (Linux binary) dependencies
+now resolve in the fixed target environment. A new ISO/real GUI boot is still required.
+The app binary is explicitly traced to its older `9d6c7c9` compiler revision, not relabelled as new.
 
-The three-page `qor-setup` app uses Kit/Lumen and records only completion, preserving damaged/changed records.
-Windows completion first failed; direct atomic temporary-file publication fixes it. Prism requests welcome once after
-an external device-session unlock, excluding simulation/live media. Motion/contrast preferences reach the app at launch;
-unknown motion hints keep it still. Real authentication services and installed-system first login remain unproven.
+The VM used a new regular 16-GiB raw file, no backing file, private firmware variables and software CPU
+emulation. It received no host devices, GPU, network, EFI/NVRAM or Docker socket. Actual guest inventory shows
+one writable disk with the assigned serial/capacity. Host identities/ancestry are pinned; the guest guard
+still needs its actual UUID/driver/PCI ancestry check before any stock bootc transaction.
+Both live diagnostic runs shut down normally; no VM or heavy job is currently active.
 
-## Verified checks
+## Checks and limits
 
-Commercial Qt 6.12; WSL (Linux inside Windows) stays hidden and graphics-fenced, two processors/one worker, 1.75 GiB cap.
-ASan/UBSan check memory errors/undefined behaviour; leaks unchecked. Root profiles include debugging information.
-The sanitizer/device caches exclude the core; sanitizer compiler-warning promotion is off, with separate strict log guards.
+- Windows: **13 installer + 20 first-run Qt cases**, zero failures/skips; module lint has zero warnings.
+- Guard/provenance: **27 tests per Windows/Linux**; four additional Linux process tests and two Windows asset
+  tests pass, zero failures/skips in these targeted suites. They are inert, not installation evidence.
+- Windows hardening (exploit mitigations): **30 programs**, none short. Final staged hooks remain pending.
 
-- First run: **20 Qt cases per normal Linux, sanitizer Linux and Windows**, zero failures/skips.
-- Image/archive: **15 + 3 Python tests per Windows/Linux host**, zero failures/skips; saved-image verification passes.
-- New module/incremental root interface-language checks pass. Hardening (exploit mitigations): **37/35/28/5** programs
-  pass in normal Linux/sanitizer/Windows/device caches. Device app rejects development captures.
-- Three app captures inspected. Three before/three after software tours have fresh frames/all input samples;
-  median frame p95 increased **10.009 → 10.401 ms**. No hardware budget cleared.
-- Regenerated Wayland metadata still emits **12 existing warnings**; its warning guard failed. No suppression.
+The Linux installer and sanitizer build remain blocked by Ubuntu WSL (Linux inside Windows):
+`Wsl/Service/0x8007274c`. Restart permission is pending because it stops that distro's processes;
+Ubuntu is preserved. Encryption and QOR ID are unavailable. First-run completion/persistence, installed
+boot, recovery, rollback, hardware, Secure Boot and release readiness remain unproved. Existing Studio,
+Store, QQ, Rust and Wayland gates are unresolved, not rerun.
 
-## Remaining and next
-
-Existing Studio crash recovery, checkout Store staging, QQ lint and Rust warning gates remain unresolved; not rerun here.
-Full OS/product suites, native graphics/sound/controllers, install/reboot/recovery and CI isolation remain unproven.
-No host partition, boot/firmware, VM, licensing or runner changes. No release/deployment/merge.
-
-Next owner decision: CI VM Create go-ahead under `docs/CI.md`, then Prove and guest Qt licensing prerequisites.
-Installer proof additionally needs the approved device base, reviewed adapter and separately authorised disposable VM/disks.
-Commands, failed attempts, evidence, final refs and resume: `build/install-experience-2026-11-05/HANDOFF.md`.
+Next: preserve/push a reviewed development checkpoint; rebuild/boot the corrected ISO, then finish guarded
+installation and two installed-system boots. Exact commands, failures and resume: `build/vm-install-2026-11-06/LATEST.md`.

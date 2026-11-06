@@ -53,6 +53,15 @@ requires an existing approved device base; the data-only image cannot boot.
 and disk-review boundaries; [the capability map](../image/README.md#installation-capability-map)
 distinguishes code, configuration and missing runtime evidence.
 
+The separate private VM lab ([QOR-0024](decisions/QOR-0024-disposable-vm-installation-lab.md))
+uses a digest-pinned Fedora bootc base and restricted QEMU TCG. Its opt-in
+`qor-install` frontend delegates whole-disk operations to stock bootc, with no
+custom partitioner. Before writing, a sealed guest allowlist must match the new
+regular-file disk's UUID, serial, capacity and driver/PCI ancestry; host files
+are pinned and passed as descriptors. The first live ISO is a display probe,
+with installation unavailable. This lab is not a substitute for device services,
+authentication, hardware, encrypted installation, rollback or CI isolation proof.
+
 **Simulation and device share all QML.** The shell and the apps never talk to
 a service implementation directly. They bind to Qt Remote Objects *replicas*.
 In simulation the *sources* are the classes in `sim/`; on a device they are the

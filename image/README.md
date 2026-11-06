@@ -1,9 +1,11 @@
 # image — the QOR OS image (Phase 3)
 
-> **Status:** no bootable OS image or working installer. The selected base is **Fedora Atomic with bootc**
+> **Status:** a private ISO reaches the live OS after manual GRUB recovery; clean startup,
+> graphical live startup and installation are not yet proved. The base is **Fedora Atomic with bootc**
 > ([QOR-0004](../docs/decisions/QOR-0004-the-base-image-is-fedora-atomic.md)).
 > The checked branding filesystem layer builds into a data-only container. The first-run
-> app builds and runs; the device base, live environment and installation backend are missing.
+> app builds and runs. A separate private VM lab is being developed below; its boot,
+> installation and second-reboot acceptance checks remain incomplete.
 > The first image is Phase 3 work
 > ([ROADMAP](../docs/ROADMAP.md#phase-3--boots-and-plays-pc-games)).
 >
@@ -11,7 +13,97 @@
 > the history before commit "Retire the Yocto skeleton for Fedora Atomic"
 > (`git log -- image/meta-qtos`).
 
-## What the image is
+## Private disposable VM lab
+
+[QOR-0024](../docs/decisions/QOR-0024-disposable-vm-installation-lab.md) adds an
+explicitly limited development path, separate from the full device recipe and
+inactive Calamares candidate. The first inspected source was `9d6c7c9` on
+6 November 2026. The lab does not yet demonstrate installation. The full device
+session, authentication, native drivers, updates and rollback remain unfinished.
+
+The selected development base is Fedora 44 bootc **amd64**, manifest
+`sha256:0cd45c0431f553a1f40a4717fb53f59f24a7f93f0d2962d581ac9b9b8860008e`.
+`vm/Tooling.bootstrap.Containerfile` describes dependency acquisition. Its signed
+RPM repositories are mutable: bootstrap is **not** a reproducible release build.
+The lab driver enforces `vm/tooling-input.json` and `vm/tooling-rpms.txt`, pinning
+the resolved local tooling image, root filesystem layers and RPM manifest hash,
+and records every staged input hash. Preserve that tooling image, its RPM record,
+runtime record and exact source revision. Deterministic output still needs a
+locked package source/snapshot, timestamp normalization and repeated-build proof.
+No image is published by these tools.
+
+`vm/Probe.Containerfile` prepares a live filesystem and its own kernel/initramfs.
+`tools/image/build_vm_probe.py` composes a regular-file UEFI El Torito ISO with
+GRUB, a SquashFS live root, the existing startup assets and the existing first-run
+runtime. It is labelled **display probe; installation unavailable**. It does not
+stage a deployable offline bootc source yet. GRUB is static; Plymouth animation
+and the transition to a framebuffer application require actual boot evidence.
+BIOS, USB hybrid boot and Secure Boot are unsupported by this probe.
+
+The first ISO (`4f3ecebc802da583fe056b12ecd5837542263ee607d23c01c51709a193a1538b`)
+actually reached the branded live login console after manual GRUB recovery.
+Its clean boot failed because an early prefix change hid embedded modules; the
+logo was oversized, and the live Qt app failed on a missing PulseAudio client
+library and unavailable legacy framebuffer. Source fixes keep GRUB's embedded
+prefix, derive a bounded 112-pixel official mark with provenance, include the
+missing runtime library and use Qt's software DRM mode. Those source fixes still
+need a new ISO and actual clean-boot/GUI evidence. The target-image audit now
+checks all 62 bundled ELF files, including dynamically loaded QML plugins, and
+fails on missing libraries even when `ldd` returns zero.
+
+ISO compression runs with one CPU, a 768-MiB memory limit and no network or host
+devices. The builder has only `DAC_READ_SEARCH` to preserve mode-000 system files
+from the prepared image; its writable layer is disposable. SELinux contexts and
+extended attributes are retained. It removes Docker's generated detector and
+uses neutral image hostname/hosts/DNS data. The first whole-root BuildKit copy
+exhausted available Windows memory and was cancelled; compression no longer
+duplicates that root. Initramfs errors fail acceptance even if dracut exits zero.
+
+`stage_vm_runtime.py` first builds the requested non-simulator targets with one
+worker and checks unchanged source snapshots, warnings, kit identity and build
+exit status before staging the Qt runtime
+import closure and plugins. It installs no Qt kit, tools, account or credentials
+in the VM. It is private-test packaging, not distribution approval. Original
+runtime notices stay intact. `QOR_BUILD_VM_INSTALLER=ON` is opt-in, Linux-only
+and incompatible with simulator builds. Its Qt frontend and guarded Python
+backend are under development, not an exercised installation path. Encryption
+is disabled: no separate encrypted install/unlock/reboot has been proved.
+Only a local `qortest` account is intended; QOR ID authentication is unavailable.
+
+The probe requires `--runtime-record`: all runtime files must match that receipt.
+An older compiler revision is recorded separately from the image recipe revision;
+it is never relabelled as a fresh build. The current diagnostic binary is from
+`9d6c7c9`. Ubuntu WSL fails with `Wsl/Service/0x8007274c`, blocking a new Linux
+installer build and sanitizer checks; no distro or host service is restarted
+without permission to stop its processes.
+
+`vmguard.py create` requires a **new** directory under this checkout's `build/`,
+an extracted private firmware-variable template, exact source revision and ISO
+checksum. It creates a regular raw file without backing and records file IDs,
+capacity, parent ancestry, UUID and unique serial. `vmrun.py` pins Windows
+ancestry/files for the VM lifetime, verifies the ISO and uses a restricted,
+network-free QEMU TCG container. QEMU receives open regular-file descriptors,
+private OVMF variables and no host block devices, EFI, KVM or Docker socket.
+The installed phase has no CD drive. No host boot or security setting is changed.
+
+The guest reads sealed firmware metadata **before enumerating disks**. Immediately
+before each stock bootc transaction it must match UUID, exact serial/capacity,
+VirtIO driver and PCI `00:04.0` ancestry, node/kernel identity and inactive use.
+Additional, busy, changed or ambiguous disks are refused. A device name or merely
+detecting a VM never authorises erasure. Explicit selection, unchecked erase
+acknowledgement and complete serial confirmation precede a whole-disk install.
+An offline source checksum and real backend exit status are also required. No
+automatic transaction retry, custom partitioner or estimated progress is used.
+
+Acceptance still requires a clean committed source and checksum-bound image,
+VM configuration, target identity shown before erasure, real menu/splash/live/
+installer screenshots, cancellation and failure evidence, successful deployment,
+media detached, installed boot, first-run completion and a **second reboot**
+showing persisted completion. Synthetic fixtures and asset previews do not prove
+those stages. Private attempt logs and the exact resume point currently live in
+`build/vm-install-2026-11-06/`; they are ignored build evidence, not release assets.
+
+## Intended full device image
 
 An OCI container image built `FROM` a Fedora bootc base and booted as a whole
 operating system. It contains:
@@ -69,8 +161,8 @@ check against ([QOR-0018](../docs/decisions/QOR-0018-the-security-and-quality-ba
 
 | Stage | Control and implementation |
 |-------|----------------------------|
-| Firmware | The manufacturer's UEFI logo stays under firmware control. No firmware/EFI changes are made here. |
-| Boot menu | No bootloader is packaged yet. Preserve recovery entries, kernel editing and readable diagnostics when choosing it; no bootloader animation is assumed. |
+| Firmware | The manufacturer's logo remains under firmware control. The test VM uses unchanged OVMF code and private variable files; no host firmware/EFI is touched. |
+| Boot menu | The private VM ISO packages static GRUB EFI, a QOR theme and a readable diagnostics entry. Its first clean boot failed; module-prefix and logo-size fixes await a new boot check. No bootloader animation is assumed. |
 | OS loading | `branding/qor-os.plymouth` selects Plymouth's script plugin, with the existing QorMark on Lumen's dark background. One 267 ms fade, then a still mark; no fake progress, repeating animation or end-animation delay. |
 | Session | Prism's existing `Desktop` and `DisplayDesktop` instantiate `StartupSplash`: the same image/background, released on the first swapped frame, Escape dismissal, reduced-motion handling and a 1.5-second watchdog. Hotplug after readiness skips the intro. |
 
@@ -124,26 +216,27 @@ that review is **not a Plymouth runtime pass**.
 
 Only UEFI Secure Boot is planned by the current architecture. No legacy BIOS/CSM or
 Secure Boot signing claim is added by artwork. A payload test/asset preview is not a bootable
-image or boot sequence: no Plymouth/bootc runtime, bootable image or proven VM was available in
-this session. Windows Docker's Linux engine is available and builds the data-only layer.
+image or boot sequence. The later private VM ISO reached a live console after manual GRUB
+recovery, with a failed Qt display service; it does not prove Plymouth animation or installation.
+Windows Docker's Linux engine builds both the data-only layer and the separate VM probe.
 Actual firmware/menu/OS splash, graphics fallback, prompts, multiple displays,
 initramfs inclusion, rollback and the splash-to-greeter handoff still need real image/VM and
 hardware evidence. The CI VM Create/Prove and guest Qt licensing gates remain unchanged.
 
 ## Installation capability map
 
-Inspected on 5 November 2026, starting at `dad071d`. Application deployment through
+Refreshed on 6 November 2026 from `9d6c7c9`, retaining the earlier starting-state column. Application deployment through
 CMake or a Windows package is not installation of an operating system.
 
 | Stage | Before this change | Implemented here | Still required |
 |---|---|---|---|
-| Image generation | Plan and seven-file boot-branding payload | 25-file checked filesystem layer; data-only Docker image; explicit device-layer Containerfile and structural check | Approved digest-pinned Fedora device base, real services, licensed runtime, initramfs generation/inspection, complete OS image |
-| USB boot/live session | No image or live session | Inactive generic-ISO input with a QOR OS menu label | Version-pinned image builder, actual USB/live bootstrap, recovery/diagnostics and tested firmware paths |
-| Installer framework | Calamares mentioned in planning only | Original QOR theme using official mark and generated Lumen roles; inactive settings | Packaged version and licence review, actual Calamares run, hardware checks and live launch integration |
-| Choices/disk/encryption | No implementation | Candidate partition config chooses nothing initially and retains labels/warnings | Integrated KPMcore backend; explicit physical-disk/data-loss review, stale-disk refusal, encryption and existing-data tests |
-| Deployment/progress | No implementation | Unresolved deployment/review slots deliberately kept outside `/etc/calamares/` | Reviewed bootc adapter; truthful backend progress, errors, cancellation and interrupted-install recovery |
-| Bootloader | No installation backend | No custom bootloader logic | Maintained backend, UEFI boot and recovery proof; no BIOS/Secure Boot support claim |
-| Completion/reboot | No installer | Inactive completion config defaults to no reboot | Genuine success detection, user-selected reboot, installed-system boot and failure checks |
+| Image generation | Plan and seven-file boot-branding payload | Original 25-file data layer; separate pinned Fedora 44 VM probe produces a real ISO with kernel/initramfs/live root | New clean boot after source fixes; frozen-input reconstruction/repeated-build proof; full device payload |
+| USB boot/live session | No image or live session | Actual UEFI optical-media boot reaches QOR live console after manual GRUB recovery; Qt app fails | Clean automatic boot, corrected DRM/runtime GUI, actual USB/hardware/mode tests |
+| Installer framework | Calamares mentioned in planning only | Calamares theme stays inactive; separate opt-in Qt/stock-bootc prototype has 13 passing Windows cases | Linux installer build, actual backend/image integration and live UI exercise |
+| Choices/disk/encryption | No implementation | Fresh raw-file/ancestry/UUID/serial guard and explicit Qt review; encryption disabled; synthetic negative tests | Actual guest collector validation, complete target review, real refusal/cancellation/install tests |
+| Deployment/progress | No implementation | Fixed stock bootc command adapter with offline checksum, exit gate, bounded diagnostics and process cleanup | Offline deployment image/archive; actual guarded transaction, progress and interrupted-install recovery |
+| Bootloader | No installation backend | Static GRUB EFI is in the ISO; stock bootc is selected for target-disk installation | Actual bootloader deployment and media-free UEFI boot; no BIOS/Secure Boot claim |
+| Completion/reboot | No installer | Process-exit-gated completion tested with inert fixtures; diagnostic live VM shuts down normally | Genuine install success, media detached, installed first run and second reboot proving persistence |
 | First run | No app | Real `qor-setup`: three-page introduction, keyboard controls, reduced-motion page fade, checked completion state; once-per-device-session unlock hook | Real authentication/session service, installed-image launch/reboot proof, screen-reader and hardware testing |
 
 Calamares is the candidate because its native Qt interface can be branded without
@@ -151,7 +244,10 @@ rewriting partitioning. Its KPMcore partition module is **not integrated here**,
 there is no verified Calamares-to-bootc adapter. `settings.conf.in` has unresolved
 `@VERIFIED_DISK_REVIEW_MODULE@` and `@VERIFIED_BOOTC_DEPLOYMENT_SEQUENCE@` slots.
 The checked device layer refuses active installer settings and live-media activation
-at this checkpoint. There is no install button that can erase anything.
+for the full device recipe. The separate VM prototype exposes an install button
+only after target review and exact serial/erase acknowledgement. It is not in the
+current probe, and its real guest transaction is not yet exercised; synthetic
+tests cannot authorise claims of a working installer.
 
 The required final disk review must show physical model, stable identifier, capacity,
 partitions/data affected and encryption action. Re-enumeration or a changed target must
