@@ -2,7 +2,7 @@
   "schema": 1,
   "profile": "private-vm-development",
   "fedora_amd64_manifest": "sha256:0cd45c0431f553a1f40a4717fb53f59f24a7f93f0d2962d581ac9b9b8860008e",
-  "tools_image": "sha256:08ba42637edad10219a72eeb8c2b99d5fabc369481de65df4c2e82d0d43ea6f4",
+  "tools_image": "sha256:569a8b09071bd926435f9129114124bc3399d8f42290eab46b6794e5ea695b5e",
   "rootfs": {
     "Type": "layers",
     "Layers": [
@@ -76,10 +76,11 @@
       "sha256:b978a2c48ddd160963243ee12ab2270c6e597d7b7154b643337e8fdd13ee683d",
       "sha256:a840d236fe53d028f554fcb2f3ec88c999ea24884b6095a8b25a9e2ae6683637",
       "sha256:0021c61c7fd3fc7d94dcff757353d747164619c7a7425c0edcab17750ff32520",
-      "sha256:e6df14ccf5e12d9d0e29332f555b60991cb0997798b656b62d849f148f70c809"
+      "sha256:e6df14ccf5e12d9d0e29332f555b60991cb0997798b656b62d849f148f70c809",
+      "sha256:233fa80c01f92328db4f19917d008c48962519fe3e9d98f69d8949996c8d07c0"
     ]
   },
-  "rpm_manifest_sha256": "8f469bb7056f2ddac54b4e36ce80b17b69e80c0ddd45873b369ae5868cf867af",
+  "rpm_manifest_sha256": "4100763fc228a83883bf20f7f47dace952b1e8222c26a078a3854c4a32cd6ddc",
   "bootstrap_reproducible": false,
   "archive_preserved": false
 }

@@ -97,6 +97,8 @@ def main():
     for name in ("Probe.Containerfile", "display-probe.service", "build-iso.sh"):
         shutil.copyfile(REPO / "image/vm" / name, context / name)
     shutil.copyfile(REPO / "tools/image/check_vm_runtime.py", context / "check_vm_runtime.py")
+    for name in ("vmguard.py", "guest_inventory.py", "vm_install_backend.py", "vm_display.py"):
+        shutil.copyfile(REPO / "tools/image" / name, context / name)
     inputs = {str(path.relative_to(context)): digest(path) for path in context.rglob("*") if path.is_file()}
     record = {"profile": "live-display-probe-NOT-installation", "tools_image": image_id,
               "source_revision": subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=REPO, text=True).strip(),

@@ -58,7 +58,10 @@ uses a digest-pinned Fedora bootc base and restricted QEMU TCG. Its opt-in
 `qor-install` frontend delegates whole-disk operations to stock bootc, with no
 custom partitioner. Before writing, a sealed guest allowlist must match the new
 regular-file disk's UUID, serial, capacity and driver/PCI ancestry; host files
-are pinned and passed as descriptors. The first live ISO is a display probe,
+are pinned and passed as descriptors. The offline archive and receipt must also
+be on the read-only installation ISO, not a mutable live overlay. Display
+selection matches the sealed VM's VirtIO graphics slot rather than assuming
+`card0`. The live ISO is a display probe,
 with installation unavailable. This lab is not a substitute for device services,
 authentication, hardware, encrypted installation, rollback or CI isolation proof.
 

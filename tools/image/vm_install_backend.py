@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: LicenseRef-QOR-OS-Proprietary
 """Private VM-only bootc transaction. No partitioning implementation lives here."""
 import argparse
+from contextlib import contextmanager
 import ctypes
 import hashlib
 import json
@@ -15,8 +16,67 @@ import threading
 
 from guest_inventory import inspect
 
-SOURCE = Path("/usr/share/qor-os/install-source.tar")
-RECEIPT = Path("/usr/share/qor-os/install-source.json")
+MEDIA = Path("/run/initramfs/live")
+SOURCE = MEDIA / "qor/install-source.tar"
+RECEIPT = MEDIA / "qor/install-source.json"
+
+
+def read_only_media():
+    """Keep the checked source immutable, including against in-place writes.
+
+    Holding an archive descriptor prevents pathname replacement but cannot
+    prevent another process modifying the same inode. Only the read-only ISO
+    passed by the sealed launcher is accepted, never the writable live overlay.
+    """
+    for path in (MEDIA, *MEDIA.parents):
+        if path.is_symlink() or not path.is_dir():
+            raise ValueError("Linked or missing installation media ancestry")
+    with Path("/proc/self/mountinfo").open() as stream:
+        raw = stream.read(1024 * 1024 + 1)
+    if len(raw) > 1024 * 1024:
+        raise ValueError("Oversized mount inventory")
+    matches = []
+    for line in raw.splitlines():
+        fields, separator, filesystem = line.partition(" - ")
+        fields, filesystem = fields.split(), filesystem.split()
+        if separator and len(fields) >= 6 and fields[4] == str(MEDIA):
+            matches.append((fields[5].split(","), filesystem))
+    if (len(matches) != 1 or "ro" not in matches[0][0]
+            or not matches[0][1] or matches[0][1][0] != "iso9660"
+            or not os.statvfs(MEDIA).f_flag & os.ST_RDONLY):
+        raise ValueError("The offline source must be on the read-only installation ISO")
+
+
+def regular_source(path):
+    if not path.is_relative_to(MEDIA):
+        raise ValueError("Source outside installation media")
+    for parent in path.parents:
+        if parent == MEDIA:
+            break
+        if parent.is_symlink() or not parent.is_dir():
+            raise ValueError("Linked or missing payload ancestry")
+    descriptor = os.open(path, os.O_RDONLY | os.O_NOFOLLOW)
+    try:
+        info = os.fstat(descriptor)
+        if (not stat.S_ISREG(info.st_mode) or info.st_nlink != 1
+                or info.st_dev != MEDIA.stat().st_dev or not os.fstatvfs(descriptor).f_flag & os.ST_RDONLY):
+            raise ValueError("Offline payload must be a single regular file on the read-only ISO")
+        return os.fdopen(descriptor, "rb")
+    except BaseException:
+        os.close(descriptor)
+        raise
+
+
+@contextmanager
+def offline_source():
+    read_only_media()
+    with regular_source(RECEIPT) as stream:
+        raw = stream.read(4097)
+    if len(raw) > 4096:
+        raise ValueError("Oversized installation receipt")
+    receipt = json.loads(raw)
+    with regular_source(SOURCE) as stream:
+        yield receipt, stream
 
 
 def emit(kind, **fields):
@@ -57,11 +117,13 @@ def transaction(argv, log, timeout=2400, pass_fds=()):
     def interrupted(_number, _frame):
         raise InterruptedError("Installation service terminated")
 
-    signal.signal(signal.SIGTERM, interrupted)
     parent = os.getppid()
-    libc = ctypes.CDLL(None, use_errno=True)
-    if libc.prctl(1, signal.SIGTERM, 0, 0, 0) != 0 or parent <= 1 or os.getppid() != parent:
+    if parent <= 1:
         raise ValueError("Could not bind transaction lifetime to its frontend")
+    libc = ctypes.CDLL(None, use_errno=True)
+    if libc.prctl(1, signal.SIGTERM, 0, 0, 0) != 0 or os.getppid() != parent:
+        raise ValueError("Could not bind transaction lifetime to its frontend")
+    signal.signal(signal.SIGTERM, interrupted)
     first, tail = bytearray(), bytearray()
 
     def drain(stream):
@@ -120,17 +182,8 @@ def main():
                 raise ValueError("Reboot target is not confirmed")
             subprocess.run(["/usr/bin/systemctl", "reboot"], check=True)
             return 0
-        with RECEIPT.open("rb") as stream:
-            raw_receipt = stream.read(4097)
-        if len(raw_receipt) > 4096:
-            raise ValueError("Oversized installation receipt")
-        receipt = json.loads(raw_receipt)
-        argv = command(expected, disk, receipt, args.confirm_serial)
-        source_fd = os.open(SOURCE, os.O_RDONLY | os.O_NOFOLLOW)
-        with os.fdopen(source_fd, "rb") as stream:
-            source_info = os.fstat(stream.fileno())
-            if not stat.S_ISREG(source_info.st_mode) or source_info.st_nlink != 1:
-                raise ValueError("Offline payload must be a single regular file")
+        with offline_source() as (receipt, stream):
+            argv = command(expected, disk, receipt, args.confirm_serial)
             digest = hashlib.file_digest(stream, "sha256").hexdigest()
             if digest != receipt["archive_sha256"]:
                 raise ValueError("Offline installation payload checksum differs")

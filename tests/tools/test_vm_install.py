@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: LicenseRef-QOR-OS-Proprietary
 """Negative controls for the VM launcher and fixed installation backend."""
 import importlib
+import io
 import os
 from pathlib import Path
 import sys
@@ -8,6 +9,7 @@ import tempfile
 import unittest
 from unittest.mock import Mock, patch
 import json
+from types import SimpleNamespace
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "tools/image"))
 backend = importlib.import_module("vm_install_backend")
@@ -38,7 +40,7 @@ class VmInstall(unittest.TestCase):
         self.assertEqual(argv[:3], ["/usr/bin/bootc", "install", "to-disk"])
         self.assertEqual(argv[-1], "/dev/vda")
         self.assertIn("--generic-image", argv)
-        self.assertIn("docker-archive:/usr/share/qor-os/install-source.tar", argv)
+        self.assertIn("docker-archive:/run/initramfs/live/qor/install-source.tar", argv)
         self.assertNotIn("--via-loopback", argv)
 
     def test_builder_checks_emitted_errors_even_when_command_succeeds(self):
@@ -120,6 +122,47 @@ class VmInstall(unittest.TestCase):
                 inventory.inspect()
             collect.assert_not_called()
 
+    def test_writable_or_ambiguous_media_never_opens_payload(self):
+        media = self.work / "iso"
+        media.mkdir()
+        valid = f"10 1 11:0 / {media} ro,relatime - iso9660 /dev/sr0 ro\n"
+        cases = [("", 1), (valid.replace("ro,relatime", "rw,relatime"), 1),
+                 (valid.replace("iso9660", "ext4"), 1), (valid + valid, 1), (valid, 0)]
+        for mountinfo, flags in cases:
+            with self.subTest(mountinfo=mountinfo, flags=flags), \
+                    patch.object(backend, "MEDIA", media), \
+                    patch.object(backend.Path, "open", return_value=io.StringIO(mountinfo)), \
+                    patch.object(backend.os, "statvfs", return_value=SimpleNamespace(f_flag=flags), create=True), \
+                    patch.object(backend.os, "ST_RDONLY", 1, create=True), \
+                    patch.object(backend, "regular_source") as source:
+                with self.assertRaises(ValueError), backend.offline_source():
+                    self.fail("Mutable or ambiguous media was accepted")
+                source.assert_not_called()
+
+    def test_single_readonly_iso_mount_passes_media_check(self):
+        media = self.work / "iso"
+        media.mkdir()
+        mountinfo = f"10 1 11:0 / {media} ro,relatime - iso9660 /dev/sr0 ro\n"
+        with patch.object(backend, "MEDIA", media), \
+                patch.object(backend.Path, "open", return_value=io.StringIO(mountinfo)), \
+                patch.object(backend.os, "statvfs", return_value=SimpleNamespace(f_flag=1), create=True), \
+                patch.object(backend.os, "ST_RDONLY", 1, create=True):
+            backend.read_only_media()
+
+    def test_refused_target_or_source_never_starts_transaction(self):
+        for refusal in ("target", "source"):
+            output = io.StringIO()
+            with self.subTest(refusal=refusal), \
+                    patch.object(backend.sys, "argv", ["backend", "install", "--confirm-serial", self.disk["serial"]]), \
+                    patch.object(backend, "inspect", side_effect=ValueError if refusal == "target" else None,
+                                 return_value=(self.record, self.disk)), \
+                    patch.object(backend, "read_only_media", side_effect=ValueError), \
+                    patch.object(backend, "transaction") as transaction, \
+                    patch.object(backend.sys, "stdout", output):
+                self.assertEqual(backend.main(), 1)
+                self.assertEqual(json.loads(output.getvalue())["type"], "error")
+                transaction.assert_not_called()
+
     def test_malformed_contract_refused_without_device_enumeration(self):
         for value in ([], {}, {**self.record, "schema": True}, {**self.record, "disk": {}},
                       {**self.record, "disk": {**self.record["disk"], "serial": "qor-" + "a" * 20}},
@@ -132,6 +175,7 @@ class VmInstall(unittest.TestCase):
         installed = container.arguments(self.record, False, 10, 11, 12, readonly_fds=(14, 15))
         self.assertIn("none", live)
         self.assertIn("tcg,thread=single,tb-size=64", live)
+        self.assertIn("virtio-vga,addr=0x1", live)
         self.assertNotIn("kvm", " ".join(live))
         self.assertIn("virtio-blk-pci,drive=target,addr=0x4,disable-legacy=on,serial=" + self.disk["serial"], live)
         self.assertIn("if=pflash,format=raw,unit=1,file=/dev/fdset/2", live)

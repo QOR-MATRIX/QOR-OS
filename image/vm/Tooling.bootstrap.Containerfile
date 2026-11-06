@@ -7,5 +7,5 @@ RUN dnf -y --setopt=max_parallel_downloads=1 --setopt=keepcache=True install \
     xorriso squashfs-tools squashfs-tools-ng mtools grub2-efi-x64-cdboot \
     grub2-efi-x64-modules grub2-tools-extra dracut-live dnf5-plugins \
     libglvnd-glx libglvnd-egl libglvnd-opengl libxkbcommon libinput \
-    libX11-xcb libatomic fontconfig pulseaudio-libs plymouth plymouth-plugin-script && \
+    libX11-xcb libatomic fontconfig pulseaudio-libs pipewire-libs plymouth plymouth-plugin-script && \
     rpm -qa --qf '%{NAME}-%{VERSION}-%{RELEASE}.%{ARCH}\n' | sort > /qor-tooling-rpms.txt

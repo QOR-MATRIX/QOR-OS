@@ -1,44 +1,45 @@
 # Where QOR OS stands
 
-For Andrew, 6 November 2026. Branch `integration/owner-brief`; session base `9d6c7c9`.
+For Andrew, 6 November 2026. Branch `integration/owner-brief`; image evidence at `c8ccc9b`.
 
 This session alone implements QOR. All 14 worktrees (Git checkouts) are preserved; the other 13 are clean.
-Commits/pushes and disposable installation VM work are authorised. Host disks, EFI (firmware boot storage),
-security/network/runner settings and other projects remain outside scope. One heavy QOR job runs at a time
-under the verified project-local lock; no cross-project lock applies.
+Commits/pushes and disposable virtual-machine installation work are authorised. One heavy QOR job runs
+at a time under the verified project-local lock. No cross-project prerequisite applies. Host disks,
+firmware, security/network/runner settings and other projects remain outside scope.
 
-## Actual image and VM results
+## Actual image and guest results
 
-The private Fedora 44 bootc image (whole-image deployment) produces a real UEFI ISO.
-The first artifact is 1,926,746,112 bytes; checksum and exact input hashes are in
-`build/vm-install-2026-11-06/probe-build-v6/build-result.json`.
-It reached the QOR OS Development live login console **after manual GRUB recovery**.
-Clean boot failed on a module-prefix error; the logo was oversized. The Qt display service failed on
-missing PulseAudio client libraries and a nonexistent legacy framebuffer. No installation has run.
+The private Fedora 44 bootc image (whole-image deployment) produces a real UEFI ISO (firmware-bootable media):
+**1,932,019,712 bytes**, SHA-256 checksum and exact inputs in
+`build/vm-install-2026-11-06/probe-build-v7/build-result.json`.
+It automatically boots through the correctly sized official-logo menu into the live OS, shows the QOR
+loading mark and exposes readable diagnostics with Escape. The brief fade is not proved.
+Its normal Qt display failed because the default graphics device was absent.
 
-Source fixes preserve embedded GRUB modules, derive a 112-pixel official mark, use software DRM
-(direct rendering) and validate every packaged runtime library/plugin. All 62 ELF (Linux binary) dependencies
-now resolve in the fixed target environment. A new ISO/real GUI boot is still required.
-The app binary is explicitly traced to its older `9d6c7c9` compiler revision, not relabelled as new.
+A temporary diagnostic boot proves the new VirtIO display selector, guest tty2 reservation and real
+welcome UI. Interruption leaves welcome pending; restart and three Return presses complete it with
+its checked public record and exit zero. **This is live RAM state, not installed-system persistence.**
+The actual app binary remains traced to compiler revision `9d6c7c9`.
 
-The VM used a new regular 16-GiB raw file, no backing file, private firmware variables and software CPU
-emulation. It received no host devices, GPU, network, EFI/NVRAM or Docker socket. Actual guest inventory shows
-one writable disk with the assigned serial/capacity. Host identities/ancestry are pinned; the guest guard
-still needs its actual UUID/driver/PCI ancestry check before any stock bootc transaction.
-Both live diagnostic runs shut down normally; no VM or heavy job is currently active.
+The real guest guard matched the new 16-GiB regular raw file, serial `qor-110e4251919b4c33`, sealed VM
+identifier and VirtIO PCI (virtual hardware) ancestry. Missing firmware metadata caused refusal;
+restoring it revalidated the same disk. Read-only ISO checks pass. No install transaction has run.
+Private firmware variables and software CPU emulation receive no host devices, GPU, EFI/NVRAM,
+network or Docker socket. Both v7 runs shut down normally. No VM/heavy job is currently active.
 
-## Checks and limits
+## Checks and next work
 
-- Windows: **13 installer + 20 first-run Qt cases**, zero failures/skips; module lint has zero warnings.
-- Guard/provenance: **27 tests per Windows/Linux**; four additional Linux process tests and two Windows asset
-  tests pass, zero failures/skips in these targeted suites. They are inert, not installation evidence.
-- Windows hardening (exploit mitigations): **30 programs**, none short. Final staged hooks remain pending.
+- **35 guard/provenance/display cases each on Windows and Linux**, seven Linux process/source cases,
+  two Windows asset cases: zero failures/skips in final targeted runs. The first Linux harness was
+  refused by the supervision guard; the corrected harness passes without weakening it.
+- Earlier native Windows checks on unchanged C++: **13 installer + 20 first-run cases**, module lint
+  without warnings; hardening (exploit mitigations) passes 30 programs. Full-project gates remain open.
 
-The Linux installer and sanitizer build remain blocked by Ubuntu WSL (Linux inside Windows):
-`Wsl/Service/0x8007274c`. Restart permission is pending because it stops that distro's processes;
-Ubuntu is preserved. Encryption and QOR ID are unavailable. First-run completion/persistence, installed
-boot, recovery, rollback, hardware, Secure Boot and release readiness remain unproved. Existing Studio,
-Store, QQ, Rust and Wayland gates are unresolved, not rerun.
+The image-only PipeWire client dependency is added and its exact tooling image/package manifest frozen.
+Ubuntu WSL (Linux inside Windows) connectivity recovered without restarting it; the existing commercial
+Qt kit is verified. Fresh Linux installer/sanitizer builds are pending. No guest Qt kit or credentials enter images.
 
-Next: preserve/push a reviewed development checkpoint; rebuild/boot the corrected ISO, then finish guarded
-installation and two installed-system boots. Exact commands, failures and resume: `build/vm-install-2026-11-06/LATEST.md`.
+Next: finish checkpoint hooks/push, build/test the Linux frontend, then prove rebuilt automatic graphics,
+package the offline deployment source, install, detach media and prove first-run persistence after a second reboot.
+Encryption and QOR ID are unavailable. Hardware, Secure Boot, rollback, recovery and release readiness remain
+unproved. Exact results, failures and resume: `build/vm-install-2026-11-06/LATEST.md`.

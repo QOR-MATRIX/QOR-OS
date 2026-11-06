@@ -29,6 +29,12 @@ UEFI live-display ISO from an exact local tooling image and a host-built runtime
 `tools/image/vmguard.py` and `vmrun.py` constrain its disposable raw disk and
 private firmware variables. The opt-in Linux-only `QOR_BUILD_VM_INSTALLER`
 requires `QOR_BUILD_SIMULATOR=OFF`; it is development work, not a readiness flag.
+The actual `c8ccc9b` ISO boots automatically and preserves Escape diagnostics,
+but its Qt display aborts on an absent default DRM card. The subsequent display
+selector and read-only offline-source guard pass actual diagnostic guest checks;
+the live welcome also passes interruption and keyboard completion in RAM.
+Automatic startup in a rebuilt image and installed persistence are still pending;
+successful packaging alone cannot clear them.
 See the [VM lab boundaries](../image/README.md#private-disposable-vm-lab),
 including unfinished installation and second-reboot evidence. Do not install a
 Qt kit in the VM or run an image/partitioning command against workstation disks.

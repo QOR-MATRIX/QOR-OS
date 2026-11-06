@@ -575,9 +575,13 @@ the owner's advisers.
 
 ## Release deliverable · The image
 
-[QOR-0021](decisions/QOR-0021-projects-engines-and-two-stores.md), decision 12. **No bootable OS image or installer yet:**
+[QOR-0021](decisions/QOR-0021-projects-engines-and-two-stores.md), decision 12. **No accepted release image or working installer yet:**
 [image/](../image/README.md) now assembles a checked, data-only branding image and an explicit device-layer recipe.
-The private first-run app works locally. Calamares is an inactive native Qt framework candidate under
+The private first-run app works locally. A separate confined Fedora bootc/QEMU lab
+has actually booted a private UEFI ISO automatically through a branded menu and
+OS-loading mark; its Qt display service still fails and no installation has run.
+The lab must still prove installation, media-free first run and a second reboot.
+Calamares is an inactive native Qt framework candidate under
 [QOR-0023](decisions/QOR-0023-installation-uses-proven-backends.md); its disk/deployment backend is not integrated.
 QOR OS is not ready to ship because its desktop applications compile.
 

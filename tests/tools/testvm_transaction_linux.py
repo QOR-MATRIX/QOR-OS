@@ -4,13 +4,16 @@ import importlib
 import gc
 import io
 import os
+import signal
 from pathlib import Path
+from types import SimpleNamespace
 import subprocess
 import sys
 import tempfile
 import time
 import unittest
 import warnings
+from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "tools/image"))
 backend = importlib.import_module("vm_install_backend")
@@ -38,6 +41,13 @@ class Transaction(unittest.TestCase):
         self.assertEqual(code, 7)
         self.assertIn(b"fixture failure", log.getvalue())
 
+    def test_refused_supervision_preserves_the_signal_handler(self):
+        previous = signal.getsignal(signal.SIGTERM)
+        with patch.object(backend.os, "getppid", return_value=1):
+            with self.assertRaises(ValueError):
+                backend.transaction([sys.executable, "-c", "raise SystemExit(99)"], io.BytesIO())
+        self.assertIs(signal.getsignal(signal.SIGTERM), previous)
+
     def test_symlink_target_and_ancestry_cannot_be_opened(self):
         with tempfile.TemporaryDirectory() as directory:
             workspace = Path(directory).resolve()
@@ -55,6 +65,44 @@ class Transaction(unittest.TestCase):
             alias.symlink_to(root, target_is_directory=True)
             with self.assertRaises(ValueError):
                 guard.verify(alias / "allowlist.json", workspace)
+
+    def test_payload_rejects_writable_inode_even_after_media_check(self):
+        with tempfile.TemporaryDirectory() as directory:
+            media = Path(directory).resolve()
+            payload = media / "payload.tar"
+            payload.write_bytes(b"inert payload fixture")
+            with patch.object(backend, "MEDIA", media), \
+                    patch.object(backend.os, "fstatvfs", return_value=SimpleNamespace(f_flag=0)):
+                with self.assertRaises(ValueError):
+                    backend.regular_source(payload)
+            # The positive is a synthetic read-only-filesystem control, not
+            # proof that this temporary fixture is an ISO or installable OS.
+            with patch.object(backend, "MEDIA", media), \
+                    patch.object(backend.os, "fstatvfs", return_value=SimpleNamespace(f_flag=os.ST_RDONLY)):
+                with backend.regular_source(payload) as stream:
+                    self.assertEqual(stream.read(), b"inert payload fixture")
+                alias = media / "linked.tar"
+                alias.symlink_to(payload)
+                with self.assertRaises(OSError):
+                    backend.regular_source(alias)
+                os.link(payload, media / "hardlink.tar")
+                with self.assertRaises(ValueError):
+                    backend.regular_source(payload)
+
+    def test_payload_refuses_linked_parent_or_outside_media(self):
+        with tempfile.TemporaryDirectory() as directory:
+            workspace = Path(directory).resolve()
+            media = workspace / "iso"
+            media.mkdir()
+            external = workspace / "other"
+            external.mkdir()
+            payload = external / "payload.tar"
+            payload.write_bytes(b"inert fixture")
+            (media / "qor").symlink_to(external, target_is_directory=True)
+            with patch.object(backend, "MEDIA", media):
+                for path in (payload, media / "qor/payload.tar"):
+                    with self.subTest(path=path), self.assertRaises(ValueError):
+                        backend.regular_source(path)
 
     def test_output_is_drained_and_bounded(self):
         log = io.BytesIO()

@@ -27,18 +27,32 @@ QOR OS begins: QTOS and Demiurge's device-side products in one repository
   process-group cleanup. Actual install, media-free boot, first run and second
   reboot evidence remain required by QOR-0024. Build attempts and resource failures
   are retained; no readiness gate is cleared by synthetic tests.
-  The first real ISO reaches the live console after manual GRUB recovery; clean
-  boot and the Qt display service failed. Source fixes retain embedded modules,
+  The first real ISO reached the live console after manual GRUB recovery. The
+  corrected `c8ccc9b` ISO boots automatically through the correctly sized menu,
+  shows the OS-loading mark and exposes readable output with Escape. Its Qt
+  service still aborts on absent default DRM `card0`; new source selects the
+  connected display by the sealed VM's VirtIO graphics ancestry. The offline
+  source now requires read-only ISO mount/file identity as well as checksum,
+  preventing in-place edits that an open descriptor alone would not prevent.
+  The display selector, disk collector and read-only ISO checks pass in the real
+  diagnostic guest. Its live welcome renders, survives interruption without
+  completion, then completes through three deliberate Return presses with a
+  checked public state record and exit zero. Those RAM-only overrides are not
+  rebuilt automatic startup, installed boot or reboot-persistence proof.
+  Source fixes retain embedded modules,
   bound the official menu mark and use software DRM; a missing PulseAudio client
   library was reproduced and corrected in the target dependency closure. The new
   audit checks 62 ELF files and rejects a missing dependency even on loader exit
   zero. Runtime receipts retain the actual compiler revision and fail on changed
   files; future staging builds and checks frozen source inputs before publication.
   Windows passes 13 installer and 20 first-run cases, module lint and hardening of
-  30 programs. Guard/provenance checks pass 27 cases per Windows/Linux, plus four
-  Linux transaction and two Windows asset cases, without failures/skips in those
-  targeted suites. Linux installer/sanitizer compilation is blocked by the observed
-  Ubuntu WSL service timeout. Installation, media-free boot and persistence remain
+  30 programs. Updated guard/provenance/display checks pass 35 cases per Windows/Linux,
+  plus seven Linux process/source checks and two Windows asset cases, without
+  failures/skips in those targeted suites. Refused process supervision now leaves
+  the signal handler intact. The earlier Linux harness correctly hit the parent
+  guard; the supervised harness passes without weakening it. Ubuntu connectivity
+  recovered without a restart; fresh Linux installer/sanitizer compilation remains
+  pending. Installation, media-free boot and persistence remain
   untested; encryption stays disabled and no QOR ID flow is offered.
 - **Installation groundwork with explicit capability limits.** The private `qor-setup` app
   introduces the desktop with the official QorMark, Lumen, keyboard navigation and finite
