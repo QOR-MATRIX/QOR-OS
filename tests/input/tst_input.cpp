@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: LicenseRef-QOR-OS-Proprietary
 #include "gamepadmanager.h"
+#include "gamepads.h"
 #include "injection.h"
 #include "mapping.h"
 #include "navigator.h"
@@ -12,6 +13,7 @@
 #include <QtGui/qpa/qwindowsysteminterface.h>
 #include <QtQml/QQmlComponent>
 #include <QtQml/QQmlEngine>
+#include <QtQml/QQmlExtensionPlugin>
 #include <QtQuick/QQuickItem>
 #include <QtQuick/QQuickWindow>
 #include <QtTest/QSignalSpy>
@@ -22,6 +24,8 @@
 
 using namespace qor::input;
 using namespace Qt::StringLiterals;
+
+Q_IMPORT_QML_PLUGIN(QOR_InputPlugin)
 
 namespace {
 
@@ -75,6 +79,27 @@ class TestInput : public QObject
     Q_OBJECT
 
 private slots:
+    void gamepadEnumsAreVisibleInQml()
+    {
+        QCOMPARE(qgetenv("QOR_GAMEPADS"), QByteArrayLiteral("virtual"));
+        QQmlEngine engine;
+        QQmlComponent component(&engine);
+        component.setData(R"(
+            import QtQml
+            import QOR.Input
+            QtObject {
+                readonly property int south: Gamepads.South
+                readonly property int east: Gamepads.East
+                readonly property int count: Gamepads.count
+            })",
+                          QUrl());
+        std::unique_ptr<QObject> root(component.create());
+        QVERIFY2(root, qPrintable(component.errorString()));
+        QCOMPARE(root->property("south").toInt(), int(Button::South));
+        QCOMPARE(root->property("east").toInt(), int(Button::East));
+        QCOMPARE(root->property("count").toInt(), Gamepads::instance()->count());
+    }
+
     // ── PlayStation ──────────────────────────────────────────────────────────
     void identifiesSonyControllers()
     {

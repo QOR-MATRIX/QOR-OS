@@ -43,7 +43,8 @@ target_include_directories(tst_framecapture PRIVATE "${CMAKE_SOURCE_DIR}/prism/s
 set_property(TEST tst_framecapture APPEND PROPERTY ENVIRONMENT "QT_QUICK_BACKEND=software")
 qor_add_test(tst_services SOURCES services/tst_services.cpp LIBRARIES qor_services qor_sim)
 qor_add_test(tst_audio SOURCES audio/tst_audio.cpp LIBRARIES qor_audio)
-qor_add_test(tst_input SOURCES input/tst_input.cpp LIBRARIES qor_input qor_kit qor_kitplugin Qt6::GuiPrivate)
+qor_add_test(tst_input SOURCES input/tst_input.cpp LIBRARIES
+    qor_input qor_inputplugin qor_kit qor_kitplugin Qt6::GuiPrivate)
 qor_add_test(tst_store SOURCES store/tst_store.cpp LIBRARIES qor_store qor_storeplugin Qt6::GuiPrivate)
 target_compile_definitions(tst_store PRIVATE
     QOR_STORE_CATALOG="${CMAKE_SOURCE_DIR}/store/catalog"

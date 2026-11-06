@@ -14,6 +14,10 @@ QOR OS begins: QTOS and Demiurge's device-side products in one repository
 
 ### Added
 
+- **Stable gamepad enum names for QML.** The existing Gamepads singleton names
+  its QML export explicitly, retaining its public name while addressing a
+  qualified-name registration warning exposed by the fresh Linux build.
+  A focused test imports the actual module and reads its button enums.
 - **Private disposable-VM image and installation development.** A digest-pinned
   Fedora 44 bootc lab prepares a UEFI live-display ISO with the official mark,
   GRUB diagnostics, Plymouth files and a host-built Qt runtime. It is explicitly

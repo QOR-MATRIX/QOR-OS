@@ -1,5 +1,8 @@
 # Controllers
 
+The QOR.Input module explicitly exports the Gamepads singleton with that name, including its button enums.
+A focused import test checks the public enum names with the virtual controller backend.
+
 QOR OS can be driven entirely with a game controller. Keyboard and mouse stay
 the default: when a controller connects, QOR OS asks whether to switch to the
 **controller interface** (or switches by itself, if you chose that), and it
