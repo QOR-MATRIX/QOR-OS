@@ -43,7 +43,7 @@ reviewed QorMark rendering is checked before linking and staged for Plymouth thr
 Prism requests it once after an external device session unlocks, excluding simulation
 and a live-media marker. Closing leaves it pending; completion publishes a small
 per-user record without replacing unrecognised data. It creates no account and performs
-no installation. The real authentication services, live environment and OS installer
+no installation. The real authentication services and full device installer
 are still missing. The welcome receives a launch snapshot of the session's motion/contrast
 preferences, defaults to no motion without a known hint, and changes no system preference.
 `qor_image_payload` packages the startup theme, first-run source,
@@ -61,8 +61,12 @@ regular-file disk's UUID, serial, capacity and driver/PCI ancestry; host files
 are pinned and passed as descriptors. The offline archive and receipt must also
 be on the read-only installation ISO, not a mutable live overlay. Display
 selection matches the sealed VM's VirtIO graphics slot rather than assuming
-`card0`. The live ISO is a display probe,
-with installation unavailable. This lab is not a substitute for device services,
+`card0`. The default live ISO is a display probe; the opt-in installation profile
+adds the guarded offline backend. Port-ready events start its restricted agent and
+frontend. The installer pairs SELinux's existing `install_t` process domain with
+the executable's `install_exec_t` entrypoint label; no enforcement fallback or new
+policy permission is added. That pair passes a separate guest diagnostic, while a
+fresh normal image and successful installation remain pending. This lab is not a substitute for device services,
 authentication, hardware, encrypted installation, rollback or CI isolation proof.
 
 **Simulation and device share all QML.** The shell and the apps never talk to

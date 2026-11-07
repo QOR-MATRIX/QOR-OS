@@ -14,6 +14,15 @@ QOR OS begins: QTOS and Demiurge's device-side products in one repository
 
 ### Added
 
+- **The standard SELinux context for the private installer.** The live recipe
+  pairs Fedora's existing `install_exec_t` executable label with the unit's
+  `install_t` process domain and checks its label lookup during image building.
+  A guest diagnostic verifies the required label capability and actual Qt target
+  inventory in that domain while enforcement stays enabled. No policy permission
+  or permissive fallback is added. The clean `fa17674` image passes normal startup,
+  review/Cancel and corrupt-payload refusal, but its first stock installation exits
+  1 from the generic service domain and leaves the full disk unchanged. A fresh
+  normal image and installation/persistence proof remain pending.
 - **Port-ready startup in the private installation lab.** The restricted guest
   agent and installed welcome now start from their assigned virtual-port events;
   the live installer selects its own evidence-port event. Early boot-target links
@@ -22,8 +31,9 @@ QOR OS begins: QTOS and Demiurge's device-side products in one repository
   The `f132dc1` candidate built an installer ISO and passed warning-fatal image
   checks, but its normal startup exposed that race. A separate diagnostic boot
   displayed the real installer, exercised target review and Cancel, and preserved
-  the entire test disk's hash. Rebuilt automatic startup and actual installation
-  remain pending; diagnostic overrides do not establish those results.
+  the entire test disk's hash. The rebuilt `fa17674` image subsequently passes
+  normal automatic startup and review/Cancel. Actual installation remains pending;
+  diagnostic overrides do not establish it.
 - **Guarded offline installation candidate for the private VM lab.** The opt-in
   image path connects the Qt installer to stock bootc using a complete,
   checksum-checked OCI payload on read-only media. The installed profile adds

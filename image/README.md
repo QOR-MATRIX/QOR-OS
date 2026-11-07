@@ -1,11 +1,11 @@
 # image — the QOR OS image (Phase 3)
 
 > **Status:** a private ISO boots automatically through the branded UEFI menu into the live OS.
-> Normal installer startup still needs a rebuilt port-ready activation fix; installation is not yet proved. The base is **Fedora Atomic with bootc**
+> Normal installer startup and failure controls pass; successful installation awaits its SELinux correction. The base is **Fedora Atomic with bootc**
 > ([QOR-0004](../docs/decisions/QOR-0004-the-base-image-is-fedora-atomic.md)).
 > The checked branding filesystem layer builds into a data-only container. The first-run
-> app builds and runs. A separate private VM lab is being developed below; its boot,
-> installation and second-reboot acceptance checks remain incomplete.
+> app builds and runs. The private VM lab below still needs successful installation
+> and second-reboot acceptance evidence.
 > The first image is Phase 3 work
 > ([ROADMAP](../docs/ROADMAP.md#phase-3--boots-and-plays-pc-games)).
 >
@@ -15,186 +15,137 @@
 
 ## Private disposable VM lab
 
-[QOR-0024](../docs/decisions/QOR-0024-disposable-vm-installation-lab.md) adds an
-explicitly limited development path, separate from the full device recipe and
-inactive Calamares candidate. The first inspected source was `9d6c7c9` on
-6 November 2026. The lab does not yet demonstrate installation. The full device
-session, authentication, native drivers, updates and rollback remain unfinished.
+[QOR-0024](../docs/decisions/QOR-0024-disposable-vm-installation-lab.md) defines a
+limited Fedora bootc/QEMU development path. Its normal installer startup,
+cancellation and corrupt-payload refusal now pass in actual guests. Successful
+installation and persisted first run remain unproved. The full device session,
+authentication, native drivers, updates, recovery and rollback remain unfinished.
 
-The selected development base is Fedora 44 bootc **amd64**, manifest
+The selected base is Fedora 44 bootc **amd64**, manifest
 `sha256:0cd45c0431f553a1f40a4717fb53f59f24a7f93f0d2962d581ac9b9b8860008e`.
-`vm/Tooling.bootstrap.Containerfile` describes dependency acquisition. Its signed
-RPM repositories are mutable: bootstrap is **not** a reproducible release build.
-The lab driver enforces `vm/tooling-input.json` and `vm/tooling-rpms.txt`, pinning
-the resolved local tooling image, root filesystem layers and RPM manifest hash,
-and records every staged input hash. Preserve that tooling image, its RPM record,
-runtime record and exact source revision. The exact v8 tooling image is also
-preserved in a private saved-image archive; its checksum is in the input record.
-Restoration and deterministic output still need testing, together with a
-locked package source/snapshot, timestamp normalization and repeated-build proof.
-No image is published by these tools.
+`vm/tooling-input.json` and `vm/tooling-rpms.txt` pin the resolved local tooling
+image, filesystem layers and RPM manifest hash. The private saved tooling archive,
+its checksum, all staged input hashes and runtime/compiler receipts are retained.
+The bootstrap still uses mutable signed RPM repositories. Snapshot restoration,
+timestamp normalization and repeated-build determinism remain unproved.
+These tools publish no image.
 
-The Windows lab preflight is `python tools/image/vm_resources.py`. Run it before
-the Linux runtime build as well. The image driver rechecks before expensive phases;
+The Windows memory preflight is `python tools/image/vm_resources.py`. Run it
+before the Linux runtime build. The image driver checks before expensive phases;
 the VM launcher checks before ISO hashing and again before launch. Below 3 GiB of
-available host RAM they report **not started** and return failure. They read only
-memory availability, never change host settings, stop other processes or wait in
-a retry loop. This guard follows an observed low-memory composition stop; it is
-not a hardware-readiness check.
+available host RAM they report **not started** and return failure. The guard only
+reads memory availability; it changes no setting, stops no process and uses no
+retry loop. Owner-authorized temporary service stops and cache/page reclamation
+in the recorded local run are separate orchestration, with restoration receipts.
 
-`vm/Probe.Containerfile` prepares a live filesystem and its own kernel/initramfs.
-`tools/image/build_vm_probe.py` composes a regular-file UEFI El Torito ISO with
-GRUB, a SquashFS live root, the existing startup assets and the existing first-run
-runtime. The default remains **display probe; installation unavailable**.
-The new opt-in installation candidate builds a separate deployment image and
-packages its content-addressed OCI directory on the read-only ISO. This source
-connection awaits a real installation run. GRUB is static; Plymouth animation
-and the transition to a framebuffer application require actual boot evidence.
-BIOS, USB hybrid boot and Secure Boot are unsupported by this probe.
+`stage_vm_runtime.py` builds the requested non-simulator targets with one worker,
+checks source snapshots, warnings, kit identity and native build results, then
+stages required Qt libraries, QML imports and plugins with their original notices.
+No Qt kit, tools, account or credentials enter the guest. This is private development
+packaging, with distribution approval still separate. Installation candidates require
+a clean revision and runtime built from that same revision. Older compiler evidence
+keeps its original identity and is never relabelled as a fresh build.
 
-The first ISO (`4f3ecebc802da583fe056b12ecd5837542263ee607d23c01c51709a193a1538b`)
-actually reached the branded live login console after manual GRUB recovery.
-Its clean boot failed because an early prefix change hid embedded modules; the
-logo was oversized, and the live Qt app failed on a missing PulseAudio client
-library and unavailable legacy framebuffer. Source fixes keep GRUB's embedded
-prefix, derive a bounded 112-pixel official mark with provenance, include the
-missing runtime library and use Qt's software DRM mode. The corrected ISO from clean
-recipe revision `c8ccc9b05b486bb20c03be2a73fa414ce2c81a0e` is **1,932,019,712 bytes**, SHA-256
-`a3d3ea7518b57053ffb2c2199a51719b5e8d86222033a3331814db2719efaa2c`.
-It actually boots automatically through the correctly sized branded menu and
-shows the official mark during OS loading. Escape exposes readable diagnostics.
-The first-run app still aborts: Qt defaults to absent `/dev/dri/card0`, while this
-VM's VirtIO display is `card1`. The new `vm_display.py` selects the connected
-display at the launcher's fixed VirtIO PCI slot and writes a private KMS
-configuration. That helper now works in a temporary diagnostic boot, including
-the real PCI parent and its VirtIO child. Reserving guest tty2 also prevents an
-automatic login console from stopping the app. The live welcome renders,
-remains pending after interruption, and completes with three Return presses.
-Its public state record and successful exit were checked in RAM. The packaged
-automatic startup still needs a new image and actual boot proof.
-Neither the brief Plymouth fade nor installed-system first run is proved by
-these captures. The target-image audit now
-checks all 62 bundled ELF files, including dynamically loaded QML plugins, and
-fails on missing libraries even when `ldd` returns zero.
+`vm/Probe.Containerfile` prepares the kernel and initramfs. The default ISO remains
+**live display probe; installation unavailable**. `build_vm_probe.py --installation`
+adds a separate deployment image and validated offline OCI directory outside the
+live SquashFS. Native dracut errors reject acceptance even if its command returns
+zero. Both image branches run `bootc container lint --fatal-warnings`; wrappers
+also reject emitted warnings. At clean `fa17674`, each branch passes 14 checks with
+zero warnings; one alternate-root check is skipped in running-root mode and is
+reported as not run. The 1,437-file runtime has that same clean compiler revision;
+the target-image audit resolves all 63 bundled ELF programs, libraries and plugins.
+These limited builds exclude the compositor and clear no full-project gate.
 
-ISO compression runs with one CPU, a 768-MiB memory limit and no network or host
-devices. The builder has only `DAC_READ_SEARCH` to preserve mode-000 system files
-from the prepared image; its writable layer is disposable. SELinux contexts and
-extended attributes are retained. It removes Docker's generated detector and
-uses neutral image hostname/hosts/DNS data. The first whole-root BuildKit copy
-exhausted available Windows memory and was cancelled; compression no longer
-duplicates that root. Initramfs errors fail acceptance even if dracut exits zero.
+ISO compression uses one CPU, 768 MiB and no network or host devices. Its only
+added capability is `DAC_READ_SEARCH`, to preserve mode-000 image files. The
+builder's writable layer is disposable; SELinux labels and extended attributes
+are packed from the image's policy contexts. Docker-generated identity/DNS data
+is replaced with neutral image data. GRUB supplies the static UEFI menu; Plymouth
+and Qt use the existing official startup assets. BIOS, USB hybrid boot and Secure
+Boot are unsupported in this lab.
 
-`stage_vm_runtime.py` first builds the requested non-simulator targets with one
-worker and checks unchanged source snapshots, warnings, kit identity and build
-exit status before staging the Qt runtime
-import closure and plugins. It installs no Qt kit, tools, account or credentials
-in the VM. It is private-test packaging, not distribution approval. Original
-runtime notices stay intact. `QOR_BUILD_VM_INSTALLER=ON` is opt-in, Linux-only
-and incompatible with simulator builds. Its Qt frontend and guarded Python
-backend are under development, not an exercised installation path. Encryption
-is disabled: no separate encrypted install/unlock/reboot has been proved.
-The installed profile defines a locked local `qortest` account and starts
-welcome as that user on a reserved guest console. It is a private installation
-test, not a login/authentication service. Its limited introduction explicitly
-states that Prism, Library, games and QOR ID authentication are unavailable.
+The clean `fa176745f1f8d21cba27367861dc45ec6d7be249` installation ISO is
+**3,601,666,048 bytes**, SHA-256
+`3e528a3a804dd95279442ed7a62a75144af34e9332cfb85369c980f302f84627`.
+It boots automatically into the real Qt installer without guest overrides.
+Port-ready udev events start the restricted agent and assigned frontend; the
+existing device dependencies remain, and service files use mode `0644`.
+The display helper selects the connected device at fixed VirtIO PCI `00:01.0`,
+not a presumed `card0`. A reserved guest console prevents a login console from
+stopping the frontend. Earlier GRUB, display, image-lint and device-wait failures
+are preserved in their original private attempt records.
 
-The probe requires `--runtime-record`: all runtime files must match that receipt.
-An older compiler revision is recorded separately from the image recipe revision;
-it is never relabelled as a fresh build. The current diagnostic binary is from
-`9d6c7c9`. Ubuntu WSL previously failed with `Wsl/Service/0x8007274c`; after the
-disposable VM shut down, a fresh connectivity check passed and the existing
-commercial Qt kit was verified. No distro or host service was restarted. A new
-installer-only Linux build at `9e2e7b9` subsequently passed with zero warnings,
-module lint and hardening for two programs. It excludes the unused compositor
-and clears no full-project gate. The expanded welcome and Linux sanitizer checks
-are pending.
+The first actual stock installation on that image exits 1: its generic
+`unconfined_service_t` context cannot enter bootc's required installer context.
+The entire 16-GiB raw disk remains blank. The suggested enforcement-disable
+fallback was not used. A separate diagnostic establishes the required pair:
+`install_t` process context and an executable carrying `install_exec_t`.
+With enforcement enabled, the labelled entrypoint passes bootc's unknown-label
+capability test, and the actual Qt frontend shows the assigned target in that
+context. A context-only shell probe is rejected at execution, so both parts matter.
+The recipe now pairs the unit context with a local file-context rule for
+`/usr/bin/qor-install` and checks the label lookup during image building. A small
+native SquashFS fixture verifies that the local rule is honored when packing.
+No new SELinux permission or permissive fallback is added. This correction still
+requires a fresh normal image and real successful installation.
 
 `vmguard.py create` requires a **new** directory under this checkout's `build/`,
-an extracted private firmware-variable template, exact source revision and ISO
-checksum. It creates a regular raw file without backing and records file IDs,
-capacity, parent ancestry, UUID and unique serial. `vmrun.py` pins Windows
-ancestry/files for the VM lifetime, rechecks ISO identity/checksum after pinning and uses a restricted,
-network-free QEMU TCG container. QEMU receives open regular-file descriptors,
-private OVMF variables and no host block devices, EFI, KVM or Docker socket.
-The installed phase has no CD drive. No host boot or security setting is changed.
+a verified private firmware template, exact source revision and ISO checksum.
+It records a regular raw file without backing, file IDs, capacity, parent ancestry,
+VM UUID and unique serial. `vmrun.py` pins those Windows files and their ancestry
+for the VM lifetime, rechecks ISO identity/hash after pinning, and passes held
+regular-file descriptors to QEMU. The restricted, network-free TCG container gets
+private OVMF variables, no host block device, EFI, KVM, GPU or Docker socket.
+Installed phases have no CD drive. Host boot and security settings stay unchanged.
 
-The guest reads sealed firmware metadata **before enumerating disks**. Immediately
-before each stock bootc transaction it must match UUID, exact serial/capacity,
-VirtIO driver and PCI `00:04.0` ancestry, node/kernel identity and inactive use.
-Additional, busy, changed or ambiguous disks are refused. A device name or merely
-detecting a VM never authorises erasure. Explicit selection, unchecked erase
-acknowledgement and complete serial confirmation precede a whole-disk install.
-The actual guest collector matched the new 16-GiB VirtIO disk and sealed UUID;
-unloading its guest-only firmware-metadata module caused refusal, and reloading
-restored the exact match. This is a real read-only guard check, not an install.
-An offline source checksum and real backend exit status are also required. The
-OCI directory and receipt must reside on the read-only ISO at
-`/run/initramfs/live/qor/install-source` and `install-source.json`. A single
-manifest, amd64/Linux identity, installed-profile/source labels, all referenced
-blob sizes/checksums and exact file inventory are required. External URLs,
-unknown/multiple images, missing/extra/linked files and duplicate metadata keys
-are refused. Mount type, read-only flags,
-file descriptors, filesystem identity and unlinked ancestry are checked; a held
-descriptor alone would not prevent in-place modification on a writable overlay. No
-automatic transaction retry, custom partitioner or estimated progress is used.
+The guest validates sealed firmware metadata **before enumerating disks**. Before
+every stock bootc transaction it must match UUID, exact serial/capacity, VirtIO
+driver and PCI `00:04.0` ancestry, node/kernel identity and inactive use. Additional,
+busy, changed or ambiguous disks are refused. Explicit selection, an initially
+unchecked erase acknowledgement and complete serial confirmation precede writing.
+A device name or merely detecting a VM never authorises erasure.
 
-The optional build command adds `--installation` to
-`tools/image/build_vm_probe.py` with the same explicit runtime, branding, output
-and pinned tooling arguments. It requires a fresh non-simulator installer runtime
-from the exact clean source revision, builds the deployment target, converts its
-saved image with network-free Skopeo, and grafts the validated payload outside
-the live SquashFS. It produces `qor-os-vm-install.iso` only after those gates.
-Offline conversion and complete payload validation pass at `f132dc1`; actual VM
-installation remains unproved. On 7 November its private installer ISO was built:
-3,601,666,048 bytes, with its exact checksum in the private build record below.
-The first deployment build was rejected when dracut reported a missing root-home
-target despite exiting zero. The common stage now creates that target before
-either initramfs build; the failed attempt and its outer failure status are retained.
-The next attempt passed initramfs generation and OCI conversion/validation, but
-stock bootc reported four warnings: non-empty boot/runtime directories, package
-logs and undeclared mutable directories. Most came from the tooling bootstrap;
-the retained dracut log was new in this recipe. The recipe now removes generated
-caches/logs and declares the required runtime directories. Both image branches
-use `bootc container lint --fatal-warnings`; the wrapper also rejects emitted
-lint warnings even with a zero command exit. The corrected images pass 14 checks
-with zero warnings. The one alternate-root lint is skipped in running-root mode and is
-reported as not run, never added to the pass count.
+The OCI directory and receipt must be on the read-only ISO at
+`/run/initramfs/live/qor/install-source` and `install-source.json`. One manifest,
+amd64/Linux identity, installed-profile/source labels, every blob size/hash and
+exact file inventory are required. External URLs, multiple or unknown images,
+missing/extra/linked files and duplicate metadata keys are refused. Mount type,
+read-only flags, filesystem identity, descriptors and unlinked ancestry are checked.
+There is no custom partitioner, automatic transaction retry or estimated percentage.
+A failed installation request disables retry and preserves the disk for inspection.
 
-The new ISO boots automatically through its installer menu into Linux, but its
-installer and guest agent lost their initial device-wait jobs before the virtual
-serial ports became active. A separate guest-only diagnostic boot confirmed the
-correct ports and PCI ancestry. Starting the services after readiness displayed
-the actual installer, reported the exact assigned target and source image, and
-exposed only the four allowed guest-agent operations. Review and Cancel left the
-complete 16-GiB disk hash unchanged. This is diagnostic UI/cancellation evidence,
-not automatic startup or an installation. The recipe now uses per-port
-`SYSTEMD_WANTS` activation with the existing device guards, keeps the generic
-agent masked, and copies service units with mode `0644`. A corrected normal boot
-still needs a fresh image.
+Actual normal review/Cancel on `fa17674` preserves its full 16-GiB disk hash.
+A separate fault-injection ISO changes one OCI config-blob byte while retaining
+its manifest and receipt. The real UI refuses it, keeps retry disabled, permits
+Cancel and shuts down cleanly; that complete test disk hash is also unchanged.
+The corrupt bytes and unchanged metadata were extracted and checked from the
+actual fault ISO. This derivative is never accepted as an installation candidate.
 
-The evidence checker requires source/image/VM identity, complete checked installer logs,
-media-free installed phases, successful welcome process exits and distinct boot
-identifiers. It checks completion before welcome on the second installed boot.
-Its synthetic negative controls do not establish a VM installation.
+Only private virtual serial ports are added at PCI `00:05.0`. The guest agent
+permits synchronization, ping, policy inspection and shutdown/reboot; actual normal
+VM probes show those four operations enabled and 39 others disabled. Execution,
+file access and clock changes remain unavailable. The client checks the QMP VM
+UUID before opening the separate agent channel. No endpoint is published.
+A write-only evidence port exports source/image/boot IDs, known public completion
+status/hash and a fixed bounded offline installer log. It accepts no arbitrary
+paths or commands. Unknown state bytes are preserved and never exported; Linux
+walks state parents through no-follow directory descriptors.
 
-Only private virtual serial ports are added at PCI `00:05.0`. The stock guest
-agent permits synchronization, ping, policy inspection and shutdown/reboot.
-Its actual 10.2.2 process refuses execution, file access and clock changes;
-the container probe does not prove a VM reboot. The client validates the QMP
-VM identifier before opening the agent channel. No endpoint is published.
-A separate write-only evidence port emits source/image/boot identifiers, known
-public welcome-state status/hash and the fixed bounded offline installer log.
-It accepts no arbitrary paths or commands. Unknown state bytes are preserved and
-never exported; Linux walks state parents with no-follow directory descriptors.
+The installed profile uses a locked local `qortest` account. Its limited welcome
+states that Prism, Library, games and QOR ID authentication are unavailable.
+Encryption remains disabled until a separate encrypted install/unlock/reboot is
+proved. The evidence checker requires complete successful installer logs,
+source/image/VM identity, media-free installed boots, successful welcome exits and
+distinct boot IDs. It checks persisted completion before the next welcome process.
+Synthetic fixtures establish none of those actual installation stages.
 
-Acceptance still requires a clean committed source and checksum-bound image,
-VM configuration, target identity shown before erasure, real menu/splash/live/
-installer screenshots, cancellation and failure evidence, successful deployment,
-media detached, installed boot, first-run completion and a **second reboot**
-showing persisted completion. Synthetic fixtures and asset previews do not prove
-those stages. Private attempt logs and the exact resume point currently live in
-`build/vm-install-2026-11-06/`; they are ignored build evidence, not release assets.
+Private acceptance still requires the successful stock installation, media-detached
+boot, real welcome completion and a **second reboot** with completion already
+persisted. Actual screenshots, immutable input records, native failures, service
+restoration receipts and the exact resume state live in
+`build/vm-install-2026-11-06/`. These ignored artifacts are private development
+evidence, not release assets.
 
 ## Intended full device image
 

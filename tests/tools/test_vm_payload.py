@@ -141,6 +141,17 @@ class VmPayload(unittest.TestCase):
         self.assertIn("qor-vm-first-run.service/qor-vm-installer.service", live)
         self.assertIn("ln -s /usr/lib/systemd/system/qor-vm-display-probe.service", live)
 
+    def test_installer_pairs_its_selinux_domain_and_entrypoint_without_a_fallback(self):
+        root = Path(__file__).resolve().parents[2]
+        unit = (root / "image/vm/installer.service").read_text()
+        self.assertIn("\nSELinuxContext=system_u:system_r:install_t:s0\n", unit)
+        live = (root / "image/vm/Probe.Containerfile").read_text().split("FROM common AS live", 1)[1]
+        self.assertIn("/usr/bin/qor-install -- system_u:object_r:install_exec_t:s0", live)
+        self.assertIn("matchpathcon -n /usr/bin/qor-install", live)
+        backend = (root / "tools/image/vm_install_backend.py").read_text()
+        self.assertNotIn("BOOTC_SETENFORCE0_FALLBACK", backend)
+        self.assertNotIn('"--disable-selinux"', backend)
+
     def test_agent_sync_ignores_old_errors_and_requires_exact_nonce(self):
         stream = Mock()
         commands = [{"name": name, "enabled": True} for name in control.AGENT_RPCS]

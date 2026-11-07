@@ -578,13 +578,15 @@ the owner's advisers.
 [QOR-0021](decisions/QOR-0021-projects-engines-and-two-stores.md), decision 12. **No accepted release image or working installer yet:**
 [image/](../image/README.md) now assembles a checked, data-only branding image and an explicit device-layer recipe.
 The private first-run app works locally. A separate confined Fedora bootc/QEMU lab
-has built a private installer ISO from clean `f132dc1`, with 14 bootc checks passed,
-zero warnings and one check skipped. It boots automatically through its branded menu
-into Linux, but initial virtual-port waits prevent the installer from starting.
-A diagnostic late start displays the real installer; target review and Cancel leave
-the full test disk unchanged. The recipe now activates the guarded services when
-their ports become ready. That rebuild, normal startup and actual installation remain unproved.
-The lab must still prove installation, media-free first run and a second reboot.
+has built a private installer ISO from clean `fa17674`, with 14 bootc checks passed,
+zero warnings and one check skipped. Normal automatic installer startup and the
+four-operation guest-agent policy pass. Review/Cancel and a separate corrupt-payload
+refusal preserve each full test disk hash; retry remains disabled after a failed request.
+The first actual stock installation exits 1 at its SELinux domain check and leaves
+the entire disk blank. A separate diagnostic verifies the existing installer domain
+and matching executable label, with enforcement enabled, and displays the Qt frontend
+in that domain. The recipe now includes that pair; a fresh normal image is pending.
+The lab must still prove successful installation, media-free first run and a second reboot.
 Calamares is an inactive native Qt framework candidate under
 [QOR-0023](decisions/QOR-0023-installation-uses-proven-backends.md); its disk/deployment backend is not integrated.
 QOR OS is not ready to ship because its desktop applications compile.

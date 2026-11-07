@@ -53,6 +53,11 @@ RUN mkdir -p /var/roothome /etc/systemd/system/graphical.target.wants /usr/lib/d
     mkdir -p /usr/lib/qor-os && touch /usr/lib/qor-os/live-session && \
     if [ "$QOR_VM_INSTALLATION" = 1 ]; then \
       test -x /usr/bin/qor-install && \
+      printf '\n%s\n' '# SPDX-License-Identifier: LicenseRef-QOR-OS-Proprietary' \
+        '/usr/bin/qor-install -- system_u:object_r:install_exec_t:s0' \
+        >> /etc/selinux/targeted/contexts/files/file_contexts.local && \
+      chmod 0644 /etc/selinux/targeted/contexts/files/file_contexts.local && \
+      test "$(matchpathcon -n /usr/bin/qor-install)" = 'system_u:object_r:install_exec_t:s0' && \
       sed -i 's/qor-vm-first-run.service/qor-vm-installer.service/' /usr/lib/udev/rules.d/99-qor-vm-ports.rules; \
     else \
       ln -s /usr/lib/systemd/system/qor-vm-display-probe.service /etc/systemd/system/graphical.target.wants/qor-vm-display-probe.service; \

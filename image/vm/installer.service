@@ -9,6 +9,8 @@ Conflicts=getty@tty2.service
 ConditionPathExists=/usr/lib/qor-os/live-session
 
 [Service]
+# The live image pairs this domain with the install_exec_t executable label.
+SELinuxContext=system_u:system_r:install_t:s0
 Environment=HOME=/var/roothome
 Environment=XDG_RUNTIME_DIR=/run/qor-vm-install
 Environment=QT_QPA_PLATFORM=linuxfb:tty=/dev/tty2

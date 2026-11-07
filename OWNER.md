@@ -1,51 +1,50 @@
 # Where QOR OS stands
 
-For Andrew, 7 November 2026. Branch integration/owner-brief; installer image source f132dc1.
+For Andrew, 7 November 2026. Branch integration/owner-brief; tested image source fa17674.
 
-The private installer ISO (boot-media image) is built: 3,601,666,048 bytes, with its
-checksum and complete source/runtime records in build/vm-install-2026-11-06/.
+The private installer ISO (boot-media image) is 3,601,666,048 bytes. Its checksum,
+compiler source and runtime records are in build/vm-install-2026-11-06/.
 It uses Fedora bootc (whole-image deployment), a checked offline OCI payload
-(content-addressed image), a locked local qortest account and the existing Qt interface.
-It offers neither encryption nor QOR ID authentication.
+(content-addressed image), a locked local qortest account and Qt's existing interface.
+Encryption and QOR ID authentication remain unavailable.
 
-## Image milestone: incomplete
+## Startup and failure controls pass; installation is incomplete
 
-Both image branches pass warning-fatal checks: 14 passed, zero warnings, one skipped.
-The fresh runtime (application code and libraries) records 1,437 files at clean f132dc1;
-all 63 target-image programs/libraries/plugins resolve their dependencies.
+The image and its 1,437 runtime files (application and libraries) record the same clean source. Both image
+branches pass 14 warning-fatal bootc checks, with zero warnings and one skipped.
+All 63 bundled programs, libraries and plugins resolve their dependencies.
 
-The new ISO boots automatically through its branded menu into Linux on a newly
-recorded 16-GiB virtual disk. The display helper succeeds, but the installer and
-restricted guest agent lose their early device-wait jobs before virtual serial
-ports become active. Normal automatic installer startup therefore fails.
+Normal automatic boot now reaches the real installer. Its agent permits four
+approved operations and disables 39 others. Review and Cancel preserve the entire
+16-GiB disk hash. A separate corrupt-payload image is refused, keeps retry disabled,
+and preserves its complete test disk through Cancel and shutdown.
 
-A separate guest-only diagnostic boot confirms the exact port names and PCI
-(device-bus) ancestry. Starting the services after readiness displays the real
-installer and correct disk/source identity. Target review and Cancel leave the
-entire disk hash unchanged. The actual guest agent permits exactly four approved
-operations and disables 39 others; its shutdown works. These diagnostic overrides
-prove neither automatic startup nor installation or persisted first run.
+The first actual stock installation exits 1 because its generic SELinux process
+context cannot perform the required label operation. SELinux is the kernel's
+access-control system. The full disk remains blank. Enforcement was never disabled.
 
-The recipe now starts those services from their assigned port-ready events and
-copies service files with non-executable permissions. This correction needs a
-fresh image and normal boot. Existing disk, device and guest-agent guards remain.
+A separate guest diagnostic pairs the existing installer process context with
+its required executable label. The label capability succeeds; the real Qt frontend
+shows the assigned target in that context with enforcement enabled. The recipe now
+includes this pair, and a small native packing check confirms the label survives
+filesystem packaging. This is diagnostic evidence; a fresh normal image still
+needs to prove installation and persisted first run.
 
 ## Checks and resume
 
-The startup regression fails on the old recipe, then passes with all 60 portable
-cases on each of Windows and Linux, plus eight Linux process/file cases; none fail
-or skip. Native udev syntax checks pass for both rule variants. All 20 retained
-Release/sanitizer source fingerprints still match. Native C++/QML is unchanged.
-The corrected image is pending. Full OS/product, hardware,
-Secure Boot, recovery, rollback, repeatable-build and release gates remain open.
+The new regression fails on the old configuration, then all 61 portable cases pass
+on Windows and Linux, plus eight Linux process/file cases; none fail or skip.
+Native udev syntax checks pass. C++ and QML are unchanged; earlier memory-error
+checks keep their original chronology.
+Full OS/product, hardware, Secure Boot, recovery, rollback, repeatable-build and
+release gates remain open.
 
-The owner authorised temporarily stopping ten Kintrek non-database services to
-free RAM. All ten are restored after every completed job; PostgreSQL was never
-stopped and remains healthy. All test disks, prior outputs and 14 Git worktrees
-(checkouts) are preserved. No VM or heavy job is active now. Host boot, security,
+All ten temporarily stopped Kintrek services are restored. One transient port bind
+failed during restoration and then recovered without a network-setting change.
+PostgreSQL was never stopped and is healthy. All disks, outputs and 14 Git worktrees
+(checkouts) are preserved. No VM or heavy job is active. Host boot, security,
 network and runner settings are unchanged.
 
-Next: validate and checkpoint this startup correction, build its fresh image,
-then prove normal startup, cancellation/failure, stock installation, media-free
-boot, welcome and reboot persistence. Exact jobs, commands, hashes, failures and
-remaining work: build/vm-install-2026-11-06/LATEST.md.
+Next: validate and checkpoint the context/entrypoint correction, build its fresh
+image, then prove stock installation, media-free welcome and reboot persistence.
+Exact commands, hashes, failures and resume state: build/vm-install-2026-11-06/LATEST.md.

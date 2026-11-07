@@ -29,29 +29,29 @@ UEFI live-display ISO from an exact local tooling image and a host-built runtime
 `tools/image/vmguard.py` and `vmrun.py` constrain its disposable raw disk and
 private firmware variables. The opt-in Linux-only `QOR_BUILD_VM_INSTALLER`
 requires `QOR_BUILD_SIMULATOR=OFF`; it is development work, not a readiness flag.
-The actual `c8ccc9b` ISO boots automatically and preserves Escape diagnostics,
-but its Qt display aborts on an absent default DRM card. The subsequent display
-selector and read-only offline-source guard pass actual diagnostic guest checks;
-the live welcome also passes interruption and keyboard completion in RAM.
-Automatic startup in a rebuilt image and installed persistence are still pending;
-successful packaging alone cannot clear them.
-The `f132dc1` installation ISO subsequently builds and boots Linux, but its initial
-serial-device waits expire before the ports become active. A diagnostic late start
-renders the real installer and preserves the full disk hash through review/Cancel.
-The recipe now activates those services from the port-ready events and uses
-non-executable service-file permissions; its corrected image still needs building.
-The opt-in installation candidate now requires a clean source revision and a fresh
-runtime built from that same revision. Its offline OCI (content-addressed container
-image) payload is validated before stock bootc can write the assigned disk.
-The limited welcome uses a locked local test account; it offers no working QOR ID
-authentication or desktop. These are connected source paths awaiting actual
-installation and second-boot evidence, not a completed installer claim.
+The clean `fa17674` installation ISO boots normally into the real Qt installer.
+Its restricted agent permits exactly four operations; review/Cancel preserves the
+full 16-GiB disk hash. A separate image with one corrupt payload blob is refused
+without changing its disk, and transaction retry remains disabled.
+The first actual stock installation exits 1 at its SELinux domain check; the full
+disk remains blank. The corrected recipe pairs Fedora's existing `install_exec_t`
+entrypoint label with the service's `install_t` process domain. Native image building
+checks the label lookup. Separate guest diagnostics verify the required label
+capability and the actual Qt frontend in that domain with enforcement enabled.
+A fresh normal image and successful installation/persistence remain pending.
+The installation candidate requires a clean source revision and a fresh runtime
+from that same revision. Every referenced offline OCI (content-addressed container
+image) blob is checked on read-only media before stock bootc can write the assigned
+disk. Virtual-port readiness starts the services; existing disk and RPC guards remain.
+The limited welcome uses a locked local test account and supplies neither QOR ID
+authentication nor the full desktop. Diagnostic overrides establish only their
+explicitly recorded scope.
 Run the Windows lab memory preflight before its runtime/image pipeline:
 `python tools/image/vm_resources.py`. Image phases and VM launch also check
 the 3-GiB available-RAM budget and refuse to start below it. This is a read-only
 resource check, with no process stopping, host setting change or retry loop.
 See the [VM lab boundaries](../image/README.md#private-disposable-vm-lab),
-including unfinished installation and second-reboot evidence. Do not install a
+including the remaining successful-installation and second-reboot evidence. Do not install a
 Qt kit in the VM or run an image/partitioning command against workstation disks.
 
 ## 1. Prerequisites
