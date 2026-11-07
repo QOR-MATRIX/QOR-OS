@@ -5,6 +5,12 @@ set -euo pipefail
 root=${QOR_IMAGE_ROOT:-/rootfs}
 iso=${QOR_ISO_TREE:-/iso}
 out=/out
+artifact=qor-os-live-probe.iso
+if [ "${QOR_VM_INSTALLATION:-0}" = 1 ]; then
+  test -s /qor-payload/install-source.json
+  test -s /qor-payload/install-source/index.json
+  artifact=qor-os-vm-install.iso
+fi
 if [ "$root" = / ]; then
   # Only the builder's disposable container layer is writable. Remove Docker's
   # generated container detector and replace its private generated identity/DNS
@@ -64,6 +70,9 @@ menuentry 'QOR OS — diagnostics, readable boot output' {
   initrd /images/pxeboot/initrd.img
 }
 GRUB
+if [ "${QOR_VM_INSTALLATION:-0}" = 1 ]; then
+  sed -i 's/live display probe (installation unavailable)/install onto the assigned disposable VM disk/' "$iso/boot/grub/grub.cfg"
+fi
 cat > /tmp/early.cfg <<'GRUB'
 search --no-floppy --label QOR_OS_LIVE --set=root
 # Keep the embedded memdisk module prefix. The ISO carries configuration and
@@ -75,5 +84,13 @@ truncate -s 64M "$iso/images/efiboot.img"
 mformat -i "$iso/images/efiboot.img" -F ::
 mmd -i "$iso/images/efiboot.img" ::/EFI ::/EFI/BOOT
 mcopy -i "$iso/images/efiboot.img" /tmp/BOOTX64.EFI ::/EFI/BOOT/BOOTX64.EFI
-xorriso -as mkisofs -iso-level 3 -V QOR_OS_LIVE -e images/efiboot.img -no-emul-boot -o "$out/qor-os-live-probe.iso" "$iso"
-sha256sum "$out/qor-os-live-probe.iso" > "$out/SHA256SUMS"
+if [ "${QOR_VM_INSTALLATION:-0}" = 1 ]; then
+  # Read the content-addressed payload directly from its separate read-only
+  # build input. It is outside the live SquashFS, avoiding a second copy.
+  xorriso -as mkisofs -iso-level 3 -V QOR_OS_LIVE -e images/efiboot.img -no-emul-boot \
+    -o "$out/$artifact" -graft-points /="$iso" \
+    /qor/install-source=/qor-payload/install-source /qor/install-source.json=/qor-payload/install-source.json
+else
+  xorriso -as mkisofs -iso-level 3 -V QOR_OS_LIVE -e images/efiboot.img -no-emul-boot -o "$out/$artifact" "$iso"
+fi
+sha256sum "$out/$artifact" > "$out/SHA256SUMS"

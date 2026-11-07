@@ -3,7 +3,6 @@
 import argparse
 from contextlib import contextmanager
 import ctypes
-import hashlib
 import json
 import os
 from pathlib import Path
@@ -15,19 +14,16 @@ import sys
 import threading
 
 from guest_inventory import inspect
+from vm_payload import unique_object, validate as validate_payload
+from vm_session import installation_log
 
 MEDIA = Path("/run/initramfs/live")
-SOURCE = MEDIA / "qor/install-source.tar"
+SOURCE = MEDIA / "qor/install-source"
 RECEIPT = MEDIA / "qor/install-source.json"
 
 
 def read_only_media():
-    """Keep the checked source immutable, including against in-place writes.
-
-    Holding an archive descriptor prevents pathname replacement but cannot
-    prevent another process modifying the same inode. Only the read-only ISO
-    passed by the sealed launcher is accepted, never the writable live overlay.
-    """
+    """Accept only the sealed launcher's immutable ISO, never a live overlay."""
     for path in (MEDIA, *MEDIA.parents):
         if path.is_symlink() or not path.is_dir():
             raise ValueError("Linked or missing installation media ancestry")
@@ -55,7 +51,7 @@ def regular_source(path):
             break
         if parent.is_symlink() or not parent.is_dir():
             raise ValueError("Linked or missing payload ancestry")
-    descriptor = os.open(path, os.O_RDONLY | os.O_NOFOLLOW)
+    descriptor = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
     try:
         info = os.fstat(descriptor)
         if (not stat.S_ISREG(info.st_mode) or info.st_nlink != 1
@@ -74,9 +70,9 @@ def offline_source():
         raw = stream.read(4097)
     if len(raw) > 4096:
         raise ValueError("Oversized installation receipt")
-    receipt = json.loads(raw)
-    with regular_source(SOURCE) as stream:
-        yield receipt, stream
+    receipt = json.loads(raw, object_pairs_hook=unique_object)
+    validate_payload(SOURCE, receipt, regular_source)
+    yield receipt
 
 
 def emit(kind, **fields):
@@ -87,10 +83,10 @@ def command(expected: dict, disk: dict, receipt: dict, confirmation: str) -> lis
     if confirmation != disk["serial"] or confirmation != expected["disk"]["serial"]:
         raise ValueError("The displayed target was not explicitly confirmed")
     if (not isinstance(receipt, dict)
-            or set(receipt) != {"schema", "source_revision", "archive_sha256", "profile", "encryption"}
-            or type(receipt["schema"]) is not int or receipt["schema"] != 1
-            or not isinstance(receipt["archive_sha256"], str)
-            or not re.fullmatch(r"[0-9a-f]{64}", receipt["archive_sha256"])
+            or set(receipt) != {"schema", "source_revision", "manifest_sha256", "profile", "encryption"}
+            or type(receipt["schema"]) is not int or receipt["schema"] != 2
+            or not isinstance(receipt["manifest_sha256"], str)
+            or not re.fullmatch(r"[0-9a-f]{64}", receipt["manifest_sha256"])
             or receipt["profile"] != "private-vm-lab"
             or receipt["source_revision"] != expected["source_revision"] or receipt["encryption"] is not False):
         raise ValueError("Unknown or mismatched offline payload")
@@ -99,7 +95,7 @@ def command(expected: dict, disk: dict, receipt: dict, confirmation: str) -> lis
     # no update/readiness claim is made. Disk/provenance guards remain required.
     return ["/usr/bin/bootc", "install", "to-disk", "--wipe", "--generic-image",
             "--filesystem", "ext4", "--bootloader", "grub",
-            "--source-imgref", "docker-archive:" + SOURCE.as_posix(),
+            "--source-imgref", "oci:" + SOURCE.as_posix(),
             "--target-imgref", "localhost/qor-os-vm-lab:development", "--skip-fetch-check",
             "--karg", "console=ttyS0,115200", "--karg", "console=tty0", disk["path"]]
 
@@ -182,15 +178,10 @@ def main():
                 raise ValueError("Reboot target is not confirmed")
             subprocess.run(["/usr/bin/systemctl", "reboot"], check=True)
             return 0
-        with offline_source() as (receipt, stream):
+        with offline_source() as receipt:
             argv = command(expected, disk, receipt, args.confirm_serial)
-            digest = hashlib.file_digest(stream, "sha256").hexdigest()
-            if digest != receipt["archive_sha256"]:
-                raise ValueError("Offline installation payload checksum differs")
-            # The archive is kept open across execution; bootc cannot follow a
-            # replaced pathname after checksum validation.
-            argv[argv.index("--source-imgref") + 1] = f"docker-archive:/proc/self/fd/{stream.fileno()}"
-            stream.seek(0)
+            # Every content-addressed blob was checked on the immutable ISO.
+            # OCI avoids unpacking a multi-gigabyte archive into live RAM.
             current_expected, current_disk = inspect()
             if current_expected != expected or current_disk != disk:
                 raise ValueError("Target changed after review")
@@ -200,14 +191,15 @@ def main():
             logdir.mkdir(mode=0o700, exist_ok=True)
             with (logdir / "bootc.log").open("wb") as log:
                 started = True
-                code = transaction(argv, log, pass_fds=(stream.fileno(),))
+                code = transaction(argv, log)
+            installation_log(code)
         if code:
             emit("error", message="The bootc transaction failed. Preserve this disk and inspect /run/qor-vm-install/bootc.log.")
             return 1
         emit("complete", message="Installation finished. Remove the media and reboot to verify the installed system.")
         return 0
     except (OSError, ValueError, TypeError, KeyError, RuntimeError, subprocess.SubprocessError):
-        message = ("The install transaction was interrupted. This disk may be incomplete; preserve it and inspect diagnostics."
+        message = ("The install transaction or its evidence did not complete. This disk may be incomplete; preserve it and inspect diagnostics."
                    if started else "The disposable target or payload could not be verified. No new install transaction was started.")
         emit("error", message=message)
         return 1

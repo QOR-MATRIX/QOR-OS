@@ -29,5 +29,6 @@ if(QOR_BUILD_VM_INSTALLER)
         qor_lumen_styleplugin Qt6::QuickControls2 qor::compiler_settings)
     install(TARGETS qor-install RUNTIME DESTINATION bin)
     install(FILES ../tools/image/vmguard.py ../tools/image/guest_inventory.py ../tools/image/vm_install_backend.py
+        ../tools/image/vm_payload.py ../tools/image/vm_display.py ../tools/image/vm_session.py
         DESTINATION libexec/qor-os)
 endif()

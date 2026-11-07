@@ -2,6 +2,7 @@
 """Negative controls for the VM launcher and fixed installation backend."""
 import importlib
 import io
+import hashlib
 import os
 from pathlib import Path
 import sys
@@ -10,6 +11,7 @@ import unittest
 from unittest.mock import Mock, patch
 import json
 from types import SimpleNamespace
+from contextlib import contextmanager
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "tools/image"))
 backend = importlib.import_module("vm_install_backend")
@@ -32,7 +34,7 @@ class VmInstall(unittest.TestCase):
         template.write_bytes(bytes(4096))
         self.record = guard.create(self.work / "vm", template, 1024**2, "a" * 40, "b" * 64, self.work)
         self.disk = {"path": "/dev/vda", "serial": self.record["disk"]["serial"]}
-        self.receipt = {"schema": 1, "source_revision": "a" * 40, "archive_sha256": "c" * 64,
+        self.receipt = {"schema": 2, "source_revision": "a" * 40, "manifest_sha256": "c" * 64,
                         "profile": "private-vm-lab", "encryption": False}
 
     def test_transaction_has_no_custom_partitioner_or_implicit_disk(self):
@@ -40,7 +42,7 @@ class VmInstall(unittest.TestCase):
         self.assertEqual(argv[:3], ["/usr/bin/bootc", "install", "to-disk"])
         self.assertEqual(argv[-1], "/dev/vda")
         self.assertIn("--generic-image", argv)
-        self.assertIn("docker-archive:/run/initramfs/live/qor/install-source.tar", argv)
+        self.assertIn("oci:/run/initramfs/live/qor/install-source", argv)
         self.assertNotIn("--via-loopback", argv)
 
     def test_builder_checks_emitted_errors_even_when_command_succeeds(self):
@@ -64,6 +66,12 @@ class VmInstall(unittest.TestCase):
         snapshot = Mock(side_effect=[{"revision": "a"}, {"revision": "b"}])
         with self.assertRaises(ValueError):
             runtime_stage.checked_build(["inert-fixture"], snapshot, runner)
+
+    def test_dirty_runtime_source_is_refused_before_reading_source_files(self):
+        with patch.object(runtime_stage.subprocess, "check_output", return_value=b" M setup/fixture.cpp\n") as git:
+            with self.assertRaises(ValueError):
+                runtime_stage.source_snapshot()
+            git.assert_called_once_with(["git", "status", "--porcelain=v1"], cwd=runtime_stage.REPO)
 
     def test_runtime_warning_or_failed_build_never_receives_proof(self):
         result = type("Result", (), {"returncode": 0, "stdout": "Warning: runtime fixture", "stderr": ""})()
@@ -111,7 +119,7 @@ class VmInstall(unittest.TestCase):
             with self.assertRaises(ValueError):
                 backend.command(self.record, self.disk, self.receipt, serial)
         for key, value in (("schema", True), ("source_revision", "d" * 40),
-                           ("archive_sha256", "broken"), ("profile", "device"), ("encryption", True)):
+                           ("manifest_sha256", "broken"), ("profile", "device"), ("encryption", True)):
             receipt = {**self.receipt, key: value}
             with self.subTest(key=key), self.assertRaises(ValueError):
                 backend.command(self.record, self.disk, receipt, self.disk["serial"])
@@ -162,6 +170,29 @@ class VmInstall(unittest.TestCase):
                 self.assertEqual(backend.main(), 1)
                 self.assertEqual(json.loads(output.getvalue())["type"], "error")
                 transaction.assert_not_called()
+
+    def test_changed_target_after_payload_review_never_starts_transaction(self):
+        @contextmanager
+        def source():
+            yield self.receipt
+        changed = {**self.disk, "serial": "qor-" + "0" * 16}
+        with patch.object(backend.sys, "argv", ["backend", "install", "--confirm-serial", self.disk["serial"]]), \
+                patch.object(backend, "inspect", side_effect=[(self.record, self.disk), (self.record, changed)]), \
+                patch.object(backend, "offline_source", source), patch.object(backend, "transaction") as transaction, \
+                patch.object(backend.sys, "stdout", io.StringIO()):
+            self.assertEqual(backend.main(), 1)
+            transaction.assert_not_called()
+
+    def test_installation_candidate_refuses_stale_or_dirty_runtime(self):
+        good = {"compiler_source_dirty": False, "compiler_source_revision": "a" * 40,
+                "fresh_build_proved": True, "files": {"usr/bin/qor-install": "c" * 64}}
+        builder.installation_inputs(good, "a" * 40, False)
+        for change in ({"compiler_source_dirty": True}, {"compiler_source_revision": "b" * 40},
+                       {"fresh_build_proved": False}, {"files": {}}):
+            with self.subTest(change=change), self.assertRaises(ValueError):
+                builder.installation_inputs({**good, **change}, "a" * 40, False)
+        with self.assertRaises(ValueError):
+            builder.installation_inputs(good, "a" * 40, True)
 
     def test_malformed_contract_refused_without_device_enumeration(self):
         for value in ([], {}, {**self.record, "schema": True}, {**self.record, "disk": {}},
@@ -220,6 +251,19 @@ class VmInstall(unittest.TestCase):
             with self.assertRaises(OSError):
                 disk.rename(self.work / "moved.raw")
         self.assertTrue(disk.exists())
+
+    def test_iso_replacement_and_in_place_change_are_refused_after_pinning(self):
+        iso = self.work / "media.iso"
+        iso.write_bytes(b"inert installation media")
+        checksum = hashlib.sha256(iso.read_bytes()).hexdigest()
+        before = launcher.checked_iso(iso, checksum)
+        iso.write_bytes(b"x" * len(b"inert installation media"))
+        with self.assertRaises(ValueError):
+            launcher.checked_iso(iso, checksum, before)
+        iso.rename(self.work / "preserved.iso")
+        iso.write_bytes(b"inert installation media")
+        with self.assertRaises(ValueError):
+            launcher.checked_iso(iso, checksum, before)
 
 
 if __name__ == "__main__":

@@ -37,6 +37,8 @@ int main(int argc, char **argv)
     parser.addHelpOption();
     parser.addOption(
         { u"first-run"_s, u"Welcome after an authenticated session starts; skip if already completed."_s });
+    parser.addOption(
+        { u"introduction-only"_s, u"Describe a limited installation-test image without promising a desktop."_s });
 #ifdef QOR_SETUP_DEVELOPMENT
     parser.addOption(
         { u"screenshot"_s, u"Capture this development window and exit without completing setup."_s, u"file"_s });
@@ -52,7 +54,8 @@ int main(int argc, char **argv)
     QQmlApplicationEngine engine;
     qor::applyWelcomeAppearance(engine.singletonInstance<QObject *>("QOR.Kit", "Theme"), qgetenv("QOR_REDUCED_MOTION"),
                                 qgetenv("QOR_INCREASE_CONTRAST"));
-    engine.setInitialProperties({ { u"setupState"_s, QVariant::fromValue(&state) } });
+    engine.setInitialProperties({ { u"setupState"_s, QVariant::fromValue(&state) },
+                                  { u"introductionOnly"_s, parser.isSet(u"introduction-only"_s) } });
     engine.loadFromModule("QOR.Setup", "Welcome");
     if (engine.rootObjects().isEmpty())
         return 2;

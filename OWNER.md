@@ -1,46 +1,51 @@
 # Where QOR OS stands
 
-For Andrew, 6 November 2026. Branch integration/owner-brief; image evidence at c8ccc9b.
+For Andrew, 6 November 2026. Branch integration/owner-brief; starting pushed checkpoint 9e2e7b9.
 
-This session alone implements QOR. All 14 worktrees (Git checkouts) are preserved; the other 13
-were checked clean. Commits/pushes and disposable virtual-machine work are authorised.
-One heavy QOR job runs at a time under the verified project-local lock. Host disks, firmware,
-security/network/runner settings and other projects remain outside scope.
+This session alone implements QOR. All 14 worktrees (Git checkouts) are preserved.
+Only one heavy QOR job runs under the verified project-local lock. Disposable VM (virtual-machine) work,
+commits and pushes are authorised. Host disks, firmware, security/network/runner settings
+and other projects remain outside scope.
 
-## Actual image and guest results
+## Actually observed
 
 The private Fedora 44 bootc image (whole-image deployment) produces a real UEFI ISO
-(firmware-bootable media): **1,932,019,712 bytes**; exact inputs and SHA-256 checksum are in
-build/vm-install-2026-11-06/probe-build-v7/build-result.json.
-It automatically boots through the official-logo menu, shows the QOR loading mark and exposes
-readable diagnostics with Escape. Animation is unproved. The normal Qt display failed because
-its default graphics device was absent.
+(firmware-bootable media), **1,932,019,712 bytes**, checksum
+a3d3ea7518b57053ffb2c2199a51719b5e8d86222033a3331814db2719efaa2c.
+Its recipe is c8ccc9b; its older welcome binary is traced to 9d6c7c9.
+It automatically boots through the official-logo menu and OS-loading mark; Escape
+shows diagnostics. Animation is unproved. Normal graphics failed on an absent default device.
 
-A temporary diagnostic boot proved the new VirtIO display selector, reserved guest console and
-welcome UI. Interruption leaves welcome pending; restart and keyboard completion write the checked
-public record and exit zero. **This is live RAM state, not installed-system persistence.**
-That image's app binary remains traced to compiler revision 9d6c7c9.
+A diagnostic boot proved the corrected VirtIO display selection, reserved guest console,
+welcome interruption/restart and keyboard completion in RAM. The actual guest guard matched
+the fresh 16-GiB raw file, sealed VM identifier, serial and hardware ancestry. Missing
+firmware metadata caused refusal. Both runs shut down normally. **No install transaction,
+installed-system welcome or second reboot has run.**
 
-The guest guard matched the new 16-GiB regular raw file, serial qor-110e4251919b4c33, sealed VM
-identifier and virtual-hardware ancestry. Missing firmware metadata caused refusal. Read-only ISO
-checks pass. No install transaction has run. Private firmware variables and software CPU emulation
-receive no host devices, GPU, EFI/NVRAM, network or Docker socket. Both v7 runs shut down normally.
+## Current implementation and checks
 
-## Checks and next work
+The private candidate connects the Qt installer to stock bootc through a complete,
+checksum-checked OCI payload (content-addressed container image) on read-only media.
+It defines a locked local qortest account, an honest limited introduction and bounded
+public evidence. A narrow guest agent exposes policy inspection and shutdown/reboot;
+the actual 10.2.2 process refused execution, file access and clock changes.
+The launcher now rechecks ISO identity/checksum after pinning its file and ancestry.
 
-- Latest committed guard/display checks: **35 cases each on Windows and Linux**, seven additional
-  Linux process/source cases, two Windows asset cases; final runs have zero failures/skips.
-- Fresh Linux installer/runtime compilation linked both apps, but **failed acceptance on 13
-  pre-existing QML registration warnings**. No accepted runtime receipt was produced.
-- Explicitly naming the existing Gamepads QML export removes its warning: Linux module rebuild
-  has zero warnings; the new Windows import/enum regression passes (three Qt cases including
-  setup/cleanup). The first Windows test wrapper failed on a wrong executable path; corrected run passes.
-- Twelve compositor metadata warnings remain. The private installer-only runtime will exclude that
-  unused compositor; this does not clear its full-project gate. Full OS/product/sanitizer gates remain open.
+- Linux Release and sanitizers: **21 welcome, 13 installer and 20 input Qt cases in each**,
+  zero failures/skips; module lint has zero warnings; hardening (exploit mitigations)
+  passes five programs in each. Actual instrumentation and identical source fingerprints are checked.
+  The initial runner failed before tests on a wrong path; the corrected run passes.
+- A separate, clean installer-runtime build passed with two programs and zero warnings.
+  It predates the new introduction option and must be rebuilt before packaging.
+- Portable guard/evidence checks last passed **56 cases each on Windows and Linux**,
+  plus eight Linux process/file cases, with zero failures/skips.
+- The exact tooling image is preserved in a checksum-recorded private archive.
+  Restoration and repeated output remain untested. Full OS/product gates remain
+  open, including 12 pre-existing compositor (display-server) metadata warnings outside this limited profile.
 
-Ubuntu WSL (Linux inside Windows) recovered without restart; the existing commercial Qt kit works.
-No VM or heavy job is active at this checkpoint. No guest Qt kit or credentials enter images.
-Next: checkpoint this tested input fix, rebuild the limited runtime, then package the offline deployment
-source and prove installation, media-free first run and persistence after a second reboot.
-Encryption and QOR ID remain unavailable. Hardware, Secure Boot, recovery, reproducibility and release
-readiness are unproved. Exact logs and resume: build/vm-install-2026-11-06/LATEST.md.
+Next: commit/push this checked candidate and rebuild its runtime and ISO from that
+clean revision. Prove cancellation/failure, installation,
+media-free boot, welcome completion and a second guest reboot with persisted state.
+Encryption and QOR ID are disabled. Hardware, Secure Boot, rollback, recovery, repeatable
+output and release readiness remain unproved. No guest Qt kit or credentials enter images.
+Exact jobs, logs and resume: build/vm-install-2026-11-06/LATEST.md.

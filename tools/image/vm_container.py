@@ -29,6 +29,11 @@ def arguments(record, live, disk_fd, vars_fd, code_fd, iso_fd=None, *, readonly_
             "-device", "virtio-vga,addr=0x1", "-qmp", "tcp:127.0.0.1:4444,server=on,wait=off",
             "-chardev", "socket,id=serial,host=127.0.0.1,port=4445,server=on,wait=off,logfile=/evidence/serial.log",
             "-device", "isa-serial,chardev=serial",
+            "-device", "virtio-serial-pci,id=qorserial,addr=0x5",
+            "-chardev", "socket,id=qoragent,host=127.0.0.1,port=4446,server=on,wait=off",
+            "-device", "virtserialport,bus=qorserial.0,chardev=qoragent,name=org.qemu.guest_agent.0",
+            "-chardev", "file,id=qorevents,path=/evidence/guest-events.jsonl",
+            "-device", "virtserialport,bus=qorserial.0,chardev=qorevents,name=dev.qorsync.vm-evidence.0",
             "-fw_cfg", "name=opt/qor/allowlist,file=/vm/allowlist.json"]
     for number, fd in enumerate((code_fd, vars_fd, disk_fd), 1):
         argv += ["-add-fd", f"fd={fd},set={number}"]

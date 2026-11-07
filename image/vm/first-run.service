@@ -1,0 +1,45 @@
+# SPDX-License-Identifier: LicenseRef-QOR-OS-Proprietary
+[Unit]
+Description=QOR OS private installed-system welcome
+After=systemd-user-sessions.service systemd-modules-load.service plymouth-quit-wait.service qor-vm-display.service
+Requires=qor-vm-display.service
+Requires=dev-virtio\x2dports-dev.qorsync.vm\x2devidence.0.device
+After=dev-virtio\x2dports-dev.qorsync.vm\x2devidence.0.device
+Conflicts=getty@tty2.service
+ConditionPathExists=!/usr/lib/qor-os/live-session
+
+[Service]
+User=qortest
+SupplementaryGroups=video input tty
+Environment=HOME=/var/home/qortest
+Environment=XDG_STATE_HOME=/var/home/qortest/.local/state
+Environment=XDG_RUNTIME_DIR=/run/qor-vm-user
+Environment=QT_QPA_PLATFORM=linuxfb:tty=/dev/tty2
+Environment=QT_QPA_FB_DRM=1
+Environment=QT_QPA_KMS_CONFIG=/run/qor-vm-display/kms.json
+Environment=QT_QUICK_BACKEND=software
+Environment=QT_AUDIO_BACKEND=pulseaudio
+Environment=QT_PLUGIN_PATH=/usr/lib/qor-os/qt/plugins
+Environment=QML_IMPORT_PATH=/usr/lib/qor-os/qt/qml
+Environment=LD_LIBRARY_PATH=/usr/lib/qor-os/qt/lib
+Environment=QOR_REDUCED_MOTION=1
+Environment=QOR_AUDIO_OUTPUT=null
+Environment=QOR_GAMEPADS=virtual
+Environment=QOR_TOUCHPAD=off
+Environment=QT_FORCE_STDERR_LOGGING=1
+Environment=LANG=C.UTF-8
+RuntimeDirectory=qor-vm-user
+RuntimeDirectoryMode=0700
+TTYPath=/dev/tty2
+StandardInput=tty-force
+TTYReset=yes
+TTYVHangup=yes
+StandardOutput=journal+console
+StandardError=journal+console
+ExecStartPre=+/usr/bin/python3 /usr/libexec/qor-os/vm_session.py before-welcome
+ExecStart=/usr/bin/qor-setup --first-run --introduction-only
+ExecStopPost=+/usr/bin/python3 /usr/libexec/qor-os/vm_session.py after-welcome
+Restart=no
+
+[Install]
+WantedBy=graphical.target

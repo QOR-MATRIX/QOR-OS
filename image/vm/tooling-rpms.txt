@@ -554,6 +554,7 @@ qcom-wwan-firmware-20261019-1.fc44.noarch
 qemu-common-10.2.2-1.fc44.x86_64
 qemu-device-display-virtio-gpu-10.2.2-1.fc44.x86_64
 qemu-device-display-virtio-vga-10.2.2-1.fc44.x86_64
+qemu-guest-agent-10.2.2-1.fc44.x86_64
 qemu-system-x86-core-10.2.2-1.fc44.x86_64
 qemu-user-static-10.2.2-1.fc44.x86_64
 qemu-user-static-aarch64-10.2.2-1.fc44.x86_64

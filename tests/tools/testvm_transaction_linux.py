@@ -19,6 +19,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "tools/image"))
 backend = importlib.import_module("vm_install_backend")
 guard = importlib.import_module("vmguard")
 container = importlib.import_module("vm_container")
+session = importlib.import_module("vm_session")
 
 
 @unittest.skipUnless(sys.platform == "linux", "POSIX transaction lifetime checks require Linux")
@@ -103,6 +104,21 @@ class Transaction(unittest.TestCase):
                 for path in (payload, media / "qor/payload.tar"):
                     with self.subTest(path=path), self.assertRaises(ValueError):
                         backend.regular_source(path)
+
+    def test_public_state_refuses_linked_ancestry_and_fifo(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory).resolve()
+            folder = root / "state"
+            folder.mkdir()
+            marker = folder / "completed.json"
+            marker.write_bytes(session.RECORD)
+            self.assertEqual(session.setup_observation(marker)["state"], "complete")
+            (root / "alias").symlink_to(folder, target_is_directory=True)
+            self.assertEqual(session.setup_observation(root / "alias/completed.json"), {"state": "invalid"})
+            fifo = root / "fifo"
+            os.mkfifo(fifo)
+            self.assertEqual(session.setup_observation(fifo), {"state": "invalid"})
+            self.assertEqual(marker.read_bytes(), session.RECORD)
 
     def test_output_is_drained_and_bounded(self):
         log = io.BytesIO()

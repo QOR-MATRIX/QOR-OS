@@ -54,14 +54,39 @@ class SetupTest : public QObject
         QFile file(path);
         return file.open(QIODevice::WriteOnly) && file.write(data) == data.size();
     }
-    static QQuickWindow *load(QQmlApplicationEngine &engine, qor::SetupState &state)
+    static QQuickWindow *load(QQmlApplicationEngine &engine, qor::SetupState &state, bool introductionOnly = false)
     {
-        engine.setInitialProperties({ { u"setupState"_s, QVariant::fromValue(&state) } });
+        engine.setInitialProperties(
+            { { u"setupState"_s, QVariant::fromValue(&state) }, { u"introductionOnly"_s, introductionOnly } });
         qor::applyWelcomeAppearance(engine.singletonInstance<QObject *>("QOR.Kit", "Theme"), {}, {});
         engine.loadFromModule("QOR.Setup", "Welcome");
         return engine.rootObjects().isEmpty() ? nullptr : qobject_cast<QQuickWindow *>(engine.rootObjects().first());
     }
 private Q_SLOTS:
+    void limitedImageWelcomeDoesNotPromiseADesktop()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        qor::SetupState state(directory.path());
+        QQmlApplicationEngine engine;
+        auto *window = load(engine, state, true);
+        QVERIFY(window);
+        QCOMPARE(window->property("introductionOnly").toBool(), true);
+        auto *description = window->findChild<QQuickItem *>(u"setupDescription"_s);
+        QVERIFY(description);
+        QVERIFY(window->setProperty("page", 1));
+        QVERIFY(description->property("text").toString().contains(u"not included"));
+        auto *next = window->findChild<QQuickItem *>(u"setupNext"_s);
+        QVERIFY(next);
+        QVERIFY(window->setProperty("page", 2));
+        QCOMPARE(next->property("text").toString(), u"Finish welcome"_s);
+        next->forceActiveFocus();
+        QTest::keyClick(window, Qt::Key_Return);
+        QTRY_VERIFY(state.completed());
+        qor::SetupState reloaded(directory.path());
+        QVERIFY(reloaded.completed());
+    }
+
     void initTestCase()
     {
         qor::Kit::initialize();

@@ -28,15 +28,19 @@ RPM repositories are mutable: bootstrap is **not** a reproducible release build.
 The lab driver enforces `vm/tooling-input.json` and `vm/tooling-rpms.txt`, pinning
 the resolved local tooling image, root filesystem layers and RPM manifest hash,
 and records every staged input hash. Preserve that tooling image, its RPM record,
-runtime record and exact source revision. Deterministic output still needs a
+runtime record and exact source revision. The exact v8 tooling image is also
+preserved in a private saved-image archive; its checksum is in the input record.
+Restoration and deterministic output still need testing, together with a
 locked package source/snapshot, timestamp normalization and repeated-build proof.
 No image is published by these tools.
 
 `vm/Probe.Containerfile` prepares a live filesystem and its own kernel/initramfs.
 `tools/image/build_vm_probe.py` composes a regular-file UEFI El Torito ISO with
 GRUB, a SquashFS live root, the existing startup assets and the existing first-run
-runtime. It is labelled **display probe; installation unavailable**. It does not
-stage a deployable offline bootc source yet. GRUB is static; Plymouth animation
+runtime. The default remains **display probe; installation unavailable**.
+The new opt-in installation candidate builds a separate deployment image and
+packages its content-addressed OCI directory on the read-only ISO. This source
+connection awaits a real installation run. GRUB is static; Plymouth animation
 and the transition to a framebuffer application require actual boot evidence.
 BIOS, USB hybrid boot and Secure Boot are unsupported by this probe.
 
@@ -82,7 +86,10 @@ runtime notices stay intact. `QOR_BUILD_VM_INSTALLER=ON` is opt-in, Linux-only
 and incompatible with simulator builds. Its Qt frontend and guarded Python
 backend are under development, not an exercised installation path. Encryption
 is disabled: no separate encrypted install/unlock/reboot has been proved.
-Only a local `qortest` account is intended; QOR ID authentication is unavailable.
+The installed profile defines a locked local `qortest` account and starts
+welcome as that user on a reserved guest console. It is a private installation
+test, not a login/authentication service. Its limited introduction explicitly
+states that Prism, Library, games and QOR ID authentication are unavailable.
 
 The probe requires `--runtime-record`: all runtime files must match that receipt.
 An older compiler revision is recorded separately from the image recipe revision;
@@ -90,13 +97,16 @@ it is never relabelled as a fresh build. The current diagnostic binary is from
 `9d6c7c9`. Ubuntu WSL previously failed with `Wsl/Service/0x8007274c`; after the
 disposable VM shut down, a fresh connectivity check passed and the existing
 commercial Qt kit was verified. No distro or host service was restarted. A new
-Linux installer build and sanitizer checks are next, not yet passes.
+installer-only Linux build at `9e2e7b9` subsequently passed with zero warnings,
+module lint and hardening for two programs. It excludes the unused compositor
+and clears no full-project gate. The expanded welcome and Linux sanitizer checks
+are pending.
 
 `vmguard.py create` requires a **new** directory under this checkout's `build/`,
 an extracted private firmware-variable template, exact source revision and ISO
 checksum. It creates a regular raw file without backing and records file IDs,
 capacity, parent ancestry, UUID and unique serial. `vmrun.py` pins Windows
-ancestry/files for the VM lifetime, verifies the ISO and uses a restricted,
+ancestry/files for the VM lifetime, rechecks ISO identity/checksum after pinning and uses a restricted,
 network-free QEMU TCG container. QEMU receives open regular-file descriptors,
 private OVMF variables and no host block devices, EFI, KVM or Docker socket.
 The installed phase has no CD drive. No host boot or security setting is changed.
@@ -111,11 +121,38 @@ The actual guest collector matched the new 16-GiB VirtIO disk and sealed UUID;
 unloading its guest-only firmware-metadata module caused refusal, and reloading
 restored the exact match. This is a real read-only guard check, not an install.
 An offline source checksum and real backend exit status are also required. The
-archive and receipt must reside on the read-only ISO at
-`/run/initramfs/live/qor/install-source.{tar,json}`. Mount type, read-only flags,
+OCI directory and receipt must reside on the read-only ISO at
+`/run/initramfs/live/qor/install-source` and `install-source.json`. A single
+manifest, amd64/Linux identity, installed-profile/source labels, all referenced
+blob sizes/checksums and exact file inventory are required. External URLs,
+unknown/multiple images, missing/extra/linked files and duplicate metadata keys
+are refused. Mount type, read-only flags,
 file descriptors, filesystem identity and unlinked ancestry are checked; a held
 descriptor alone would not prevent in-place modification on a writable overlay. No
 automatic transaction retry, custom partitioner or estimated progress is used.
+
+The optional build command adds `--installation` to
+`tools/image/build_vm_probe.py` with the same explicit runtime, branding, output
+and pinned tooling arguments. It requires a fresh non-simulator installer runtime
+from the exact clean source revision, builds the deployment target, converts its
+saved image with network-free Skopeo, and grafts the validated payload outside
+the live SquashFS. It produces `qor-os-vm-install.iso` only after those gates.
+Conversion and actual VM installation are not yet observed passes.
+
+The evidence checker requires source/image/VM identity, complete checked installer logs,
+media-free installed phases, successful welcome process exits and distinct boot
+identifiers. It checks completion before welcome on the second installed boot.
+Its synthetic negative controls do not establish a VM installation.
+
+Only private virtual serial ports are added at PCI `00:05.0`. The stock guest
+agent permits synchronization, ping, policy inspection and shutdown/reboot.
+Its actual 10.2.2 process refuses execution, file access and clock changes;
+the container probe does not prove a VM reboot. The client validates the QMP
+VM identifier before opening the agent channel. No endpoint is published.
+A separate write-only evidence port emits source/image/boot identifiers, known
+public welcome-state status/hash and the fixed bounded offline installer log.
+It accepts no arbitrary paths or commands. Unknown state bytes are preserved and
+never exported; Linux walks state parents with no-follow directory descriptors.
 
 Acceptance still requires a clean committed source and checksum-bound image,
 VM configuration, target identity shown before erasure, real menu/splash/live/

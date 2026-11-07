@@ -14,6 +14,15 @@ QOR OS begins: QTOS and Demiurge's device-side products in one repository
 
 ### Added
 
+- **Guarded offline installation candidate for the private VM lab.** The opt-in
+  image path connects the Qt installer to stock bootc using a complete,
+  checksum-checked OCI payload on read-only media. The installed profile adds
+  a locked local test account, a limited welcome that makes no desktop or
+  authentication claim, and bounded public setup/log evidence. A restricted
+  guest agent permits policy inspection and shutdown/reboot only; execution,
+  file access and time changes are refused in the actual agent probe.
+  The launcher revalidates the ISO after acquiring its ancestry/file handles.
+  End-to-end installation and persistence remain pending until VM evidence exists.
 - **Stable gamepad enum names for QML.** The existing Gamepads singleton names
   its QML export explicitly, retaining its public name while addressing a
   qualified-name registration warning exposed by the fresh Linux build.

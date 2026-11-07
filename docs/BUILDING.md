@@ -35,6 +35,12 @@ selector and read-only offline-source guard pass actual diagnostic guest checks;
 the live welcome also passes interruption and keyboard completion in RAM.
 Automatic startup in a rebuilt image and installed persistence are still pending;
 successful packaging alone cannot clear them.
+The opt-in installation candidate now requires a clean source revision and a fresh
+runtime built from that same revision. Its offline OCI (content-addressed container
+image) payload is validated before stock bootc can write the assigned disk.
+The limited welcome uses a locked local test account; it offers no working QOR ID
+authentication or desktop. These are connected source paths awaiting actual
+installation and second-boot evidence, not a completed installer claim.
 See the [VM lab boundaries](../image/README.md#private-disposable-vm-lab),
 including unfinished installation and second-reboot evidence. Do not install a
 Qt kit in the VM or run an image/partitioning command against workstation disks.

@@ -9,9 +9,14 @@ import QOR.Setup
 ApplicationWindow {
     id: window
     required property SetupState setupState
+    property bool introductionOnly: false
     property int page: 0
     readonly property var headings: [qsTr("Welcome home."), qsTr("Everything at hand."), qsTr("Ready when you are.")]
-    readonly property var descriptions: [
+    readonly property var descriptions: introductionOnly ? [
+        qsTr("Welcome to the private QOR OS installation test. This introduction runs offline under the local test account. QOR ID is not connected."),
+        qsTr("This limited image tests installation and welcome persistence. Prism, Library, games and account authentication are not included in this profile."),
+        qsTr("Finish this welcome to save its completion on the installed virtual disk. A subsequent boot verifies that the record persists. No personal information is collected.")
+    ] : [
         qsTr("A place to play, make and explore. You can explore this welcome offline. Connecting a QOR ID is your choice."),
         qsTr("Your Library brings your games together. QQ is your space to create. Settings holds display, sound and accessibility controls."),
         qsTr("Take your time. You can change your preferences in Settings whenever you like. Closing this welcome keeps it available next time.")
@@ -41,7 +46,8 @@ ApplicationWindow {
                 Text { text: "QOR OS"; textFormat: Text.PlainText; color: Theme.textPrimary; font: Theme.title2; Layout.alignment: Qt.AlignHCenter }
                 Item { Layout.fillHeight: true }
                 Repeater {
-                    model: [qsTr("Welcome"), qsTr("Your desktop"), qsTr("Get started")]
+                    model: window.introductionOnly ? [qsTr("Welcome"), qsTr("This test image"), qsTr("Finish welcome")]
+                                                   : [qsTr("Welcome"), qsTr("Your desktop"), qsTr("Get started")]
                     delegate: Text {
                         required property string modelData
                         required property int index
@@ -73,6 +79,7 @@ ApplicationWindow {
                 Accessible.role: Accessible.Heading
             }
             Text {
+                objectName: "setupDescription"
                 Layout.fillWidth: true
                 text: window.descriptions[window.page]
                 textFormat: Text.PlainText
@@ -117,7 +124,7 @@ ApplicationWindow {
                 Button {
                     id: next
                     objectName: "setupNext"
-                    text: window.page === 2 ? qsTr("Go to desktop") : qsTr("Continue")
+                    text: window.page === 2 ? (window.introductionOnly ? qsTr("Finish welcome") : qsTr("Go to desktop")) : qsTr("Continue")
                     Accessible.name: text
                     highlighted: true
                     enabled: window.setupState.error.length === 0

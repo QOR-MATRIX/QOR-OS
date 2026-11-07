@@ -62,26 +62,36 @@ def docker_command(record, iso, evidence, tools_id, phase, launcher):
     return argv + [tools_id, "/usr/bin/python3", "/vm/entry.py"]
 
 
+def checked_iso(iso, checksum, previous=None):
+    observed = identity(iso)
+    if previous is not None and observed != previous:
+        raise ValueError("The installation ISO was replaced while acquiring its handles")
+    with iso.open("rb") as stream:
+        if hashlib.file_digest(stream, "sha256").hexdigest() != checksum:
+            raise ValueError("ISO differs from the allowlisted image")
+    return observed
+
+
 def run(manifest, iso, evidence, tools_id, phase):
     record = verify(manifest)
     iso = unlinked(iso)
     if not iso.is_relative_to(WORKSPACE) or identity(iso)[2] < 64 * 1024**2:
         raise ValueError("The ISO must be a regular QOR workspace artifact")
-    with iso.open("rb") as stream:
-        if hashlib.file_digest(stream, "sha256").hexdigest() != record["image_sha256"]:
-            raise ValueError("ISO differs from the allowlisted image")
+    iso_identity = checked_iso(iso, record["image_sha256"])
     evidence = confined(evidence, WORKSPACE)
     evidence.mkdir(exist_ok=False)
     launcher = Path(__file__).with_name("vm_container.py")
     # Pin parents from root to volume, the mutable disk/vars, and the immutable
     # allowlist/ISO/entrypoint. Verify again once every handle has been acquired.
     paths = [(Path(item["path"]), False) for item in ancestry(Path(record["root"]))]
+    paths += [(Path(item["path"]), False) for parent in (iso.parent, launcher.parent) for item in ancestry(parent)]
     paths += [(Path(record["root"]) / name, name == "allowlist.json")
               for name in ("install.raw", "nvram.fd", "allowlist.json")]
     paths += [(iso, True), (launcher, True)]
     with pinned(paths):
         if verify(manifest) != record:
             raise ValueError("The allowlist changed while acquiring artifact handles")
+        checked_iso(iso, record["image_sha256"], iso_identity)
         argv = docker_command(record, iso, evidence, tools_id, phase, launcher)
         sources = {}
         for name in ("vmguard.py", "vmrun.py", "vm_container.py", "vm_control.py"):

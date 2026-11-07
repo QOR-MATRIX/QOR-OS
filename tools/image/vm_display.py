@@ -71,7 +71,9 @@ def main():
         for parent in CONFIG.parents:
             if parent.is_symlink() or not parent.is_dir():
                 raise ValueError("Linked or unavailable runtime configuration folder")
-        descriptor = os.open(CONFIG, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
+        # This public device selector is consumed by the unprivileged welcome.
+        # Its parent stays root-owned; no credentials or user data are written.
+        descriptor = os.open(CONFIG, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o644)
         with os.fdopen(descriptor, "w") as stream:
             json.dump({"device": card["path"], "hwcursor": False}, stream)
             stream.write("\n")

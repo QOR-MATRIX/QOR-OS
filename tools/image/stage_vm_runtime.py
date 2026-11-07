@@ -21,8 +21,11 @@ def sha256(path):
 
 
 def source_snapshot():
-    command = ["git", "ls-files", "-z", "--cached", "--others", "--exclude-standard", "--",
-               "CMakeLists.txt", "CMakePresets.json", "cmake", "kit", "setup", "platform/common"]
+    if subprocess.check_output(["git", "status", "--porcelain=v1"], cwd=REPO):
+        raise ValueError("Commit the reviewed runtime source before staging; no dirty build is accepted")
+    command = ["git", "ls-files", "-z", "--cached", "--",
+               "CMakeLists.txt", "CMakePresets.json", "cmake", "kit", "setup", "platform/common",
+               "audio", "input", "services", "store", "apps", "prism", "tools/branding"]
     names = subprocess.check_output(command, cwd=REPO).decode().split("\0")
     files = {}
     for name in names:
@@ -32,7 +35,7 @@ def source_snapshot():
         if path.is_file():
             files[name] = sha256(path)
     return {"revision": subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=REPO, text=True).strip(),
-            "dirty": bool(subprocess.check_output(["git", "status", "--porcelain=v1"], cwd=REPO)),
+            "dirty": False,
             "inputs": files}
 
 
