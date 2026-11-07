@@ -138,6 +138,9 @@ from the exact clean source revision, builds the deployment target, converts its
 saved image with network-free Skopeo, and grafts the validated payload outside
 the live SquashFS. It produces `qor-os-vm-install.iso` only after those gates.
 Conversion and actual VM installation are not yet observed passes.
+The first deployment build was rejected when dracut reported a missing root-home
+target despite exiting zero. The common stage now creates that target before
+either initramfs build; the failed attempt and its outer failure status are retained.
 
 The evidence checker requires source/image/VM identity, complete checked installer logs,
 media-free installed phases, successful welcome process exits and distinct boot

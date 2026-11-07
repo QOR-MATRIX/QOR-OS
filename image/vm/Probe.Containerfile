@@ -15,7 +15,7 @@ COPY display.service /usr/lib/systemd/system/qor-vm-display.service
 COPY first-run.service /usr/lib/systemd/system/qor-vm-first-run.service
 COPY guest-agent.service /usr/lib/systemd/system/qor-vm-agent.service
 RUN test -n "$QOR_SOURCE_REVISION" && \
-    mkdir -p /etc/systemd/system/graphical.target.wants /etc/systemd/system/multi-user.target.wants \
+    mkdir -p /var/roothome /etc/systemd/system/graphical.target.wants /etc/systemd/system/multi-user.target.wants \
       /usr/lib/dracut/dracut.conf.d /usr/lib/modules-load.d /usr/lib/sysusers.d /usr/lib/tmpfiles.d /usr/lib/udev/rules.d && \
     printf 'u qortest 1000 "QOR OS local test account" /var/home/qortest /usr/sbin/nologin\n' > /usr/lib/sysusers.d/qor-vm.conf && \
     systemd-sysusers && \

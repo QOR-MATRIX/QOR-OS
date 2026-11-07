@@ -24,7 +24,7 @@ installed-system welcome or second reboot has run.**
 
 ## Current implementation and checks
 
-The private candidate connects the Qt installer to stock bootc through a complete,
+The candidate connects the Qt installer to stock bootc through a complete,
 checksum-checked OCI payload (content-addressed container image) on read-only media.
 It defines a locked local qortest account, an honest limited introduction and bounded
 public evidence. A narrow guest agent exposes policy inspection and shutdown/reboot;
@@ -34,17 +34,19 @@ The launcher now rechecks ISO identity/checksum after pinning its file and ances
 - Linux Release and sanitizers: **21 welcome, 13 installer and 20 input Qt cases in each**,
   zero failures/skips; module lint has zero warnings; hardening (exploit mitigations)
   passes five programs in each. Actual instrumentation and identical source fingerprints are checked.
-  The initial runner failed before tests on a wrong path; the corrected run passes.
-- A separate, clean installer-runtime build passed with two programs and zero warnings.
-  It predates the new introduction option and must be rebuilt before packaging.
+
 - Portable guard/evidence checks last passed **56 cases each on Windows and Linux**,
   plus eight Linux process/file cases, with zero failures/skips.
 - The exact tooling image is preserved in a checksum-recorded private archive.
   Restoration and repeated output remain untested. Full OS/product gates remain
   open, including 12 pre-existing compositor (display-server) metadata warnings outside this limited profile.
 
-Next: commit/push this checked candidate and rebuild its runtime and ISO from that
-clean revision. Prove cancellation/failure, installation,
+The fresh runtime at 84384cd passes its warning/hardening gates; 63 target-image programs,
+libraries and plugins resolve. The first deployment build failed: dracut reported a missing
+root-home target despite exiting zero. The diagnostic gate and wrapper correctly failed.
+The common recipe now creates that directory; the corrected image is not yet built.
+
+Next: checkpoint the recipe fix and rebuild the image. Prove cancellation/failure, installation,
 media-free boot, welcome completion and a second guest reboot with persisted state.
 Encryption and QOR ID are disabled. Hardware, Secure Boot, rollback, recovery, repeatable
 output and release readiness remain unproved. No guest Qt kit or credentials enter images.

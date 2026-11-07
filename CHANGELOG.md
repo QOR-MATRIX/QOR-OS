@@ -23,6 +23,10 @@ QOR OS begins: QTOS and Demiurge's device-side products in one repository
   file access and time changes are refused in the actual agent probe.
   The launcher revalidates the ISO after acquiring its ancestry/file handles.
   End-to-end installation and persistence remain pending until VM evidence exists.
+  The first deployment-image attempt exposed a missing root-home target in the
+  shared recipe: dracut returned success while reporting an install error.
+  The diagnostic gate rejected that image; the shared stage now creates the
+  directory before either initramfs build.
 - **Stable gamepad enum names for QML.** The existing Gamepads singleton names
   its QML export explicitly, retaining its public name while addressing a
   qualified-name registration warning exposed by the fresh Linux build.
