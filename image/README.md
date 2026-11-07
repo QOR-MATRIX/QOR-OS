@@ -1,7 +1,7 @@
 # image — the QOR OS image (Phase 3)
 
 > **Status:** a private ISO boots automatically through the branded UEFI menu into the live OS.
-> Its graphical application still fails; installation is not yet proved. The base is **Fedora Atomic with bootc**
+> Normal installer startup still needs a rebuilt port-ready activation fix; installation is not yet proved. The base is **Fedora Atomic with bootc**
 > ([QOR-0004](../docs/decisions/QOR-0004-the-base-image-is-fedora-atomic.md)).
 > The checked branding filesystem layer builds into a data-only container. The first-run
 > app builds and runs. A separate private VM lab is being developed below; its boot,
@@ -145,7 +145,9 @@ and pinned tooling arguments. It requires a fresh non-simulator installer runtim
 from the exact clean source revision, builds the deployment target, converts its
 saved image with network-free Skopeo, and grafts the validated payload outside
 the live SquashFS. It produces `qor-os-vm-install.iso` only after those gates.
-Conversion and actual VM installation are not yet observed passes.
+Offline conversion and complete payload validation pass at `f132dc1`; actual VM
+installation remains unproved. On 7 November its private installer ISO was built:
+3,601,666,048 bytes, with its exact checksum in the private build record below.
 The first deployment build was rejected when dracut reported a missing root-home
 target despite exiting zero. The common stage now creates that target before
 either initramfs build; the failed attempt and its outer failure status are retained.
@@ -155,9 +157,21 @@ logs and undeclared mutable directories. Most came from the tooling bootstrap;
 the retained dracut log was new in this recipe. The recipe now removes generated
 caches/logs and declares the required runtime directories. Both image branches
 use `bootc container lint --fatal-warnings`; the wrapper also rejects emitted
-lint warnings even with a zero command exit. The corrected hygiene checks remain
-pending. The one alternate-root lint is skipped in running-root mode and is
+lint warnings even with a zero command exit. The corrected images pass 14 checks
+with zero warnings. The one alternate-root lint is skipped in running-root mode and is
 reported as not run, never added to the pass count.
+
+The new ISO boots automatically through its installer menu into Linux, but its
+installer and guest agent lost their initial device-wait jobs before the virtual
+serial ports became active. A separate guest-only diagnostic boot confirmed the
+correct ports and PCI ancestry. Starting the services after readiness displayed
+the actual installer, reported the exact assigned target and source image, and
+exposed only the four allowed guest-agent operations. Review and Cancel left the
+complete 16-GiB disk hash unchanged. This is diagnostic UI/cancellation evidence,
+not automatic startup or an installation. The recipe now uses per-port
+`SYSTEMD_WANTS` activation with the existing device guards, keeps the generic
+agent masked, and copies service units with mode `0644`. A corrected normal boot
+still needs a fresh image.
 
 The evidence checker requires source/image/VM identity, complete checked installer logs,
 media-free installed phases, successful welcome process exits and distinct boot
@@ -306,17 +320,17 @@ hardware evidence. The CI VM Create/Prove and guest Qt licensing gates remain un
 
 ## Installation capability map
 
-Refreshed on 6 November 2026 using the `c8ccc9b` ISO and subsequent source fixes,
+Refreshed on 7 November 2026 using the `f132dc1` installer ISO and subsequent source fixes,
 retaining the earlier starting-state column. Application deployment through
 CMake or a Windows package is not installation of an operating system.
 
 | Stage | Before this change | Implemented here | Still required |
 |---|---|---|---|
-| Image generation | Plan and seven-file boot-branding payload | 25-file data layer and a real pinned Fedora live probe ISO; newer installer candidate reaches deployment/OCI, but its composition was stopped and no ISO accepted | Corrected installer ISO, frozen-input reconstruction/repeated-build proof and full device payload |
-| USB boot/live session | No image or live session | Actual automatic UEFI optical-media boot, correctly sized QOR menu, OS-loading mark and Escape diagnostics; Qt app still aborts | Automatic GUI startup in the rebuilt candidate; actual USB/hardware/mode tests |
-| Installer framework | Calamares mentioned in planning only | Calamares theme stays inactive; opt-in Qt/stock-bootc prototype has 13 installer cases passing on Windows and in Linux Release/sanitizer profiles; production Linux binary builds | Actual live UI and backend transaction |
-| Choices/disk/encryption | No implementation | Fresh raw-file/ancestry/UUID/serial guard, actual guest collector and missing-firmware refusal; explicit Qt review; encryption disabled | Complete live target review and genuine installer cancellation/install/failure tests |
-| Deployment/progress | No implementation | Stock bootc adapter with checked read-only OCI source, exit gate and bounded diagnostics; actual deployment-image build plus OCI conversion/validation at 216ad48 | Corrected warning-fatal image build; actual guarded transaction, progress and interrupted-install recovery |
+| Image generation | Plan and seven-file boot-branding payload | 25-file data layer and a private installer ISO from clean `f132dc1`, with validated deployment/OCI payload | Port-ready startup rebuild, frozen-input reconstruction/repeated-build proof and full device payload |
+| USB boot/live session | No image or live session | Automatic UEFI optical-media boot and Linux startup; new installer startup hits a serial-device discovery race | Automatic GUI startup in the rebuilt candidate; actual USB/hardware/mode tests |
+| Installer framework | Calamares mentioned in planning only | Calamares theme stays inactive; Qt/stock-bootc prototype builds; the real installer renders after a diagnostic late start | Normal automatic startup and backend transaction |
+| Choices/disk/encryption | No implementation | Recorded raw-file guard and real guest target review; diagnostic Cancel preserves the full disk hash; encryption disabled | Normal-startup cancellation, actual install and representative failure checks |
+| Deployment/progress | No implementation | Checked read-only OCI source, bounded exit/log gate, full payload conversion/validation and warning-fatal image checks pass | Actual guarded transaction, progress and interrupted-install recovery |
 | Bootloader | No installation backend | Static GRUB EFI is in the ISO; stock bootc is selected for target-disk installation | Actual bootloader deployment and media-free UEFI boot; no BIOS/Secure Boot claim |
 | Completion/reboot | No installer | Process-exit-gated completion tested with inert fixtures; diagnostic live VM shuts down normally | Genuine install success, media detached, installed first run and second reboot proving persistence |
 | First run | No app | Real `qor-setup`: three-page introduction, keyboard controls, checked state and once-per-session hook; live diagnostic VM proves interruption/restart and three-Return completion in RAM | Packaged automatic startup, real authentication/session service, installed-image launch/reboot proof, screen-reader and hardware testing |

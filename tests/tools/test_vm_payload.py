@@ -125,6 +125,22 @@ class VmPayload(unittest.TestCase):
         self.assertIn("getty@tty2.service autovt@tty2.service qemu-guest-agent.service", recipe)
         self.assertIn(f'ATTR{{name}}=="{session.EVENT_PORT}", TAG+="systemd"', recipe)
 
+    def test_port_services_start_from_their_ready_device_event(self):
+        root = Path(__file__).resolve().parents[2]
+        recipe = (root / "image/vm/Probe.Containerfile").read_text()
+        common, live = recipe.split("FROM common AS live", 1)
+        self.assertTrue('ENV{SYSTEMD_WANTS}="qor-vm-agent.service"' in common,
+                        "The restricted agent must start when its assigned port becomes ready")
+        self.assertTrue('ENV{SYSTEMD_WANTS}="qor-vm-first-run.service"' in common,
+                        "Installed welcome must start when its evidence port becomes ready")
+        for unit in ("qor-vm-agent", "qor-vm-first-run"):
+            self.assertFalse(f"ln -s /usr/lib/systemd/system/{unit}.service" in common,
+                             "Early target activation races slow virtual-device discovery")
+        self.assertFalse("ln -s /usr/lib/systemd/system/qor-vm-installer.service" in live,
+                         "The live installer must also wait for its evidence-port event")
+        self.assertIn("qor-vm-first-run.service/qor-vm-installer.service", live)
+        self.assertIn("ln -s /usr/lib/systemd/system/qor-vm-display-probe.service", live)
+
     def test_agent_sync_ignores_old_errors_and_requires_exact_nonce(self):
         stream = Mock()
         commands = [{"name": name, "enabled": True} for name in control.AGENT_RPCS]

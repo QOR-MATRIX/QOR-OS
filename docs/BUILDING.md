@@ -35,6 +35,11 @@ selector and read-only offline-source guard pass actual diagnostic guest checks;
 the live welcome also passes interruption and keyboard completion in RAM.
 Automatic startup in a rebuilt image and installed persistence are still pending;
 successful packaging alone cannot clear them.
+The `f132dc1` installation ISO subsequently builds and boots Linux, but its initial
+serial-device waits expire before the ports become active. A diagnostic late start
+renders the real installer and preserves the full disk hash through review/Cancel.
+The recipe now activates those services from the port-ready events and uses
+non-executable service-file permissions; its corrected image still needs building.
 The opt-in installation candidate now requires a clean source revision and a fresh
 runtime built from that same revision. Its offline OCI (content-addressed container
 image) payload is validated before stock bootc can write the assigned disk.

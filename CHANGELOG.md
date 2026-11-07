@@ -14,6 +14,16 @@ QOR OS begins: QTOS and Demiurge's device-side products in one repository
 
 ### Added
 
+- **Port-ready startup in the private installation lab.** The restricted guest
+  agent and installed welcome now start from their assigned virtual-port events;
+  the live installer selects its own evidence-port event. Early boot-target links
+  no longer race slow device discovery. Existing device, disk and RPC guards stay
+  in place, and copied service files explicitly use non-executable permissions.
+  The `f132dc1` candidate built an installer ISO and passed warning-fatal image
+  checks, but its normal startup exposed that race. A separate diagnostic boot
+  displayed the real installer, exercised target review and Cancel, and preserved
+  the entire test disk's hash. Rebuilt automatic startup and actual installation
+  remain pending; diagnostic overrides do not establish those results.
 - **Guarded offline installation candidate for the private VM lab.** The opt-in
   image path connects the Qt installer to stock bootc using a complete,
   checksum-checked OCI payload on read-only media. The installed profile adds

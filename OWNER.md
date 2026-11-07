@@ -1,46 +1,51 @@
 # Where QOR OS stands
 
-For Andrew, 6 November 2026. Branch integration/owner-brief; starting pushed checkpoint 216ad48.
+For Andrew, 7 November 2026. Branch integration/owner-brief; installer image source f132dc1.
 
-This session alone implements QOR. All 14 worktrees (Git checkouts) and unfinished work are
-preserved; the other 13 were checked clean. Commits/pushes and disposable virtual-machine
-work are authorised. One project-local heavy lock coordinates QOR jobs. No VM or heavy
-job is active now. Other projects and host settings remain outside scope.
+The private installer ISO (boot-media image) is built: 3,601,666,048 bytes, with its
+checksum and complete source/runtime records in build/vm-install-2026-11-06/.
+It uses Fedora bootc (whole-image deployment), a checked offline OCI payload
+(content-addressed image), a locked local qortest account and the existing Qt interface.
+It offers neither encryption nor QOR ID authentication.
 
 ## Image milestone: incomplete
 
-The earlier private UEFI ISO (firmware-bootable media) actually boots through the QOR menu
-and loading mark, with Escape diagnostics. A diagnostic boot proves the corrected display
-selection and welcome completion in RAM. It proves no installation or persisted first run.
+Both image branches pass warning-fatal checks: 14 passed, zero warnings, one skipped.
+The fresh runtime (application code and libraries) records 1,437 files at clean f132dc1;
+all 63 target-image programs/libraries/plugins resolve their dependencies.
 
-The newer candidate connects the Qt installer to stock bootc (whole-image deployment),
-a checked offline OCI payload (content-addressed image), a locked local qortest account
-and bounded public evidence. It offers neither encryption nor QOR ID authentication.
+The new ISO boots automatically through its branded menu into Linux on a newly
+recorded 16-GiB virtual disk. The display helper succeeds, but the installer and
+restricted guest agent lose their early device-wait jobs before virtual serial
+ports become active. Normal automatic installer startup therefore fails.
 
-At 216ad48, the fresh runtime, all 63 target-image programs/libraries/plugins, initramfs
-(early boot filesystem), and OCI conversion/validation passed. Bootc then reported
-**10 checks passed, four warnings and one skipped alternate-root check**, despite exiting zero.
-The warnings concern generated package/runtime state and our retained build log.
-The recipe now removes that state, declares runtime directories and makes warnings fatal;
-a corrected image has not been built.
+A separate guest-only diagnostic boot confirms the exact port names and PCI
+(device-bus) ancestry. Starting the services after readiness displays the real
+installer and correct disk/source identity. Target review and Cancel leave the
+entire disk hash unchanged. The actual guest agent permits exactly four approved
+operations and disables 39 others; its shutdown works. These diagnostic overrides
+prove neither automatic startup nor installation or persisted first run.
 
-Composition was stopped only in QOR's identified container after Windows fell to about
-317 MiB free out of 16 GiB. Partial outputs are preserved; the wrapper failed, and no ISO
-receipt was accepted. A later read-only preflight found **102 MiB available**, below its
-3-GiB budget. No unrelated process was stopped and no host setting changed.
+The recipe now starts those services from their assigned port-ready events and
+copies service files with non-executable permissions. This correction needs a
+fresh image and normal boot. Existing disk, device and guest-agent guards remain.
 
 ## Checks and resume
 
-- Linux Release and sanitizers: **21 welcome, 13 installer, 20 input Qt cases in each**,
-  zero failures/skips; module lint has zero warnings; hardening (exploit mitigations)
-  passes five programs in each. Actual instrumentation and identical source fingerprints checked.
-- Latest Windows guard/resource tests: **59 passed, zero failures/skips**. Earlier Linux:
-  56 portable plus eight process/file cases. The new image cleanup remains unverified.
-- Full OS/product gates remain open, including 12 pre-existing compositor (display-server)
-  metadata warnings outside this limited profile. Hardware, Secure Boot, recovery, rollback,
-  repeatable output and release readiness are unproved.
+The startup regression fails on the old recipe, then passes with all 60 portable
+cases on each of Windows and Linux, plus eight Linux process/file cases; none fail
+or skip. Native udev syntax checks pass for both rule variants. All 20 retained
+Release/sanitizer source fingerprints still match. Native C++/QML is unchanged.
+The corrected image is pending. Full OS/product, hardware,
+Secure Boot, recovery, rollback, repeatable-build and release gates remain open.
 
-Next owner action: free at least 3 GiB of RAM. Then run the prepared fresh image pipeline,
-create a new allowlisted raw disk/private firmware variables, test cancellation/failure,
-install, detach media, complete welcome and verify persistence through guest reboots.
-Exact commits, jobs, commands and evidence: build/vm-install-2026-11-06/LATEST.md.
+The owner authorised temporarily stopping ten Kintrek non-database services to
+free RAM. All ten are restored after every completed job; PostgreSQL was never
+stopped and remains healthy. All test disks, prior outputs and 14 Git worktrees
+(checkouts) are preserved. No VM or heavy job is active now. Host boot, security,
+network and runner settings are unchanged.
+
+Next: validate and checkpoint this startup correction, build its fresh image,
+then prove normal startup, cancellation/failure, stock installation, media-free
+boot, welcome and reboot persistence. Exact jobs, commands, hashes, failures and
+remaining work: build/vm-install-2026-11-06/LATEST.md.
