@@ -12,6 +12,7 @@ import uuid
 
 from vmguard import unlinked
 from vm_payload import validate as validate_payload
+from vm_resources import require_headroom
 
 REPO = Path(__file__).resolve().parents[2]
 
@@ -24,7 +25,8 @@ def digest(path):
 def diagnostics_failed(log: str) -> bool:
     # BuildKit prints the RUN source too; a quoted grep pattern is not an
     # emitted diagnostic. Accept only actual tool output with a time prefix.
-    return bool(re.search(r"^(?:#\d+ \d+(?:\.\d+)? )?(?:dracut\[E\]:|dracut-install: ERROR|FAILED:)", log, re.MULTILINE))
+    return bool(re.search(r"^(?:#\d+ \d+(?:\.\d+)? )?(?:dracut\[E\]:|dracut-install: ERROR|FAILED:|"
+                          r"Lint warning:|Warnings:\s*[1-9][0-9]*\b)", log, re.MULTILINE))
 
 
 def runtime_provenance(runtime: Path, receipt_path: Path):
@@ -73,6 +75,7 @@ def build_command(context, tools_ref, revision, target, tag, installation):
 
 
 def checked_image_build(argv, path):
+    require_headroom("VM image build")
     with path.open("x", encoding="utf-8") as log:
         code = subprocess.run(argv, cwd=REPO, stdout=log, stderr=subprocess.STDOUT).returncode
     if code or diagnostics_failed(path.read_text(encoding="utf-8", errors="replace")):
@@ -84,6 +87,7 @@ def offline_payload(context, output, tools_ref, tools_id, revision):
     checked_image_build(build_command(context, tools_ref, revision, "deploy", tag, True), output / "deploy-build.log")
     image = subprocess.check_output(["docker", "image", "inspect", "--format", "{{.Id}}", tag], text=True).strip()
     archive = output / "deployment-image.tar"
+    require_headroom("Offline image export")
     subprocess.run(["docker", "save", "--output", str(archive), image], check=True)
     payload = output / "offline-payload"
     payload.mkdir(exist_ok=False)
@@ -93,6 +97,7 @@ def offline_payload(context, output, tools_ref, tools_id, revision):
                "--mount", f"type=bind,source={archive},target=/input/source.tar,readonly",
                "--mount", f"type=bind,source={payload},target=/output", tools_id,
                "/bin/bash", "-ceu", "mkdir /output/tmp; exec skopeo --tmpdir /output/tmp copy --format oci docker-archive:/input/source.tar oci:/output/install-source"]
+    require_headroom("Offline payload conversion")
     with (output / "oci-conversion.log").open("xb") as log:
         subprocess.run(command, stdout=log, stderr=subprocess.STDOUT, check=True)
     root = payload / "install-source"
@@ -125,6 +130,7 @@ def main():
             raise ValueError("Only private QOR build directories are accepted")
     if not re.fullmatch(r"sha256:[0-9a-f]{64}", args.tools_id):
         raise ValueError("An exact local tools image ID is required")
+    resources = require_headroom("VM image preparation")
     tooling_lock = json.loads((REPO / "image/vm/tooling-input.json").read_text(encoding="utf-8"))
     if (tooling_lock.get("schema") != 1 or tooling_lock.get("tools_image") != args.tools_id
             or tooling_lock.get("rpm_manifest_sha256") != digest(REPO / "image/vm/tooling-rpms.txt")):
@@ -158,11 +164,12 @@ def main():
         shutil.copyfile(REPO / "tools/image" / name, context / name)
     inputs = {str(path.relative_to(context)): digest(path) for path in context.rglob("*") if path.is_file()}
     record = {"profile": "private-vm-installation-candidate" if args.installation else "live-display-probe-NOT-installation", "tools_image": image_id,
-              "source_revision": revision, "source_dirty": dirty,
+              "source_revision": revision, "source_dirty": dirty, "host_memory_preflight": resources,
               "runtime": {key: value for key, value in runtime_record.items() if key != "files"},
               "host_tool_sources": {name: digest(REPO / name) for name in (
                   "tools/image/build_vm_probe.py", "tools/image/assemble.py", "tools/branding/assets.py",
                   "tools/branding/resize_menu_mark.ps1", "tools/image/check_vm_runtime.py",
+                  "tools/image/vm_resources.py",
                   "image/vm/tooling-input.json", "image/vm/tooling-rpms.txt")},
               "inputs": inputs, "boot_proved": False, "installation_proved": False}
     (output / "build-inputs.json").write_text(json.dumps(record, indent=2) + "\n")
@@ -171,6 +178,7 @@ def main():
         payload, record["deployment"] = offline_payload(context, output, args.tools_ref, image_id, revision)
     live_tag = "qor-os/vm-live-probe:" + uuid.uuid4().hex
     command = build_command(context, args.tools_ref, revision, "live", live_tag, args.installation)
+    require_headroom("VM live-image build")
     with (output / "build.log").open("w", encoding="utf-8") as log:
         code = subprocess.run(command, cwd=REPO, stdout=log, stderr=subprocess.STDOUT).returncode
     if code:
@@ -193,6 +201,7 @@ def main():
                live_id, "/usr/bin/bash", "/compose.sh"]
     if payload:
         compose[-3:-3] = ["--env", "QOR_VM_INSTALLATION=1", "--mount", f"type=bind,source={payload},target=/qor-payload,readonly"]
+    require_headroom("ISO composition")
     with (output / "compose.log").open("wb") as log:
         code = subprocess.run(compose, stdout=log, stderr=subprocess.STDOUT).returncode
     if code:

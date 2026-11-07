@@ -41,6 +41,10 @@ image) payload is validated before stock bootc can write the assigned disk.
 The limited welcome uses a locked local test account; it offers no working QOR ID
 authentication or desktop. These are connected source paths awaiting actual
 installation and second-boot evidence, not a completed installer claim.
+Run the Windows lab memory preflight before its runtime/image pipeline:
+`python tools/image/vm_resources.py`. Image phases and VM launch also check
+the 3-GiB available-RAM budget and refuse to start below it. This is a read-only
+resource check, with no process stopping, host setting change or retry loop.
 See the [VM lab boundaries](../image/README.md#private-disposable-vm-lab),
 including unfinished installation and second-reboot evidence. Do not install a
 Qt kit in the VM or run an image/partitioning command against workstation disks.

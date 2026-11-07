@@ -27,6 +27,12 @@ QOR OS begins: QTOS and Demiurge's device-side products in one repository
   shared recipe: dracut returned success while reporting an install error.
   The diagnostic gate rejected that image; the shared stage now creates the
   directory before either initramfs build.
+  Bootc warnings now fail both image branches, with an additional wrapper
+  diagnostic check. The recipe removes the reported generated package caches
+  and logs, and declares the required runtime directories. A read-only Windows
+  memory preflight blocks expensive image phases and VM launch below 3 GiB
+  available RAM. The second composition was stopped for observed memory pressure;
+  no installer ISO or VM installation is accepted from that attempt.
 - **Stable gamepad enum names for QML.** The existing Gamepads singleton names
   its QML export explicitly, retaining its public name while addressing a
   qualified-name registration warning exposed by the fresh Linux build.

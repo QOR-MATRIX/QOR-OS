@@ -34,6 +34,14 @@ Restoration and deterministic output still need testing, together with a
 locked package source/snapshot, timestamp normalization and repeated-build proof.
 No image is published by these tools.
 
+The Windows lab preflight is `python tools/image/vm_resources.py`. Run it before
+the Linux runtime build as well. The image driver rechecks before expensive phases;
+the VM launcher checks before ISO hashing and again before launch. Below 3 GiB of
+available host RAM they report **not started** and return failure. They read only
+memory availability, never change host settings, stop other processes or wait in
+a retry loop. This guard follows an observed low-memory composition stop; it is
+not a hardware-readiness check.
+
 `vm/Probe.Containerfile` prepares a live filesystem and its own kernel/initramfs.
 `tools/image/build_vm_probe.py` composes a regular-file UEFI El Torito ISO with
 GRUB, a SquashFS live root, the existing startup assets and the existing first-run
@@ -141,6 +149,15 @@ Conversion and actual VM installation are not yet observed passes.
 The first deployment build was rejected when dracut reported a missing root-home
 target despite exiting zero. The common stage now creates that target before
 either initramfs build; the failed attempt and its outer failure status are retained.
+The next attempt passed initramfs generation and OCI conversion/validation, but
+stock bootc reported four warnings: non-empty boot/runtime directories, package
+logs and undeclared mutable directories. Most came from the tooling bootstrap;
+the retained dracut log was new in this recipe. The recipe now removes generated
+caches/logs and declares the required runtime directories. Both image branches
+use `bootc container lint --fatal-warnings`; the wrapper also rejects emitted
+lint warnings even with a zero command exit. The corrected hygiene checks remain
+pending. The one alternate-root lint is skipped in running-root mode and is
+reported as not run, never added to the pass count.
 
 The evidence checker requires source/image/VM identity, complete checked installer logs,
 media-free installed phases, successful welcome process exits and distinct boot
@@ -295,11 +312,11 @@ CMake or a Windows package is not installation of an operating system.
 
 | Stage | Before this change | Implemented here | Still required |
 |---|---|---|---|
-| Image generation | Plan and seven-file boot-branding payload | Original 25-file data layer; separate pinned Fedora 44 VM probe produces a real ISO with kernel/initramfs/live root | Frozen-input reconstruction/repeated-build proof; full device payload |
-| USB boot/live session | No image or live session | Actual automatic UEFI optical-media boot, correctly sized QOR menu, OS-loading mark and Escape diagnostics; Qt app still aborts | Verified VirtIO display selection and real GUI; actual USB/hardware/mode tests |
-| Installer framework | Calamares mentioned in planning only | Calamares theme stays inactive; separate opt-in Qt/stock-bootc prototype has 13 passing Windows cases | Fresh Linux installer build, actual backend/image integration and live UI exercise |
+| Image generation | Plan and seven-file boot-branding payload | 25-file data layer and a real pinned Fedora live probe ISO; newer installer candidate reaches deployment/OCI, but its composition was stopped and no ISO accepted | Corrected installer ISO, frozen-input reconstruction/repeated-build proof and full device payload |
+| USB boot/live session | No image or live session | Actual automatic UEFI optical-media boot, correctly sized QOR menu, OS-loading mark and Escape diagnostics; Qt app still aborts | Automatic GUI startup in the rebuilt candidate; actual USB/hardware/mode tests |
+| Installer framework | Calamares mentioned in planning only | Calamares theme stays inactive; opt-in Qt/stock-bootc prototype has 13 installer cases passing on Windows and in Linux Release/sanitizer profiles; production Linux binary builds | Actual live UI and backend transaction |
 | Choices/disk/encryption | No implementation | Fresh raw-file/ancestry/UUID/serial guard, actual guest collector and missing-firmware refusal; explicit Qt review; encryption disabled | Complete live target review and genuine installer cancellation/install/failure tests |
-| Deployment/progress | No implementation | Fixed stock bootc adapter with read-only ISO source/checksum, exit gate, bounded diagnostics and process cleanup | Offline deployment image/archive; actual guarded transaction, progress and interrupted-install recovery |
+| Deployment/progress | No implementation | Stock bootc adapter with checked read-only OCI source, exit gate and bounded diagnostics; actual deployment-image build plus OCI conversion/validation at 216ad48 | Corrected warning-fatal image build; actual guarded transaction, progress and interrupted-install recovery |
 | Bootloader | No installation backend | Static GRUB EFI is in the ISO; stock bootc is selected for target-disk installation | Actual bootloader deployment and media-free UEFI boot; no BIOS/Secure Boot claim |
 | Completion/reboot | No installer | Process-exit-gated completion tested with inert fixtures; diagnostic live VM shuts down normally | Genuine install success, media detached, installed first run and second reboot proving persistence |
 | First run | No app | Real `qor-setup`: three-page introduction, keyboard controls, checked state and once-per-session hook; live diagnostic VM proves interruption/restart and three-Return completion in RAM | Packaged automatic startup, real authentication/session service, installed-image launch/reboot proof, screen-reader and hardware testing |

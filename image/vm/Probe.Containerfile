@@ -14,16 +14,20 @@ RUN QOR_VM_RUNTIME_AUDIT=1 python3 /usr/libexec/qor-os/check_vm_runtime.py
 COPY display.service /usr/lib/systemd/system/qor-vm-display.service
 COPY first-run.service /usr/lib/systemd/system/qor-vm-first-run.service
 COPY guest-agent.service /usr/lib/systemd/system/qor-vm-agent.service
+# Cleanup below touches generated state in this disposable image only. Keep
+# installed libraries, licenses and RPM database content under /usr intact.
 RUN test -n "$QOR_SOURCE_REVISION" && \
     mkdir -p /var/roothome /etc/systemd/system/graphical.target.wants /etc/systemd/system/multi-user.target.wants \
       /usr/lib/dracut/dracut.conf.d /usr/lib/modules-load.d /usr/lib/sysusers.d /usr/lib/tmpfiles.d /usr/lib/udev/rules.d && \
     printf 'u qortest 1000 "QOR OS local test account" /var/home/qortest /usr/sbin/nologin\n' > /usr/lib/sysusers.d/qor-vm.conf && \
     systemd-sysusers && \
-    printf 'd /var/home/qortest 0700 qortest qortest -\nd /var/home/qortest/.local 0700 qortest qortest -\nd /var/home/qortest/.local/state 0700 qortest qortest -\n' > /usr/lib/tmpfiles.d/qor-vm.conf && \
+    printf 'd /var/home/qortest 0700 qortest qortest -\nd /var/home/qortest/.local 0700 qortest qortest -\nd /var/home/qortest/.local/state 0700 qortest qortest -\nd /var/lib/plymouth 0755 root root -\nd /var/spool/plymouth 0755 root root -\nd /var/log/qemu-ga 0755 root root -\n' > /usr/lib/tmpfiles.d/qor-vm.conf && \
     printf 'KERNEL=="tty2", OWNER="qortest", GROUP="tty", MODE="0600"\n' > /usr/lib/udev/rules.d/70-qor-vm-console.rules && \
     printf 'SUBSYSTEM=="virtio-ports", ATTR{name}=="dev.qorsync.vm-evidence.0", TAG+="systemd"\n' > /usr/lib/udev/rules.d/71-qor-vm-evidence.rules && \
     printf '[general]\n' > /usr/share/qor-os/vm-agent.conf && \
     printf 'qemu_fw_cfg\nvirtio_console\n' > /usr/lib/modules-load.d/qor-vm.conf && \
+    rm -rf -- /boot/grub2 /run/dnf /var/cache/libX11 /var/cache/libdnf5 /var/lib/dnf && \
+    rm -f -- /var/cache/ldconfig/aux-cache /var/log/dnf5.log /var/log/dnf5.log.1 && \
     systemctl mask bootloader-update.service bootc-generic-growpart.service bootc-fetch-apply-updates.timer \
       getty@tty2.service autovt@tty2.service qemu-guest-agent.service && \
     ln -s /usr/lib/systemd/system/qor-vm-first-run.service /etc/systemd/system/graphical.target.wants/qor-vm-first-run.service && \
@@ -37,7 +41,7 @@ RUN kver=$(find /usr/lib/modules -mindepth 1 -maxdepth 1 -type d -printf '%f\n')
     test $(printf '%s\n' "$kver" | wc -l) -eq 1 && \
     DRACUT_NO_XATTR=1 dracut --force --no-hostonly --no-hostonly-cmdline --kver "$kver" /usr/lib/modules/$kver/initramfs.img > /var/tmp/qor-dracut.log 2>&1 && \
     cat /var/tmp/qor-dracut.log && ! grep -E 'dracut\[E\]|dracut-install: ERROR|FAILED:' /var/tmp/qor-dracut.log && \
-    bootc container lint
+    rm -f -- /var/tmp/qor-dracut.log && bootc container lint --fatal-warnings
 
 FROM common AS live
 ARG QOR_VM_INSTALLATION=0
@@ -58,6 +62,7 @@ RUN mkdir -p /var/roothome /etc/systemd/system/graphical.target.wants /usr/lib/d
     kver=$(find /usr/lib/modules -mindepth 1 -maxdepth 1 -type d -printf '%f\n') && \
     test $(printf '%s\n' "$kver" | wc -l) -eq 1 && \
     DRACUT_NO_XATTR=1 dracut --force --no-hostonly --no-hostonly-cmdline --kver "$kver" /usr/lib/modules/$kver/initramfs.img > /var/tmp/qor-dracut.log 2>&1 && \
-    cat /var/tmp/qor-dracut.log && ! grep -E 'dracut\[E\]|dracut-install: ERROR|FAILED:' /var/tmp/qor-dracut.log
+    cat /var/tmp/qor-dracut.log && ! grep -E 'dracut\[E\]|dracut-install: ERROR|FAILED:' /var/tmp/qor-dracut.log && \
+    rm -f -- /var/tmp/qor-dracut.log && bootc container lint --fatal-warnings
 # ISO composition runs separately with a one-CPU/768-MiB cgroup limit. Do not
 # COPY this whole root into a second build stage: that exhausted host memory.

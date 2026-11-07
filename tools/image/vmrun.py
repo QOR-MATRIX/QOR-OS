@@ -11,6 +11,7 @@ import re
 import subprocess
 
 from vmguard import WORKSPACE, ancestry, confined, identity, unlinked, verify
+from vm_resources import require_headroom
 
 
 @contextmanager
@@ -74,6 +75,7 @@ def checked_iso(iso, checksum, previous=None):
 
 def run(manifest, iso, evidence, tools_id, phase):
     record = verify(manifest)
+    resources = require_headroom("Disposable VM")
     iso = unlinked(iso)
     if not iso.is_relative_to(WORKSPACE) or identity(iso)[2] < 64 * 1024**2:
         raise ValueError("The ISO must be a regular QOR workspace artifact")
@@ -92,13 +94,15 @@ def run(manifest, iso, evidence, tools_id, phase):
         if verify(manifest) != record:
             raise ValueError("The allowlist changed while acquiring artifact handles")
         checked_iso(iso, record["image_sha256"], iso_identity)
+        resources = require_headroom("Disposable VM")
         argv = docker_command(record, iso, evidence, tools_id, phase, launcher)
         sources = {}
-        for name in ("vmguard.py", "vmrun.py", "vm_container.py", "vm_control.py"):
+        for name in ("vmguard.py", "vmrun.py", "vm_container.py", "vm_control.py", "vm_resources.py"):
             source = Path(__file__).with_name(name)
             sources[name] = hashlib.sha256(source.read_bytes()).hexdigest()
         (evidence / "launch.json").write_text(json.dumps({"phase": phase, "allowlist": record,
                                                         "tools_image": tools_id, "launcher_sources": sources,
+                                                        "host_memory_preflight": resources,
                                                         "command": argv}, indent=2) + "\n")
         with (evidence / "container.log").open("wb") as log:
             return subprocess.call(argv, stdout=log, stderr=subprocess.STDOUT)

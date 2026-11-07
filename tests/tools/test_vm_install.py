@@ -46,10 +46,12 @@ class VmInstall(unittest.TestCase):
         self.assertNotIn("--via-loopback", argv)
 
     def test_builder_checks_emitted_errors_even_when_command_succeeds(self):
-        for text in ("#9 0.314 dracut[E]: missing input", "dracut-install: ERROR: installing input", "FAILED: missing kernel"):
+        for text in ("#9 0.314 dracut[E]: missing input", "dracut-install: ERROR: installing input", "FAILED: missing kernel",
+                     "#9 1.5 Lint warning: var-log", "#9 1.5 Warnings: 4"):
             self.assertTrue(builder.diagnostics_failed(text))
         self.assertFalse(builder.diagnostics_failed("#9 [live 5/5] RUN grep 'dracut-install: ERROR|FAILED:' log"))
         self.assertFalse(builder.diagnostics_failed("#9 1.5 dracut[I]: Created image\n#9 DONE 1.5s"))
+        self.assertFalse(builder.diagnostics_failed("#9 1.5 Warnings: 0\n#9 1.5 Checks skipped: 1"))
 
     def test_runtime_loader_zero_exit_with_missing_library_fails(self):
         runner = Mock(return_value=type("Result", (), {"returncode": 0,
