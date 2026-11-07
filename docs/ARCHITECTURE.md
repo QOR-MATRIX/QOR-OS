@@ -58,15 +58,19 @@ uses a digest-pinned Fedora bootc base and restricted QEMU TCG. Its opt-in
 `qor-install` frontend delegates whole-disk operations to stock bootc, with no
 custom partitioner. Before writing, a sealed guest allowlist must match the new
 regular-file disk's UUID, serial, capacity and driver/PCI ancestry; host files
-are pinned and passed as descriptors. The offline archive and receipt must also
+are pinned and passed as descriptors. The offline OCI directory and receipt must also
 be on the read-only installation ISO, not a mutable live overlay. Display
 selection matches the sealed VM's VirtIO graphics slot rather than assuming
 `card0`. The default live ISO is a display probe; the opt-in installation profile
 adds the guarded offline backend. Port-ready events start its restricted agent and
 frontend. The installer pairs SELinux's existing `install_t` process domain with
 the executable's `install_exec_t` entrypoint label; no enforcement fallback or new
-policy permission is added. That pair passes a separate guest diagnostic, while a
-fresh normal image and successful installation remain pending. This lab is not a substitute for device services,
+policy permission is added. The clean `feed626` image now passes actual stock
+installation, media-free first run and persistence through two installed reboots.
+The host QEMU main-loop pool uses four I/O workers within its 64-task container
+limit; its source checksum is separate from the unchanged image/compiler identity.
+The evidence keeps resource interruptions and distinct guest boot IDs. This lab
+does not establish device services,
 authentication, hardware, encrypted installation, rollback or CI isolation proof.
 
 **Simulation and device share all QML.** The shell and the apps never talk to

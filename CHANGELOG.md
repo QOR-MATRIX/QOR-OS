@@ -21,8 +21,9 @@ QOR OS begins: QTOS and Demiurge's device-side products in one repository
   inventory in that domain while enforcement stays enabled. No policy permission
   or permissive fallback is added. The clean `fa17674` image passes normal startup,
   review/Cancel and corrupt-payload refusal, but its first stock installation exits
-  1 from the generic service domain and leaves the full disk unchanged. A fresh
-  normal image and installation/persistence proof remain pending.
+  1 from the generic service domain and leaves the full disk unchanged. The later
+  clean `feed626` image now passes stock installation, media-free first run and
+  persistence through two installed reboots in the private VM lab.
 - **Port-ready startup in the private installation lab.** The restricted guest
   agent and installed welcome now start from their assigned virtual-port events;
   the live installer selects its own evidence-port event. Early boot-target links
@@ -32,8 +33,8 @@ QOR OS begins: QTOS and Demiurge's device-side products in one repository
   checks, but its normal startup exposed that race. A separate diagnostic boot
   displayed the real installer, exercised target review and Cancel, and preserved
   the entire test disk's hash. The rebuilt `fa17674` image subsequently passes
-  normal automatic startup and review/Cancel. Actual installation remains pending;
-  diagnostic overrides do not establish it.
+  normal automatic startup and review/Cancel. Successful installation is now
+  separately proved on `feed626`; diagnostic overrides keep their original scope.
 - **Guarded offline installation candidate for the private VM lab.** The opt-in
   image path connects the Qt installer to stock bootc using a complete,
   checksum-checked OCI payload on read-only media. The installed profile adds
@@ -493,6 +494,19 @@ QOR OS begins: QTOS and Demiurge's device-side products in one repository
 - QTOS's Yocto skeleton (`image/meta-qtos`, `image/kas`), replaced by the Fedora Atomic plan in `image/README.md`.
 
 ### Fixed
+
+- **VM deployment keeps its I/O workers inside the container budget.** QEMU's
+  main-loop pool is bounded at four workers within the unchanged 64-task limit,
+  addressing a thread-creation failure during stock deployment. The regression
+  fails on the old launcher, then all 62 portable cases pass on Windows/Linux,
+  eight Linux process/file cases pass, and native QEMU confirms the pool setting.
+  The unchanged clean `feed626` image subsequently installs with backend exit 0,
+  boots without media, completes the real welcome and retains its record across
+  two installed reboots. Five actual VM phases exit 0 across preserved resource
+  interruptions; the installed disk is never reset. Reboots use the restricted
+  guest agent, and the frontend reboot button remains untested. Current
+  service states are verified after container-identity replacements, with failed
+  lookups preserved. Full OS, hardware and release gates remain open.
 
 - **Pre-1970 Windows recovery records keep the same protection.** The legacy matcher recognizes the optional minus
   sign emitted by the old timestamp identity format. Negative journals now stay for review and block a new transaction;

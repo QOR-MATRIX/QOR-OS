@@ -29,16 +29,17 @@ UEFI live-display ISO from an exact local tooling image and a host-built runtime
 `tools/image/vmguard.py` and `vmrun.py` constrain its disposable raw disk and
 private firmware variables. The opt-in Linux-only `QOR_BUILD_VM_INSTALLER`
 requires `QOR_BUILD_SIMULATOR=OFF`; it is development work, not a readiness flag.
-The clean `fa17674` installation ISO boots normally into the real Qt installer.
-Its restricted agent permits exactly four operations; review/Cancel preserves the
-full 16-GiB disk hash. A separate image with one corrupt payload blob is refused
-without changing its disk, and transaction retry remains disabled.
-The first actual stock installation exits 1 at its SELinux domain check; the full
-disk remains blank. The corrected recipe pairs Fedora's existing `install_exec_t`
-entrypoint label with the service's `install_t` process domain. Native image building
-checks the label lookup. Separate guest diagnostics verify the required label
-capability and the actual Qt frontend in that domain with enforcement enabled.
-A fresh normal image and successful installation/persistence remain pending.
+The clean `feed626` image and its same-revision runtime pass actual stock
+installation, media-free welcome and persistence through two installed reboots.
+The host launcher is recorded separately by checksum; its QEMU main-loop I/O
+pool is limited to four workers within the unchanged 64-task container bound.
+Normal review/Cancel preserves the entire 16-GiB disk hash, and a separate
+corrupt-payload image is refused without changing its test disk. Retry stays disabled.
+SELinux pairs the existing `install_exec_t` executable label with the service's
+`install_t` process domain. The packed executable label and unit are checked;
+normal installation succeeds with enforcement enabled. The five actual VM phases
+exit 0 across preserved resource interruptions, without resetting the installed disk.
+Reboots use the restricted guest agent; the frontend reboot button is untested.
 The installation candidate requires a clean source revision and a fresh runtime
 from that same revision. Every referenced offline OCI (content-addressed container
 image) blob is checked on read-only media before stock bootc can write the assigned
@@ -51,7 +52,7 @@ Run the Windows lab memory preflight before its runtime/image pipeline:
 the 3-GiB available-RAM budget and refuse to start below it. This is a read-only
 resource check, with no process stopping, host setting change or retry loop.
 See the [VM lab boundaries](../image/README.md#private-disposable-vm-lab),
-including the remaining successful-installation and second-reboot evidence. Do not install a
+including the accepted private evidence and remaining device/release gates. Do not install a
 Qt kit in the VM or run an image/partitioning command against workstation disks.
 
 ## 1. Prerequisites

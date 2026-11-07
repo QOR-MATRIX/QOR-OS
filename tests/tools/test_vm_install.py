@@ -226,9 +226,18 @@ class VmInstall(unittest.TestCase):
             self.assertNotIn(forbidden, argv)
         self.assertIn("none", argv)
         self.assertIn("ALL", argv)
+        self.assertEqual(argv[argv.index("--pids-limit") + 1], "64")
         self.assertEqual(sum("target=/vm/install.raw" in value for value in argv), 1)
         with self.assertRaises(ValueError):
             launcher.docker_command(self.record, self.work / "image.iso", self.work / "proof", "latest", "live", self.work / "entry.py")
+
+    def test_qemu_io_workers_fit_within_the_container_task_limit(self):
+        for live in (False, True):
+            with self.subTest(live=live):
+                argv = container.arguments(self.record, live, 10, 11, 12, 13 if live else None,
+                                           readonly_fds=(14, 15))
+                objects = [argv[index + 1] for index, value in enumerate(argv) if value == "-object"]
+                self.assertEqual(objects, ["main-loop,id=qor-main-loop,thread-pool-min=0,thread-pool-max=4"])
 
     def test_guest_entry_refuses_nonregular_wrong_capacity_and_hardlinks(self):
         path = self.work / "file"

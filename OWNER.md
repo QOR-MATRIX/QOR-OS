@@ -1,50 +1,44 @@
 # Where QOR OS stands
 
-For Andrew, 7 November 2026. Branch integration/owner-brief; tested image source fa17674.
+For Andrew, 7 November 2026. Image and compiler source: feed626; host launcher recorded separately by checksum.
 
-The private installer ISO (boot-media image) is 3,601,666,048 bytes. Its checksum,
-compiler source and runtime records are in build/vm-install-2026-11-06/.
+The private installer ISO (boot-media image) is 3,601,666,048 bytes. Its checksum
+and complete private evidence are in build/vm-install-2026-11-06/.
 It uses Fedora bootc (whole-image deployment), a checked offline OCI payload
 (content-addressed image), a locked local qortest account and Qt's existing interface.
-Encryption and QOR ID authentication remain unavailable.
 
-## Startup and failure controls pass; installation is incomplete
+## Private installation and reboot persistence pass
 
-The image and its 1,437 runtime files (application and libraries) record the same clean source. Both image
-branches pass 14 warning-fatal bootc checks, with zero warnings and one skipped.
-All 63 bundled programs, libraries and plugins resolve their dependencies.
+Normal review and Cancel preserve the entire 16-GiB disk checksum. A separate
+corrupt-payload image is refused and preserves its complete test disk through shutdown.
+Stock installation then exits 0, with a complete, checked 2,051-byte backend log.
 
-Normal automatic boot now reaches the real installer. Its agent permits four
-approved operations and disables 39 others. Review and Cancel preserve the entire
-16-GiB disk hash. A separate corrupt-payload image is refused, keeps retry disabled,
-and preserves its complete test disk through Cancel and shutdown.
+The installed disk boots with no installation media. The real welcome starts
+pending; completing its three pages saves the expected record. Two further
+installed reboots find that same record before welcome runs. All five actual
+virtual-machine phases exit 0; installation and the three installed boots have
+four distinct boot identifiers. Resource interruptions are preserved separately;
+the same installed disk continues without a reset. Reboots use the restricted
+guest agent. The installer's UI reboot button remains untested.
 
-The first actual stock installation exits 1 because its generic SELinux process
-context cannot perform the required label operation. SELinux is the kernel's
-access-control system. The full disk remains blank. Enforcement was never disabled.
-
-A separate guest diagnostic pairs the existing installer process context with
-its required executable label. The label capability succeeds; the real Qt frontend
-shows the assigned target in that context with enforcement enabled. The recipe now
-includes this pair, and a small native packing check confirms the label survives
-filesystem packaging. This is diagnostic evidence; a fresh normal image still
-needs to prove installation and persisted first run.
-
-## Checks and resume
-
-The new regression fails on the old configuration, then all 61 portable cases pass
-on Windows and Linux, plus eight Linux process/file cases; none fail or skip.
-Native udev syntax checks pass. C++ and QML are unchanged; earlier memory-error
-checks keep their original chronology.
-Full OS/product, hardware, Secure Boot, recovery, rollback, repeatable-build and
-release gates remain open.
-
-All ten temporarily stopped Kintrek services are restored. One transient port bind
-failed during restoration and then recovered without a network-setting change.
-PostgreSQL was never stopped and is healthy. All disks, outputs and 14 Git worktrees
-(checkouts) are preserved. No VM or heavy job is active. Host boot, security,
+The host QEMU emulator now limits file-I/O workers to four within the unchanged
+64-task container bound. SELinux, the kernel's access-control system, uses the
+standard installer context and matching executable label, with enforcement enabled.
+Installation writes target the assigned virtual disk. Host boot, security,
 network and runner settings are unchanged.
 
-Next: validate and checkpoint the context/entrypoint correction, build its fresh
-image, then prove stock installation, media-free welcome and reboot persistence.
-Exact commands, hashes, failures and resume state: build/vm-install-2026-11-06/LATEST.md.
+## Checks and remaining work
+
+All 62 portable cases pass on Windows and Linux, plus eight Linux process/file
+cases. Native QEMU confirms the four-worker setting. Both image branches pass
+14 warning-fatal checks, with zero warnings and one skipped. All 63 bundled
+programs, libraries and plugins resolve their dependencies. C++ and QML are unchanged.
+
+Current Kintrek services are running or restarting; PostgreSQL is healthy.
+Container replacements and the failed lookups of removed identities are recorded.
+All prior disks, outputs and checkouts are preserved. Exact commands, failures,
+screenshots, hashes and resume history remain in the private evidence directory.
+
+The full OS/product, hardware, Secure Boot, encryption, authentication, recovery,
+rollback, repeatable-build, CI-isolation and release gates remain open.
+The next image milestone is the complete device session and its declared hardware tests.

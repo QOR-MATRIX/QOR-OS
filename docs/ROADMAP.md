@@ -575,18 +575,18 @@ the owner's advisers.
 
 ## Release deliverable · The image
 
-[QOR-0021](decisions/QOR-0021-projects-engines-and-two-stores.md), decision 12. **No accepted release image or working installer yet:**
-[image/](../image/README.md) now assembles a checked, data-only branding image and an explicit device-layer recipe.
-The private first-run app works locally. A separate confined Fedora bootc/QEMU lab
-has built a private installer ISO from clean `fa17674`, with 14 bootc checks passed,
-zero warnings and one check skipped. Normal automatic installer startup and the
-four-operation guest-agent policy pass. Review/Cancel and a separate corrupt-payload
-refusal preserve each full test disk hash; retry remains disabled after a failed request.
-The first actual stock installation exits 1 at its SELinux domain check and leaves
-the entire disk blank. A separate diagnostic verifies the existing installer domain
-and matching executable label, with enforcement enabled, and displays the Qt frontend
-in that domain. The recipe now includes that pair; a fresh normal image is pending.
-The lab must still prove successful installation, media-free first run and a second reboot.
+[QOR-0021](decisions/QOR-0021-projects-engines-and-two-stores.md), decision 12. **No accepted release image yet.**
+[image/](../image/README.md) assembles the branding layer and explicit device recipe.
+The separate private Fedora bootc/QEMU lab now passes stock installation,
+media-detached first run and persistence through two installed reboots. Its image
+and compiler are clean `feed626`; the bounded host launcher has separate checksum
+provenance. All five actual VM phases exit 0 across preserved resource interruptions,
+with four distinct installation/installed boot IDs and no reset of the installed disk.
+Review/Cancel and a separate corrupt-payload refusal preserve their complete test disks.
+The agent permits four operations and disables 39 others. Agent-triggered reboots
+are proved; the frontend reboot button remains untested. Both image branches pass
+14 bootc checks with zero warnings and one skipped. The lab excludes the full
+desktop, products and authentication, and clears no hardware or release gate.
 Calamares is an inactive native Qt framework candidate under
 [QOR-0023](decisions/QOR-0023-installation-uses-proven-backends.md); its disk/deployment backend is not integrated.
 QOR OS is not ready to ship because its desktop applications compile.

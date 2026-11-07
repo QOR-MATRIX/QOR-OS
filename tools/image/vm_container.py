@@ -26,6 +26,9 @@ def arguments(record, live, disk_fd, vars_fd, code_fd, iso_fd=None, *, readonly_
     argv = ["/usr/bin/qemu-system-x86_64", "-nodefaults", "-no-user-config", "-name", "QOR-disposable-install",
             "-uuid", record["vm_uuid"], "-machine", "q35", "-cpu", "max", "-accel", "tcg,thread=single,tb-size=64",
             "-m", "1024", "-smp", "2", "-nic", "none", "-display", "none", "-no-reboot",
+            # QEMU's default pool can consume all 64 container tasks during
+            # deployment, leaving no room for its other threads or controls.
+            "-object", "main-loop,id=qor-main-loop,thread-pool-min=0,thread-pool-max=4",
             "-device", "virtio-vga,addr=0x1", "-qmp", "tcp:127.0.0.1:4444,server=on,wait=off",
             "-chardev", "socket,id=serial,host=127.0.0.1,port=4445,server=on,wait=off,logfile=/evidence/serial.log",
             "-device", "isa-serial,chardev=serial",

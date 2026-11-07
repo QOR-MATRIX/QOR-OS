@@ -1,11 +1,11 @@
 # image — the QOR OS image (Phase 3)
 
 > **Status:** a private ISO boots automatically through the branded UEFI menu into the live OS.
-> Normal installer startup and failure controls pass; successful installation awaits its SELinux correction. The base is **Fedora Atomic with bootc**
+> Private stock installation, media-free first run and two installed reboots pass. The base is **Fedora Atomic with bootc**
 > ([QOR-0004](../docs/decisions/QOR-0004-the-base-image-is-fedora-atomic.md)).
 > The checked branding filesystem layer builds into a data-only container. The first-run
-> app builds and runs. The private VM lab below still needs successful installation
-> and second-reboot acceptance evidence.
+> app runs in the installed private VM and its completion persists across two reboots.
+> Full device and release acceptance remain open.
 > The first image is Phase 3 work
 > ([ROADMAP](../docs/ROADMAP.md#phase-3--boots-and-plays-pc-games)).
 >
@@ -17,8 +17,8 @@
 
 [QOR-0024](../docs/decisions/QOR-0024-disposable-vm-installation-lab.md) defines a
 limited Fedora bootc/QEMU development path. Its normal installer startup,
-cancellation and corrupt-payload refusal now pass in actual guests. Successful
-installation and persisted first run remain unproved. The full device session,
+cancellation, corrupt-payload refusal, stock installation and persisted first run
+now pass in actual guests. The full device session,
 authentication, native drivers, updates, recovery and rollback remain unfinished.
 
 The selected base is Fedora 44 bootc **amd64**, manifest
@@ -51,7 +51,7 @@ keeps its original identity and is never relabelled as a fresh build.
 adds a separate deployment image and validated offline OCI directory outside the
 live SquashFS. Native dracut errors reject acceptance even if its command returns
 zero. Both image branches run `bootc container lint --fatal-warnings`; wrappers
-also reject emitted warnings. At clean `fa17674`, each branch passes 14 checks with
+also reject emitted warnings. At clean `feed626`, each branch passes 14 checks with
 zero warnings; one alternate-root check is skipped in running-root mode and is
 reported as not run. The 1,437-file runtime has that same clean compiler revision;
 the target-image audit resolves all 63 bundled ELF programs, libraries and plugins.
@@ -65,9 +65,11 @@ is replaced with neutral image data. GRUB supplies the static UEFI menu; Plymout
 and Qt use the existing official startup assets. BIOS, USB hybrid boot and Secure
 Boot are unsupported in this lab.
 
-The clean `fa176745f1f8d21cba27367861dc45ec6d7be249` installation ISO is
+The clean `feed626671949399c42b8ff32aa9697ff6fc6bfa` installation ISO is
 **3,601,666,048 bytes**, SHA-256
-`3e528a3a804dd95279442ed7a62a75144af34e9332cfb85369c980f302f84627`.
+`b23e86336461e59284385d56efb38c99fef80878ac42d376885d00704ee2936b`.
+Its 1,437 runtime files have that same clean compiler revision. The host launcher
+has separate source-checksum provenance in every launch record.
 It boots automatically into the real Qt installer without guest overrides.
 Port-ready udev events start the restricted agent and assigned frontend; the
 existing device dependencies remain, and service files use mode `0644`.
@@ -76,7 +78,7 @@ not a presumed `card0`. A reserved guest console prevents a login console from
 stopping the frontend. Earlier GRUB, display, image-lint and device-wait failures
 are preserved in their original private attempt records.
 
-The first actual stock installation on that image exits 1: its generic
+The earlier `fa17674` image's first actual stock installation exits 1: its generic
 `unconfined_service_t` context cannot enter bootc's required installer context.
 The entire 16-GiB raw disk remains blank. The suggested enforcement-disable
 fallback was not used. A separate diagnostic establishes the required pair:
@@ -87,8 +89,17 @@ context. A context-only shell probe is rejected at execution, so both parts matt
 The recipe now pairs the unit context with a local file-context rule for
 `/usr/bin/qor-install` and checks the label lookup during image building. A small
 native SquashFS fixture verifies that the local rule is honored when packing.
-No new SELinux permission or permissive fallback is added. This correction still
-requires a fresh normal image and real successful installation.
+No new SELinux permission or permissive fallback is added. The actual packed
+`feed626` executable and unit pass inspection, and normal stock installation now
+exits 0 with a complete 2,051-byte log, checked by its byte count and checksum.
+
+An earlier deployment run stops when QEMU cannot create another thread. Its
+default I/O pool can grow to 64 workers ([QEMU reference](https://www.qemu.org/docs/master/interop/qemu-storage-daemon-qmp-ref.html)), competing with other tasks inside the
+64-task container. The host launcher now bounds its main-loop pool at four;
+the container limit, disk guard, memory minimum and other confinement stay unchanged.
+Native QEMU reports that limit, and the successful installation records a peak of
+17 tasks with no task-limit or out-of-memory events. The source image is unchanged.
+All 62 portable cases pass on Windows and Linux, plus eight Linux process/file cases.
 
 `vmguard.py create` requires a **new** directory under this checkout's `build/`,
 a verified private firmware template, exact source revision and ISO checksum.
@@ -115,7 +126,7 @@ read-only flags, filesystem identity, descriptors and unlinked ancestry are chec
 There is no custom partitioner, automatic transaction retry or estimated percentage.
 A failed installation request disables retry and preserves the disk for inspection.
 
-Actual normal review/Cancel on `fa17674` preserves its full 16-GiB disk hash.
+Actual normal review/Cancel on `feed626` preserves its full 16-GiB disk hash.
 A separate fault-injection ISO changes one OCI config-blob byte while retaining
 its manifest and receipt. The real UI refuses it, keeps retry disabled, permits
 Cancel and shuts down cleanly; that complete test disk hash is also unchanged.
@@ -140,10 +151,22 @@ source/image/VM identity, media-free installed boots, successful welcome exits a
 distinct boot IDs. It checks persisted completion before the next welcome process.
 Synthetic fixtures establish none of those actual installation stages.
 
-Private acceptance still requires the successful stock installation, media-detached
-boot, real welcome completion and a **second reboot** with completion already
-persisted. Actual screenshots, immutable input records, native failures, service
-restoration receipts and the exact resume state live in
+Private acceptance now records five actual VM phases with native exit 0: normal
+review/Cancel, stock installation and three media-free installed boots. The real
+welcome starts pending, completes through its three visible pages and saves the
+expected record. Both subsequent boots find that same completed record before
+welcome runs, with successful process results and four distinct boot IDs including
+installation. Reboots use the restricted agent; the frontend reboot button is untested.
+
+RAM preflights and a bounded reclamation-helper interruption are retained as failed
+orchestration records. The accepted continuation uses the same installed disk,
+without a reset. Pause/restore receipts retain the failures and service-identity
+changes: containers were replaced during an idle interval, then current identities
+were revalidated. Pause batches exclude PostgreSQL and preserve volumes. Final
+lookups of removed identities fail and remain recorded; all current services are
+running or restarting and the database is healthy. Final checked proof is
+`v12b-installation-proof/full-sequence-result.json`. Actual screenshots, immutable
+input records, native failures and the exact resume history live in
 `build/vm-install-2026-11-06/`. These ignored artifacts are private development
 evidence, not release assets.
 
