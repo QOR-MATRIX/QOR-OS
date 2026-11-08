@@ -1,10 +1,11 @@
 # image — the QOR OS image (Phase 3)
 
 > **Status:** a private ISO boots automatically through the branded UEFI menu into the live OS.
-> Private stock installation, media-free first run and two installed reboots pass. The base is **Fedora Atomic with bootc**
+> Private stock installation, actual installer UI reboot and media-free welcome persistence pass. The base is **Fedora Atomic with bootc**
 > ([QOR-0004](../docs/decisions/QOR-0004-the-base-image-is-fedora-atomic.md)).
 > The checked branding filesystem layer builds into a data-only container. The first-run
-> app runs in the installed private VM and its completion persists across two reboots.
+> app runs in the installed private VM. The earlier image retains completion through two
+> installed reboots; the repaired image passes actual UI reboot and one installed reboot.
 > Full device and release acceptance remain open.
 > The first image is Phase 3 work
 > ([ROADMAP](../docs/ROADMAP.md#phase-3--boots-and-plays-pc-games)).
@@ -151,7 +152,7 @@ source/image/VM identity, media-free installed boots, successful welcome exits a
 distinct boot IDs. It checks persisted completion before the next welcome process.
 Synthetic fixtures establish none of those actual installation stages.
 
-Private acceptance now records five actual VM phases with native exit 0: normal
+The earlier clean `feed626` proof records five actual VM phases with native exit 0: normal
 review/Cancel, stock installation and three media-free installed boots. The real
 welcome starts pending, completes through its three visible pages and saves the
 expected record. Both subsequent boots find that same completed record before
@@ -181,8 +182,27 @@ The local backend now uses that isolation for its supervised bootc invocation an
 requires the strict target guard after successful exit, before announcing completion.
 The image recipe checks the existing `unshare` executable. No mounted-target refusal
 is relaxed. Diagnostic cleanup is not part of the packaged flow or normal proof.
-A rebuilt image and successful normal UI reboot remain pending. The diagnostic
-records are in `build/vm-ui-reboot-2026-11-08/reboot-state-diagnostic/`.
+The diagnostic records are in
+`build/vm-ui-reboot-2026-11-08/reboot-state-diagnostic/` and are not relabelled as
+normal installation proof.
+
+The fresh clean `66df3f7` image and same-revision compiler pass the normal packaged
+route on a new 8-GiB disk. Stock installation exits 0 with a complete 2,044-byte log;
+the unchanged post-install guard passes and the actual UI Reboot button produces a
+kernel restart and native VM exit 0. No manual mount cleanup, debug shell or guest-agent
+power command is used for that live phase. Two installed boots have no ISO/CD mount.
+The first completes the real three-page welcome from pending; after a restricted-agent
+reboot, the next finds the same completed record before welcome runs. All three native
+VM phases exit 0 with three distinct boot IDs. The final verifier accepts
+`build/vm-ui-reboot-2026-11-08/isolated-ui-proof/accepted-isolated-ui-proof.json`.
+The ISO is 3,601,670,144 bytes, SHA-256
+`9251ca6d0799d987a30962faf32fb0278c9a03697210751cd377f7a2384fc575`.
+Both new image branches pass 14 fatal-warning bootc checks, with zero warnings and
+one skipped check. The live installation peaks at 15 tasks within the unchanged
+64-task limit, with four I/O workers and no memory-limit, out-of-memory or task-limit
+hits. All launch RAM checks retain the 3-GiB minimum. The VM is shut down and the
+approved non-database service pause is restored with PostgreSQL healthy. The earlier
+`feed626` proof, both normal UI failures and all diagnostic outputs remain separate.
 
 RAM preflights and a bounded reclamation-helper interruption are retained as failed
 orchestration records. The accepted continuation uses the same installed disk,

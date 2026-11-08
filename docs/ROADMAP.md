@@ -577,19 +577,25 @@ the owner's advisers.
 
 [QOR-0021](decisions/QOR-0021-projects-engines-and-two-stores.md), decision 12. **No accepted release image yet.**
 [image/](../image/README.md) assembles the branding layer and explicit device recipe.
-The separate private Fedora bootc/QEMU lab now passes stock installation,
+The earlier private Fedora bootc/QEMU proof passes stock installation,
 media-detached first run and persistence through two installed reboots. Its image
 and compiler are clean `feed626`; the bounded host launcher has separate checksum
 provenance. All five actual VM phases exit 0 across preserved resource interruptions,
 with four distinct installation/installed boot IDs and no reset of the installed disk.
 Review/Cancel and a separate corrupt-payload refusal preserve their complete test disks.
 The agent permits four operations and disables 39 others. Agent-triggered reboots
-are proved. Actual frontend reboot tests on 8 November fail after installation.
+are proved. Actual frontend reboot tests on 8 November failed after installation.
 Diagnostics identify bootc's retained storage mount; targeted cleanup makes the
 unchanged guard and actual button succeed. The local backend now confines mounts
 to its supervised process and checks target inactivity before completion. A separate
-loop-node correction retains refusal of writable backing. A fresh image and normal
-UI reboot proof remain pending. Both tested image branches pass
+loop-node correction retains refusal of writable backing. The fresh clean `66df3f7`
+image and same-revision compiler now pass stock installation and the actual UI reboot
+on a new 8-GiB disk without manual cleanup or debug overrides. Two installed boots
+without media prove welcome changes from pending to complete, then retains that
+record before the next welcome; all three native VM phases exit 0 with three distinct
+boot IDs. The final verifier accepts the evidence in
+`build/vm-ui-reboot-2026-11-08/isolated-ui-proof/`; the earlier proof and failures
+remain separate and unchanged. Both new image branches pass
 14 bootc checks with zero warnings and one skipped. The lab excludes the full
 desktop, products and authentication, and clears no hardware or release gate.
 Calamares is an inactive native Qt framework candidate under

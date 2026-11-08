@@ -496,7 +496,7 @@ QOR OS begins: QTOS and Demiurge's device-side products in one repository
 ### Fixed
 
 - **Stock installation mounts are confined to the backend's lifetime.** Two actual
-  normal UI reboot tests fail after successful installation. A diagnostic captures
+  normal UI reboot tests failed after successful installation. A diagnostic captures
   bootc's storage bind mount still active after exit 0; removing only that verified
   mount makes the unchanged strict guard and real button succeed. The backend now
   runs stock bootc in a private mount namespace and rechecks the strict target guard
@@ -504,7 +504,15 @@ QOR OS begins: QTOS and Demiurge's device-side products in one repository
   cannot produce completion; the new regressions fail on the old code. All 67
   portable cases pass on Windows/Linux, plus eight Linux process/file cases.
   Real-kernel controls verify namespace teardown in the existing SELinux context
-  with enforcement enabled. A fresh image and normal UI route remain pending.
+  with enforcement enabled. The fresh clean `66df3f7` image and same-revision compiler
+  now pass stock installation and the actual UI reboot on a new 8-GiB target without
+  manual cleanup or debug overrides. Two media-free installed boots prove welcome
+  changes from pending to complete, then retains the same record before welcome.
+  All three native VM phases exit 0 with three distinct boot IDs; the final verifier
+  accepts the complete evidence. Prior proofs and failures are unchanged. Both image
+  branches pass 14 fatal-warning checks with zero warnings and one skipped check.
+  The approved service pause is restored and PostgreSQL is healthy. Full device,
+  hardware and release gates remain open.
 
 - **Unconfigured kernel loop nodes are distinguished from backed disks in the
   private VM inventory.** An actual UI reboot fails after a successful fresh

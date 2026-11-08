@@ -29,7 +29,7 @@ UEFI live-display ISO from an exact local tooling image and a host-built runtime
 `tools/image/vmguard.py` and `vmrun.py` constrain its disposable raw disk and
 private firmware variables. The opt-in Linux-only `QOR_BUILD_VM_INSTALLER`
 requires `QOR_BUILD_SIMULATOR=OFF`; it is development work, not a readiness flag.
-The clean `feed626` image and its same-revision runtime pass actual stock
+The earlier clean `feed626` image and its same-revision runtime pass actual stock
 installation, media-free welcome and persistence through two installed reboots.
 The host launcher is recorded separately by checksum; its QEMU main-loop I/O
 pool is limited to four workers within the unchanged 64-task container bound.
@@ -40,13 +40,18 @@ SELinux pairs the existing `install_exec_t` executable label with the service's
 normal installation succeeds with enforcement enabled. The five actual VM phases
 exit 0 across preserved resource interruptions, without resetting the installed disk.
 That persistence sequence uses the restricted guest agent. Fresh actual UI reboot
-tests on feed626 and 5b7d321 fail after successful installation. A diagnostic finds
+tests on feed626 and 5b7d321 failed after successful installation. A diagnostic found
 bootc's storage bind mount still active after exit 0; removing that confirmed mount
 makes the unchanged strict guard and real reboot button succeed. The local backend
 now runs bootc in a private mount namespace (a process-local filesystem view) and
 requires the strict guard again before reporting completion. The separate collector
-correction distinguishes unconfigured loop nodes from backed storage. A fresh image
-and passing normal UI reboot test are still required; diagnostic cleanup is no substitute.
+correction distinguishes unconfigured loop nodes from backed storage. The fresh clean
+`66df3f7` image and same-revision compiler now pass the normal route on a new 8-GiB
+disk: stock installation, actual UI reboot, media-free welcome completion and one
+installed reboot retaining that record. All three native VM phases exit 0 with three
+distinct boot IDs, without manual cleanup or debug overrides. The final verifier
+accepts `build/vm-ui-reboot-2026-11-08/isolated-ui-proof/accepted-isolated-ui-proof.json`;
+the earlier `feed626` proof and both failed UI attempts remain separate and unchanged.
 The installation candidate requires a clean source revision and a fresh runtime
 from that same revision. Every referenced offline OCI (content-addressed container
 image) blob is checked on read-only media before stock bootc can write the assigned
