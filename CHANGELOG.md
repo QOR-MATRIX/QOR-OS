@@ -495,6 +495,17 @@ QOR OS begins: QTOS and Demiurge's device-side products in one repository
 
 ### Fixed
 
+- **Stock installation mounts are confined to the backend's lifetime.** Two actual
+  normal UI reboot tests fail after successful installation. A diagnostic captures
+  bootc's storage bind mount still active after exit 0; removing only that verified
+  mount makes the unchanged strict guard and real button succeed. The backend now
+  runs stock bootc in a private mount namespace and rechecks the strict target guard
+  before announcing completion. Namespace launch failure and a still-active target
+  cannot produce completion; the new regressions fail on the old code. All 67
+  portable cases pass on Windows/Linux, plus eight Linux process/file cases.
+  Real-kernel controls verify namespace teardown in the existing SELinux context
+  with enforcement enabled. A fresh image and normal UI route remain pending.
+
 - **Unconfigured kernel loop nodes are distinguished from backed disks in the
   private VM inventory.** An actual UI reboot fails after a successful fresh
   installation. A separate kernel diagnostic reproduces the collector's refusal
@@ -503,9 +514,9 @@ QOR OS begins: QTOS and Demiurge's device-side products in one repository
   The guest preview still refuses attached writable backing. All 65 portable
   cases pass on Windows/Linux, plus eight Linux process/file cases. The first
   Linux harness omitted its read-only image inputs; that failure is preserved.
-  A new image and
-  successful normal UI reboot remain pending; prior installation and guest-agent
-  persistence proof retain their original scope.
+  The clean 5b7d321 image includes this correction and installs successfully; its
+  normal UI reboot still encounters the separate storage-mount issue above.
+  Prior installation and guest-agent persistence proof retain their original scope.
 
 - **VM deployment keeps its I/O workers inside the container budget.** QEMU's
   main-loop pool is bounded at four workers within the unchanged 64-task limit,

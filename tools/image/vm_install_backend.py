@@ -191,11 +191,16 @@ def main():
             logdir.mkdir(mode=0o700, exist_ok=True)
             with (logdir / "bootc.log").open("wb") as log:
                 started = True
-                code = transaction(argv, log)
+                # bootc may retain its storage bind mount after the CLI exits.
+                # Keep all backend mounts private to its supervised process.
+                code = transaction(["/usr/bin/unshare", "--mount", "--propagation", "private", "--", *argv], log)
             installation_log(code)
         if code:
             emit("error", message="The bootc transaction failed. Preserve this disk and inspect /run/qor-vm-install/bootc.log.")
             return 1
+        final_expected, final_disk = inspect()
+        if final_expected != expected or final_disk != disk:
+            raise ValueError("Target changed after installation")
         emit("complete", message="Installation finished. Remove the media and reboot to verify the installed system.")
         return 0
     except (OSError, ValueError, TypeError, KeyError, RuntimeError, subprocess.SubprocessError):

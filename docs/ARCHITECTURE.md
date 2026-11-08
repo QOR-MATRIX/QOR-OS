@@ -70,9 +70,11 @@ installation, media-free first run and persistence through two installed reboots
 The host QEMU main-loop pool uses four I/O workers within its 64-task container
 limit; its source checksum is separate from the unchanged image/compiler identity.
 The evidence keeps resource interruptions, distinct guest boot IDs and the failed
-8 November UI reboot. A local inventory correction excludes
-only inactive, zero-size kernel loop nodes without backing attributes; backed or
-active devices retain the existing guard. Its rebuilt-image UI proof is pending.
+8 November UI reboot failures. A local inventory correction excludes only inactive,
+zero-size kernel loop nodes without backing attributes. A separate diagnostic finds
+bootc's storage mount retained after successful exit. The backend now confines its
+mounts to the supervised process and requires the unchanged strict target guard
+before announcing completion. Its rebuilt-image UI proof is pending.
 These VM checks do not establish device services,
 authentication, hardware, encrypted installation, rollback or CI isolation proof.
 

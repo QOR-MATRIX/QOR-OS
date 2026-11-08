@@ -212,6 +212,46 @@ class VmInstall(unittest.TestCase):
             self.assertEqual(backend.main(), 1)
             transaction.assert_not_called()
 
+    def test_installation_mount_namespace_is_required_and_failure_cannot_complete(self):
+        @contextmanager
+        def source():
+            yield self.receipt
+        for native_code in (0, 127):
+            output = io.StringIO()
+            with self.subTest(native_code=native_code), \
+                    patch.object(backend.sys, "argv", ["backend", "install", "--confirm-serial", self.disk["serial"]]), \
+                    patch.object(backend, "inspect", return_value=(self.record, self.disk)) as inspect, \
+                    patch.object(backend, "offline_source", source), \
+                    patch.object(backend, "Path", return_value=self.work / "run"), \
+                    patch.object(backend, "transaction", return_value=native_code) as transaction, \
+                    patch.object(backend, "installation_log") as evidence, patch.object(backend.sys, "stdout", output):
+                self.assertEqual(backend.main(), 0 if native_code == 0 else 1)
+                transaction.assert_called_once()
+                self.assertEqual(transaction.call_args.args[0],
+                                 ["/usr/bin/unshare", "--mount", "--propagation", "private", "--",
+                                  *backend.command(self.record, self.disk, self.receipt, self.disk["serial"])])
+                evidence.assert_called_once_with(native_code)
+                self.assertEqual(inspect.call_count, 3 if native_code == 0 else 2)
+                kinds = [json.loads(line)["type"] for line in output.getvalue().splitlines()]
+                self.assertEqual(kinds, ["writing", "complete" if native_code == 0 else "error"])
+
+    def test_mount_namespace_success_with_active_target_cannot_advertise_completion(self):
+        @contextmanager
+        def source():
+            yield self.receipt
+        output = io.StringIO()
+        with patch.object(backend.sys, "argv", ["backend", "install", "--confirm-serial", self.disk["serial"]]), \
+                patch.object(backend, "inspect", side_effect=[(self.record, self.disk), (self.record, self.disk),
+                                                            ValueError("Target remained active")]), \
+                patch.object(backend, "offline_source", source), \
+                patch.object(backend, "Path", return_value=self.work / "run"), \
+                patch.object(backend, "transaction", return_value=0) as transaction, \
+                patch.object(backend, "installation_log") as evidence, patch.object(backend.sys, "stdout", output):
+            self.assertEqual(backend.main(), 1)
+            transaction.assert_called_once()
+            evidence.assert_called_once_with(0)
+            self.assertEqual([json.loads(line)["type"] for line in output.getvalue().splitlines()], ["writing", "error"])
+
     def test_installation_candidate_refuses_stale_or_dirty_runtime(self):
         good = {"compiler_source_dirty": False, "compiler_source_revision": "a" * 40,
                 "fresh_build_proved": True, "files": {"usr/bin/qor-install": "c" * 64}}

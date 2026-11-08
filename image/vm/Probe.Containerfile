@@ -16,7 +16,7 @@ COPY --chmod=0644 first-run.service /usr/lib/systemd/system/qor-vm-first-run.ser
 COPY --chmod=0644 guest-agent.service /usr/lib/systemd/system/qor-vm-agent.service
 # Cleanup below touches generated state in this disposable image only. Keep
 # installed libraries, licenses and RPM database content under /usr intact.
-RUN test -n "$QOR_SOURCE_REVISION" && \
+RUN test -n "$QOR_SOURCE_REVISION" && test -x /usr/bin/unshare && \
     mkdir -p /var/roothome /etc/systemd/system/graphical.target.wants /etc/systemd/system/multi-user.target.wants \
       /usr/lib/dracut/dracut.conf.d /usr/lib/modules-load.d /usr/lib/sysusers.d /usr/lib/tmpfiles.d /usr/lib/udev/rules.d && \
     printf 'u qortest 1000 "QOR OS local test account" /var/home/qortest /usr/sbin/nologin\n' > /usr/lib/sysusers.d/qor-vm.conf && \

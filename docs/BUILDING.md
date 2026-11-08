@@ -39,11 +39,14 @@ SELinux pairs the existing `install_exec_t` executable label with the service's
 `install_t` process domain. The packed executable label and unit are checked;
 normal installation succeeds with enforcement enabled. The five actual VM phases
 exit 0 across preserved resource interruptions, without resetting the installed disk.
-That persistence sequence uses the restricted guest agent. A fresh actual UI reboot
-test on 8 November fails after successful installation. A separate kernel diagnostic
-reproduces the inventory's refusal of an unconfigured loop node. The local collector
-now distinguishes that zero-size, inactive node from backed storage; a fresh image
-and passing normal UI reboot test are still required.
+That persistence sequence uses the restricted guest agent. Fresh actual UI reboot
+tests on feed626 and 5b7d321 fail after successful installation. A diagnostic finds
+bootc's storage bind mount still active after exit 0; removing that confirmed mount
+makes the unchanged strict guard and real reboot button succeed. The local backend
+now runs bootc in a private mount namespace (a process-local filesystem view) and
+requires the strict guard again before reporting completion. The separate collector
+correction distinguishes unconfigured loop nodes from backed storage. A fresh image
+and passing normal UI reboot test are still required; diagnostic cleanup is no substitute.
 The installation candidate requires a clean source revision and a fresh runtime
 from that same revision. Every referenced offline OCI (content-addressed container
 image) blob is checked on read-only media before stock bootc can write the assigned

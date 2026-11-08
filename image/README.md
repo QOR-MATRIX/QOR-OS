@@ -167,8 +167,22 @@ requesting an unused loop node makes the original collector count storage that h
 no backing file. The local correction requires kernel loop ancestry, major number 7,
 zero capacity, no active use and absent loop attributes before excluding a node.
 Its guest preview accepts the unconfigured node, refuses attached writable backing
-and accepts detachment. Diagnostics are separate from normal packaged-image proof;
-a rebuilt image and successful normal UI reboot remain pending.
+and accepts detachment. The fresh clean 5b7d321 image includes that correction and
+passes stock installation, but its normal UI reboot still fails.
+
+A subsequent diagnostic installation captures the real post-install state:
+`/run/bootc/storage` remains bound to the installed partition after bootc exits 0.
+The unchanged guard correctly reports the disk active. Targeted diagnostic cleanup
+of that verified mount makes the strict guard pass and the actual UI button reboot.
+A separate real-kernel control leaves a temporary RAM mount visible after an ordinary
+child exits; `unshare --mount --propagation private` contains the mount and tears it
+down with its child. Both run in the existing installer context with SELinux enforcing.
+The local backend now uses that isolation for its supervised bootc invocation and
+requires the strict target guard after successful exit, before announcing completion.
+The image recipe checks the existing `unshare` executable. No mounted-target refusal
+is relaxed. Diagnostic cleanup is not part of the packaged flow or normal proof.
+A rebuilt image and successful normal UI reboot remain pending. The diagnostic
+records are in `build/vm-ui-reboot-2026-11-08/reboot-state-diagnostic/`.
 
 RAM preflights and a bounded reclamation-helper interruption are retained as failed
 orchestration records. The accepted continuation uses the same installed disk,
