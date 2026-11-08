@@ -495,6 +495,18 @@ QOR OS begins: QTOS and Demiurge's device-side products in one repository
 
 ### Fixed
 
+- **Unconfigured kernel loop nodes are distinguished from backed disks in the
+  private VM inventory.** An actual UI reboot fails after a successful fresh
+  installation. A separate kernel diagnostic reproduces the collector's refusal
+  after requesting an unused loop node. The correction excludes only an inactive,
+  zero-size kernel loop node with major number 7 and absent backing attributes.
+  The guest preview still refuses attached writable backing. All 65 portable
+  cases pass on Windows/Linux, plus eight Linux process/file cases. The first
+  Linux harness omitted its read-only image inputs; that failure is preserved.
+  A new image and
+  successful normal UI reboot remain pending; prior installation and guest-agent
+  persistence proof retain their original scope.
+
 - **VM deployment keeps its I/O workers inside the container budget.** QEMU's
   main-loop pool is bounded at four workers within the unchanged 64-task limit,
   addressing a thread-creation failure during stock deployment. The regression
@@ -503,8 +515,8 @@ QOR OS begins: QTOS and Demiurge's device-side products in one repository
   The unchanged clean `feed626` image subsequently installs with backend exit 0,
   boots without media, completes the real welcome and retains its record across
   two installed reboots. Five actual VM phases exit 0 across preserved resource
-  interruptions; the installed disk is never reset. Reboots use the restricted
-  guest agent, and the frontend reboot button remains untested. Current
+  interruptions; the installed disk is never reset. That sequence uses the restricted
+  guest agent. A later actual frontend reboot test fails, as recorded above. Current
   service states are verified after container-identity replacements, with failed
   lookups preserved. Full OS, hardware and release gates remain open.
 

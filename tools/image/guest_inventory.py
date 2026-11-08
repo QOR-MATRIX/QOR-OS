@@ -36,6 +36,19 @@ def text(path: Path) -> str:
     return value.strip()
 
 
+def unused_loop(entry: Path, major_minor: str, sectors: int, busy: bool) -> bool:
+    """An unbound kernel loop node has no backing storage to write."""
+    if (not re.fullmatch(r"loop[0-9]+", entry.name)
+            or entry.resolve() != Path("/sys/devices/virtual/block") / entry.name
+            or not re.fullmatch(r"7:[0-9]+", major_minor) or sectors != 0 or busy):
+        return False
+    try:
+        (entry / "loop").stat()
+    except FileNotFoundError:
+        return True
+    return False
+
+
 def collect(expected: dict) -> dict:
     mounts = {line.split()[2] for line in Path("/proc/self/mountinfo").read_text().splitlines()}
     swaps = {line.split()[0] for line in Path("/proc/swaps").read_text().splitlines()[1:]}
@@ -54,10 +67,13 @@ def collect(expected: dict) -> dict:
         descendants = [entry, *(part for part in entry.resolve().iterdir() if (part / "partition").exists())]
         busy = any(text(part / "dev") in mounts or str(Path("/dev") / part.name) in swaps
                    or any((part / "holders").iterdir()) for part in descendants)
+        sectors = int(text(entry / "size"))
+        if unused_loop(entry, major_minor, sectors, busy):
+            continue
         serials = [text(path) for path in (entry / "serial", entry / "device/serial") if path.exists()]
         serial = serials[0] if serials and len(set(serials)) == 1 else ""
         driver_link = entry / "device/driver"
-        disks.append({"path": str(node), "serial": serial, "bytes": int(text(entry / "size")) * 512,
+        disks.append({"path": str(node), "serial": serial, "bytes": sectors * 512,
                       "driver": driver_link.resolve().name if driver_link.exists() else "",
                       "sysfs": str(entry.resolve()), "major_minor": major_minor,
                       "busy": busy, "read_only": False})

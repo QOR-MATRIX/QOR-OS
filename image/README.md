@@ -156,7 +156,19 @@ review/Cancel, stock installation and three media-free installed boots. The real
 welcome starts pending, completes through its three visible pages and saves the
 expected record. Both subsequent boots find that same completed record before
 welcome runs, with successful process results and four distinct boot IDs including
-installation. Reboots use the restricted agent; the frontend reboot button is untested.
+installation. That sequence uses the restricted agent.
+
+A fresh 8 November installation also exits 0 with a complete 2,051-byte log, but
+the actual frontend reboot button returns an error. Its disk, screenshot and native
+failure are preserved under `build/vm-ui-reboot-2026-11-08/attempt-2/`.
+A separate diagnostic boot shows the packaged reboot command can run in the existing
+SELinux domain. Another real-kernel diagnostic reproduces an inventory defect:
+requesting an unused loop node makes the original collector count storage that has
+no backing file. The local correction requires kernel loop ancestry, major number 7,
+zero capacity, no active use and absent loop attributes before excluding a node.
+Its guest preview accepts the unconfigured node, refuses attached writable backing
+and accepts detachment. Diagnostics are separate from normal packaged-image proof;
+a rebuilt image and successful normal UI reboot remain pending.
 
 RAM preflights and a bounded reclamation-helper interruption are retained as failed
 orchestration records. The accepted continuation uses the same installed disk,

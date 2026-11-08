@@ -132,6 +132,33 @@ class VmInstall(unittest.TestCase):
                 inventory.inspect()
             collect.assert_not_called()
 
+    def test_unconfigured_kernel_loop_node_has_no_writable_backing_disk(self):
+        entry = self.work / "loop1"
+        entry.mkdir()
+        with patch.object(Path, "resolve", return_value=Path("/sys/devices/virtual/block/loop1")):
+            self.assertTrue(inventory.unused_loop(entry, "7:1", 0, False))
+            (entry / "loop").mkdir()
+            self.assertFalse(inventory.unused_loop(entry, "7:1", 0, False))
+
+    def test_loop_name_alone_cannot_hide_an_active_or_unknown_device(self):
+        entry = self.work / "loop1"
+        entry.mkdir()
+        with patch.object(Path, "resolve", return_value=Path("/sys/devices/virtual/block/loop1")):
+            for device, sectors, busy in (("8:1", 0, False), ("7:1", 1, False), ("7:1", 0, True)):
+                with self.subTest(device=device, sectors=sectors, busy=busy):
+                    self.assertFalse(inventory.unused_loop(entry, device, sectors, busy))
+            self.assertFalse(inventory.unused_loop(self.work / "vda", "7:1", 0, False))
+        with patch.object(Path, "resolve", return_value=Path("/sys/devices/pci0000:00/loop1")):
+            self.assertFalse(inventory.unused_loop(entry, "7:1", 0, False))
+
+    def test_unreadable_loop_configuration_is_not_treated_as_absent(self):
+        entry = self.work / "loop1"
+        entry.mkdir()
+        with patch.object(Path, "resolve", return_value=Path("/sys/devices/virtual/block/loop1")), \
+                patch.object(Path, "stat", side_effect=PermissionError):
+            with self.assertRaises(PermissionError):
+                inventory.unused_loop(entry, "7:1", 0, False)
+
     def test_writable_or_ambiguous_media_never_opens_payload(self):
         media = self.work / "iso"
         media.mkdir()

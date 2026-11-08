@@ -584,7 +584,10 @@ provenance. All five actual VM phases exit 0 across preserved resource interrupt
 with four distinct installation/installed boot IDs and no reset of the installed disk.
 Review/Cancel and a separate corrupt-payload refusal preserve their complete test disks.
 The agent permits four operations and disables 39 others. Agent-triggered reboots
-are proved; the frontend reboot button remains untested. Both image branches pass
+are proved. The actual frontend reboot test on 8 November fails after installation;
+a local correction for unconfigured kernel loop nodes has passed a separate kernel
+preview, including refusal of writable backing. A fresh image and normal UI reboot
+proof remain pending. Both tested image branches pass
 14 bootc checks with zero warnings and one skipped. The lab excludes the full
 desktop, products and authentication, and clears no hardware or release gate.
 Calamares is an inactive native Qt framework candidate under
