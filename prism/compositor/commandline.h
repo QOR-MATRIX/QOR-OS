@@ -33,6 +33,8 @@ struct CommandLine
 
 // Adds Prism's options to `parser`, as this build has them.
 void addOptions(QCommandLineParser &parser);
+// Static JSON for image checks, before graphics, services or user state are initialised.
+const char *buildCapabilities();
 // What a parser that has processed them says.
 CommandLine read(const QCommandLineParser &parser);
 

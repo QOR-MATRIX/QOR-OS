@@ -424,7 +424,24 @@ python tools/image/assemble.py device-build --output build/image-payload --base 
 
 It requires a locally present immutable reference, disables network/pull during build,
 then runs `check-image.py` inside the build. That read-only check requires Prism, bootc,
-`qor-session.service`, QOR identity and a non-development `qor-setup --build-capabilities`.
+`qor-session.service`, QOR identity and non-development build contracts from both
+`qor-setup --build-capabilities` and `prism --build-capabilities`. The latter returns
+before graphics, audio, service connections or user-state access. It reports
+`schema:1`, the compiled `development` boolean and an `authentication` boolean.
+The device guard requires `development:false` and `authentication:true`, rejects
+unknown fields/types and refuses an omitted probe. Current real device builds
+report `authentication:false`, matching their locked session without an authentication
+backend. The future authenticated contract used by structural tests is an inert
+fixture only. No real authenticated session is claimed or enabled by these checks.
+The compiled query is checked in Release, device and ASan/UBSan builds with an
+unavailable graphics platform and empty private user directories; it exits 0 and
+writes no user state. The real device binary's unavailable authentication is refused
+by the guard using an inert filesystem fixture. Both command-line modes also pass
+on Windows. Hardening and all ten existing QML lint commands pass, while all three
+Linux Prism build warning gates still fail on 12 pre-existing Wayland base-type
+registration warnings. The bounded headless checks clear no device-build or session
+gate. Their private evidence and preserved failures are under
+`build/device-session-2026-11-08/`.
 It is a structural guard, **not service, boot, installation or recovery proof**. No such
 base was supplied or built in this session. The existing device CMake cache excludes
 simulation but also excludes the QOR core; it cannot establish a complete device build.

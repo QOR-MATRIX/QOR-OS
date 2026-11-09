@@ -59,6 +59,15 @@ disk. Virtual-port readiness starts the services; existing disk and RPC guards r
 The limited welcome uses a locked local test account and supplies neither QOR ID
 authentication nor the full desktop. Diagnostic overrides establish only their
 explicitly recorded scope.
+The full device-layer check additionally probes both `qor-setup --build-capabilities`
+and `prism --build-capabilities`; a file named `prism` is insufficient. Prism's query
+runs before graphics, audio, services or user state are initialised and reports its
+compiled simulator mode and authentication availability. Current device builds
+report `development:false, authentication:false`: the real authentication backend
+and service daemons remain unfinished, so the full device layer is refused. The
+structural test's future authenticated contract is an inert fixture, not a working
+sign-in or device-session result. Missing probes, unknown fields and numeric values
+in place of capability booleans are also refused.
 Run the Windows lab memory preflight before its runtime/image pipeline:
 `python tools/image/vm_resources.py`. Image phases and VM launch also check
 the 3-GiB available-RAM budget and refuse to start below it. This is a read-only

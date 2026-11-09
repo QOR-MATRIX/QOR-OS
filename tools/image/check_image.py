@@ -25,12 +25,19 @@ def check(root: Path, probe=None) -> list[str]:
     identity = root / "usr/lib/os-release"
     if identity.is_file() and (identity.stat().st_size > 4096 or b"ID=qor-os\n" not in identity.read_bytes()):
         errors.append("The device identity is not the QOR OS identity")
-    if not errors and probe is not None:
+    if not errors and probe is None:
+        errors.append("Device application capability probes are required")
+    elif not errors:
         capabilities = probe(root / "usr/bin/qor-setup")
         if (not isinstance(capabilities, dict) or set(capabilities) != {"schema", "development", "firstRun"}
                 or type(capabilities.get("schema")) is not int or capabilities["schema"] != 1
                 or capabilities.get("development") is not False or capabilities.get("firstRun") is not True):
             errors.append("The first-run application is a development build or has an unknown contract")
+        capabilities = probe(root / "usr/bin/prism")
+        if (not isinstance(capabilities, dict) or set(capabilities) != {"schema", "development", "authentication"}
+                or type(capabilities.get("schema")) is not int or capabilities["schema"] != 1
+                or capabilities.get("development") is not False or capabilities.get("authentication") is not True):
+            errors.append("Prism is simulated, lacks authentication, or has an unknown build contract")
     return errors
 
 

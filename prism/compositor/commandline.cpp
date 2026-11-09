@@ -7,6 +7,17 @@ using namespace Qt::StringLiterals;
 
 namespace qor::prism {
 
+const char *buildCapabilities()
+{
+    // Desktop.tryUnlock still refuses every non-simulated session. This must
+    // stay false until an actual authentication backend is implemented and tested.
+#ifdef QOR_HAS_SIMULATOR
+    return "{\"schema\":1,\"development\":true,\"authentication\":false}\n";
+#else
+    return "{\"schema\":1,\"development\":false,\"authentication\":false}\n";
+#endif
+}
+
 void addOptions(QCommandLineParser &parser)
 {
 #ifdef QOR_HAS_SIMULATOR

@@ -40,7 +40,9 @@
 #include <QtQuickControls2/QQuickStyle>
 
 #include <algorithm>
+#include <cstdio>
 #include <memory>
+#include <string_view>
 
 using namespace Qt::StringLiterals;
 
@@ -52,6 +54,10 @@ Q_IMPORT_QML_PLUGIN(QOR_ShellPlugin)
 
 int main(int argc, char *argv[])
 {
+    // Image inspection must not initialise graphics, audio, services or user state.
+    if (argc == 2 && std::string_view(argv[1]) == "--build-capabilities")
+        return std::fputs(qor::prism::buildCapabilities(), stdout) < 0 ? 1 : 0;
+
     // The compositor's own window must not try to connect to itself.
     if (qEnvironmentVariableIsEmpty("QT_QPA_PLATFORM") && !qEnvironmentVariableIsEmpty("WAYLAND_DISPLAY"))
         qputenv("QT_QPA_PLATFORM", "wayland");

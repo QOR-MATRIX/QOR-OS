@@ -123,7 +123,43 @@ class InstallImage(unittest.TestCase):
 
     def test_valid_structural_fixture_is_not_install_proof(self):
         self.device_fixture()
-        self.assertEqual(check_image.check(self.repo, lambda _: {"schema": 1, "development": False, "firstRun": True}), [])
+        programs = []
+        def probe(program):
+            programs.append(program.name)
+            if program.name == "prism":
+                # Future-device contract only: no real authentication is supplied by this fixture.
+                return {"schema": 1, "development": False, "authentication": True}
+            return {"schema": 1, "development": False, "firstRun": True}
+        self.assertEqual(check_image.check(self.repo, probe), [])
+        self.assertEqual(programs, ["qor-setup", "prism"])
+
+    def test_simulated_or_unauthenticated_prism_cannot_be_device_payload(self):
+        self.device_fixture()
+        for prism in ({"schema": 1, "development": True, "authentication": True},
+                      {"schema": 1, "development": False, "authentication": False},
+                      {"schema": 1, "development": False, "authentication": 1}):
+            with self.subTest(prism=prism):
+                def probe(program):
+                    if program.name == "prism":
+                        return prism
+                    return {"schema": 1, "development": False, "firstRun": True}
+                self.assertIn("Prism", " ".join(check_image.check(self.repo, probe)))
+
+    def test_device_capability_probe_cannot_be_omitted(self):
+        self.device_fixture()
+        self.assertTrue(check_image.check(self.repo))
+
+    def test_unknown_prism_contract_cannot_establish_authentication(self):
+        self.device_fixture()
+        for prism in (None, [], {"schema": True, "development": False, "authentication": True},
+                      {"schema": 1, "development": 0, "authentication": True},
+                      {"schema": 1, "development": False, "authentication": True, "unknown": False}):
+            with self.subTest(prism=prism):
+                def probe(program):
+                    if program.name == "prism":
+                        return prism
+                    return {"schema": 1, "development": False, "firstRun": True}
+                self.assertIn("Prism", " ".join(check_image.check(self.repo, probe)))
 
     def test_unknown_or_malformed_capabilities_fail(self):
         self.device_fixture()

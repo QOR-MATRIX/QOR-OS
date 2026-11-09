@@ -495,6 +495,23 @@ QOR OS begins: QTOS and Demiurge's device-side products in one repository
 
 ### Fixed
 
+- **The full device layer checks Prism's compiled capabilities.** Previously the
+  structural guard only required a file named `prism` and checked the welcome app's
+  build mode. It could accept simulated or unauthenticated Prism, including when
+  capability probing was omitted. A headless query now reports Prism's actual
+  simulator mode and unavailable authentication before graphics, audio, services or
+  user state initialise. The image guard requires a non-development authenticated
+  contract, with exact fields and boolean types. Current real device builds remain
+  refused until their authentication backend exists. The prior private installation
+  image and evidence retain their separate, limited scope.
+  All 18 Windows image cases and 21 Linux image/archive cases pass; both command-line
+  modes pass 11/12 Qt cases on Windows, Linux Release and ASan/UBSan. Actual binary
+  probes work with graphics unavailable and write no user state; the image guard
+  refuses real device Prism's missing authentication. Hardening and all ten existing
+  QML lint commands pass. The three full Linux Prism builds exit 0 but retain failed
+  warning gates on 12 pre-existing Wayland type-registration warnings; no full device
+  session or newer image is accepted. RAM and harness failures are preserved.
+
 - **Stock installation mounts are confined to the backend's lifetime.** Two actual
   normal UI reboot tests failed after successful installation. A diagnostic captures
   bootc's storage bind mount still active after exit 0; removing only that verified

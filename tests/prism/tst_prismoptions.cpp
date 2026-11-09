@@ -6,6 +6,8 @@
 #include "commandline.h"
 
 #include <QtCore/QCommandLineParser>
+#include <QtCore/QJsonDocument>
+#include <QtCore/QJsonObject>
 #include <QtTest/QTest>
 
 using namespace Qt::StringLiterals;
@@ -38,6 +40,24 @@ class TestPrismOptions : public QObject
     Q_OBJECT
 
 private Q_SLOTS:
+    void buildCapabilitiesDescribeThisBuild()
+    {
+        const QJsonDocument document = QJsonDocument::fromJson(qor::prism::buildCapabilities());
+        QVERIFY(document.isObject());
+        const QJsonObject capabilities = document.object();
+        QCOMPARE(capabilities.keys(), QStringList({ u"authentication"_s, u"development"_s, u"schema"_s }));
+        QVERIFY(capabilities.value(u"schema"_s).isDouble());
+        QCOMPARE(capabilities.value(u"schema"_s).toInt(), 1);
+        QVERIFY(capabilities.value(u"development"_s).isBool());
+#ifdef QOR_HAS_SIMULATOR
+        QCOMPARE(capabilities.value(u"development"_s).toBool(), true);
+#else
+        QCOMPARE(capabilities.value(u"development"_s).toBool(), false);
+#endif
+        QVERIFY(capabilities.value(u"authentication"_s).isBool());
+        QCOMPARE(capabilities.value(u"authentication"_s).toBool(), false);
+    }
+
     void whatEveryBuildTakes()
     {
         const Parsed parsed = parse({ u"--socket"_s, u"wayland-9"_s, u"--size"_s, u"1280x800"_s, u"--outputs"_s, u"2"_s,

@@ -81,6 +81,12 @@ to complete, then retains the same record before the next welcome. All three nat
 VM phases exit 0 with three distinct boot IDs. The earlier `feed626` proof is unchanged.
 These VM checks do not establish device services,
 authentication, hardware, encrypted installation, rollback or CI isolation proof.
+The full device-layer guard requires headless build contracts from both welcome
+and Prism. Prism reports its compiled simulator mode before starting graphics,
+audio or service connections. It currently reports authentication unavailable,
+matching `Desktop.tryUnlock`'s refusal of non-simulated sessions. A simulator build,
+missing authentication or unknown contract prevents structural image acceptance;
+this contract check supplies no authentication backend or boot proof.
 
 **Simulation and device share all QML.** The shell and the apps never talk to
 a service implementation directly. They bind to Qt Remote Objects *replicas*.

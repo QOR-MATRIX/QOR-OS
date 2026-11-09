@@ -214,6 +214,9 @@ controller-first Home.
 - [ ] The display acceptance test on the reference laptop and on RTX and Intel desktops: under 1% missed frames per output at its own rate, and input to swap within two refresh periods at p95
 - [ ] Steam and Proton inside gamescope, as a Wayland client of Prism; a game mode
 - [ ] greetd with a Prism greeter, flicker-free from the firmware logo
+  The full device-layer guard now queries Prism's compiled capabilities instead of
+  accepting its filename. Current device builds report authentication unavailable
+  and are refused; the real sign-in backend and device-session proof remain open.
 - [ ] Touchpad gestures from libinput for the KMS backend
 - [ ] Real daemons for every service contract (`qor-netd`, `-btd`, `-powerd`, `-audiod`, `-notifyd`, `-settingsd`) and an xdg-desktop-portal backend with prompts in the trusted layer
 - [ ] Games and apps sandboxed (bubblewrap, seccomp, Landlock): the operating-system half of Demiurge's ADR-087
