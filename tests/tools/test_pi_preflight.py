@@ -110,6 +110,41 @@ class ElfTests(unittest.TestCase):
 
 
 class MetadataTests(unittest.TestCase):
+    def check_spec(self, content):
+        with tempfile.TemporaryDirectory() as directory:
+            kit = Path(directory)
+            target = kit / "lib/cmake/Qt6"
+            target.mkdir(parents=True)
+            (target / "qt.toolchain.cmake").write_text(content)
+            return pi.qt_linux_target_spec(kit)
+
+    def test_linux_target_spec_is_read_without_executing_the_toolchain(self):
+        for spec in ("linux-g++", "linux-clang", "linux-aarch64-gnu-g++"):
+            with self.subTest(spec=spec):
+                self.assertEqual(self.check_spec('message(FATAL_ERROR "never run")\n'
+                                                f'set(QT_QMAKE_TARGET_MKSPEC "{spec}" CACHE STRING "")\n'), spec)
+
+    def test_arm64_does_not_make_a_mobile_or_windows_kit_a_linux_desktop_kit(self):
+        for spec in ("android-clang", "win32-msvc", "ohos-clang", "linux-unknown"):
+            with self.subTest(spec=spec), self.assertRaises(ValueError):
+                self.check_spec(f'set(QT_QMAKE_TARGET_MKSPEC {spec} CACHE STRING "")\n')
+
+    def test_target_spec_refuses_missing_commented_dynamic_or_ambiguous_assignments(self):
+        literal = 'set(QT_QMAKE_TARGET_MKSPEC linux-g++ CACHE STRING "")\n'
+        for content in ("", "# " + literal, literal * 2,
+                        "#[[\n" + literal + "]]\n", "#[=[\n" + literal + "]=]\n",
+                        literal + 'set(\nQT_QMAKE_TARGET_MKSPEC ${other})\n',
+                        literal + 'set(QT_QMAKE_TARGET_MKSPEC ${other})\n',
+                        'set(QT_QMAKE_TARGET_MKSPEC ${platform} CACHE STRING "")\n',
+                        'set(QT_QMAKE_TARGET_MKSPEC "linux-g++ CACHE STRING "")\n'):
+            with self.subTest(content=content), self.assertRaises(ValueError):
+                self.check_spec(content)
+
+    def test_target_spec_metadata_is_bounded(self):
+        with self.assertRaises(ValueError):
+            self.check_spec('set(QT_QMAKE_TARGET_MKSPEC linux-g++ CACHE STRING "")\n' +
+                            "#" * pi.MAX_READ)
+
     def test_wrapper_impl(self):
         with tempfile.TemporaryDirectory() as directory:
             kit = Path(directory)

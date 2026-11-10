@@ -383,6 +383,24 @@ modules in `build/<preset>/qml/`, plugins in `build/<preset>/plugins/`.
   tasks are in `.vscode/`.
 - **Visual Studio**: use the `windows-vs` preset, or open the folder (CMake presets are supported).
 
+The Windows presets supply `cmakeExecutable` for IDEs:
+`C:/Qt/Tools/CMake_64/bin/cmake.exe`, the existing Qt-bundled CMake (3.30.5 on
+the reviewed workstation). CMake Tools can therefore resolve it when VS Code
+was launched normally without the developer shell's PATH. This is an
+[IDE-only preset field](https://cmake.org/cmake/help/v3.30/manual/cmake-presets.7.html#configure-preset),
+not a command-line executable locator. CLI commands still require the developer
+shell above or the executable's full path. A different local Qt tools location
+belongs in a derived `CMakeUserPresets.json` preset; Linux presets use their
+own CMake and do not inherit this Windows path.
+
+Choose `ci-windows` for guarded workstation validation. The three build/lint
+tasks now use that separate folder, protecting a running `windows-release`
+shell. Automatic configure on open/edit and build before debugging are disabled
+in this workspace: first check QOR workers, the shared lock and memory guard,
+then explicitly configure/build. Selecting an executable or parsing presets is
+not a successful compiler, product or Prism test. No machine-wide PATH,
+security setting, installation or WSL resource limit is changed by this setup.
+
 ## 3. Run
 
 ```powershell

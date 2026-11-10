@@ -1,52 +1,52 @@
 # Where QOR OS stands
 
-For Andrew, 10 November 2026. This session began at clean `8670e39` on
-`integration/owner-brief`. Existing history, candidate patch and logs are retained.
-The tested Pi build workflow is pushed as `691a641`. No unrelated project's
-files or services were inspected or managed.
+For Andrew, 10 November 2026. This continuation began at `10104ad` on
+`integration/owner-brief` with five uncommitted Prism candidate files. Their
+hashes and the original saved patch still match; earlier evidence is preserved.
 
-## Prism warning candidate
+## IDE and local validation
 
-Qt's type registrar, which generates QML's C++ type descriptions, reproduces
-**twelve warnings on committed headers and zero on the candidate** with warnings
-explicitly enabled. Ten came from five template/protocol base pairs; two from
-Qt shell templates pulled in by a method argument. The candidate uses Qt's
-public concrete extension base, checks that QObject argument before accessing
-protocol state, and adds a protocol-global regression. It is reapplied but
-uncommitted: Linux compilation, runtime and sanitizer acceptance remain pending.
-The metadata comparison used Windows Qt 6.12 tools, not a Linux compiler.
-Evidence is in build/prism-resume-2026-11-10/; the original patch/logs remain
-in build/prism-metadata-2026-11-10/.
+Qt's installed CMake 3.30.5 works at C:/Qt/Tools/CMake_64/bin/cmake.exe.
+Windows IDE presets now identify that executable even without the developer
+shell's PATH; Linux presets do not inherit it. VS Code's automatic configure
+and build triggers are off. Build/lint tasks select the separate ci-windows
+folder, protecting windows-release. Both platforms parse the corrected presets;
+the live notification's dismissal was not observed. No global PATH or tool
+installation changed.
 
-## Resource blocker
+Current focused checks pass 63 Windows cases with four platform skips and
+84 cases under x86-64 WSL, Windows Subsystem for Linux. These include bounded
+ELF (executable-file format) and Qt metadata tests, real CMake host refusal, and
+17 product-harness fixture tests. Fixtures do not run actual products or ARM64
+code. All repository hooks pass; full compiler, product and
+sanitizer acceptance is not claimed.
 
-No active QOR compiler or running QOR user unit was available to reclaim.
-The original heavy-job lock was used. The monitored resume stopped only its
-own scope before compilation when Windows available RAM fell from 3,201 MiB
-to 1,189 MiB. A separate read-only WSL (Windows Subsystem for Linux) startup
-fell from 3,577 MiB to 1,419 MiB without compiling. Admit work only with WSL
-already resident and at least the unchanged 3,072-MiB floor. No host settings,
-other services or physical media changed. More host headroom or another
-qualified builder is needed; WSL's virtual free space cannot clear disk checks.
-Final warm-WSL samples measured 1,220–1,340 MiB: 1,732–1,852 MiB short of the
-floor before compiler working memory. Both stopped QOR scopes are inactive and
-the original heavy-job lock is free.
+## Prism resource blocker
 
-## Q Pi source build path
+With WSL resident after the VS Code restart, Windows had 1,443 MiB available
+against the unchanged 3,072-MiB floor: 1,629 MiB short before compiler working
+memory. No heavy Prism job was started, no competing QOR worker was found,
+and the actual original heavy-job lock was free. No host resource/security
+setting or unrelated service was changed.
 
-QQ now has native ARM64 release/sanitizer configure, build and test presets.
-They retain hardening, warnings as errors, single-job builds and 16-KiB linker
-pages. The existing Linux product harness selects them and tests the same
-cache, with its display/keyring isolation. Actual CMake rejects the x86-64 host
-before compiler discovery. Portable resource/ELF/preset suites pass 59 Windows
-cases with four platform skips and 63 WSL cases; all 17 harness fixture tests
-pass. These fixtures do not run actual products. Repository hooks pass;
-no full product or sanitizer pass is claimed.
+The earlier Qt metadata differential on these same Prism headers records twelve
+warnings on the committed baseline and zero on the candidate. That Windows
+code-generation result was not repeated here and is not Linux compilation or
+runtime evidence. The five files stay uncommitted pending those checks and the
+address/undefined-behavior sanitizer run; existing patch and logs remain intact.
 
-The exact candidate image-generator source was checked out and its dependency,
-private-tool and Pi 5 boot recipes inspected. No generator was run or installed.
-The installed WSL Qt kit is x86-64; Windows/Android ARM64 kits are not Linux kits.
-A native Debian/Raspberry Pi OS Trixie ARM64 builder and entitled Qt 6.12 Linux
-ARM64 kit are still needed, with measured physical scratch and dependency checks.
-**No ARM64 QOR app or bootable Pi image was built or tested.** Physical boot,
-graphics, login, development, recovery, full QOR services and release remain open.
+## Q Pi target qualification
+
+The read-only probe now rejects Windows, Android and HarmonyOS target metadata,
+including ambiguous, dynamic, commented and oversized inputs, without executing
+a kit's CMake toolchain. Real installed 6.12.0 kits have been inspected. WSL's
+kit reports Linux GCC metadata but is x86-64; no Linux ARM64 kit or qualified
+native builder was identified. Enterprise Qt is owner-reported, not verification
+of a target kit, dependency ABI (binary compatibility) or distribution scope.
+
+The native QQ presets/harness remain available for a qualified builder.
+No credential file was read, tool installed, physical medium changed or device
+provisioned. **No ARM64 QOR app or bootable Pi image was built or tested.**
+Next: clear the resident-WSL RAM guard for bounded Prism validation; qualify a
+native ARM64 builder, entitled target kit, dependency closure and physical
+scratch budget before the actual Q Pi application build.

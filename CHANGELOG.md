@@ -14,6 +14,17 @@ QOR OS begins: QTOS and Demiurge's device-side products in one repository
 
 ### Added
 
+- **Qt target-platform metadata checks for Q Pi.** The read-only probe now
+  distinguishes literal Linux desktop mkspec metadata from Windows and mobile
+  ARM64 kits without executing a kit's toolchain. Ambiguous, dynamic, commented
+  and oversized inputs have refusal tests; this does not certify target ABI,
+  commercial entitlement, complete dependencies or an image.
+- **Explicit CMake discovery in Windows IDE presets.** Windows presets point
+  CMake Tools at the already installed Qt-bundled executable, while Linux keeps
+  its own lookup. VS Code's automatic configure/build triggers are disabled and
+  build/lint tasks use the separate `ci-windows` folder. Host settings and tools
+  are unchanged.
+
 - **Native ARM64 QQ build entry points for Q Pi.** Configure/build/test presets
   now select QQ Studio, Player and tests with single-job Ninja builds, warnings
   as errors, existing exploit mitigations and 16-KiB linker page sizes. A native

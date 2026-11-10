@@ -91,6 +91,37 @@ def qt_version(kit):
     raise ValueError("Qt version not identified in fixed metadata files")
 
 
+def qt_linux_target_spec(kit):
+    """Read Qt's literal target mkspec; do not execute its CMake toolchain.
+
+    This distinguishes Linux desktop metadata from Android/Windows ARM64.
+    It does not certify the GNU ABI, entitlement or dependency closure.
+    """
+    data, size = read_prefix(kit / "lib/cmake/Qt6/qt.toolchain.cmake")
+    if size > MAX_READ:
+        raise ValueError("Qt toolchain metadata too large")
+    content = data.decode("utf-8")
+    # This deliberately accepts generated literal metadata, not arbitrary CMake.
+    # Bracket strings/comments and split assignments need a separate review.
+    if re.search(r'\[=*\[', content):
+        raise ValueError("Unsupported bracket syntax in Qt toolchain metadata")
+    uncommented = "\n".join(line.split("#", 1)[0] for line in content.splitlines())
+    starts = re.findall(r'(?i:\bset)\s*\(\s*QT_QMAKE_TARGET_MKSPEC\b', uncommented)
+    assignments = [line.strip() for line in uncommented.splitlines()
+                   if re.match(r'(?i:set)\s*\(\s*QT_QMAKE_TARGET_MKSPEC(?:\s|\))', line.strip())]
+    if len(starts) != 1 or len(assignments) != 1:
+        raise ValueError("Qt target mkspec missing or ambiguous")
+    token = r'[A-Za-z0-9_+./-]+'
+    match = re.fullmatch(r'(?i:set)\(\s*QT_QMAKE_TARGET_MKSPEC\s+(?:"(' + token +
+                         r')"|(' + token + r'))\s+CACHE\s+STRING\s+""\s*\)\s*(?:#.*)?', assignments[0])
+    if not match:
+        raise ValueError("Qt target mkspec is not fixed literal metadata")
+    spec = match.group(1) or match.group(2)
+    if spec not in ("linux-g++", "linux-clang", "linux-aarch64-gnu-g++"):
+        raise ValueError("Qt target mkspec is not a supported Linux desktop candidate")
+    return spec
+
+
 def git_read(source, args):
     result = subprocess.run(["git", "--no-optional-locks", "-C", str(source), *args],
                             capture_output=True, text=True, timeout=60, check=False)
@@ -165,6 +196,10 @@ def probe(source, kit, expected, scratch_root=None, scratch_budget=None):
         add("qt_612_metadata", version.startswith("6.12."), version)
     except (OSError, ValueError):
         add("qt_612_metadata", False, "Qt version metadata unavailable or invalid")
+    try:
+        add("qt_linux_desktop_metadata", True, qt_linux_target_spec(kit))
+    except (OSError, ValueError):
+        add("qt_linux_desktop_metadata", False, "Qt target mkspec missing, ambiguous or not Linux desktop")
     try:
         data, size = read_prefix(kit / "lib/libQt6Core.so.6")
         info = inspect_elf(data, size)

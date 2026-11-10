@@ -596,6 +596,10 @@ probe are local source work; no Pi image or native application has been built.
   WSL continues to require the Windows guard. Synthetic counter tests are not
   qualification of a native ARM64 builder.
   No actual builder budget has been measured; this qualification item stays open.
+  The probe now rejects Windows/mobile Qt target-platform metadata by reading
+  its literal mkspec without executing the toolchain. Installed kit inspection
+  still identifies no Linux ARM64 target; the reported Enterprise licence is
+  not target-kit or dependency verification.
 - [x] Add native QQ Studio/Player configure/build/test presets and connect them
   to the existing isolated Linux product harness, preserving the same cache,
   sanitizer selection, warnings-as-errors, hardening and 16-KiB link layout.

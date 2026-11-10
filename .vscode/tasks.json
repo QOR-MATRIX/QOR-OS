@@ -5,7 +5,7 @@
       "label": "QOR OS: build (release)",
       "type": "shell",
       "command": "pwsh",
-      "args": ["-NoProfile", "-File", "${workspaceFolder}/tools/dev/build.ps1", "-Preset", "windows-release"],
+      "args": ["-NoProfile", "-File", "${workspaceFolder}/tools/dev/build.ps1", "-Preset", "ci-windows"],
       "group": { "kind": "build", "isDefault": true },
       "problemMatcher": ["$msCompile"]
     },
@@ -13,7 +13,7 @@
       "label": "QOR OS: build + test",
       "type": "shell",
       "command": "pwsh",
-      "args": ["-NoProfile", "-File", "${workspaceFolder}/tools/dev/build.ps1", "-Preset", "windows-release", "-Test"],
+      "args": ["-NoProfile", "-File", "${workspaceFolder}/tools/dev/build.ps1", "-Preset", "ci-windows", "-Test"],
       "group": "test",
       "problemMatcher": ["$msCompile"]
     },
@@ -21,7 +21,7 @@
       "label": "QOR OS: qmllint",
       "type": "shell",
       "command": "pwsh",
-      "args": ["-NoProfile", "-File", "${workspaceFolder}/tools/dev/build.ps1", "-Preset", "windows-release", "-Target", "all_qmllint"],
+      "args": ["-NoProfile", "-File", "${workspaceFolder}/tools/dev/build.ps1", "-Preset", "ci-windows", "-Target", "all_qmllint"],
       "problemMatcher": []
     },
     {

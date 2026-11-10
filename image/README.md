@@ -183,6 +183,18 @@ Check actual base/kit ABI compatibility and the commercial entitlement for all
 needed modules, native host tools and private packaging. Do not use a distro's
 older Qt or infer entitlement from Qt source files being present.
 
+The probe also reads the literal `QT_QMAKE_TARGET_MKSPEC` assignment in
+`lib/cmake/Qt6/qt.toolchain.cmake` as bounded text, never as executable CMake.
+Its `qt_linux_desktop_metadata` check refuses Windows, Android and HarmonyOS
+target metadata, missing/ambiguous/dynamic assignments and unsupported bracket
+syntax. Linux GCC/Clang metadata alone does not certify ARM64, GNU ABI,
+16-KiB dependency closure or licence scope; those checks remain separate.
+On 10 November the installed Windows/Android/HarmonyOS 6.12.0 kits are refused
+by this new check. The WSL `gcc_64` kit reports `linux-g++` but is x86-64.
+The owner reports Enterprise Qt; no commercial Linux ARM64 kit or supported
+native ARM64 builder has thereby been verified. No account file or credential
+was read and no installer was run.
+
 Keep the supported base's Pi 5 kernel/modules, device trees/overlays, boot
 partition/configuration and Pi firmware files together. Do not transplant this
 repository's amd64 GRUB/OVMF/bootc VM route. EEPROM/host boot updates are outside
