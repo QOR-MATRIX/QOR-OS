@@ -14,6 +14,30 @@ QOR OS begins: QTOS and Demiurge's device-side products in one repository
 
 ### Added
 
+- **Measured scratch budgets for Q Pi preparation.** The read-only probe can
+  check an explicit component budget against an existing local scratch volume.
+  It rejects duplicate or unknown fields, missing estimates, imprecise byte
+  counts, overflow, insufficient capacity and unqualified virtual/remote storage.
+  WSL's virtual free space cannot clear the backing-volume check. The shared
+  QOR memory guard also refuses caller-supplied thresholds below its existing
+  3-GiB floor. These checks neither reserve resources nor qualify an image,
+  builder, dependency closure or Pi hardware.
+
+- **Independent host-resource checks.** QOR OS and Q Pi use only their existing
+  resource guard and heavy-job lock, with no service-management dependency on
+  unrelated projects. Retired cross-project service wrappers, plans and lifecycle
+  records are removed from the local build folders. Mixed QOR records omit the
+  unrelated service bookkeeping and identify the metadata cleanup; dependent
+  checksums are updated and retained QOR evidence is rechecked. No runtime code
+  changed, and no other project's files or services were accessed.
+
+- **Q Pi development preparation.** QOR-0025 scopes a Pi 5 ARM64 edition using
+  a supported base login/desktop before native QOR applications, with no simulator
+  or change to the full-device guard. A read-only Python probe checks Qt version
+  metadata, source identity and bounded ARM64 ELF load layouts, including hostile
+  input tests. The canonical image guide covers physical backing-space sizing,
+  Bluetooth bootstrap, Wi-Fi/key-only SSH provisioning and actual Pi acceptance.
+  No ARM64 build, image, device boot, tool installation or provisioning is claimed.
 - **The standard SELinux context for the private installer.** The live recipe
   pairs Fedora's existing `install_exec_t` executable label with the unit's
   `install_t` process domain and checks its label lookup during image building.

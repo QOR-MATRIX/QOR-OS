@@ -40,6 +40,13 @@ in that list is not current.
 ## 3. Scope and boundaries
 
 - **This repository** is QOR OS: everything that runs on the device.
+- **Host resource isolation:** QOR OS and Q Pi do not depend on unrelated
+  projects or manage their services. Use the existing QOR heavy-job lock and
+  `tools/image/vm_resources.py`; if resources are insufficient, stop the QOR
+  attempt and report the shortfall. Never pause, restart or inspect another
+  project's services as a QOR build prerequisite. Preserve QOR build and test
+  evidence under `build/`. Retired cross-project service wrappers and their
+  bookkeeping are removed; do not restore or rerun them.
 - **The products** are developed here since 29 October 2026
   ([QOR-0015](docs/decisions/QOR-0015-the-products-are-developed-here.md)):
   QQ (`products/qq/`), ARQADE's app and games (`products/arqade/qt/`,
@@ -192,6 +199,9 @@ QTOS's practice, which QOR OS keeps:
 
 ## 8. Working agreements
 
+- Use maintained, proven frameworks and primary upstream documentation. Choose
+  foundations that meet QOR OS's architecture, licensing, security, accessibility
+  and measured performance requirements; keep new dependencies pinned and checked.
 - Commit and push only work the owner has asked for. Never publish an image,
   release, package or deployment without the owner's explicit word.
 - Commit messages say what changed and why, in plain words. Commits by an

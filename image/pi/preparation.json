@@ -1,0 +1,76 @@
+{
+  "schema": 1,
+  "kind": "planning-input-not-builder-config",
+  "name": "Q Pi",
+  "decision": "QOR-0025",
+  "status": "blocked-before-build",
+  "reviewed_source_commit": "3a5ddc35f3ec59dcb1cf17a7a07cb79e273d2572",
+  "source_note": "Review baseline only; later acceptance requires a clean committed revision containing the preparation changes.",
+  "target": {
+    "board": "Raspberry Pi 5",
+    "abi": "aarch64-linux-gnu",
+    "ram_gib": 8,
+    "nominal_storage_gb": 128,
+    "boot_media_candidate": "microSD",
+    "initial_kernel_family": "2712",
+    "initial_page_size": 16384
+  },
+  "base_candidate": {
+    "name": "Raspberry Pi OS 64-bit desktop (basic software), Debian Trixie",
+    "upstream_page": "https://www.raspberrypi.com/software/operating-systems/",
+    "advertised_release": "2026-10-06",
+    "advertised_sha256": "976766570bee2aaf3047dd78649cfe82abb8fe9687b7f15030cd533ba4e9f7a9",
+    "metadata_observed_date": "2026-11-09",
+    "artifact_url": null,
+    "artifact_downloaded": false,
+    "artifact_hash_verified": false,
+    "note": "Advertised metadata only; not a locally verified image pin or build input. Direct metadata fetch returned HTTP 403."
+  },
+  "builder_candidate": {
+    "name": "rpi-image-gen",
+    "source": "https://github.com/raspberrypi/rpi-image-gen",
+    "commit": "fb44a4cde4ac54847ef1966957149e2c2b716fdf",
+    "commit_observation": "Read-only git ls-remote HEAD on 2026-11-09; candidate pin only, no local checkout or builder execution.",
+    "dependency_manifest": "https://github.com/raspberrypi/rpi-image-gen/blob/fb44a4cde4ac54847ef1966957149e2c2b716fdf/depends",
+    "source_checkout_verified": false,
+    "supported_native_hosts": "Debian Bookworm/Trixie ARM64",
+    "private_sysroot_verified": false,
+    "namespace_permissions_verified": false,
+    "qualified": false
+  },
+  "qt": {
+    "version_family": "6.12",
+    "license": "commercial; entitlement and private packaging scope must be confirmed",
+    "linux_arm64_kit_verified": false,
+    "gnu_abi_and_transitive_16k_alignment_verified": false
+  },
+  "desktop": {
+    "login": "maintained base local login; autologin disabled",
+    "session": "maintained Pi desktop; native QOR applications as clients",
+    "simulator_allowed": false,
+    "full_prism_authentication_available": false,
+    "qor_applications_verified": false
+  },
+  "development_tools_candidate": ["git", "python3", "cmake", "ninja", "pkg-config", "gcc", "g++", "gdb"],
+  "payload_notes": [
+    "QQ Player is an initial candidate, not an ARM64 build result; Quick 3D remains required.",
+    "2D-only QQ Studio requires a later dependency refactor and tests.",
+    "The existing products.sh PDFium download is Linux x64; QOR Media needs a separate pinned ARM64 dependency.",
+    "No Qt SDK, credentials or provider keys in a reusable image without confirmed scope; no Qt installer run by this preparation."
+  ],
+  "provisioning": {
+    "plan": "image/README.md#q-pi-first-boot-and-bluetooth-bootstrap",
+    "applied": false,
+    "generic_image_ssh_enabled": false,
+    "reusable_credentials": false,
+    "bluetooth_bootstrap": "temporary USB input or separately approved, verified per-device headless provisioning"
+  },
+  "scratch_budget_bytes": null,
+  "outputs": {
+    "image": null,
+    "sha256": null,
+    "sbom": null,
+    "build_receipt": null,
+    "physical_pi_report": null
+  }
+}

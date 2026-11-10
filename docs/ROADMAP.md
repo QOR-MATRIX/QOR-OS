@@ -578,6 +578,35 @@ the owner's advisers.
 
 ## Release deliverable · The image
 
+### Q Pi development edition
+
+[QOR-0025](decisions/QOR-0025-q-pi-development-edition.md) scopes Pi 5 ARM64,
+8 GB RAM and 128 GB nominal storage. The reviewed preparation and read-only
+probe are local source work; no Pi image or native application has been built.
+
+- [x] Review the supplied preparation against the current architecture and
+  workers; preserve unrelated projects, existing proof and worktrees; add bounded
+  ELF/Qt metadata checks and the [first-boot plan](../image/README.md#q-pi-first-boot-and-bluetooth-bootstrap).
+- [ ] Qualify a physical scratch budget, supported native ARM64 builder, pinned
+  base/package inputs and entitled Linux ARM64 Qt 6.12 kit with 16-KiB-compatible
+  dependencies. Preserve the shared heavy lock and 3-GiB host-RAM floor.
+  The read-only probe now accepts a measured component budget and checks the
+  selected local scratch volume, refusing unqualified virtual/remote capacity.
+  No actual builder budget has been measured; this qualification item stays open.
+- [ ] Build and statically validate a regular-file image with a real maintained
+  Pi login/desktop, native QOR apps and local development tools; no simulator.
+- [ ] After separate spare-media authorisation, prove Pi boot, hardware graphics,
+  Wi-Fi/Bluetooth/input, secure provisioning, local project save/build, offline
+  behavior and persistence across three reboots. Preserve Kali.
+- [ ] Later: split QQ's 2D editing/runtime dependencies from Quick 3D/Physics and
+  measure the Pi path; qualify optional user-controlled remote heavy builds.
+
+The first milestone requires usable QOR apps as well as the base desktop.
+Image composition, emulation and physical-device acceptance are separate results.
+The Fedora full-device/release deliverable below keeps its existing scope.
+
+### Full device image
+
 [QOR-0021](decisions/QOR-0021-projects-engines-and-two-stores.md), decision 12. **No accepted release image yet.**
 [image/](../image/README.md) assembles the branding layer and explicit device recipe.
 The earlier private Fedora bootc/QEMU proof passes stock installation,

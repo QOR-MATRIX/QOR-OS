@@ -43,6 +43,11 @@
 
 ---
 
+The private **Q Pi development edition** has a scoped exception for its initial
+Pi-supported base login and desktop ([QOR-0025](docs/decisions/QOR-0025-q-pi-development-edition.md)).
+It runs native QOR applications on that host desktop and ships no simulator.
+The full device architecture and its acceptance gates below remain the target.
+
 ## 1. Principles
 
 | # | Principle | What it means in practice |

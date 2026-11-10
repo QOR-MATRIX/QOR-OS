@@ -76,6 +76,27 @@ See the [VM lab boundaries](../image/README.md#private-disposable-vm-lab),
 including the accepted private evidence and remaining device/release gates. Do not install a
 Qt kit in the VM or run an image/partitioning command against workstation disks.
 
+### Q Pi preparation
+
+The Pi 5 ARM64 development edition is scoped by
+[QOR-0025](decisions/QOR-0025-q-pi-development-edition.md). There is no qualified
+Pi preset or builder yet. `tools/image/pi_preflight.py` is a read-only preparation
+probe, not an image builder. Its target-library check never executes ARM64 code.
+Run its portable hostile-input tests with
+`python -B -m unittest discover -s tests/tools -p test_pi_preflight.py -v`.
+Follow [image/README.md](../image/README.md#q-pi-development-edition) for exact
+probe commands, physical backing-volume requirements, Qt target qualification and
+Bluetooth/bootstrap plans. A Windows/Android ARM64 Qt kit is not a Linux target
+kit. Tool installation and namespace/privilege changes require their own identified
+actions and approval; this preparation performs neither.
+
+The probe optionally accepts `--scratch-root <existing-directory>` and
+`--scratch-budget <measured-budget.json>` together. Its budget schema and capacity
+limits are documented in the image guide. Omitting them leaves scratch space
+unqualified. A passing capacity snapshot is not a measured builder requirement
+or permission to begin an image build. QOR's shared memory guard permits higher
+requirements, but a caller cannot lower its 3-GiB minimum.
+
 ## 1. Prerequisites
 
 ### Windows (primary development platform)

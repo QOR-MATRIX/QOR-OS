@@ -4,6 +4,14 @@ This document describes the code as it exists today and how it maps onto the
 device architecture in [`VISION.md`](../VISION.md). Decisions and their
 rationale are recorded in [`decisions/`](decisions/README.md).
 
+**Q Pi development edition.** [QOR-0025](decisions/QOR-0025-q-pi-development-edition.md)
+scopes a Pi 5 ARM64 exception: a maintained Raspberry Pi OS desktop and real base
+login host native QOR application processes. It supplies no Prism authentication,
+simulator or simulated device services. Existing embedded shell applications are
+not automatically standalone apps; QQ still imports Quick 3D even for 2D content.
+No Pi application or image has been built. The Fedora full-device recipe and its
+authentication guard are unchanged. See [the preparation and first-boot plan](../image/README.md#q-pi-development-edition).
+
 ## 1. Layers
 
 ```text

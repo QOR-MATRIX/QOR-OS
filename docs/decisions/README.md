@@ -13,7 +13,7 @@ record supersedes it, and both say so.
 | [QOR-0001](QOR-0001-one-rulebook-and-one-decision-log.md) | One rulebook (`AGENTS.md`) and this one log; three series: QOR, QTOS, Demiurge ADR | Accepted 2026-10-26 |
 | [QOR-0002](QOR-0002-one-repository-from-qtos-and-demiurge.md) | One private repository from QTOS's history; QQ, ARQADE and QOR Media carried with theirs at upstream paths; the network stays in demiurge-chain | Accepted 2026-10-26; decision 3 superseded by QOR-0015 for the products |
 | [QOR-0003](QOR-0003-the-qor-core-at-a-pinned-commit.md) | The QOR core is built from demiurge-chain at a pinned commit, never copied; reached only through its bridge; a service of its own on the device | Accepted 2026-10-26 |
-| [QOR-0004](QOR-0004-the-base-image-is-fedora-atomic.md) | The image is built on Fedora Atomic with bootc: NVIDIA open modules, Mesa, whole-image updates with rollback; Yocto retired | Accepted 2026-10-26 |
+| [QOR-0004](QOR-0004-the-base-image-is-fedora-atomic.md) | The image is built on Fedora Atomic with bootc: NVIDIA open modules, Mesa, whole-image updates with rollback; Yocto retired | Accepted 2026-10-26; limited Q Pi development-edition exception in QOR-0025 |
 | [QOR-0005](QOR-0005-every-display-at-its-own-refresh.md) | Every display at its own refresh rate on every GPU is the acceptance test; Prism's own KMS backend; the bare-metal gate deferred, not failed | Accepted 2026-10-26 |
 | [QOR-0006](QOR-0006-qor-os-1-0-moves-no-money.md) | 1.0 moves no money: free items and test CGT only; Demiurge's money rules apply everywhere | Accepted 2026-10-26 |
 | [QOR-0007](QOR-0007-what-1-0-ships.md) | What 1.0 ships, and what waits | Accepted 2026-10-26; Games row joined by QOR-0020; added to by QOR-0021 |
@@ -34,6 +34,7 @@ record supersedes it, and both say so.
 | [QOR-0022](QOR-0022-assistants-and-unreal-engine-after-epics-change.md) | After Epic's update 22 of 30 October, a rule for each operation in place of the blanket one: no training, agents on project code and source once the owner has accepted that version and its clauses are read, NoAI assets kept out of every model's input | **Proposed** 2026-11-01; not in force |
 | [QOR-0023](QOR-0023-installation-uses-proven-backends.md) | Proven installation backends; Calamares as the native Qt candidate; inactive disk/deployment integration until verified; real first-run app and checked image data kept separate from install readiness | Accepted for local development, 2026-11-05; no installer certified |
 | [QOR-0024](QOR-0024-disposable-vm-installation-lab.md) | Private Fedora bootc/Qt installation lab, restricted QEMU, pinned regular-file target and guest ancestry guard; actual install and two boots required | Accepted for local development, 2026-11-06; private installation/persistence checked 2026-11-07; actual UI reboot and repaired-image persistence checked 2026-11-08 ([scope](../../image/README.md#private-disposable-vm-lab)) |
+| [QOR-0025](QOR-0025-q-pi-development-edition.md) | Q Pi: supported Pi desktop/login and native QOR applications first; scoped development exception, no simulator; 2D Studio and remote builds later | Accepted for local preparation 2026-11-09; no image/hardware accepted |
 
 ## QTOS (inherited)
 
@@ -44,7 +45,7 @@ says otherwise.
 | Record | Decision | Status in QOR OS |
 |--------|----------|------------------|
 | [QTOS-0001](qtos/QTOS-0001-record-architecture-decisions.md) | Record decisions as ADRs in `docs/adr/` | Superseded by QOR-0001 |
-| [QTOS-0002](qtos/QTOS-0002-linux-kernel-and-the-qt-line.md) | Linux kernel underneath, Qt above "the Qt Line" | Stands; extended by QOR-0004 |
+| [QTOS-0002](qtos/QTOS-0002-linux-kernel-and-the-qt-line.md) | Linux kernel underneath, Qt above "the Qt Line" | Stands; extended by QOR-0004; limited Q Pi development-edition exception in QOR-0025 |
 | [QTOS-0003](qtos/QTOS-0003-compositor-strategy.md) | Prism on Qt Wayland Compositor, with a decision gate | Stands; gate deferred by QOR-0005 |
 | [QTOS-0004](qtos/QTOS-0004-commercial-qt-and-proprietary-repository.md) | Commercial Qt; a private, proprietary repository | Stands; amended by QOR-0002 (carried Apache-2.0 code) and QOR-0008 |
 | [QTOS-0005](qtos/QTOS-0005-qt-6-12-baseline.md) | Qt 6.12 baseline | Stands |

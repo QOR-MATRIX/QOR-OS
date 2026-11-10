@@ -4,6 +4,8 @@ import importlib
 from pathlib import Path
 import sys
 import unittest
+from collections import namedtuple
+import tempfile
 from unittest.mock import Mock, patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "tools/image"))
@@ -13,6 +15,21 @@ builder = importlib.import_module("build_vm_probe")
 
 
 class VmResources(unittest.TestCase):
+    def test_callers_cannot_lower_or_disable_the_memory_floor(self):
+        reader = Mock(return_value=4 * resources.GIB)
+        for minimum in (0, -1, True, None, 3 * resources.GIB - 1, float(3 * resources.GIB)):
+            with self.subTest(minimum=minimum), self.assertRaises(ValueError):
+                resources.require_headroom("fixture", minimum=minimum, reader=reader)
+        reader.assert_not_called()
+
+    def test_a_higher_memory_floor_is_enforced(self):
+        with self.assertRaises(ValueError):
+            resources.require_headroom("fixture", minimum=5 * resources.GIB, reader=lambda: 4 * resources.GIB)
+
+    def test_exact_memory_floor_remains_accepted(self):
+        self.assertEqual(resources.require_headroom("fixture", reader=lambda: 3 * resources.GIB)["available_bytes"],
+                         3 * resources.GIB)
+
     def test_budget_and_unknown_availability(self):
         self.assertEqual(resources.require_headroom("fixture", reader=lambda: 4 * resources.GIB)["minimum_bytes"],
                          3 * resources.GIB)
@@ -39,6 +56,123 @@ class VmResources(unittest.TestCase):
                 builder.checked_image_build(["inert-build-fixture"], log)
             run.assert_not_called()
             log.open.assert_not_called()
+
+
+class ScratchResources(unittest.TestCase):
+    def budget(self):
+        # Small, obvious byte-count fixtures; never a real builder estimate.
+        return {"schema": 1, "components": {name: 100 for name in resources.SCRATCH_COMPONENTS}}
+
+    def test_every_component_and_reserve_count_towards_the_requirement(self):
+        self.assertEqual(resources.scratch_requirement(self.budget()), 700)
+
+    def test_missing_extra_or_ambiguous_components_are_rejected(self):
+        for name in resources.SCRATCH_COMPONENTS:
+            value = self.budget()
+            del value["components"][name]
+            with self.subTest(missing=name), self.assertRaises(ValueError):
+                resources.scratch_requirement(value)
+        for value in (None, [], {"schema": True, "components": self.budget()["components"]},
+                      {**self.budget(), "qualified": True}):
+            with self.subTest(value=value), self.assertRaises(ValueError):
+                resources.scratch_requirement(value)
+        value = self.budget()
+        value["components"]["unmeasured"] = 1
+        with self.assertRaises(ValueError):
+            resources.scratch_requirement(value)
+
+    def test_precision_unknown_values_and_overflow_are_rejected(self):
+        for size in (0, -1, True, None, 100.5, "100", 1 << 64):
+            value = self.budget()
+            value["components"]["raw_image"] = size
+            with self.subTest(size=size), self.assertRaises(ValueError):
+                resources.scratch_requirement(value)
+        value = self.budget()
+        value["components"]["raw_image"] = (1 << 64) - 1
+        with self.assertRaises(ValueError):
+            resources.scratch_requirement(value)
+
+    def test_duplicate_budget_fields_are_rejected(self):
+        with self.assertRaises(ValueError):
+            resources.parse_scratch_budget(b'{"schema": 1, "schema": 1, "components": {}}')
+        with self.assertRaises(ValueError):
+            resources.parse_scratch_budget(b'{"schema": 1, "components": {"source": 1, "source": 2}}')
+
+    def test_deeply_nested_or_oversized_budget_fails_without_a_traceback(self):
+        for raw in (b"[" * 2000 + b"0" + b"]" * 2000, b" " * 65537):
+            with self.subTest(size=len(raw)), self.assertRaises(ValueError):
+                resources.parse_scratch_budget(raw)
+
+    def test_capacity_is_measured_at_the_selected_scratch_directory(self):
+        usage = namedtuple("Usage", "total used free")
+        with tempfile.TemporaryDirectory() as directory, \
+                patch.object(resources, "local_disk_directory", return_value=Path(directory)):
+            reader = Mock(return_value=usage(1000, 300, 700))
+            result = resources.require_scratch_headroom(Path(directory), self.budget(), reader=reader)
+            self.assertEqual(result["required_bytes"], 700)
+            self.assertEqual(result["available_bytes"], 700)
+            reader.assert_called_once_with(Path(directory))
+            reader.return_value = usage(1000, 301, 699)
+            with self.assertRaises(ValueError):
+                resources.require_scratch_headroom(Path(directory), self.budget(), reader=reader)
+
+    def test_unknown_backing_storage_never_reaches_a_capacity_reader(self):
+        reader = Mock()
+        with patch.object(resources, "local_disk_directory", side_effect=ValueError):
+            with self.assertRaises(ValueError):
+                resources.require_scratch_headroom(Path("fixture"), self.budget(), reader=reader)
+        reader.assert_not_called()
+
+    def test_nonexistent_or_non_directory_scratch_is_rejected(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory)
+            with self.assertRaises((OSError, ValueError)):
+                resources.local_disk_directory(path / "missing")
+            file = path / "regular-file"
+            file.write_bytes(b"fixture")
+            with self.assertRaises(ValueError):
+                resources.local_disk_directory(file)
+
+    def test_wsl_virtual_capacity_is_not_physical_host_capacity(self):
+        with tempfile.TemporaryDirectory() as directory, \
+                patch.object(resources.platform, "release", return_value="fixture-microsoft-WSL2"):
+            with self.assertRaises(ValueError):
+                resources.local_disk_directory(Path(directory))
+
+    def test_invalid_capacity_observations_fail_closed(self):
+        usage = namedtuple("Usage", "total used free")
+        with tempfile.TemporaryDirectory() as directory, \
+                patch.object(resources, "local_disk_directory", return_value=Path(directory)):
+            for observed in (usage(1000, 0, True), usage(1000, 0, -1), usage(1000, 0, 1001),
+                             usage(0, 0, 0), usage(1000, 1001, 0)):
+                with self.subTest(observed=observed), self.assertRaises(ValueError):
+                    resources.require_scratch_headroom(Path(directory), self.budget(), reader=lambda _: observed)
+
+
+@unittest.skipUnless(sys.platform == "linux", "Linux mount layout")
+class LinuxScratchMounts(unittest.TestCase):
+    def test_local_disk_and_escaped_mount_name(self):
+        raw = b"1 0 8:1 / / rw - ext4 /dev/fixture rw\n2 1 8:2 / /scratch\\040space rw - xfs /dev/fixture2 rw\n"
+        resources._check_linux_mount(Path("/scratch space/work"), raw, "8:2")
+
+    def test_nested_virtual_or_remote_mount_hides_local_disk(self):
+        base = b"1 0 8:1 / / rw - ext4 /dev/fixture rw\n"
+        for filesystem, source in (("tmpfs", "tmpfs"), ("overlay", "overlay"), ("nfs", "host:/share")):
+            row = f"2 1 0:99 / /scratch rw - {filesystem} {source} rw\n".encode()
+            with self.subTest(filesystem=filesystem), self.assertRaises(ValueError):
+                resources._check_linux_mount(Path("/scratch/work"), base + row, "0:99")
+
+    def test_a_hidden_disk_mount_cannot_qualify_a_virtual_overmount(self):
+        raw = (b"1 0 8:1 / /scratch rw - ext4 /dev/fixture rw\n"
+               b"2 1 0:99 / /scratch rw - tmpfs tmpfs rw\n")
+        with self.assertRaises(ValueError):
+            resources._check_linux_mount(Path("/scratch/work"), raw, "0:99")
+
+    def test_missing_malformed_or_mismatched_mount_is_unqualified(self):
+        for raw in (b"", b"malformed", b"1 0 8:1 / / rw - ext4\n",
+                    b"1 0 8:1 / / rw - ext4 /dev/fixture rw\n", b"x" * (1024 * 1024 + 1)):
+            with self.subTest(size=len(raw)), self.assertRaises(ValueError):
+                resources._check_linux_mount(Path("/scratch/work"), raw, "0:99")
 
 
 if __name__ == "__main__":

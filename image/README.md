@@ -14,6 +14,249 @@
 > the history before commit "Retire the Yocto skeleton for Fedora Atomic"
 > (`git log -- image/meta-qtos`).
 
+## Q Pi development edition
+
+[QOR-0025](../docs/decisions/QOR-0025-q-pi-development-edition.md) scopes **Q Pi**:
+Pi 5 ARM64, 8 GB RAM and nominal 128 GB media, a real maintained Pi login and
+desktop, native QOR applications and usable local development tools. Its initial
+base candidate is [Raspberry Pi OS 64-bit desktop, Debian Trixie](https://www.raspberrypi.com/software/operating-systems/),
+the basic desktop edition rather than Full. This is a development-edition
+exception to the Fedora/Qt-only host desktop. Require local login and explicitly
+disable base autologin. Neither Prism's simulator nor its unfinished device
+authentication becomes that login. The full device guard remains unchanged.
+
+`pi/preparation.json` is planning data, **not a generator configuration**. Its
+base checksum is upstream-advertised metadata only: no base artifact was
+downloaded or hashed locally. The direct metadata request returned HTTP 403;
+the official published page was reviewed separately. A candidate generator commit
+is recorded from a read-only Git ref lookup; its source and runtime are not locally
+qualified. Scratch budget, artifact paths and acceptance receipts remain unset. Nothing
+here builds or flashes an image. A stock desktop alone does not meet the Q Pi
+milestone without tested QOR applications and a small native development build.
+
+### Reviewed environment and preparation checks
+
+The 9 November review began at clean `3a5ddc3`; all fourteen checkouts were
+clean and the original `heavy.py` OS lock was free. No active QOR compiler/VM
+worker was identified. Evidence is in `build/q-pi-2026-11-09/review-01/`, including
+the untouched supplied bundle's six matching SHA-256 entries and its twelve
+passing synthetic parser tests. The seventh file, `SHA256SUMS` itself, is not
+covered by that manifest. Self-consistent hashes do not authenticate its origin.
+Instructions inside that bundle remain proposals; the owner's current request
+sets the scope. Existing amd64 installer proof is not Pi boot proof.
+
+| Observation at initial inventory | Result and implication |
+|---|---|
+| Windows available RAM | 1,668 MiB; below the unchanged 3,072-MiB heavy-job floor |
+| C: physical free space | 34.18 GiB; Ubuntu WSL's registered backing directory is on C: |
+| X: physical free space | 4.43 GiB; preserve existing output, no cleanup authorised |
+| WSL free space | About 884 GiB virtual; not physical backing capacity |
+| Existing Linux host | x86-64 Ubuntu 26.04 under WSL2; not a supported native generator host |
+| Existing Linux Qt | Commercial 6.12.0 `gcc_64`, x86-64; no Linux ARM64 target kit identified |
+| ARM64 tools | No GNU AArch64 compiler, QEMU AArch64 or Pi generator identified |
+| Packaging tools on WSL PATH | No podman, mmdebstrap, bdebstrap or genimage identified |
+| Namespace capability | Current WSL user has no effective capabilities; no namespace permission test or privilege change performed |
+
+These are dated observations, not permanent resource promises. The 11:17 local
+inventory records **1,007 MiB
+RAM, C: 27.17 GiB free and X: 4.43 GiB free**; resources changed during review.
+`build/q-pi-2026-11-09/review-01/review-result.json` retains the exact byte counts.
+Before any heavy phase, recheck workers, the original lock and `python tools/image/vm_resources.py`
+on Windows. It refuses to start below 3 GiB and never frees RAM itself. Do not
+inspect or manage unrelated projects' services to meet this budget. If it fails,
+stop the QOR attempt and report the shortfall. Retired cross-project service
+wrappers and bookkeeping are removed from `build/`; preserve the QOR evidence
+and do not restore or rerun those wrappers. Size source,
+Qt/sysroot, package caches, expanded filesystems, raw output and compressed output
+on the actual backing volume before selecting a build route. No measured builder
+disk minimum is established yet. A compact image can later expand on its own
+booted media; 128 GB capacity need not mean a 128 GB raw download.
+
+The repository probe accepts optional `--scratch-root <existing-directory>` and
+`--scratch-budget <measured-budget.json>` arguments together. The budget is a
+bounded schema-1 JSON object with exactly `schema` and `components`. Components
+must contain exactly `source`, `qt_sysroot`, `package_cache`, `expanded_root`,
+`raw_image`, `compressed_output` and `reserve`, each a positive integer byte
+count derived from the selected build route's measured peak needs. Their sum,
+including reserve, must fit the selected volume's current available space.
+There is no built-in estimate; null, zero, floating-point, missing, duplicate,
+unknown and overflowing values fail. Budgets are at most 64 KiB.
+
+This read-only capacity observation creates no directory, allocates no file and
+reserves no space. It permits fixed local Windows volumes or native Linux local
+ext4/XFS/Btrfs/F2FS disk mounts. It refuses WSL observations, overlay/tmpfs and
+remote or removable storage rather than treating virtual free space as backing
+capacity. A Windows check can observe a local scratch volume but does not size a
+WSL virtual disk's required growth. Omitted or invalid budgets remain blockers.
+Passing this check establishes only available capacity against the supplied
+numbers; the builder, realistic budget sizing and every other input still need
+qualification. The separate 3-GiB memory floor cannot be reduced by a caller.
+
+The included preflight ran read-only under the original heavy lock and exited 2:
+wrong host architecture/distribution, missing tools, source query timeout, failed
+Qt version detection and wrong target ELF architecture. Follow-up identified two
+probe defects: the Git status query took about 17 seconds against its 15-second
+limit, and Qt's version file delegates to `Qt6CoreConfigVersionImpl.cmake`.
+The repository probe allows a bounded 60-second Git query and reads those fixed
+metadata files without executing CMake. Its ARM64 ELF layout checks additionally
+refuse invalid header/type/version, overlapping/truncated program tables,
+out-of-file segments, address overflow and incongruence at the declared segment
+alignment. The probe uses a conservative qualification floor for declared load
+alignment and excludes empty load segments; these are not universal ELF validity
+rules ([ELF program-loading specification](https://gabi.xinuos.com/elf/07-pheader.html)).
+A valid ELF header is still not Linux GNU ABI, licence or dependency
+closure proof. The supplied bundle stays unchanged.
+
+Run the low-memory, read-only probe on the existing WSL kit to reproduce the
+architecture blocker (exit 2 is expected). Use a reviewed full commit identity;
+the source-clean check also reports the local preparation edits until committed.
+
+```powershell
+wsl.exe -d Ubuntu --exec python3 -B /mnt/x/Repoz/QOR-OS/tools/image/pi_preflight.py --source /mnt/x/Repoz/QOR-OS --qt-target /home/godmode/Qt/6.12.0/gcc_64 --expected-commit 3a5ddc35f3ec59dcb1cf17a7a07cb79e273d2572
+python -B -m unittest discover -s tests/tools -p test_pi_preflight.py -v
+```
+
+These probes do not install, mount, build, configure networking, execute target
+code or contact unrelated projects' services. Scratch sizing and qualified image inputs deliberately
+remain failed/unqualified checks; this preparation probe cannot certify a build.
+Tests use synthetic bytes and temporary ordinary files, not a Pi or emulator.
+
+### Builder, graphics and payload qualification still required
+
+The [`rpi-image-gen` candidate](https://github.com/raspberrypi/rpi-image-gen/blob/fb44a4cde4ac54847ef1966957149e2c2b716fdf/README.adoc)
+supports native Debian Bookworm/Trixie ARM64 hosts; x86/QEMU/container routes are
+outside its formal support. Its namespace operations require `CAP_SYS_ADMIN` or
+equivalent permission. Its private tool sysroot must be verified against an exact
+generator commit rather than assuming every tool must be on PATH. The minimal
+example disables login passwords and is not a desktop recipe. Do not run
+`install_deps.sh`, grant privileges or use an unrestricted container by following
+this guide. Any such action needs its exact package/configuration changes reviewed
+and approved first. No native ARM64 builder has been selected or provisioned.
+
+Candidate source pin: `fb44a4cde4ac54847ef1966957149e2c2b716fdf`, observed using
+`git ls-remote https://github.com/raspberrypi/rpi-image-gen.git HEAD`.
+Its [fixed-revision dependency manifest](https://github.com/raspberrypi/rpi-image-gen/blob/fb44a4cde4ac54847ef1966957149e2c2b716fdf/depends)
+identifies the proposed native-builder package changes: coreutils, bash, python3,
+python3-yaml, python3-debian, dpkg-dev, mmdebstrap, debian-archive-keyring, podman,
+uidmap, dbus-user-session, zip, dosfstools, e2fsprogs, grep, rsync, curl,
+ca-certificates, xz-utils, mtools, pv, btrfs-progs, dctrl-tools, uuid-runtime,
+fdisk, python3-jsonschema, cryptsetup, python3-pip, make, build-essential,
+autoconf, automake, libtool, autopoint, flex, gettext, pkgconf and cmake.
+This is an upstream package-name review, not an approved installation or resolved
+package-version lock. First choose the separate supported builder, inspect its
+existing packages and give the owner the exact install delta and namespace action
+before requesting approval. Do not apply that package list to this Windows/WSL
+host or the Kali installation. No source checkout or package installer was run.
+
+The [Pi 5 layer](https://raspberrypi.github.io/rpi-image-gen/layer/rpi5.html)
+uses the 2712 kernel with **16-KiB pages**. Verify every shipped executable,
+library, Qt plugin and helper for ARM64 GNU/Linux, that page size, loader and
+resolved dependencies. Android/Windows ARM64 kits and QEMU header probes do not
+supply that evidence. [Qt's Linux ARM desktop reference](https://doc.qt.io/qt-6.12/supported-platforms.html)
+is Pi 5 with 8 GB on Ubuntu 24.04; installer ARM64 binaries use glibc 2.39.
+Check actual base/kit ABI compatibility and the commercial entitlement for all
+needed modules, native host tools and private packaging. Do not use a distro's
+older Qt or infer entitlement from Qt source files being present.
+
+Keep the supported base's Pi 5 kernel/modules, device trees/overlays, boot
+partition/configuration and Pi firmware files together. Do not transplant this
+repository's amd64 GRUB/OVMF/bootc VM route. EEPROM/host boot updates are outside
+scope. Preserve supported Mesa V3D/DRM/KMS and Wayland integration, input,
+NetworkManager, BlueZ and audio. On hardware, record the actual renderer and Qt
+platform backend; llvmpipe/lavapipe is software evidence, not hardware graphics.
+Power supply, cooling and throttling also require actual Pi checks.
+For the physical setup, verify a suitable **5-V/5-A USB-C supply** and cooling
+for sustained builds against the [Pi 5 specification](https://www.raspberrypi.com/products/raspberry-pi-5/).
+Use micro-HDMI-to-HDMI for the display and temporary USB input; USB-C is the
+power connection, not a display output. No accessory has been purchased or configured.
+
+Initial development-tool candidates are Git, Python, CMake, Ninja, pkg-config,
+GCC/G++, GDB, a terminal and a small editor. Determine their exact resolved
+versions in the eventual base manifest; nothing was installed in this review.
+QOR payload scope must be proved independently:
+
+- `QQ_PLAYER_ONLY` omits Studio/agent/tests but still requires Quick 3D. Studio
+  and the shared runtime import Quick 3D; `runtime/Scene.qml` also imports Physics
+  unconditionally. A later 2D Studio needs a measured dependency refactor, a
+  2D-only sample/edit/save/build/play test and render-on-demand checks on Pi.
+  First separate the 3D scene/physics imports and editor viewport/gizmos from
+  the 2D runtime/editor path, then make CMake's 3D dependency conditional. Merely
+  hiding a viewport leaves QML imports and linked libraries in the dependency
+  closure. Preserve project formats; test with Quick 3D/Physics absent, then
+  measure startup, idle/peak RAM, save/reopen and packaged 2D play on the Pi.
+- Existing shell apps use QOR services and are not automatically standalone
+  desktop apps. Select native working clients without substituting simulator
+  services. No QOR app is currently verified on ARM64.
+- `tools/dev/products.sh` pins a Linux **x64** PDFium archive. Do not run that
+  download as an ARM64 Media recipe; qualify a separate pinned ARM64 input and
+  licence/dependency closure first. Do not weaken asset provenance checks.
+- Later remote heavy builds are optional and user-controlled. Qualify a specific
+  private builder, access scope, Qt licence, job/resource bounds and returned
+  artifact source/architecture/dependencies. No paid service, tunnel, SDK copying,
+  automatic offload or shared credentials are configured by this plan.
+
+### Q Pi first boot and Bluetooth bootstrap
+
+This is an unapplied plan. No media is connected or authorised. Preserve Kali;
+its media and partitions are never candidates for this preparation.
+
+1. **Preferred first boot: temporary USB keyboard/mouse and HDMI.** Bluetooth
+   devices are unavailable until paired. Use the supported base's first-user
+   workflow to choose a local account/password, disable autologin and require
+   the real login before the desktop. Enter Wi-Fi credentials and regulatory
+   country locally through the base networking interface. Ethernet is optional.
+   Pair and trust the Bluetooth keyboard/mouse using the base desktop, then test
+   reconnect at the login screen and after a cold boot before removing USB input.
+2. **Optional later headless bootstrap:** after approval for one exact Pi/media,
+   account, public key and private network, use the supported base's
+   [Imager customisation](https://www.raspberrypi.com/documentation/computers/getting-started.html)
+   to enter Wi-Fi/country, a chosen local account and SSH **public-key** access
+   locally. Do not send credentials through chat or logs. Explicitly disable
+   autologin: account creation alone does not disable it. A custom generator image
+   must separately implement and test this protocol; Imager compatibility cannot
+   be assumed. Do not use the obsolete boot-partition Wi-Fi-file shortcut.
+3. Require key-only SSH for the intended ordinary account, no root SSH and no
+   password SSH. Verify these settings on the actual selected image; package
+   presence or an Imager setting is not proof of effective daemon configuration.
+   Confirm the Pi's host-key fingerprint through a trusted local console/channel
+   before first SSH; discovery or `ssh-keyscan` alone is not authentication. Without
+   that trusted route, first remote authentication remains unresolved. Never
+   bypass a changed-host-key warning. No public port forwarding or cloud enrolment.
+4. For Bluetooth pairing through SSH, a working BlueZ authentication agent and
+   the devices' passkey/confirmation workflow must be tested. Do not promise a
+   remote desktop or pairing at the greeter merely because SSH works. A separately
+   approved base remote-desktop service must have verified authentication and
+   private-network scope before use; USB input remains the recovery path.
+5. A reusable image has no Wi-Fi password, account password, private key, provider
+   credential, SSH host key or shared machine identity. Per-device provisioning
+   necessarily writes private configuration to that one device, never the golden
+   image or repository. Generate unique host identity/keys on first boot, with
+   interruption/retry tests that preserve existing state. SSH stays disabled in
+   the generic image until expressly provisioned. No local desktop/project save
+   should require Internet access.
+
+### Pi image and hardware acceptance
+
+Before delivery, build only to a new regular file in an approved, sized scratch
+directory. Record clean source, base/generator/package identities, commands,
+native exits, failure/skips, Qt/dependency manifests, notices, software bill of
+materials, compressed/decompressed hashes and resource observations. Confined
+static checks must verify partition bounds, filesystems, Pi 5 boot assets,
+target ABI/alignment, real login/autologin policy, first-boot identity and optional
+SSH policy. First-boot expansion must target only the verified booted media,
+never an arbitrary attached disk. No Pi-capable emulation has run; emulation
+would still not prove this board's boot firmware, graphics or radios.
+
+Only after a separate exact **spare-media** selection, backup and write
+authorisation: verify the Pi 5/ARM64 identity and kernel page size; complete real
+login; test HDMI/scaling, hardware rendering, Wi-Fi, Bluetooth reconnection at
+login, input, audio, USB/Ethernet, power/cooling and shutdown. Open a native QOR
+app, save/reopen a local project and compile/run a small native program, offline
+as well as online. Test interrupted setup, three reboots with persistent state
+and a 30-minute workload/idle check with measured resource use. Record failures
+and unavailable features. No ARM64 build, image assembly, static image validation,
+Pi boot or hardware test has passed yet. The existing VM proof below is separate.
+
 ## Private disposable VM lab
 
 [QOR-0024](../docs/decisions/QOR-0024-disposable-vm-installation-lab.md) defines a

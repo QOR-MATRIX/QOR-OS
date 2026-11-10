@@ -1,6 +1,7 @@
 # QOR-0004: The base image is Fedora Atomic
 
-- **Status:** Accepted
+- **Status:** Accepted; limited development-edition exception to decisions 1 and 3
+  in [QOR-0025](QOR-0025-q-pi-development-edition.md); full device decision unchanged
 - **Date:** 2026-10-26
 - **Deciders:** the owner
 - **Relates to:** [QTOS-0002](qtos/QTOS-0002-linux-kernel-and-the-qt-line.md) (extended); replaces the Yocto plan in QTOS's
