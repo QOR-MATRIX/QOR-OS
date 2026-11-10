@@ -2,7 +2,8 @@
 
 For Andrew, 10 November 2026. This session began at clean `8670e39` on
 `integration/owner-brief`. Existing history, candidate patch and logs are retained.
-No unrelated project's files or services were inspected or managed.
+The tested Pi build workflow is pushed as `691a641`. No unrelated project's
+files or services were inspected or managed.
 
 ## Prism warning candidate
 
@@ -27,6 +28,9 @@ fell from 3,577 MiB to 1,419 MiB without compiling. Admit work only with WSL
 already resident and at least the unchanged 3,072-MiB floor. No host settings,
 other services or physical media changed. More host headroom or another
 qualified builder is needed; WSL's virtual free space cannot clear disk checks.
+Final warm-WSL samples measured 1,220–1,340 MiB: 1,732–1,852 MiB short of the
+floor before compiler working memory. Both stopped QOR scopes are inactive and
+the original heavy-job lock is free.
 
 ## Q Pi source build path
 
@@ -41,7 +45,7 @@ no full product or sanitizer pass is claimed.
 
 The exact candidate image-generator source was checked out and its dependency,
 private-tool and Pi 5 boot recipes inspected. No generator was run or installed.
-Only x86-64 WSL Qt and unsuitable Windows/Android ARM64 kits are installed here.
+The installed WSL Qt kit is x86-64; Windows/Android ARM64 kits are not Linux kits.
 A native Debian/Raspberry Pi OS Trixie ARM64 builder and entitled Qt 6.12 Linux
 ARM64 kit are still needed, with measured physical scratch and dependency checks.
 **No ARM64 QOR app or bootable Pi image was built or tested.** Physical boot,
