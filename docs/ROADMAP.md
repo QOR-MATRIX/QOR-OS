@@ -608,6 +608,12 @@ The first milestone requires usable QOR apps as well as the base desktop.
 Image composition, emulation and physical-device acceptance are separate results.
 The Fedora full-device/release deliverable below keeps its existing scope.
 
+On 10 November the root Prism registrar again reproduces twelve Wayland metadata
+warnings. Its private candidate build stopped at 748 MiB available host memory,
+below the unchanged 3-GiB floor; the patch and partial logs remain local, with
+candidate source changes restored. Compiler, runtime and sanitizer acceptance
+of that candidate remain pending. Resume only after the resource guard passes.
+
 ### Full device image
 
 [QOR-0021](decisions/QOR-0021-projects-engines-and-two-stores.md), decision 12. **No accepted release image yet.**
