@@ -29,9 +29,11 @@ authentication becomes that login. The full device guard remains unchanged.
 base checksum is upstream-advertised metadata only: no base artifact was
 downloaded or hashed locally. The direct metadata request returned HTTP 403;
 the official published page was reviewed separately. A candidate generator commit
-is recorded from a read-only Git ref lookup; its source and runtime are not locally
-qualified. Scratch budget, artifact paths and acceptance receipts remain unset. Nothing
-here builds or flashes an image. A stock desktop alone does not meet the Q Pi
+is recorded from a read-only Git ref lookup. On 10 November that exact source
+was checked out and its dependency/tool/boot recipes inspected; its runtime is
+still unqualified. Scratch budget, artifact paths and acceptance receipts remain
+unset. The application presets below provide an actual build entry point, but
+no image recipe is accepted. A stock desktop alone does not meet the Q Pi
 milestone without tested QOR applications and a small native development build.
 
 ### Reviewed environment and preparation checks
@@ -159,7 +161,17 @@ This is an upstream package-name review, not an approved installation or resolve
 package-version lock. First choose the separate supported builder, inspect its
 existing packages and give the owner the exact install delta and namespace action
 before requesting approval. Do not apply that package list to this Windows/WSL
-host or the Kali installation. No source checkout or package installer was run.
+host or the Kali installation. The pinned source checkout is preserved under
+`build/pi-builder-2026-11-10/rpi-image-gen/`; its HEAD and clean status were
+checked. No package installer or generator build was run. Its private recipes pin
+bdebstrap 0.7.0 and genimage 20 archives by SHA-256; those tools have not been
+downloaded/built/qualified here. `rpi5` requires `rpi-linux-2712`, whose package is
+`linux-image-rpi-2712`. `image-rpios` supplies MBR, FAT boot and ext4/btrfs root
+layouts; this is a Pi boot path, not the amd64 bootc/UEFI path. The upstream
+minimal suite also includes SSH and has locked passwords: do not use it as the
+generic Q Pi desktop/login configuration. Desktop packages, disabled remote
+access, local provisioning and immutable package inputs still need an actual
+recipe and validation against the selected builder/base.
 
 The [Pi 5 layer](https://raspberrypi.github.io/rpi-image-gen/layer/rpi5.html)
 uses the 2712 kernel with **16-KiB pages**. Verify every shipped executable,
@@ -207,6 +219,69 @@ QOR payload scope must be proved independently:
   private builder, access scope, Qt licence, job/resource bounds and returned
   artifact source/architecture/dependencies. No paid service, tunnel, SDK copying,
   automatic offload or shared credentials are configured by this plan.
+
+### Native QOR application build
+
+`products/qq/CMakePresets.json` now supplies `q-pi-release` and `q-pi-asan` for
+the actual QQ sources, with Studio, Player and tests enabled. These use CMake
+and Ninja, one compile job, warnings as errors and QOR hardening. The native
+host gate runs before compiler discovery, rejecting x86-64, cross compilation
+and WSL. Both the maximum and common linker page sizes are 16 KiB: the latter
+preserves read-only relocation protection on that kernel
+([GNU ld](https://sourceware.org/binutils/docs/ld/Options.html)). Every Qt/plugin/
+system dependency still needs its separate ELF layout and ABI checks.
+
+First supply an existing native Debian/Raspberry Pi OS Trixie ARM64 builder
+and its entitled Qt 6.12 Linux ARM64 kit. The current machine has neither:
+WSL and its `gcc_64` kit are x86-64; the installed Windows/Android ARM64 kits
+are unsuitable. No remote builder access is configured by this procedure.
+Required native application tools are CMake 3.27+, Ninja, GNU C++, pkg-config,
+Python and Git. The kit must include Core, Gui/GuiPrivate, Multimedia, Network,
+Qml/QmlPrivate, Quick, Quick 3D/Physics, Quick Controls, Test and D-Bus, with
+Shader Tools for QML assets. Qualify these through the source's `find_package`
+and QML imports, not a guessed desktop-only Qt subset. Commercial entitlement,
+glibc/C++ ABI, graphics/audio/input dependencies and Secret Service still need
+verification. No installation or licence acceptance is implicit.
+
+After source/kit/dependency/resource qualification, hold the builder's existing
+QOR heavy-job lock and check `vm_resources.require_headroom` using
+`vm_resources.linux_available_memory` on that native host. Size source, kit,
+cache and build outputs on its actual backing disk. There is no measured budget
+yet; this host's 10 November snapshot had about 30.0 GiB free on C: and 31.4 GiB
+on X:, while WSL advertised 883.7 GiB. That virtual capacity is not usable as a
+physical budget. Do not copy the SDK into an image without the confirmed scope.
+
+On the qualified builder, with `QOR_QT_DIR` set to that kit, run from
+`products/qq/` (these commands were **not** run on ARM64 here):
+
+```bash
+cmake --preset q-pi-release
+cmake --build --preset q-pi-release
+python3 ../../tools/ci/check_hardening.py ../../build/q-pi-qq-release/qq
+```
+
+Use the existing product harness for hidden display/isolated-keyring tests.
+Its new `--preset` option configures the native preset and tests that same
+`<build-root>/qq` cache, preserving the preset's sanitizer mode, page sizes and
+single-job build. Do not run raw CTest on a builder's real desktop/keyring. The
+matching CTest presets are for an already isolated environment:
+
+```bash
+# From the repository root, still inside the single guarded heavy job:
+tools/dev/products.sh --product qq --preset q-pi-release --qt "$QOR_QT_DIR" --build-root build/q-pi-qq-release --attempts 1
+# Repeat with q-pi-asan and build/q-pi-qq-asan for the sanitizer build/tests.
+```
+
+The harness requires Qt Wayland Compositor for its hidden display and
+`dbus-daemon`, `python3-dbus` and `python3-gi` for its private session/keyring.
+It reports the renderer it actually expects; software is not Pi GPU evidence,
+and its existing performance floor is not waived. `--preset` refuses other
+products and unknown preset names before building or downloading dependencies.
+The sanitizer preset must also build and run the hostile-input suites before
+acceptance. Real Pi graphics, a local saved/reopened project, image composition
+and physical boot remain separate gates. This session passed the portable
+resource/ELF/preset-refusal suites: 59 Windows cases plus four platform skips,
+and all 63 cases under x86-64 WSL. These are not ARM64 application results.
 
 ### Q Pi first boot and Bluetooth bootstrap
 

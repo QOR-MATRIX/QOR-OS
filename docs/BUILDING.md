@@ -79,8 +79,16 @@ Qt kit in the VM or run an image/partitioning command against workstation disks.
 ### Q Pi preparation
 
 The Pi 5 ARM64 development edition is scoped by
-[QOR-0025](decisions/QOR-0025-q-pi-development-edition.md). There is no qualified
-Pi preset or builder yet. `tools/image/pi_preflight.py` is a read-only preparation
+[QOR-0025](decisions/QOR-0025-q-pi-development-edition.md). QQ now has native ARM64
+`q-pi-release` and `q-pi-asan` configure/build/test presets in
+`products/qq/CMakePresets.json`. They build Studio, Player and their tests, keep
+hardening and warnings as errors, and link for the 2712 kernel's 16-KiB pages.
+The presets reject this x86-64 host before compiler or Qt-tool execution. They
+have not yet compiled on a qualified ARM64 builder. Follow the
+[native application procedure](../image/README.md#native-qor-application-build)
+before using them; they neither install tools nor compose an image.
+
+`tools/image/pi_preflight.py` remains a read-only preparation
 probe, not an image builder. Its target-library check never executes ARM64 code.
 Run its portable hostile-input tests with
 `python -B -m unittest discover -s tests/tools -p test_pi_preflight.py -v`.
@@ -96,6 +104,13 @@ limits are documented in the image guide. Omitting them leaves scratch space
 unqualified. A passing capacity snapshot is not a measured builder requirement
 or permission to begin an image build. QOR's shared memory guard permits higher
 requirements, but a caller cannot lower its 3-GiB minimum.
+
+Check Windows headroom with WSL already resident before admitting a WSL heavy
+job. A cold-host snapshot does not budget WSL startup. A 10 November read-only
+startup observation fell from 3,577 MiB to 1,419 MiB available without a compiler;
+the separate monitored metadata attempt was stopped at 1,189 MiB. No QOR build
+worker was available to reclaim. Do not reduce the floor or manage unrelated
+services: free host memory outside this workflow or use another qualified builder.
 
 On native Linux, the same probe uses the kernel's `MemAvailable` estimate and
 visible cgroup v2 memory limits, including ancestor limits. Missing or malformed

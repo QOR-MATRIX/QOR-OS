@@ -30,13 +30,14 @@
     "name": "rpi-image-gen",
     "source": "https://github.com/raspberrypi/rpi-image-gen",
     "commit": "fb44a4cde4ac54847ef1966957149e2c2b716fdf",
-    "commit_observation": "Read-only git ls-remote HEAD on 2026-11-09; candidate pin only, no local checkout or builder execution.",
+    "commit_observation": "Read-only remote HEAD rechecked 2026-11-10; detached source checkout at this exact commit is clean. No generator or package installer executed.",
     "dependency_manifest": "https://github.com/raspberrypi/rpi-image-gen/blob/fb44a4cde4ac54847ef1966957149e2c2b716fdf/depends",
-    "source_checkout_verified": false,
+    "source_checkout_verified": true,
     "supported_native_hosts": "Debian Bookworm/Trixie ARM64",
     "private_sysroot_verified": false,
     "namespace_permissions_verified": false,
-    "qualified": false
+    "qualified": false,
+    "source_review": "README, depends, dependency installer, bdebstrap/genimage content-pinned recipes, Pi 5 / 2712 kernel and image-rpios layout inspected locally; runtime remains unqualified."
   },
   "qt": {
     "version_family": "6.12",
@@ -51,7 +52,16 @@
     "full_prism_authentication_available": false,
     "qor_applications_verified": false
   },
-  "development_tools_candidate": ["git", "python3", "cmake", "ninja", "pkg-config", "gcc", "g++", "gdb"],
+  "development_tools_candidate": [
+    "git",
+    "python3",
+    "cmake",
+    "ninja",
+    "pkg-config",
+    "gcc",
+    "g++",
+    "gdb"
+  ],
   "payload_notes": [
     "QQ Player is an initial candidate, not an ARM64 build result; Quick 3D remains required.",
     "2D-only QQ Studio requires a later dependency refactor and tests.",
@@ -72,5 +82,16 @@
     "sbom": null,
     "build_receipt": null,
     "physical_pi_report": null
+  },
+  "native_application_build": {
+    "source": "products/qq",
+    "presets": [
+      "q-pi-release",
+      "q-pi-asan"
+    ],
+    "harness": "tools/dev/products.sh --product qq --preset <preset>",
+    "outputs_built": false,
+    "native_arm64_builder_selected": false,
+    "note": "Actual CMake/Ninja source build entry points, with native-host refusal tests; no ARM64 application compiled or tested."
   }
 }

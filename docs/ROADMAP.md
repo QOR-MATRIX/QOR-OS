@@ -596,6 +596,13 @@ probe are local source work; no Pi image or native application has been built.
   WSL continues to require the Windows guard. Synthetic counter tests are not
   qualification of a native ARM64 builder.
   No actual builder budget has been measured; this qualification item stays open.
+- [x] Add native QQ Studio/Player configure/build/test presets and connect them
+  to the existing isolated Linux product harness, preserving the same cache,
+  sanitizer selection, warnings-as-errors, hardening and 16-KiB link layout.
+  Actual CMake rejects this unsupported host; harness fixtures pass. The pinned
+  generator source and boot/tool recipes have been inspected locally.
+- [ ] Compile and test those actual applications on the qualified ARM64 builder,
+  including hostile inputs under sanitizers, before staging image content.
 - [ ] Build and statically validate a regular-file image with a real maintained
   Pi login/desktop, native QOR apps and local development tools; no simulator.
 - [ ] After separate spare-media authorisation, prove Pi boot, hardware graphics,
@@ -608,11 +615,17 @@ The first milestone requires usable QOR apps as well as the base desktop.
 Image composition, emulation and physical-device acceptance are separate results.
 The Fedora full-device/release deliverable below keeps its existing scope.
 
-On 10 November the root Prism registrar again reproduces twelve Wayland metadata
-warnings. Its private candidate build stopped at 748 MiB available host memory,
-below the unchanged 3-GiB floor; the patch and partial logs remain local, with
-candidate source changes restored. Compiler, runtime and sanitizer acceptance
-of that candidate remain pending. Resume only after the resource guard passes.
+On 10 November a Qt 6.12 source-metadata differential reproduces twelve Prism
+Wayland warnings on committed headers and zero on the reapplied candidate, with
+warnings explicitly enabled. The candidate exposes Qt's concrete QObject
+extension base and validates the QObject argument at the QML boundary. Its
+protocol-global regression is added but not compiled/run. This Windows metadata
+result does not replace Linux compiler, runtime or sanitizer acceptance. The
+monitored WSL resume stopped before compilation at 1,189 MiB available host RAM;
+the earlier interrupted build, saved patch and all logs remain preserved. Source
+changes remain uncommitted pending those checks. A read-only WSL startup alone
+also crosses the floor: check the unchanged 3-GiB guard with WSL already resident
+before resuming, without managing unrelated services.
 
 ### Full device image
 

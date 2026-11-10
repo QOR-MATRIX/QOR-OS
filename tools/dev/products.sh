@@ -19,6 +19,7 @@
 #   tools/dev/products.sh --display prism          # inside Prism
 #   tools/dev/products.sh --gpu                    # under WSL, on the GPU, which has frozen the PC
 #   tools/dev/products.sh --build-only             # built, and no suite run
+#   tools/dev/products.sh --product qq --preset q-pi-release --qt /path/to/qualified/arm64/kit --build-root build/q-pi-qq-release
 #   tools/dev/products.sh --accept-software-floor  # the QQ Player's frame-rate floor stands, if drawn in software and all that failed
 #
 # After each product it says what each suite did, by name: passed, failed and
@@ -70,6 +71,7 @@ PRISM=${QOR_PRISM:-}
 GPU=no
 TESTS=
 BUILD_ONLY=no
+PRESET=
 ACCEPT_FLOOR=no
 SUITE_TIMEOUT=900
 DRAWN=
@@ -88,6 +90,9 @@ while [ $# -gt 0 ]; do
         --prism) PRISM=$2; shift 2 ;;
         --gpu) GPU=yes; shift ;;
         --build-only) BUILD_ONLY=yes; shift ;;
+        --preset)
+            [ $# -ge 2 ] && [ -n "${2:-}" ] || { echo "--preset requires a preset name" >&2; exit 2; }
+            PRESET=$2; shift 2 ;;
         --accept-software-floor) ACCEPT_FLOOR=yes; shift ;;
         -h | --help) usage; exit 0 ;;
         *) echo "Unknown argument: $1" >&2; usage >&2; exit 2 ;;
@@ -95,6 +100,13 @@ while [ $# -gt 0 ]; do
 done
 case $ATTEMPTS in 1 | 2 | 3) ;; *) echo "--attempts must be 1, 2 or 3" >&2; exit 2 ;; esac
 case $SHOW in offscreen | prism | session) ;; *) echo "--display must be offscreen, prism or session" >&2; exit 2 ;; esac
+if [ -n "$PRESET" ]; then
+    case $PRESET in q-pi-release | q-pi-asan) ;; *) echo "Unknown product preset: $PRESET" >&2; exit 2 ;; esac
+    [ "$PRODUCTS" = qq ] || { echo "Q Pi presets require --product qq alone" >&2; exit 2; }
+    # Resolve before entering the product directory: --build-root and --qt are relative to the caller.
+    BUILD_ROOT=$(realpath -m "$BUILD_ROOT")
+    QT=$(realpath -m "$QT")
+fi
 [ -f "$QT/lib/cmake/Qt6/Qt6Config.cmake" ] || { echo "Not a Qt kit: $QT" >&2; exit 2; }
 if [ "$SHOW" = offscreen ] && [ ! -f "$QT/qml/QtWayland/Compositor/XdgShell/qmldir" ]; then
     echo "The kit has no Qt Wayland Compositor (qt.qt6.6120.addons.qtwaylandcompositor), which the" >&2
@@ -332,9 +344,14 @@ build_and_test() { # name
         dir=$(pdfium) || return 1
         extra+=("-DPDFium_DIR=$dir")
     fi
-    cmake -S "$source" -B "$build" -G Ninja -DCMAKE_PREFIX_PATH="$QT" -DCMAKE_BUILD_TYPE=$CONFIG \
-        -DQT_QML_GENERATE_QMLLS_INI=OFF "${extra[@]}" || return 1
-    cmake --build "$build" || return 1
+    if [ -n "$PRESET" ]; then
+        (cd "$source" && QOR_QT_DIR="$QT" cmake --preset "$PRESET" -B "$build") || return 1
+        cmake --build "$build" --parallel 1 || return 1
+    else
+        cmake -S "$source" -B "$build" -G Ninja -DCMAKE_PREFIX_PATH="$QT" -DCMAKE_BUILD_TYPE=$CONFIG \
+            -DQT_QML_GENERATE_QMLLS_INI=OFF "${extra[@]}" || return 1
+        cmake --build "$build" || return 1
+    fi
     [ "$BUILD_ONLY" = no ] || return 0
 
     local attempt select=() drawing=()

@@ -52,9 +52,11 @@ CMAKE = textwrap.dedent(
     """\
     #!/bin/bash
     if [ "$1" = --build ]; then
+        printf '%s\\0' "$@" > "$STAND_IN/../marks/build.args"
         [ "${BUILD_GOES:-}" != fails ] || exit 23
         exit 0
     fi
+    printf '%s\\0' "${QOR_QT_DIR:-}" "$PWD" "$@" > "$STAND_IN/../marks/configure.args"
     [ "${CONFIGURE_GOES:-}" != fails ] || exit 17
     while [ $# -gt 0 ]; do
         case $1 in -B) build=$2; shift 2 ;; *) shift ;; esac
@@ -133,7 +135,32 @@ class Attempts(unittest.TestCase):
                                "--product", "qq", *arguments], env=environ, capture_output=True, text=True, timeout=120)
         ran = (root / "marks/ran").read_text(encoding="utf-8").splitlines() if (root / "marks/ran").exists() else []
         self.last_line = done.stdout.strip().splitlines()[-1] if done.stdout.strip() else ""
+        self.configure_args = (root / "marks/configure.args").read_bytes().decode().split("\0") if (root / "marks/configure.args").exists() else []
+        self.build_args = (root / "marks/build.args").read_bytes().decode().split("\0") if (root / "marks/build.args").exists() else []
         return done.returncode, done.stdout + done.stderr, ran
+
+    def test_native_preset_uses_the_same_cache_for_configuration_build_and_ctest(self):
+        for preset in ("q-pi-release", "q-pi-asan"):
+            with self.subTest(preset=preset):
+                code, said, ran = self.run_script([("tst_fine", "fine")], "--preset", preset, "--attempts", "1")
+                self.assertEqual(code, 0, said)
+                self.assertEqual(len(ran), 1)
+                kit, source, *arguments = self.configure_args
+                self.assertEqual(pathlib.Path(kit).name, "kit")
+                self.assertEqual(pathlib.Path(source), _REPO / "products/qq")
+                self.assertEqual(arguments[:2], ["--preset", preset])
+                build = arguments[arguments.index("-B") + 1]
+                self.assertEqual(self.build_args[:4], ["--build", build, "--parallel", "1"])
+                self.assertNotIn("-DCMAKE_BUILD_TYPE=Release", arguments)
+
+    def test_native_preset_rejects_other_products_and_unknown_presets_before_building(self):
+        for arguments in (("--preset", "q-pi-release", "--product", "qq,media"),
+                          ("--preset", "unknown"), ("--preset", ""), ("--preset",)):
+            with self.subTest(arguments=arguments):
+                code, said, ran = self.run_script([], *arguments)
+                self.assertEqual(code, 2, said)
+                self.assertEqual(ran, [])
+                self.assertEqual(self.configure_args, [])
 
     def test_a_retry_reruns_the_failed_suite_alone_and_names_it_at_the_end(self):
         code, said, ran = self.run_script([("tst_fine", "fine"), ("tst_flaky", "flaky")])

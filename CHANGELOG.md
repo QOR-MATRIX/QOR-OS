@@ -14,6 +14,16 @@ QOR OS begins: QTOS and Demiurge's device-side products in one repository
 
 ### Added
 
+- **Native ARM64 QQ build entry points for Q Pi.** Configure/build/test presets
+  now select QQ Studio, Player and tests with single-job Ninja builds, warnings
+  as errors, existing exploit mitigations and 16-KiB linker page sizes. A native
+  host gate rejects x86-64, WSL and cross compilation before compiler discovery.
+  The existing Linux product harness accepts these presets and builds/tests the
+  same cache without replacing sanitizer mode or permitting parallel builds.
+  The image guide records the pinned generator source/boot-tool inspection and
+  actual build commands. Portable CMake refusal tests pass; ARM64 compilation,
+  dependency/licence qualification, image composition and Pi testing remain open.
+
 - **Native Linux RAM checks for Q Pi preparation.** The probe now measures
   `MemAvailable` and the remaining memory allowance of its visible cgroup v2
   ancestry instead of always reporting Linux RAM as unmeasured. Parent limits
