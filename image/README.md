@@ -92,6 +92,19 @@ Passing this check establishes only available capacity against the supplied
 numbers; the builder, realistic budget sizing and every other input still need
 qualification. The separate 3-GiB memory floor cannot be reduced by a caller.
 
+Native Linux RAM can now be observed by the repository probe. It takes the
+minimum of the kernel's `MemAvailable` estimate and `memory.max` minus
+`memory.current` for every visible non-root cgroup v2 ancestor. It counts no
+swap, assumes no automatic cache reclamation within a capped group, and refuses
+missing/ambiguous counters, unsafe paths or cgroup migration during observation.
+This route requires the standard `/sys/fs/cgroup` unified mount with its root
+visible; unsupported layouts remain unmeasured. WSL remains blocked on this
+route because guest memory cannot establish Windows host headroom. The check
+reads only kernel resource metadata and changes no setting or service.
+The [Linux proc](https://docs.kernel.org/filesystems/proc.html) and
+[cgroup v2](https://docs.kernel.org/admin-guide/cgroup-v2.html) interfaces define
+these observations; they are capacity snapshots, not builder or image acceptance.
+
 The included preflight ran read-only under the original heavy lock and exited 2:
 wrong host architecture/distribution, missing tools, source query timeout, failed
 Qt version detection and wrong target ELF architecture. Follow-up identified two

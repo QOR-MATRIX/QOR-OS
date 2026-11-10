@@ -97,6 +97,12 @@ unqualified. A passing capacity snapshot is not a measured builder requirement
 or permission to begin an image build. QOR's shared memory guard permits higher
 requirements, but a caller cannot lower its 3-GiB minimum.
 
+On native Linux, the same probe uses the kernel's `MemAvailable` estimate and
+visible cgroup v2 memory limits, including ancestor limits. Missing or malformed
+observations and hidden/nonstandard cgroup mount roots remain blockers. WSL
+memory is not a Windows host-memory observation; the Windows guard is still
+required there. The probe changes no limit and reclaims no memory.
+
 ## 1. Prerequisites
 
 ### Windows (primary development platform)

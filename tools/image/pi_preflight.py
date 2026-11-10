@@ -113,6 +113,19 @@ def scratch_check(root, budget_path):
         return False, {"note": "budget invalid, local backing storage unqualified, or capacity insufficient"}
 
 
+def memory_check():
+    if platform.system() == "Windows":
+        try:
+            return True, vm_resources.require_headroom("Q Pi image build")
+        except (OSError, ValueError) as error:
+            return False, str(error)
+    try:
+        ram = vm_resources.require_headroom("Q Pi native Linux build", reader=vm_resources.linux_available_memory)
+        return True, {**ram, "scope": "native Linux and visible cgroup v2 snapshot"}
+    except (OSError, ValueError):
+        return False, "native Linux memory unavailable or below 3 GiB; WSL requires the Windows host guard"
+
+
 def probe(source, kit, expected, scratch_root=None, scratch_budget=None):
     checks = []
 
@@ -158,15 +171,8 @@ def probe(source, kit, expected, scratch_root=None, scratch_budget=None):
         add("qt_core_arm64_16k_layout", info["elf_type"] == 3, info)
     except (OSError, ValueError, struct.error):
         add("qt_core_arm64_16k_layout", False, "Qt Core is not a qualified ARM64 shared ELF layout")
-    if os.name == "nt":
-        try:
-            ram = vm_resources.require_headroom("Q Pi image build")
-            add("host_ram_3gib", True, ram)
-        except (OSError, ValueError) as error:
-            add("host_ram_3gib", False, str(error))
-    else:
-        add("host_ram_3gib", False,
-            "not measured by this probe: WSL requires the Windows guard; qualify a native builder separately")
+    memory_passed, memory_detail = memory_check()
+    add("host_ram_3gib", memory_passed, memory_detail)
     scratch_passed, scratch_detail = scratch_check(scratch_root, scratch_budget)
     add("physical_scratch_budget", scratch_passed, scratch_detail)
     add("qualified_image_inputs", False,

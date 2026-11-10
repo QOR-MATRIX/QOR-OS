@@ -592,6 +592,9 @@ probe are local source work; no Pi image or native application has been built.
   dependencies. Preserve the shared heavy lock and 3-GiB host-RAM floor.
   The read-only probe now accepts a measured component budget and checks the
   selected local scratch volume, refusing unqualified virtual/remote capacity.
+  Its native Linux RAM observation also accounts for visible parent cgroup limits;
+  WSL continues to require the Windows guard. Synthetic counter tests are not
+  qualification of a native ARM64 builder.
   No actual builder budget has been measured; this qualification item stays open.
 - [ ] Build and statically validate a regular-file image with a real maintained
   Pi login/desktop, native QOR apps and local development tools; no simulator.

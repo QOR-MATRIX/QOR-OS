@@ -58,6 +58,137 @@ class VmResources(unittest.TestCase):
             log.open.assert_not_called()
 
 
+class NativeLinuxMemory(unittest.TestCase):
+    def setUp(self):
+        self.data = {
+            "/proc/meminfo": "MemTotal: 8388608 kB\nMemAvailable: 6291456 kB\n",
+            "/proc/self/cgroup": "0::/builder.slice/job.scope\n",
+            "/proc/self/mountinfo": "1 0 0:1 / /sys/fs/cgroup rw - cgroup2 cgroup rw\n",
+            "/sys/fs/cgroup/builder.slice/memory.max": "max\n",
+            "/sys/fs/cgroup/builder.slice/memory.current": "0\n",
+            "/sys/fs/cgroup/builder.slice/job.scope/memory.max": "max\n",
+            "/sys/fs/cgroup/builder.slice/job.scope/memory.current": "0\n",
+        }
+        for name, value in (("system", "Linux"), ("release", "fixture-native-kernel")):
+            patcher = patch.object(resources.platform, name, return_value=value)
+            patcher.start()
+            self.addCleanup(patcher.stop)
+
+    def read(self, path):
+        try:
+            return self.data[str(path)]
+        except KeyError:
+            raise FileNotFoundError("fixture missing") from None
+
+    def available(self):
+        return resources.linux_available_memory(reader=self.read)
+
+    def test_native_host_available_memory_without_swap(self):
+        self.assertEqual(self.available(), 6 * resources.GIB)
+        self.assertEqual(resources.require_headroom("fixture", reader=self.available)["minimum_bytes"],
+                         3 * resources.GIB)
+
+    def test_leaf_and_ancestor_limits_both_constrain_headroom(self):
+        self.data["/sys/fs/cgroup/builder.slice/job.scope/memory.max"] = str(5 * resources.GIB)
+        self.data["/sys/fs/cgroup/builder.slice/job.scope/memory.current"] = str(resources.GIB)
+        self.assertEqual(self.available(), 4 * resources.GIB)
+        self.data["/sys/fs/cgroup/builder.slice/memory.max"] = str(4 * resources.GIB)
+        self.data["/sys/fs/cgroup/builder.slice/memory.current"] = str(2 * resources.GIB)
+        self.assertEqual(self.available(), 2 * resources.GIB)
+        with self.assertRaises(ValueError):
+            resources.require_headroom("fixture", reader=self.available)
+
+    def test_a_large_cgroup_limit_cannot_inflate_host_memory(self):
+        self.data["/sys/fs/cgroup/builder.slice/job.scope/memory.max"] = str(16 * resources.GIB)
+        self.assertEqual(self.available(), 6 * resources.GIB)
+
+    def test_exhausted_or_over_limit_group_has_zero_headroom(self):
+        self.data["/sys/fs/cgroup/builder.slice/job.scope/memory.max"] = "100"
+        for current in (100, 101):
+            self.data["/sys/fs/cgroup/builder.slice/job.scope/memory.current"] = str(current)
+            self.assertEqual(self.available(), 0)
+
+    def test_missing_available_memory_has_no_memfree_or_swap_fallback(self):
+        self.data["/proc/meminfo"] = "MemTotal: 8388608 kB\nMemFree: 6291456 kB\nSwapFree: 9999999 kB\n"
+        with self.assertRaises(ValueError):
+            self.available()
+
+    def test_malformed_duplicate_or_impossible_meminfo_is_rejected(self):
+        for text in ("MemTotal: 1 kB\nMemAvailable: 2 kB\n", "MemTotal: 0 kB\nMemAvailable: 0 kB\n",
+                     "MemTotal: 8192 kB\nMemAvailable: 1.5 kB\n",
+                     "MemTotal: 8192 kB\nMemAvailable: 1 kB\nMemAvailable: 2 kB\n",
+                     "MemTotal: 18446744073709551615 kB\nMemAvailable: 1 kB\n"):
+            with self.subTest(text=text), self.assertRaises(ValueError):
+                self.data["/proc/meminfo"] = text
+                self.available()
+
+    def test_unknown_counter_values_fail_closed(self):
+        for key in ("memory.max", "memory.current"):
+            for value in ("", "-1", "1.5", "0x100", "true", "18446744073709551616"):
+                self.data["/sys/fs/cgroup/builder.slice/job.scope/" + key] = value
+                with self.subTest(key=key, value=value), self.assertRaises(ValueError):
+                    self.available()
+            self.data["/sys/fs/cgroup/builder.slice/job.scope/" + key] = "0"
+
+    def test_missing_ancestor_counter_remains_unmeasured(self):
+        del self.data["/sys/fs/cgroup/builder.slice/memory.max"]
+        with self.assertRaises(OSError):
+            self.available()
+
+    def test_unknown_or_unsafe_cgroup_membership_is_rejected(self):
+        for group in ("1:memory:/job\n", "0::/job\n0::/other\n", "0::/../outside\n",
+                      "0::/job/./child\n", "0::relative\n", "0::/job//child\n", "0::/job\x00x\n",
+                      "0:://\n", "0:://job\n"):
+            self.data["/proc/self/cgroup"] = group
+            with self.subTest(group=group), self.assertRaises(ValueError):
+                self.available()
+
+    def test_root_group_needs_no_nonexistent_root_limit_file(self):
+        self.data["/proc/self/cgroup"] = "0::/\n"
+        self.assertEqual(self.available(), 6 * resources.GIB)
+
+    def test_hidden_or_unknown_mount_root_is_rejected(self):
+        for text in ("", "malformed", "1 0 0:1 /hidden /sys/fs/cgroup rw - cgroup2 cgroup rw\n",
+                     "1 0 0:1 / /sys/fs/cgroup rw - tmpfs tmpfs rw\n"):
+            self.data["/proc/self/mountinfo"] = text
+            with self.subTest(text=text), self.assertRaises(ValueError):
+                self.available()
+
+    def test_wsl_does_not_read_linux_counters_as_windows_headroom(self):
+        reader = Mock()
+        with patch.object(resources.platform, "release", return_value="fixture-microsoft-WSL2"):
+            with self.assertRaises(ValueError):
+                resources.linux_available_memory(reader=reader)
+        reader.assert_not_called()
+
+    def test_non_linux_host_is_rejected_without_observation(self):
+        reader = Mock()
+        with patch.object(resources.platform, "system", return_value="Windows"):
+            with self.assertRaises(ValueError):
+                resources.linux_available_memory(reader=reader)
+        reader.assert_not_called()
+
+    def test_oversized_observation_is_rejected(self):
+        self.data["/proc/meminfo"] = "x" * 65537
+        with self.assertRaises(ValueError):
+            self.available()
+
+    def test_migration_during_observation_is_rejected(self):
+        original = self.read
+        reads = 0
+
+        def migrating(path):
+            nonlocal reads
+            if path == "/proc/self/cgroup":
+                reads += 1
+                if reads > 1:
+                    return "0::/different.scope\n"
+            return original(path)
+
+        with self.assertRaises(ValueError):
+            resources.linux_available_memory(reader=migrating)
+
+
 class ScratchResources(unittest.TestCase):
     def budget(self):
         # Small, obvious byte-count fixtures; never a real builder estimate.

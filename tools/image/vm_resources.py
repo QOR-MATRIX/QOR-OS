@@ -3,8 +3,9 @@
 import ctypes
 import json
 import os
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 import platform
+import re
 import shutil
 
 GIB = 1024**3
@@ -36,6 +37,81 @@ def available_memory():
     if not status.total_physical or status.available_physical > status.total_physical:
         raise ValueError("Invalid host memory observation")
     return status.available_physical
+
+
+def _kernel_text(path):
+    with Path(path).open("rb") as stream:
+        raw = stream.read(65537)
+    if len(raw) > 65536:
+        raise ValueError("Oversized kernel resource observation")
+    return raw.decode("utf-8")
+
+
+def linux_available_memory(reader=None):
+    """Native Linux snapshot bounded by host availability and visible cgroup v2 limits.
+
+    WSL still needs the Windows host guard. No reclaim, swap, limit changes or
+    service inspection occurs. A snapshot does not reserve memory or qualify a
+    builder; hidden/nonstandard cgroup mount roots remain unsupported.
+    """
+    if (platform.system() != "Linux" or "microsoft" in platform.release().lower()
+            or "wsl" in platform.release().lower()):
+        raise ValueError("Native Linux memory observation required; WSL needs the Windows host guard")
+
+    def observe(path):
+        text = (reader or _kernel_text)(path)
+        if not isinstance(text, str) or len(text.encode("utf-8")) > 65536:
+            raise ValueError("Oversized or invalid kernel resource observation")
+        return text
+
+    def number(text):
+        if not re.fullmatch(r"[0-9]{1,20}", text) or int(text) >= 1 << 64:
+            raise ValueError("Unknown kernel memory counter")
+        return int(text)
+
+    memory = {}
+    for line in observe("/proc/meminfo").splitlines():
+        name = line.split(":", 1)[0]
+        if name not in ("MemTotal", "MemAvailable"):
+            continue
+        match = re.fullmatch(r"(MemTotal|MemAvailable):\s*([0-9]{1,20}) kB", line)
+        if not match or name in memory:
+            raise ValueError("Missing or ambiguous Linux memory observation")
+        memory[name] = number(match[2]) * 1024
+    if (set(memory) != {"MemTotal", "MemAvailable"} or not memory["MemTotal"]
+            or not memory["MemAvailable"] <= memory["MemTotal"] < 1 << 64):
+        raise ValueError("Invalid Linux memory availability")
+    available = memory["MemAvailable"]
+    membership = observe("/proc/self/cgroup").rstrip("\n")
+    if not membership.startswith("0::/") or len(membership.splitlines()) != 1:
+        raise ValueError("A visible unified cgroup v2 hierarchy is required")
+    name = membership[3:]
+    group = PurePosixPath(name)
+    if (len(name.encode("utf-8")) > 4096 or len(group.parts) > 128 or "\0" in name or group.root != "/"
+            or ".." in group.parts or str(group) != name):
+        raise ValueError("Invalid cgroup ancestry")
+    mounts = []
+    for line in observe("/proc/self/mountinfo").splitlines():
+        fields = line.split()
+        if "-" not in fields:
+            raise ValueError("Unknown cgroup mount observation")
+        separator = fields.index("-")
+        if separator < 6 or len(fields) < separator + 4:
+            raise ValueError("Incomplete cgroup mount observation")
+        if fields[4] == "/sys/fs/cgroup":
+            mounts.append((fields[3], fields[separator + 1]))
+    if mounts != [("/", "cgroup2")]:
+        raise ValueError("Hidden or unsupported cgroup mount root")
+    while str(group) != "/":
+        prefix = "/sys/fs/cgroup" + str(group)
+        limit = observe(prefix + "/memory.max").strip()
+        current = number(observe(prefix + "/memory.current").strip())
+        if limit != "max":
+            available = min(available, max(0, number(limit) - current))
+        group = group.parent
+    if observe("/proc/self/cgroup").rstrip("\n") != membership:
+        raise ValueError("Cgroup membership changed during memory observation")
+    return available
 
 
 def require_headroom(phase, minimum=MINIMUM_MEMORY, reader=None):

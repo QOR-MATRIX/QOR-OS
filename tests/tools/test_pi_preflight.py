@@ -133,6 +133,34 @@ class MetadataTests(unittest.TestCase):
             pi.read_prefix(Path(directory))
 
 
+class MemoryProbeTests(unittest.TestCase):
+    def test_native_linux_headroom_can_be_measured(self):
+        with patch.object(pi.platform, "system", return_value="Linux"), \
+                patch.object(pi.vm_resources, "linux_available_memory", return_value=4 * 1024**3) as native, \
+                patch.object(pi.vm_resources, "available_memory", side_effect=AssertionError("Windows reader used")):
+            passed, detail = pi.memory_check()
+        self.assertTrue(passed)
+        self.assertEqual(detail["minimum_bytes"], 3 * 1024**3)
+        native.assert_called_once_with()
+
+    def test_native_linux_cgroup_shortfall_remains_a_blocker(self):
+        with patch.object(pi.platform, "system", return_value="Linux"), \
+                patch.object(pi.vm_resources, "linux_available_memory", return_value=2 * 1024**3):
+            self.assertFalse(pi.memory_check()[0])
+
+    def test_windows_keeps_its_existing_host_guard(self):
+        with patch.object(pi.platform, "system", return_value="Windows"), \
+                patch.object(pi.vm_resources, "available_memory", return_value=4 * 1024**3), \
+                patch.object(pi.vm_resources, "linux_available_memory") as native:
+            self.assertTrue(pi.memory_check()[0])
+        native.assert_not_called()
+
+    def test_wsl_or_unmeasured_linux_does_not_claim_host_headroom(self):
+        with patch.object(pi.platform, "system", return_value="Linux"), \
+                patch.object(pi.vm_resources, "linux_available_memory", side_effect=ValueError):
+            self.assertFalse(pi.memory_check()[0])
+
+
 class ScratchProbeTests(unittest.TestCase):
     def test_unsized_scratch_remains_a_blocker(self):
         passed, detail = pi.scratch_check(None, None)

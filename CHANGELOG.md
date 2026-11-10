@@ -14,6 +14,14 @@ QOR OS begins: QTOS and Demiurge's device-side products in one repository
 
 ### Added
 
+- **Native Linux RAM checks for Q Pi preparation.** The probe now measures
+  `MemAvailable` and the remaining memory allowance of its visible cgroup v2
+  ancestry instead of always reporting Linux RAM as unmeasured. Parent limits
+  constrain the result; missing counters, unsafe paths, ambiguous metadata and
+  a membership change during observation fail closed. Swap cannot increase the
+  estimate. WSL still requires the unchanged Windows host check. Synthetic
+  counter tests establish neither ARM64 builder qualification nor hardware proof.
+
 - **Measured scratch budgets for Q Pi preparation.** The read-only probe can
   check an explicit component budget against an existing local scratch volume.
   It rejects duplicate or unknown fields, missing estimates, imprecise byte
