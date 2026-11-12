@@ -331,7 +331,10 @@ if(TARGET prism)
     pkg_check_modules(QOR_WAYLAND_CLIENT REQUIRED IMPORTED_TARGET wayland-client)
     enable_language(C)
     set(pointer_capture_protocols "")
-    foreach(protocol IN ITEMS xdg-shell relative-pointer-unstable-v1 pointer-constraints-unstable-v1)
+    # The manager lifecycle regression also exercises Prism's other custom
+    # globals. tablet-v2 supplies cursor-shape's referenced tablet-tool interface.
+    foreach(protocol IN ITEMS xdg-shell relative-pointer-unstable-v1 pointer-constraints-unstable-v1
+                              fractional-scale-v1 cursor-shape-v1 tablet-v2 xdg-activation-v1)
         set(xml "${CMAKE_SOURCE_DIR}/prism/compositor/protocols/${protocol}.xml")
         set(header "${CMAKE_CURRENT_BINARY_DIR}/wayland-${protocol}-client-protocol.h")
         set(code "${CMAKE_CURRENT_BINARY_DIR}/wayland-${protocol}-protocol.c")

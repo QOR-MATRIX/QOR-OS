@@ -33,6 +33,11 @@ branding and the planned OS splash are described separately in [the image guide]
   Shelf rises from below.
 - Simulation: any password unlocks (labelled on screen).
 
+This is not device authentication. The non-simulator Prism capability report
+still reports authentication unavailable; the full device layer refuses it.
+Q Pi's planned maintained-base login is separate, with autologin disabled
+([image guide](../../image/README.md#q-pi-development-edition)).
+
 ### Rail (`Rail.qml`)
 
 A floating glass bar, 34 px high with 8 px margins and radius 13.

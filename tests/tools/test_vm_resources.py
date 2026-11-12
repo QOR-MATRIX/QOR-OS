@@ -64,6 +64,9 @@ class NativeLinuxMemory(unittest.TestCase):
             "/proc/meminfo": "MemTotal: 8388608 kB\nMemAvailable: 6291456 kB\n",
             "/proc/self/cgroup": "0::/builder.slice/job.scope\n",
             "/proc/self/mountinfo": "1 0 0:1 / /sys/fs/cgroup rw - cgroup2 cgroup rw\n",
+            "/sys/fs/cgroup/cgroup.controllers": "cpu memory pids\n",
+            "/sys/fs/cgroup/builder.slice/cgroup.controllers": "cpu memory pids\n",
+            "/sys/fs/cgroup/builder.slice/job.scope/cgroup.controllers": "memory pids\n",
             "/sys/fs/cgroup/builder.slice/memory.max": "max\n",
             "/sys/fs/cgroup/builder.slice/memory.current": "0\n",
             "/sys/fs/cgroup/builder.slice/job.scope/memory.max": "max\n",
@@ -134,6 +137,63 @@ class NativeLinuxMemory(unittest.TestCase):
         del self.data["/sys/fs/cgroup/builder.slice/memory.max"]
         with self.assertRaises(OSError):
             self.available()
+
+    def test_uncontrolled_leaf_still_obeys_limiting_ancestor(self):
+        prefix = "/sys/fs/cgroup/builder.slice/job.scope/"
+        self.data[prefix + "cgroup.controllers"] = "pids\n"
+        del self.data[prefix + "memory.max"], self.data[prefix + "memory.current"]
+        self.data["/sys/fs/cgroup/builder.slice/memory.max"] = str(4 * resources.GIB)
+        self.data["/sys/fs/cgroup/builder.slice/memory.current"] = str(2 * resources.GIB)
+        self.assertEqual(self.available(), 2 * resources.GIB)
+        with self.assertRaises(ValueError):
+            resources.require_headroom("fixture", reader=self.available)
+
+    def test_full_v2_without_memory_controller_uses_host_available_only(self):
+        for prefix in ("/sys/fs/cgroup", "/sys/fs/cgroup/builder.slice", "/sys/fs/cgroup/builder.slice/job.scope"):
+            self.data[prefix + "/cgroup.controllers"] = "cpu pids\n"
+            self.data.pop(prefix + "/memory.max", None)
+            self.data.pop(prefix + "/memory.current", None)
+        self.assertEqual(self.available(), 6 * resources.GIB)
+        self.data["/proc/meminfo"] = "MemTotal: 8388608 kB\nMemAvailable: 2097152 kB\nSwapFree: 9999999 kB\n"
+        with self.assertRaises(ValueError):
+            resources.require_headroom("fixture", reader=self.available)
+
+    def test_controller_metadata_must_be_bounded_unique_and_valid(self):
+        for value in ("memory memory", "memory\x00", "Memory", "memory -cpu", "cpu/memory", "x" * 65, "x" * 65537):
+            self.data["/sys/fs/cgroup/builder.slice/cgroup.controllers"] = value
+            with self.subTest(value=value[:80]), self.assertRaises(ValueError):
+                self.available()
+
+    def test_controller_metadata_missing_or_unreadable_refuses(self):
+        for path in ("/sys/fs/cgroup/cgroup.controllers", "/sys/fs/cgroup/builder.slice/cgroup.controllers"):
+            value = self.data.pop(path)
+            with self.assertRaises(OSError):
+                self.available()
+            self.data[path] = value
+        def denied(path):
+            if path.endswith("cgroup.controllers"):
+                raise PermissionError("fixture")
+            return self.read(path)
+        with self.assertRaises(PermissionError):
+            resources.linux_available_memory(reader=denied)
+
+    def test_controller_ancestry_must_be_consistent(self):
+        self.data["/sys/fs/cgroup/cgroup.controllers"] = "cpu pids\n"
+        with self.assertRaises(ValueError):
+            self.available()
+
+    def test_controller_or_mount_changes_refuse_stable_membership(self):
+        for changing in ("/sys/fs/cgroup/builder.slice/cgroup.controllers", "/proc/self/mountinfo"):
+            count = 0
+            def reader(path):
+                nonlocal count
+                if path == changing:
+                    count += 1
+                    if count > 1:
+                        return self.read(path) + "changed\n"
+                return self.read(path)
+            with self.subTest(changing=changing), self.assertRaises(ValueError):
+                resources.linux_available_memory(reader=reader)
 
     def test_unknown_or_unsafe_cgroup_membership_is_rejected(self):
         for group in ("1:memory:/job\n", "0::/job\n0::/other\n", "0::/../outside\n",

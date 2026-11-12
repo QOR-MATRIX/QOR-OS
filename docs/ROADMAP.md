@@ -5,6 +5,11 @@ not on a date; durations are rough guides for one founder working with agents.
 What 1.0 contains is [QOR-0007](decisions/QOR-0007-what-1-0-ships.md). The
 phases are tracked as GitHub milestones.
 
+Dated completed items below preserve the result at that revision and environment;
+they are not a rerun on today's branch. Qt CI jobs remain paused pending isolation
+([CI.md](CI.md#what-ci-trusts)). Private x86-64 VM evidence and the still-unqualified
+Q Pi route are distinguished in [the image deliverable](#release-deliverable--the-image).
+
 QOR OS began on 26 October 2026 from QTOS's Phase 0 and most of its Phase 1
 ([history below](#history-qtos-phases)) and from Demiurge's device-side
 products ([UPSTREAM.md](UPSTREAM.md)).
@@ -52,6 +57,36 @@ products included on Windows.
 
 *About 2–4 weeks.* Exit: Orb Run plays inside Prism on Linux with a DualSense, and Linux CI runs
 QQ's, ARQADE's and QOR Media's suites.
+
+**Current local priority, 12 November: finish the Prism argument-boundary regressions.**
+The saved warning candidate now compiles without warnings in the focused Qt 6.12
+Linux Release and ASan/UBSan builds. Each passes all 42 pointer-capture results
+with zero failures/skips, including unique announcements and bind/destroy/rebind
+for all five custom managers, cursor-shape v1/v2 and last-binding destruction.
+Each also passes `tst_prismoptions`, `tst_prismoptions_device`, `prism_products`
+and `prism_untrusted`. Root `all_qmllint` reports zero warnings in both builds;
+hardening passes 15 Release and 36 sanitizer programs. Eighteen exercised program
+identities were verified, with both sanitizer runtimes linked by all nine
+sanitizer programs. Leak detection was off. The production/test sources remained
+unchanged during this validation; the prior twelve-to-zero Windows metadata
+differential is retained as separate historical evidence.
+
+The owner explicitly requested optional host-service cleanup after the memory
+refusals. One build then stopped at 3,040 MiB; additional cleanup allowed the
+complete rerun under the original coordinator and unchanged 3,072-MiB guard.
+Tests remained hidden, GPU-fenced and limited to software/virtual devices.
+Startup settings were unchanged. This owner-authorised maintenance creates no
+QOR service dependency or automatic cleanup step. The core library was disabled
+in these focused caches; full-OS, product, hardware and isolated-CI acceptance
+remain separate. Current evidence: `build/prism-completion-2026-11-12/session-02/`.
+The original candidate and metadata logs remain under
+`build/prism-metadata-2026-11-10/` and `build/prism-resume-2026-11-10/`.
+
+Next, the real pending/acknowledged-size regression fits the existing raw-client
+harness. Direct null/wrong-object coverage still needs an in-process target or
+internal refactor using production logic; neither case is implemented yet.
+Do not add a production test hook. Recheck workers, the actual QOR lock and the
+3,072-MiB guard with WSL resident before another heavy job.
 
 - [x] QQ, ARQADE's app and games, and QOR Media are developed here from 29 October
   ([QOR-0015](decisions/QOR-0015-the-products-are-developed-here.md)); demiurge-chain freezes its copies (its ADR-126),
@@ -580,6 +615,10 @@ the owner's advisers.
 
 ### Q Pi development edition
 
+**On hold at the owner's request, 11 November.** Files, patches and evidence are
+preserved. Pi connectivity, ARM64 kits, tests and image work are deferred; their
+outstanding questions are not prerequisites for core QOR OS progress.
+
 [QOR-0025](decisions/QOR-0025-q-pi-development-edition.md) scopes Pi 5 ARM64,
 8 GB RAM and 128 GB nominal storage. The reviewed preparation and read-only
 probe are local source work; no Pi image or native application has been built.
@@ -587,19 +626,72 @@ probe are local source work; no Pi image or native application has been built.
 - [x] Review the supplied preparation against the current architecture and
   workers; preserve unrelated projects, existing proof and worktrees; add bounded
   ELF/Qt metadata checks and the [first-boot plan](../image/README.md#q-pi-first-boot-and-bluetooth-bootstrap).
+- [x] Document the stock Pi 5 Desktop Trixie bootstrap separately from Q Pi,
+  with normal local login, generic remote access disabled, single-card/off-card recovery
+  boundaries, exact package-delta review and commercial Qt module/SDK questions.
+  A read-only `--bootstrap-only` probe checks native/board/OS/page/RAM metadata
+  before Qt exists; passing it does not qualify a builder. On 11 November, the
+  separate stock Pi builder was observed over authorised restricted-key SSH:
+  Pi 5/ARM64/Trixie/16-KiB metadata and bootstrap RAM checks pass. Initial SSH trust
+  remains owner-approved first use, not independent identity verification. The
+  earlier Windows media identity is historical. No package installation or Q Pi
+  media write ran here. The later authorised PC diagnostic found no hostname
+  resolution, last-address SSH response or targeted mDNS address. Physical boot/
+  address observation is pending. Prior observations
+  and the 80 native tooling tests below are not current connectivity evidence.
+  Qt's Ubuntu ARM reference is an unadopted fallback. `tests/pi/` now prepares a
+  smaller Core/Test build of the existing Prism parser suites with native gating,
+  hardening and release/sanitizer presets. Native execution remains unrun; its
+  new Windows configuration checks were refused by the 3,072-MiB guard.
+- [x] Prepare the headless Wi-Fi/key-only SSH design against pinned current Imager
+  `cloudinit-rpi` sources, preserving both autologin modes off. Add bounded public
+  host-identity receipt/retry checks and strict offline Windows SSH argument plans.
+  Portable fixtures and existing Windows OpenSSH configuration/fingerprint checks
+  pass; they prove no Pi boot, network association or authenticated assistant access.
+- [x] Implement a [native Linux job coordinator](../image/README.md#native-linux-heavy-job-coordination)
+  with a permanent per-account OS lock, durable incomplete-run marker, bounded
+  child supervision and unchanged 3,072-MiB RAM admission. The Windows/WSL
+  coordinator is preserved. Windows validation: 28 portable passes, 11 Linux
+  syscall/lifecycle skips; actual Windows CLI refuses native use. On 11 November,
+  all **80 resource/coordinator cases pass on the real aarch64 Pi with zero
+  failures/skips**, including real Linux lock/descendant cases, under its permanent
+  production lock; post-run CLI check passes. Correct the resource reader for
+  positively observed absent memory controllers without lowering its floor or
+  changing kernel settings. Full application/image budgets and Qt remain open.
+- [ ] Integrate and qualify the actual headless first-boot hook, account/login
+  ordering, stable host identity across a completed bootstrap/reboot, public receipt
+  publication/shutdown and approved access-marker/expiry policy. Real credentials,
+  Wi-Fi/SSH activation and ongoing access remain separately gated. USB/HDMI is
+  optional recovery, not required by the proposed physical-receipt headless path.
 - [ ] Qualify a physical scratch budget, supported native ARM64 builder, pinned
   base/package inputs and entitled Linux ARM64 Qt 6.12 kit with 16-KiB-compatible
   dependencies. Preserve the shared heavy lock and 3-GiB host-RAM floor.
   The read-only probe now accepts a measured component budget and checks the
-  selected local scratch volume, refusing unqualified virtual/remote capacity.
+  selected scratch volume. Windows requires a fixed drive; Linux checks filesystem
+  and mount metadata, not physical backing or removability. WSL/overlay/tmpfs and
+  ordinary network mounts are refused; layered storage still needs independent
+  backing-volume review ([exact scope](../image/README.md#reviewed-environment-and-preparation-checks)).
   Its native Linux RAM observation also accounts for visible parent cgroup limits;
   WSL continues to require the Windows guard. Synthetic counter tests are not
   qualification of a native ARM64 builder.
-  No actual builder budget has been measured; this qualification item stays open.
+  Native free RAM/storage snapshots now exist, but no complete application/image
+  peak budget has been measured; this qualification item stays open. CMake is
+  absent; four exact Debian package candidates have a read-only in-memory proposal,
+  while the no-download APT simulation's exit 100 remains preserved. Artifact/
+  maintainer-script review and installation approval are still required.
   The probe now rejects Windows/mobile Qt target-platform metadata by reading
   its literal mkspec without executing the toolchain. Installed kit inspection
   still identifies no Linux ARM64 target; the reported Enterprise licence is
   not target-kit or dependency verification.
+  Native preset configuration now enforces the existing bounded version,
+  target-platform and Qt Core ELF checks before normal Qt discovery. A separate
+  explicit payload audit checks hashes, ARM64/16-KiB layouts, interpreter entries
+  and transitive dependency-name candidates without executing the target files.
+  It now checks bounded GNU version-label tables/hashes and exact label agreement
+  against the unique explicit dependency candidate, including weak requirements;
+  local validation status is in [OWNER](../OWNER.md). Complete deployment
+  selection, target loader/symbol ABI and native execution
+  still require the actual builder and payload; fixture passes clear none of them.
 - [x] Add native QQ Studio/Player configure/build/test presets and connect them
   to the existing isolated Linux product harness, preserving the same cache,
   sanitizer selection, warnings-as-errors, hardening and 16-KiB link layout.
@@ -609,27 +701,19 @@ probe are local source work; no Pi image or native application has been built.
   including hostile inputs under sanitizers, before staging image content.
 - [ ] Build and statically validate a regular-file image with a real maintained
   Pi login/desktop, native QOR apps and local development tools; no simulator.
-- [ ] After separate spare-media authorisation, prove Pi boot, hardware graphics,
+- [ ] After the [action-time write gates](../image/README.md#authorised-q-pi-target-and-action-time-write-gates), prove Pi boot, hardware graphics,
   Wi-Fi/Bluetooth/input, secure provisioning, local project save/build, offline
-  behavior and persistence across three reboots. Preserve Kali.
+  behavior and persistence across three reboots. The owner authorises eventual
+  Q Pi image writing to the identified Samsung EVO 128-GB card, including its old
+  Kali/data erasure. Fresh device/image checks, erasure confirmation and write
+  verification remain required; stock bootstrap and access/provisioning are separate.
+  Other devices/installations remain untouched. No write has occurred.
 - [ ] Later: split QQ's 2D editing/runtime dependencies from Quick 3D/Physics and
   measure the Pi path; qualify optional user-controlled remote heavy builds.
 
 The first milestone requires usable QOR apps as well as the base desktop.
 Image composition, emulation and physical-device acceptance are separate results.
 The Fedora full-device/release deliverable below keeps its existing scope.
-
-On 10 November a Qt 6.12 source-metadata differential reproduces twelve Prism
-Wayland warnings on committed headers and zero on the reapplied candidate, with
-warnings explicitly enabled. The candidate exposes Qt's concrete QObject
-extension base and validates the QObject argument at the QML boundary. Its
-protocol-global regression is added but not compiled/run. This Windows metadata
-result does not replace Linux compiler, runtime or sanitizer acceptance. The
-monitored WSL resume stopped before compilation at 1,189 MiB available host RAM;
-the earlier interrupted build, saved patch and all logs remain preserved. Source
-changes remain uncommitted pending those checks. A read-only WSL startup alone
-also crosses the floor: check the unchanged 3-GiB guard with WSL already resident
-before resuming, without managing unrelated services.
 
 ### Full device image
 

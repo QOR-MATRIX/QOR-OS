@@ -1011,7 +1011,7 @@ QWaylandKeyboard *PrismCompositor::createKeyboardDevice(QWaylandSeat *seat)
 
 void RelativePointerManager::initialize()
 {
-    QWaylandCompositorExtensionTemplate::initialize();
+    QWaylandCompositorExtension::initialize();
     auto *compositor = qobject_cast<QWaylandCompositor *>(extensionContainer());
     if (!captureOf(this)) {
         qCWarning(lcPointerCapture, "RelativePointerManagerV1 must be declared inside a PrismCompositor");
@@ -1044,7 +1044,7 @@ void RelativePointerManager::zwp_relative_pointer_manager_v1_get_relative_pointe
 
 void PointerConstraintsManager::initialize()
 {
-    QWaylandCompositorExtensionTemplate::initialize();
+    QWaylandCompositorExtension::initialize();
     auto *compositor = qobject_cast<QWaylandCompositor *>(extensionContainer());
     if (!captureOf(this)) {
         qCWarning(lcPointerCapture, "PointerConstraintsV1 must be declared inside a PrismCompositor");

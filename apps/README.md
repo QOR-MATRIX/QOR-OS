@@ -11,6 +11,7 @@ QOR.Kit, the Lumen style and QOR.Services, **never** on the shell.
 | Terminal | `TerminalApp.qml` | GPU-rendered console with history; commands wired to services (`theme`, `accent`, `wifi`, `play`, `notify`, `open`, `lock`, `qtfetch`) |
 | Monitor | `MonitorApp.qml` | Qt Graphs CPU/GPU chart, stat tiles, live frame time from `FrameStats` |
 | Settings | `SettingsApp.qml` | Appearance, Display, Sound, Wi-Fi, Bluetooth, Notifications, Accessibility, About; deep links (`page`) |
+| Store | `StoreApp.qml` | Player/Creator catalogue views, installed packages and theme/widget management; [format and trust boundaries](../docs/STORE.md) |
 
 Shared: `AppRegistry.qml` (catalogue, pinned order, settings pages, sender
 identities, components), `FrostSidebar.qml`, `FileIndex.js` (simulated

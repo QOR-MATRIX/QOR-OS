@@ -9,10 +9,130 @@ their changes since, and pulls of what is still shared, are recorded here.
 
 ## [Unreleased]
 
+- **Owner-authorised source checkpoint, 12 November.** Rechecked all 52 incoming
+  file fingerprints and 150 saved evidence files before commit preparation.
+  Windows verification passes 203 portable tooling tests, with 15 Linux-only
+  skips; the initial missing-Ninja failure and corrected-environment rerun are
+  preserved under `build/commit-checkpoint-2026-11-12/session-01/`. No production
+  or test source changed during this check. Ignored build evidence remains local,
+  and Q Pi remains on hold.
+
+- **Prism manager lifecycle regressions pass in Linux software; Q Pi remains deferred.**
+  Extended the saved warning candidate's existing raw-client test to reject
+  duplicate custom globals and bind, destroy and rebind all five managers,
+  including cursor-shape v1/v2. Client stubs use the existing vendored protocol
+  XML, including the tablet interface referenced by cursor-shape. The original
+  patch, all uncommitted work and evidence are preserved; production candidate
+  files are unchanged, retaining the prior 12-to-zero metadata warning result.
+  On 12 November, focused Release and ASan/UBSan builds completed without warnings;
+  each passed 42 pointer-capture results with no failures/skips and all four
+  affected suites. Root QML lint is warning-free in both builds; hardening passes
+  15 Release and 36 sanitizer programs. All 18 exercised program identities and
+  all nine sanitizer programs' actual runtime linkage were verified. Leak
+  detection was off. Execution stayed hidden, GPU-fenced and under the unchanged
+  memory guard and original QOR lock; previous refused/interrupted attempts are
+  preserved. The core library was disabled in these focused caches. Direct
+  null/wrong-object and deferred-acknowledgement regressions remain pending;
+  hardware, full-OS and isolated-CI acceptance are not established by this run.
+  See OWNER for the continuation; no Pi work is a core prerequisite.
+
+- **Small native Q Pi component build prepared.** `tests/pi/` reuses Prism's
+  actual command-line parser and its existing development/device-option suites
+  with Qt 6.12 Core/Test. Release and sanitizer presets retain the native/static
+  kit gate, hardening, 16-KiB linker settings, single-job execution and bounded
+  tests. Added preset/wrong-host regressions, including configuration without a
+  preset. Source review found no blocking issue; execution was not started at
+  2,741 MiB against the unchanged 3,072-MiB guard. A bounded authorised connection
+  diagnostic found no hostname/last-address access or mDNS address. Standard
+  prerequisites are now authorised subject to concrete transaction review, but
+  Pi access and actual commercial ARM64 entitlement remain blocked. No native
+  application, package install or image result is claimed.
+
+- **Q Pi GNU version-label audit prepared locally.** The existing bounded ELF
+  reader now checks version requirements/definitions, relative chains, indices
+  and label hashes. The payload audit requires exact label agreement with each
+  unique explicit dependency candidate, including weak requirements; inherited
+  labels and unversioned providers cannot fill gaps. Added hostile binary
+  fixtures; 59 focused Windows Python tests pass with zero failures/skips after
+  authorised RAM recovery, under the original lock and unchanged 3,072-MiB floor.
+  Symbol binding, loader resolution and full ABI compatibility remain
+  unqualified. See OWNER for current execution evidence; these fixtures are not
+  native Qt/QOR or image proof. During that increment the Pi was reported
+  unreachable and the separate connection investigation was left alone.
+
+- **Real Pi coordination/resource qualification, 11 November.** The authorised
+  stock Pi 5 ARM64/Trixie builder ran 80 focused tests with zero failures/skips,
+  including Linux process/lock cases. Corrected native RAM observation to consult
+  advertised cgroup controllers before requiring their counters, while retaining
+  all applicable ancestor limits, metadata rechecks and the 3,072-MiB floor.
+  No kernel/resource settings changed. Bootstrap and the production lock check
+  pass; this is not Qt/QOR/image acceptance. Recorded restricted-key access with
+  approved first-use host trust, the missing CMake/Qt kit, four pinned CMake
+  package candidates and concrete commercial ARM64 entitlement/module questions.
+  No package install, media write, credential creation or service change occurred
+  in this repository session; key provisioning was separately authorised/performed.
+
+- **Native Linux heavy-job coordination prepared.** A per-account permanent OS
+  lock and durable incomplete-run marker serialize cooperative native QOR jobs;
+  the launcher checks the existing 3,072-MiB RAM floor while holding the lock,
+  supervises orphan descendants and stops only its own unreaped process group.
+  Unsafe paths, busy locks and uncertain cleanup refuse further work without
+  automatic recovery. Original Windows/WSL coordination and resource settings
+  remain unchanged. Windows validation records 28 portable passes and 11 Linux
+  skips; actual native locking, ARM64 application and Pi/image acceptance remain
+  unrun. Canonical commands now use the launcher after native qualification.
+
+- **Documentation reconciled with the local tree and dated evidence.** The
+  canonical index now includes subsystem guides and explains the authority of
+  current instructions, historical decisions, drafts and ignored handoffs.
+  Corrected stale CI/runner and device-service claims, unsafe default build
+  examples, carried-product links and unmeasured performance assertions. Q Pi
+  docs now state the scratch probe's actual mount-check limits and the public
+  receipt helper's hostname/comment handling; original evidence and decision
+  history remain unchanged. No runtime behavior or native/hardware acceptance
+  changed in this audit.
+
+- **Headless Q Pi preparation with pinned SSH identity.** The first-boot design
+  now uses the reviewed Trixie `cloudinit-rpi` interface and per-device credentials,
+  with normal console/desktop login retained. A public-only helper validates and
+  preserves identity receipts, refuses malformed/changed/partial input and prepares
+  bounded Windows OpenSSH argument plans without connecting or reading private
+  keys. Tests cover hostile metadata, retry/interruption, SSH option injection and
+  probe-output failures. The existing Windows client parses the plan offline and
+  agrees on the public fixture fingerprint. Actual first-boot hook/marker integration,
+  shutdown, Wi-Fi, SSH and authenticated access remain unqualified; no real credentials,
+  services, security settings or media were changed.
+
+- **Scoped future Q Pi media authorisation recorded.** The owner selects the
+  connected Samsung EVO 128-GB card, including old Kali/data erasure, for the
+  eventual ready Q Pi image only. Canonical planning retains fresh capacity/USB
+  identity and system/boot-disk checks, image provenance/hash/compatibility/size
+  validation, action-time erasure confirmation and completed-write verification.
+  Stock bootstrap, credentials and access changes remain separate. No write ran.
+
+- **Pi 5 bootstrap qualification before Qt.** A read-only `--bootstrap-only`
+  preflight checks native ARM64/64-bit userspace, bounded Pi 5/Trixie metadata,
+  the running kernel's 16-KiB pages and the unchanged RAM guard without executing
+  Qt, Git or package tools. A pass explicitly leaves the builder unqualified.
+  The canonical image guide separates stock bootstrap from Q Pi and records
+  local first boot, package-delta simulation, Qt modules/entitlement, one-card
+  recovery, native lock prerequisites and application/image acceptance. No Pi
+  provisioning, installation, media write or native application build occurred.
+
 QOR OS begins: QTOS and Demiurge's device-side products in one repository
 ([QOR-0002](docs/decisions/QOR-0002-one-repository-from-qtos-and-demiurge.md)).
 
 ### Added
+
+- **Q Pi kit enforcement and explicit payload audits.** The native QQ presets
+  check Qt 6.12 Linux target metadata and ARM64/16-KiB Qt Core layout before
+  normal package discovery. A separate read-only audit checks a bounded,
+  hash-pinned manifest of applications, libraries, plugins, helpers and loaders,
+  records their ELF dependencies and rejects missing or ambiguous dependency-name
+  candidates. It executes no target code or kit toolchain. Hostile fixture tests
+  cover malformed ELF metadata, path escapes, changed hashes and input/output
+  bounds. Static name coverage does not certify symbol ABI, actual loader search,
+  complete QML/plugin selection, commercial entitlement or native execution.
 
 - **Qt target-platform metadata checks for Q Pi.** The read-only probe now
   distinguishes literal Linux desktop mkspec metadata from Windows and mobile
@@ -46,7 +166,8 @@ QOR OS begins: QTOS and Demiurge's device-side products in one repository
 - **Measured scratch budgets for Q Pi preparation.** The read-only probe can
   check an explicit component budget against an existing local scratch volume.
   It rejects duplicate or unknown fields, missing estimates, imprecise byte
-  counts, overflow, insufficient capacity and unqualified virtual/remote storage.
+  counts, overflow, insufficient capacity and unsupported mount/drive types.
+  Linux filesystem/mount checks do not attest physical backing or removability.
   WSL's virtual free space cannot clear the backing-volume check. The shared
   QOR memory guard also refuses caller-supplied thresholds below its existing
   3-GiB floor. These checks neither reserve resources nor qualify an image,

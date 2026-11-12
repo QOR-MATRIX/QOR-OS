@@ -96,7 +96,8 @@ and through the whole history; the QOR core's dependencies audited weekly.
 Say so if you find a way past one; these are the walls we know are low.
 
 - **This repository was public from 27 October to 1 November 2026,** against its own
-  documents, while CI ran on the owner's machine. It is private now, but treat the code as
+  documents, while CI ran on the owner's machine. It was recorded as made private on 1 November;
+  repository visibility was not queried again in the 10 November documentation audit. Treat the code as
   copied up to `a3a2fd4`. GitHub counted 239 clones (85 unique) and does not say by whom. CI's
   jobs explain at most about 163 of them, and the gap is widest on 31 October, at 133 clones
   against 45 jobs. The history's secret scan passed at that commit, and no artifact was
@@ -111,9 +112,11 @@ Say so if you find a way past one; these are the walls we know are low.
   does not prove it.
 - **A CI job on the workstation can reach what its user can:** the Store's keys and backup,
   and SSH, cloud, GitHub CLI and Qt credentials. Those jobs are off until their runner is isolated
-  ([docs/CI.md](docs/CI.md#what-ci-trusts)), but the runners stay online. Whatever can write workflows
-  can address them, and that includes GitHub Apps installed on the organisation with workflow
-  access.
+  ([docs/CI.md](docs/CI.md#what-ci-trusts)). The "runners stay online" observation belonged to
+  1 November; later repository policy requires them stopped pending isolation. Current workflow
+  configuration remains paused, but this documentation audit did not independently query live
+  runner services or GitHub Apps. Any registered online runner remains addressable by workflows
+  allowed to target it; a paused job alone does not establish host isolation.
 - **Under WSL, any Linux process can reach the Windows drive with the Windows user's rights.** Measured on 1 November 2026: with
   drives unmounted and interop off, a process with no privilege opened `AF_VSOCK` to Windows' 9P file server and attached to
   `C:\`. Only a filter on the process closes that, as in `qor-ci`'s job sandbox and the QQ Player's wall. So nothing run in WSL

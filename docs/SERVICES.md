@@ -3,8 +3,10 @@
 QOR OS system services are defined as **Qt Remote Objects contracts** in
 [`services/interfaces/`](../services/interfaces/). The shell, apps,
 `qorctl` and tests use *replicas* of these contracts. Simulated *sources*
-live in [`sim/`](../sim/); on a device, the `qor-*d` daemons implement the
-same contracts.
+live in [`sim/`](../sim/). The device `qor-*d` daemons named below are planned
+implementations of the same contracts; they are not built services in this tree.
+The full device layer remains blocked on real services and authentication
+([image/README.md](../image/README.md#intended-full-device-image)).
 
 Property modes used in the contracts:
 

@@ -73,22 +73,45 @@ def read_prefix(path):
         return handle.read(MAX_READ), info.st_size
 
 
-def qt_version(kit):
+def qt_version(kit, module="Qt6Core"):
     # Qt 6.12's public version file may include the generated Impl file.
     # Read fixed metadata locations only. Never execute CMake from a kit.
-    directory = kit / "lib/cmake/Qt6Core"
-    for name in ("Qt6CoreConfigVersion.cmake", "Qt6CoreConfigVersionImpl.cmake"):
+    if module not in ("Qt6", "Qt6Core"):
+        raise ValueError("unsupported fixed Qt metadata package")
+    directory = kit / "lib/cmake" / module
+    if not stat.S_ISREG((directory / f"{module}ConfigVersion.cmake").stat().st_mode):
+        raise ValueError("Qt package version entry point is not a regular file")
+    versions = []
+    for name in (f"{module}ConfigVersion.cmake", f"{module}ConfigVersionImpl.cmake"):
         path = directory / name
         if not path.is_file():
             continue
         data, size = read_prefix(path)
         if size > MAX_READ:
             raise ValueError("Qt metadata too large")
-        match = re.search(r'^\s*set\(PACKAGE_VERSION\s+["\']?(\d+\.\d+\.\d+)["\']?\s*\)',
-                          data.decode("utf-8"), re.MULTILINE | re.IGNORECASE)
-        if match:
-            return match.group(1)
-    raise ValueError("Qt version not identified in fixed metadata files")
+        content = data.decode("utf-8")
+        if re.search(r'\[=*\[', content):
+            raise ValueError("unsupported bracket syntax in Qt version metadata")
+        uncommented = "\n".join(line.split("#", 1)[0] for line in content.splitlines())
+        starts = re.findall(r'(?i:\bset)\s*\(\s*PACKAGE_VERSION(?:\s|\))', uncommented)
+        assignments = [line.strip() for line in uncommented.splitlines()
+                       if re.match(r'(?i:set)\s*\(\s*PACKAGE_VERSION(?:\s|\))', line.strip())]
+        if len(starts) != len(assignments):
+            raise ValueError("Qt version assignment is not fixed line metadata")
+        for assignment in assignments:
+            # CMake's generated version file decorates the result on a pointer-
+            # width mismatch. Recognise that exact generated suffix, not arbitrary
+            # dynamic version expressions; the literal must still occur once.
+            if assignment == 'set(PACKAGE_VERSION "${PACKAGE_VERSION} (${installedBits}bit)")':
+                continue
+            match = re.fullmatch(r'(?i:set)\s*\(\s*PACKAGE_VERSION\s+'
+                                 r'(?:"(\d+\.\d+\.\d+)"|(\d+\.\d+\.\d+))\s*\)', assignment)
+            if not match:
+                raise ValueError("Qt version assignment is not fixed literal metadata")
+            versions.append(match.group(1) or match.group(2))
+    if len(versions) != 1:
+        raise ValueError("Qt version missing or ambiguous in fixed metadata files")
+    return versions[0]
 
 
 def qt_linux_target_spec(kit):
@@ -97,6 +120,11 @@ def qt_linux_target_spec(kit):
     This distinguishes Linux desktop metadata from Android/Windows ARM64.
     It does not certify the GNU ABI, entitlement or dependency closure.
     """
+    # CMake ignores a <Package>_DIR without its config and resumes searching.
+    # Require this fixed entry point so selecting the checked kit cannot silently
+    # fall back merely because its root package config is absent. Do not run it.
+    if not stat.S_ISREG((kit / "lib/cmake/Qt6/Qt6Config.cmake").stat().st_mode):
+        raise ValueError("Qt root package config is not a regular file")
     data, size = read_prefix(kit / "lib/cmake/Qt6/qt.toolchain.cmake")
     if size > MAX_READ:
         raise ValueError("Qt toolchain metadata too large")
@@ -120,6 +148,36 @@ def qt_linux_target_spec(kit):
     if spec not in ("linux-g++", "linux-clang", "linux-aarch64-gnu-g++"):
         raise ValueError("Qt target mkspec is not a supported Linux desktop candidate")
     return spec
+
+
+def qt_kit_checks(kit):
+    """Inspect fixed Qt metadata and Core's layout, never load the toolkit.
+
+    This is an early rejection gate, not a complete kit, ABI or dependency audit.
+    """
+    checks = []
+
+    def add(name, passed, detail):
+        checks.append({"check": name, "passed": bool(passed), "detail": detail})
+
+    try:
+        version = qt_version(kit)
+        root_version = qt_version(kit, "Qt6")
+        add("qt_612_metadata", version.startswith("6.12.") and root_version == version,
+            {"core": version, "root": root_version})
+    except (OSError, ValueError):
+        add("qt_612_metadata", False, "Qt version metadata unavailable or invalid")
+    try:
+        add("qt_linux_desktop_metadata", True, qt_linux_target_spec(kit))
+    except (OSError, ValueError):
+        add("qt_linux_desktop_metadata", False, "Qt target mkspec missing, ambiguous or not Linux desktop")
+    try:
+        data, size = read_prefix(kit / "lib/libQt6Core.so.6")
+        info = inspect_elf(data, size)
+        add("qt_core_arm64_16k_layout", info["elf_type"] == 3, info)
+    except (OSError, ValueError, struct.error):
+        add("qt_core_arm64_16k_layout", False, "Qt Core is not a qualified ARM64 shared ELF layout")
+    return checks
 
 
 def git_read(source, args):
@@ -157,6 +215,73 @@ def memory_check():
         return False, "native Linux memory unavailable or below 3 GiB; WSL requires the Windows host guard"
 
 
+def bootstrap_text(path, limit):
+    """Bound a fixed OS/kernel metadata read, including zero-size sysfs files."""
+    with path.open("rb") as stream:
+        raw = stream.read(limit + 1)
+    if len(raw) > limit:
+        raise ValueError("bootstrap metadata exceeds its bound")
+    return raw.decode("ascii")
+
+
+def bootstrap_os():
+    """Read only public OS identity fields; never source os-release as code."""
+    fields = {}
+    for line in bootstrap_text(Path("/etc/os-release"), 65536).splitlines():
+        key, separator, value = line.partition("=")
+        if key not in ("ID", "VERSION_ID", "VERSION_CODENAME"):
+            continue
+        if not separator or key in fields:
+            raise ValueError("ambiguous OS identity")
+        if len(value) >= 2 and value[0] == value[-1] and value[0] in ("'", '"'):
+            value = value[1:-1]
+        if not re.fullmatch(r"[a-z0-9._-]{1,64}", value):
+            raise ValueError("unsupported OS identity")
+        fields[key] = value
+    return fields
+
+
+def bootstrap_probe():
+    """Observe this Pi before Qt/source provisioning; never qualify a builder."""
+    checks = []
+
+    def add(name, passed, detail):
+        checks.append({"check": name, "passed": bool(passed), "detail": detail})
+
+    native = (platform.system() == "Linux" and platform.machine().lower() in ("aarch64", "arm64")
+              and struct.calcsize("P") == 8
+              and not any(word in platform.release().lower() for word in ("microsoft", "wsl")))
+    add("native_arm64_linux", native, "requires native Linux, ARM64 and 64-bit userspace; excludes WSL")
+    try:
+        model = bootstrap_text(Path("/sys/firmware/devicetree/base/model"), 128).removesuffix("\0")
+        if not re.fullmatch(r"Raspberry Pi 5 Model B Rev [0-9]+\.[0-9]+", model):
+            raise ValueError("unexpected board")
+        add("pi5_board_metadata", True, model)
+    except (OSError, ValueError):
+        add("pi5_board_metadata", False, "Pi 5 model metadata unavailable or unsupported")
+    try:
+        osr = bootstrap_os()
+        add("adopted_trixie_os", osr.get("ID") in ("debian", "raspbian")
+            and osr.get("VERSION_ID") == "13" and osr.get("VERSION_CODENAME") == "trixie", osr)
+    except (OSError, ValueError):
+        add("adopted_trixie_os", False, "public OS identity unavailable or invalid")
+    try:
+        size = os.sysconf("SC_PAGE_SIZE") if platform.system() == "Linux" else None
+        add("running_kernel_16k_pages", type(size) is int and size == 16384, {"page_size": size})
+    except (AttributeError, OSError, ValueError):
+        add("running_kernel_16k_pages", False, "kernel page size unavailable")
+    passed, detail = memory_check()
+    add("host_ram_3gib", passed, detail)
+    return {"name": "Q Pi", "kind": "read-only-bootstrap-probe", "checks": checks,
+            "blockers": [item["check"] for item in checks if not item["passed"]],
+            "builder_qualified": False, "build_started": False, "image_built": False,
+            "not_certified": ["physical board authenticity or installed RAM capacity", "desktop and login policy",
+                              "power and cooling", "storage capacity and measured scratch budget",
+                              "heavy-job coordination", "namespace privileges", "package/tool versions",
+                              "Qt entitlement, modules and dependency ABI", "source provenance",
+                              "QOR applications", "image or hardware acceptance"]}
+
+
 def probe(source, kit, expected, scratch_root=None, scratch_budget=None):
     checks = []
 
@@ -191,21 +316,7 @@ def probe(source, kit, expected, scratch_root=None, scratch_budget=None):
         add("clean_source", not dirty, {"dirty_entry_count": len(dirty.splitlines())})
     except (OSError, ValueError, subprocess.TimeoutExpired):
         add("source_identity", False, "read-only Git query failed or timed out; no names/content exported")
-    try:
-        version = qt_version(kit)
-        add("qt_612_metadata", version.startswith("6.12."), version)
-    except (OSError, ValueError):
-        add("qt_612_metadata", False, "Qt version metadata unavailable or invalid")
-    try:
-        add("qt_linux_desktop_metadata", True, qt_linux_target_spec(kit))
-    except (OSError, ValueError):
-        add("qt_linux_desktop_metadata", False, "Qt target mkspec missing, ambiguous or not Linux desktop")
-    try:
-        data, size = read_prefix(kit / "lib/libQt6Core.so.6")
-        info = inspect_elf(data, size)
-        add("qt_core_arm64_16k_layout", info["elf_type"] == 3, info)
-    except (OSError, ValueError, struct.error):
-        add("qt_core_arm64_16k_layout", False, "Qt Core is not a qualified ARM64 shared ELF layout")
+    checks.extend(qt_kit_checks(kit))
     memory_passed, memory_detail = memory_check()
     add("host_ram_3gib", memory_passed, memory_detail)
     scratch_passed, scratch_detail = scratch_check(scratch_root, scratch_budget)
@@ -222,12 +333,41 @@ def probe(source, kit, expected, scratch_root=None, scratch_budget=None):
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--source", type=Path, required=True)
-    parser.add_argument("--qt-target", type=Path, required=True)
-    parser.add_argument("--expected-commit", required=True)
+    mode = parser.add_mutually_exclusive_group()
+    mode.add_argument("--qt-only", action="store_true",
+                      help="Read fixed Qt metadata and Core ELF only; no host, Git or resource checks")
+    mode.add_argument("--bootstrap-only", action="store_true",
+                      help="Read Pi 5/Trixie/kernel/RAM metadata without Qt, source, packages or subprocesses")
+    parser.add_argument("--source", type=Path)
+    parser.add_argument("--qt-target", type=Path)
+    parser.add_argument("--expected-commit")
     parser.add_argument("--scratch-root", type=Path, help="Existing fixed local build directory; never created by this probe")
     parser.add_argument("--scratch-budget", type=Path, help="Measured schema-1 component budget JSON; no default estimate")
     args = parser.parse_args(argv)
+    if args.bootstrap_only:
+        if any(value is not None for value in
+               (args.source, args.expected_commit, args.scratch_root, args.scratch_budget, args.qt_target)):
+            parser.error("bootstrap-only does not accept source, commit, scratch or Qt arguments")
+        report = bootstrap_probe()
+        print(json.dumps(report, indent=2))
+        return 2 if report["blockers"] else 0
+    if args.qt_target is None:
+        parser.error("qt-target is required unless bootstrap-only is selected")
+    if args.qt_only:
+        if any(value is not None for value in
+               (args.source, args.expected_commit, args.scratch_root, args.scratch_budget)):
+            parser.error("qt-only does not accept source, commit or scratch arguments")
+        checks = qt_kit_checks(args.qt_target)
+        report = {"name": "Q Pi", "kind": "read-only-qt-kit-probe", "checks": checks,
+                  "blockers": [item["check"] for item in checks if not item["passed"]],
+                  "build_started": False, "image_built": False,
+                  "not_certified": ["Qt binary version", "complete Qt modules and plugins", "Linux GNU ABI",
+                                    "commercial Qt entitlement", "all ELF dependencies", "native builder",
+                                    "resources", "QOR applications", "physical Pi boot"]}
+        print(json.dumps(report, indent=2))
+        return 2 if report["blockers"] else 0
+    if args.source is None or args.expected_commit is None:
+        parser.error("source and expected-commit are required unless qt-only is selected")
     if not re.fullmatch(r"[0-9a-f]{40}", args.expected_commit):
         parser.error("expected-commit must be a full lowercase Git SHA-1")
     if (args.scratch_root is None) != (args.scratch_budget is None):

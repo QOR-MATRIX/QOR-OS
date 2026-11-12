@@ -73,9 +73,49 @@
     "applied": false,
     "generic_image_ssh_enabled": false,
     "reusable_credentials": false,
-    "bluetooth_bootstrap": "temporary USB input or separately approved, verified per-device headless provisioning"
+    "bluetooth_bootstrap": "not required for headless first boot; pairing later only after approval",
+    "selected_preparation_route": "headless Wi-Fi and key-only SSH; optional local USB/HDMI recovery",
+    "interface": "cloudinit-rpi; actual custom image integration required",
+    "imager_reference": {
+      "version": "2.0.12",
+      "commit": "84b03d96cd4c390ebe475a4b5db5735e5535e9a6"
+    },
+    "normal_local_login_required": true,
+    "console_autologin": false,
+    "desktop_autologin": false,
+    "real_credentials_created": false,
+    "real_ssh_enabled": false,
+    "authenticated_assistant_access_verified": false,
+    "host_identity_route": "native per-device generation; completed firstboot and stable reboot; public-only receipt physically returned to Windows before pinning and separately approved access marker",
+    "headless_hook_integrated": false,
+    "access_marker_and_expiry_integrated": false,
+    "graceful_shutdown_verified": false,
+    "windows_client_observed": "C:/Windows/System32/OpenSSH/ssh.exe; OpenSSH_for_Windows_9.5p2",
+    "windows_client_evidence": "offline -G and synthetic public fingerprint only; no network connection",
+    "public_receipt_helper": "tools/image/pi_headless.py",
+    "scope_note": "These unqualified provisioning fields describe the eventual Q Pi image; the separately authorised stock-builder SSH connection is recorded under stock_builder_observation."
   },
   "scratch_budget_bytes": null,
+  "eventual_media_authorisation": {
+    "kind": "owner-scope-update-not-write-receipt",
+    "date": "2026-11-10",
+    "target": "plugged-in Samsung EVO nominal 128GB microSD",
+    "last_observed_capacity_bytes": 128177930240,
+    "eventual_q_pi_image_authorised": true,
+    "old_kali_and_data_erasure_authorised": true,
+    "stock_bootstrap_image_authorised": false,
+    "credentials_or_security_access_changes_authorised": false,
+    "action_time_identity_reverification_required": true,
+    "capacity_and_usb_reader_device_identity_required": true,
+    "must_not_be_system_or_boot_disk": true,
+    "image_provenance_checksum_pi5_arm64_size_readiness_required": true,
+    "action_time_irreversible_erasure_confirmation_required": true,
+    "completed_write_verification_required": true,
+    "current_device_identity_verified_for_write": false,
+    "image_ready": false,
+    "write_performed": false,
+    "procedure": "image/README.md#authorised-q-pi-target-and-action-time-write-gates"
+  },
   "outputs": {
     "image": null,
     "sha256": null,
@@ -91,7 +131,34 @@
     ],
     "harness": "tools/dev/products.sh --product qq --preset <preset>",
     "outputs_built": false,
-    "native_arm64_builder_selected": false,
-    "note": "Actual CMake/Ninja source build entry points, with native-host refusal tests; no ARM64 application compiled or tested."
+    "native_arm64_builder_selected": true,
+    "note": "Stock Pi builder and native resource/coordinator tests observed; CMake and entitled compatible commercial Qt kit still missing. No ARM64 QOR application compiled or tested."
+  },
+  "stock_builder_observation": {
+    "date": "2026-11-11",
+    "kind": "temporary-stock-builder-not-q-pi-image",
+    "evidence": "build/q-pi-native-2026-11-11/session-01/",
+    "board_metadata": "Raspberry Pi 5 Model B Rev 1.1",
+    "architecture": "aarch64",
+    "os": "Debian 13 Trixie",
+    "kernel": "6.18.50+rpt-rpi-2712",
+    "page_size": 16384,
+    "bootstrap_probe_passed": true,
+    "builder_qualified": false,
+    "coordinator_resource_tests": {
+      "passed": 80,
+      "failed": 0,
+      "skipped": 0,
+      "actual_native_execution": true
+    },
+    "production_lock_check_passed": true,
+    "ssh_access": "owner-authorised dedicated restricted key; fresh batch-mode strict-checking connections observed",
+    "host_identity_trust": "owner-approved first use; not independently verified",
+    "credentials_embedded_in_image": false,
+    "cmake_installed": false,
+    "commercial_qt_kit_installed": false,
+    "power_cooling_login_policy_verified": false,
+    "application_image_peak_scratch_budget_measured": false,
+    "cmake_package_proposal": "four new pinned packages; 12375896 download bytes; 48841728 installed bytes; not approved or installed"
   }
 }

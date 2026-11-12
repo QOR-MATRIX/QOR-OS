@@ -10,13 +10,17 @@
 // client was told is read after a roundtrip, so "it heard nothing" is a fact and not a
 // matter of how long the test waited.
 
+#include "wayland-cursor-shape-v1-client-protocol.h"
+#include "wayland-fractional-scale-v1-client-protocol.h"
 #include "wayland-pointer-constraints-unstable-v1-client-protocol.h"
 #include "wayland-relative-pointer-unstable-v1-client-protocol.h"
+#include "wayland-xdg-activation-v1-client-protocol.h"
 #include "wayland-xdg-shell-client-protocol.h"
 
 #include <QtCore/QDir>
 #include <QtCore/QElapsedTimer>
 #include <QtCore/QFile>
+#include <QtCore/QHash>
 #include <QtCore/QJsonArray>
 #include <QtCore/QJsonDocument>
 #include <QtCore/QJsonObject>
@@ -138,8 +142,11 @@ public:
     wl_pointer *anotherPointer();
     wl_region *region(const QList<QRect> &rects);
     Window *openWindow(const QString &title, QSize size);
+    wl_proxy *bindGlobal(const wl_interface *type, uint32_t version);
 
     Seen seen;
+    QHash<QByteArray, uint32_t> globals;
+    QHash<QByteArray, int> globalAnnouncements;
     wl_compositor *compositor = nullptr;
     wl_subcompositor *subcompositor = nullptr;
     wl_shm *shm = nullptr;
@@ -152,6 +159,8 @@ public:
 
 private:
     wl_display *m_display = nullptr;
+    wl_registry *m_registry = nullptr;
+    QHash<QByteArray, uint32_t> m_globalNames;
     QList<wl_proxy *> m_proxies;
     std::vector<std::unique_ptr<Capture>> m_captures;
     std::vector<std::unique_ptr<Window>> m_windows;
@@ -295,12 +304,16 @@ Client::Client(const QByteArray &socket)
     m_display = wl_display_connect(socket.constData());
     if (!m_display)
         return;
-    wl_registry *registry = keep(wl_display_get_registry(m_display));
+    m_registry = keep(wl_display_get_registry(m_display));
     static const wl_registry_listener registryListener = [] {
         wl_registry_listener l {};
-        l.global = [](void *data, wl_registry *object, uint32_t name, const char *interface, uint32_t) {
+        l.global = [](void *data, wl_registry *object, uint32_t name, const char *interface,
+                      uint32_t advertisedVersion) {
             auto *self = static_cast<Client *>(data);
             const QByteArray which(interface);
+            self->globals.insert(which, advertisedVersion);
+            ++self->globalAnnouncements[which];
+            self->m_globalNames.insert(which, name);
             const auto bind = [&](const wl_interface *type, uint32_t version) {
                 return self->keep(static_cast<wl_proxy *>(wl_registry_bind(object, name, type, version)));
             };
@@ -331,7 +344,7 @@ Client::Client(const QByteArray &socket)
         l.global_remove = [](void *, wl_registry *, uint32_t) { };
         return l;
     }();
-    wl_registry_add_listener(registry, &registryListener, this);
+    wl_registry_add_listener(m_registry, &registryListener, this);
     wl_display_roundtrip(m_display);
     if (!seat)
         return;
@@ -356,6 +369,14 @@ Client::Client(const QByteArray &socket)
     }();
     wl_keyboard_add_listener(keyboard, &keyboardListener, this);
     wl_display_roundtrip(m_display);
+}
+
+wl_proxy *Client::bindGlobal(const wl_interface *type, uint32_t version)
+{
+    if (!m_registry || !isAlive() || !m_globalNames.contains(type->name) || version == 0
+        || version > globals.value(type->name))
+        return nullptr;
+    return keep(static_cast<wl_proxy *>(wl_registry_bind(m_registry, m_globalNames.value(type->name), type, version)));
 }
 
 Client::~Client()
@@ -503,6 +524,8 @@ private Q_SLOTS:
     void cleanupTestCase();
 
     void offersBothGlobals();
+    void offersAllProtocolGlobals();
+    void protocolManagersCanBeReleasedAndRebound();
     void aWindowOpeningAsAnotherGoesIsNotLost();
     void aLockWaitsForAPerson();
     void aKeyIsAnActionAndAModifierOrARepeatIsNot();
@@ -825,6 +848,70 @@ void TestPointerCapture::offersBothGlobals()
     DO(client->isUsable());
     QVERIFY(client->constraints);
     QVERIFY(client->relativeManager);
+}
+
+void TestPointerCapture::offersAllProtocolGlobals()
+{
+    std::unique_ptr<Client> client = connectClient();
+    DO(client->isUsable());
+    QCOMPARE(client->globals.value("wp_fractional_scale_manager_v1"), 1U);
+    QCOMPARE(client->globals.value("wp_cursor_shape_manager_v1"), 2U);
+    QCOMPARE(client->globals.value("xdg_activation_v1"), 1U);
+    QCOMPARE(client->globals.value("zwp_relative_pointer_manager_v1"), 1U);
+    QCOMPARE(client->globals.value("zwp_pointer_constraints_v1"), 1U);
+    for (const char *name : { "wp_fractional_scale_manager_v1", "wp_cursor_shape_manager_v1", "xdg_activation_v1",
+                              "zwp_relative_pointer_manager_v1", "zwp_pointer_constraints_v1" })
+        QCOMPARE(client->globalAnnouncements.value(name), 1);
+}
+
+void TestPointerCapture::protocolManagersCanBeReleasedAndRebound()
+{
+    std::unique_ptr<Client> client = connectClient();
+    DO(client->isUsable());
+    QVERIFY(client->relativeManager);
+    QVERIFY(client->constraints);
+    // The normal client binds these eagerly. Release them first so the loop
+    // also proves that destroying the last binding leaves each global usable.
+    client->dropped(client->relativeManager);
+    zwp_relative_pointer_manager_v1_destroy(client->relativeManager);
+    client->relativeManager = nullptr;
+    client->dropped(client->constraints);
+    zwp_pointer_constraints_v1_destroy(client->constraints);
+    client->constraints = nullptr;
+    QVERIFY(client->roundtrip());
+    const auto rebind = [&](const wl_interface *type, uint32_t version, auto destroy) {
+        for (int attempt = 0; attempt < 2; ++attempt) {
+            wl_proxy *manager = client->bindGlobal(type, version);
+            if (!manager || !client->roundtrip())
+                return false;
+            // The protocol destructor releases the proxy locally too. Do not
+            // let the client's fallback cleanup destroy it a second time.
+            client->dropped(manager);
+            destroy(manager);
+            if (!client->roundtrip())
+                return false;
+        }
+        return true;
+    };
+    QVERIFY(rebind(&wp_fractional_scale_manager_v1_interface, 1, [](wl_proxy *manager) {
+        wp_fractional_scale_manager_v1_destroy(reinterpret_cast<wp_fractional_scale_manager_v1 *>(manager));
+    }));
+    // Both cursor-shape versions are supported; neither binding may remove
+    // the global or break a later binding when its manager is released.
+    for (uint32_t version : { 1U, 2U }) {
+        QVERIFY(rebind(&wp_cursor_shape_manager_v1_interface, version, [](wl_proxy *manager) {
+            wp_cursor_shape_manager_v1_destroy(reinterpret_cast<wp_cursor_shape_manager_v1 *>(manager));
+        }));
+    }
+    QVERIFY(rebind(&xdg_activation_v1_interface, 1, [](wl_proxy *manager) {
+        xdg_activation_v1_destroy(reinterpret_cast<xdg_activation_v1 *>(manager));
+    }));
+    QVERIFY(rebind(&zwp_relative_pointer_manager_v1_interface, 1, [](wl_proxy *manager) {
+        zwp_relative_pointer_manager_v1_destroy(reinterpret_cast<zwp_relative_pointer_manager_v1 *>(manager));
+    }));
+    QVERIFY(rebind(&zwp_pointer_constraints_v1_interface, 1, [](wl_proxy *manager) {
+        zwp_pointer_constraints_v1_destroy(reinterpret_cast<zwp_pointer_constraints_v1 *>(manager));
+    }));
 }
 
 void TestPointerCapture::aWindowOpeningAsAnotherGoesIsNotLost()

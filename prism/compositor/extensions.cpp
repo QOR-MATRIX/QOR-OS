@@ -79,7 +79,7 @@ void FractionalScaleManager::setPreferredScale(qreal scale)
 
 void FractionalScaleManager::initialize()
 {
-    QWaylandCompositorExtensionTemplate::initialize();
+    QWaylandCompositorExtension::initialize();
     QWaylandCompositor *compositor = compositorOf(this);
     if (!compositor) {
         qCWarning(lcExtensions, "FractionalScaleManagerV1 must be declared inside a WaylandCompositor");
@@ -158,7 +158,7 @@ private:
 
 void CursorShapeManager::initialize()
 {
-    QWaylandCompositorExtensionTemplate::initialize();
+    QWaylandCompositorExtension::initialize();
     QWaylandCompositor *compositor = compositorOf(this);
     if (!compositor) {
         qCWarning(lcExtensions, "CursorShapeManagerV1 must be declared inside a WaylandCompositor");
@@ -305,7 +305,7 @@ private:
 
 void ActivationManager::initialize()
 {
-    QWaylandCompositorExtensionTemplate::initialize();
+    QWaylandCompositorExtension::initialize();
     QWaylandCompositor *compositor = compositorOf(this);
     if (!compositor) {
         qCWarning(lcExtensions, "XdgActivationV1 must be declared inside a WaylandCompositor");
@@ -386,8 +386,10 @@ void WindowManagement::releaseKeyboard(QWaylandCompositor *compositor)
         compositor->defaultSeat()->setKeyboardFocus(nullptr);
 }
 
-bool WindowManagement::configureAcked(QWaylandXdgToplevel *toplevel) const
+bool WindowManagement::configureAcked(QObject *object) const
 {
+    // Validate the protocol object at the QML boundary before using Qt's private state.
+    auto *toplevel = qobject_cast<QWaylandXdgToplevel *>(object);
     return toplevel && QWaylandXdgToplevelPrivate::get(toplevel)->m_pendingConfigures.isEmpty();
 }
 

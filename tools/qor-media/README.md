@@ -1,9 +1,18 @@
 # QOR Media
 
-The Library's player, viewer, editor and reader ([ADR-094](../../docs/decisions/ADR-094-the-library-and-qor-media.md),
-[`docs/blueprints/library.md`](../../docs/blueprints/library.md), L9.3 to L9.5). A Qt 6 program in C++20 and QML that the
+<!-- Changed for QOR OS: current documentation links and scope of the inherited launcher description. -->
+
+The Library's player, viewer, editor and reader (upstream ADR-094,
+demiurge-chain's `docs/blueprints/library.md`, L9.3 to L9.5). A Qt 6 program in C++20 and QML that the
 QOR Launcher starts when a person opens a file in the Library. Its window becomes a child of the launcher's and sits
 over the Library, so it moves, resizes and minimises with the launcher.
+
+That describes its inherited Windows launcher integration. Development now belongs
+to QOR OS ([UPSTREAM.md](../../docs/UPSTREAM.md)); on Wayland,
+[Prism places its toplevel window](../../docs/ARCHITECTURE.md#hosted-by-prism).
+Upstream document names are historical context, not local files or another roadmap.
+The [QOR OS roadmap](../../docs/ROADMAP.md) and [current handoff](../../OWNER.md)
+scope actual test evidence; ARM64 PDFium/Qt dependency qualification remains open.
 
 | What opens | Where | How |
 | --- | --- | --- |

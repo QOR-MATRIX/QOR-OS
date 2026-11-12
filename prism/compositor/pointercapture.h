@@ -10,7 +10,7 @@
 #include <QtGui/QRegion>
 #include <QtQml/QQmlParserStatus>
 #include <QtQml/qqmlregistration.h>
-#include <QtWaylandCompositor/QWaylandCompositorExtensionTemplate>
+#include <QtWaylandCompositor/QWaylandCompositorExtension>
 #include <QtWaylandCompositor/QWaylandSurface>
 #include <QtWaylandCompositor/private/qwaylandcompositorquickextensions_p.h>
 
@@ -234,7 +234,7 @@ private:
 // zwp_relative_pointer_manager_v1: motion a client hears apart from the pointer's
 // position. Heard only by the client whose window has the keyboard, with the pointer
 // on that window, and only for a motion that stays there.
-class RelativePointerManager : public QWaylandCompositorExtensionTemplate<RelativePointerManager>,
+class RelativePointerManager : public QWaylandCompositorExtension,
                                public QtWaylandServer::zwp_relative_pointer_manager_v1,
                                public QQmlParserStatus
 {
@@ -248,6 +248,7 @@ public:
     void componentComplete() override;
 
     static const wl_interface *interface() { return zwp_relative_pointer_manager_v1::interface(); }
+    const wl_interface *extensionInterface() const override { return interface(); }
 
 protected:
     void zwp_relative_pointer_manager_v1_destroy(Resource *resource) override;
@@ -257,7 +258,7 @@ protected:
 
 // zwp_pointer_constraints_v1: a client asks to hold the pointer still, or within a
 // region of its surface. PointerCapture decides whether it ever does.
-class PointerConstraintsManager : public QWaylandCompositorExtensionTemplate<PointerConstraintsManager>,
+class PointerConstraintsManager : public QWaylandCompositorExtension,
                                   public QtWaylandServer::zwp_pointer_constraints_v1,
                                   public QQmlParserStatus
 {
@@ -271,6 +272,7 @@ public:
     void componentComplete() override;
 
     static const wl_interface *interface() { return zwp_pointer_constraints_v1::interface(); }
+    const wl_interface *extensionInterface() const override { return interface(); }
 
 protected:
     void zwp_pointer_constraints_v1_destroy(Resource *resource) override;

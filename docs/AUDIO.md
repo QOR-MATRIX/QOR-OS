@@ -12,9 +12,12 @@ range and with an intensity you choose in **Settings › Sound**.
 | `Spectrum`, `Sounds`, `Wallpaper` | [`kit/`](../kit/) (`QOR.Kit`) | Visualiser, interface sounds, reactive light |
 | Settings › Sound, Music, Live Activity, Control Center | [`apps/`](../apps/), [`prism/shell/`](../prism/shell/) | Where you see and control it |
 
-On a device, `qor-audiod` implements the same `Audio` contract over
-PipeWire. In simulation (every desktop build today) the simulator owns a
+The planned device daemon `qor-audiod` will implement the same `Audio` contract over
+PipeWire; it is not implemented in this tree. In simulator builds the simulator owns a
 `qor::audio::Engine` and plays through the machine's own outputs.
+
+Null-output tests exercise the engine without sound hardware. They do not prove
+Pi audio, a native PipeWire service or a full device session.
 
 ## The engine
 

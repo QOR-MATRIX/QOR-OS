@@ -78,6 +78,45 @@ Qt kit in the VM or run an image/partitioning command against workstation disks.
 
 ### Q Pi preparation
 
+Start with the canonical [Pi 5 bootstrap procedure](../image/README.md#pi-5-builder-bootstrap-before-q-pi):
+stock Raspberry Pi OS 64-bit Desktop Trixie establishes a possible native builder;
+it is not the eventual Q Pi image. The current first-boot preparation is headless
+Wi-Fi and key-only SSH, using the versioned Trixie `cloudinit-rpi` interface and
+per-device provisioning; USB/HDMI is optional recovery. A unique account and normal
+login with both autologin modes off remain required. Generic remote access stays
+disabled; real provisioning/access needs separate action-time approval. The owner
+authorises the eventual qualified Q Pi image
+on the identified Samsung EVO 128-GB card, including its old Kali/data erasure;
+the [action-time write gates](../image/README.md#authorised-q-pi-target-and-action-time-write-gates)
+retain fresh capacity/USB identity and non-system/non-boot checks, image validation,
+irreversible-erasure confirmation and completed-write verification. Stock bootstrap,
+credentials and security/access changes remain separately gated. No write is ready.
+
+`python3 -B tools/image/pi_preflight.py --bootstrap-only` observes bounded Pi 5
+model/Trixie metadata, native ARM64/64-bit userspace, actual 16-KiB pages and the
+existing 3-GiB RAM guard without Qt, Git or package-manager execution. Exit 0
+is scoped to those observations; `builder_qualified` remains false. The guide
+contains the read-only package-delta simulation, Qt entitlement/module questions,
+single-card recovery boundaries and measured budget requirements. The current
+Windows heavy wrapper remains unchanged. The repository's
+[native coordinator](../image/README.md#native-linux-heavy-job-coordination)
+adds a permanent per-account OS lock, incomplete-run marker and guarded RAM
+admission. On 11 November the actual Pi ran 80 resource/coordinator tests with
+zero failures/skips, and its production lock check passed. These are historical
+results: a later authorised PC diagnostic could not resolve the Pi hostname or
+connect to its last address, and targeted mDNS found no address. Physical boot/
+address observation is needed; this is not evidence of a broken key. Restricted key access
+was separately authorised and observed, with strict host checking; initial trust
+was owner-approved first use, not independently verified identity. CMake's four
+pinned package candidates remain a historical proposal. The latest owner request
+authorises a reviewed standard prerequisite install once current native state,
+package provenance and effects are checked; nothing has been installed here.
+Qt and a measured application/image scratch budget remain missing. Qt's Ubuntu
+24.04 ARM reference remains an unadopted fallback. The smallest prepared native
+Core/Test entry is `tests/pi/` (`q-pi-smoke` and `q-pi-smoke-asan`), reusing the
+real Prism parser and its tests. Follow the [guarded smoke sequence](../image/README.md#native-qor-application-build);
+its native build/run and the new Windows configuration regressions remain unrun.
+
 The Pi 5 ARM64 development edition is scoped by
 [QOR-0025](decisions/QOR-0025-q-pi-development-edition.md). QQ now has native ARM64
 `q-pi-release` and `q-pi-asan` configure/build/test presets in
@@ -87,6 +126,30 @@ The presets reject this x86-64 host before compiler or Qt-tool execution. They
 have not yet compiled on a qualified ARM64 builder. Follow the
 [native application procedure](../image/README.md#native-qor-application-build)
 before using them; they neither install tools nor compose an image.
+
+On the native host the presets also run the bounded, read-only
+`pi_preflight.py --qt-only --qt-target <kit>` check before normal Qt package
+discovery. This requires regular root config/version entry points, matching
+literal Qt6/Core 6.12 versions, Linux desktop target metadata and Qt Core's
+ARM64/16-KiB shared-library layout. Conflicting normal, cached or environment
+package hints are refused; `Qt6_DIR` names the checked root config directory.
+It does not execute
+the kit's CMake toolchain or prove entitlement, other modules or binary
+compatibility. An explicitly supplied CMake toolchain runs before CMake's
+top-level includes and is outside this early gate's scope.
+
+The [explicit payload audit](../image/README.md#static-target-payload-audit)
+checks selected apps and dependencies using their supplied SHA-256 manifest,
+without executing them or searching the host's libraries. It now validates GNU
+version-label chains/hashes and requires exact agreement with each unique
+dependency candidate, conservatively including weak requirements. It does not
+resolve per-symbol bindings or relocations. Under the existing coordinator and
+fresh memory admission, run focused portable regressions with
+`python -B -m unittest discover -s tests/tools -p test_pi_elf.py -v` and
+`python -B -m unittest discover -s tests/tools -p test_pi_payload.py -v`.
+See [OWNER](../OWNER.md) for this increment's execution status. Passing a
+synthetic inventory or label audit is not native ARM64, complete dependency ABI
+or hardware evidence.
 
 `tools/image/pi_preflight.py` remains a read-only preparation
 probe, not an image builder. Its target-library check never executes ARM64 code.
@@ -113,10 +176,21 @@ worker was available to reclaim. Do not reduce the floor or manage unrelated
 services: free host memory outside this workflow or use another qualified builder.
 
 On native Linux, the same probe uses the kernel's `MemAvailable` estimate and
-visible cgroup v2 memory limits, including ancestor limits. Missing or malformed
-observations and hidden/nonstandard cgroup mount roots remain blockers. WSL
+visible cgroup v2 memory limits, including ancestor limits. Controller metadata
+determines where memory counters exist; the stock Pi advertises no memory
+controller and therefore uses host available memory. Missing advertised counters,
+malformed/changing topology and hidden/nonstandard roots remain blockers. WSL
 memory is not a Windows host-memory observation; the Windows guard is still
 required there. The probe changes no limit and reclaims no memory.
+
+`tools/image/pi_headless.py` validates bounded public host-identity receipts and
+prepares strict Windows SSH argument arrays without connecting or reading private
+keys. `publish_receipt()` is a fixture-tested library helper, not an installed
+first-boot hook. Follow the [headless design](../image/README.md#q-pi-first-boot-and-bluetooth-bootstrap)
+for physical host-key pinning, scoped authentication and interruption recovery.
+Run its focused tests with `python -B -m unittest discover -s tests/tools -p test_pi_headless.py -v`.
+Actual Q Pi image integration and its first-boot Wi-Fi/SSH/access flow remain
+unverified; the stock builder's separately authorised SSH access is now observed.
 
 ## 1. Prerequisites
 
@@ -289,13 +363,15 @@ set up ([CONTROLLERS.md](CONTROLLERS.md)). On this laptop GNOME runs Prism on
 the Intel GPU; `QOR_PLAY_GPU=discrete tools/dev/setup-fedora.sh play` runs it
 on the RTX through switcheroo-control.
 
-Booted into Fedora, the laptop's Windows CI runners are offline, so CI waits
-until Windows is running again ([CI.md](CI.md)).
+Booting the laptop into Fedora makes its Windows environment unavailable.
+Independently, Qt CI jobs remain paused until runner isolation is accepted;
+returning to Windows does not authorise restarting runners ([CI.md](CI.md)).
 
 #### What to check there
 
-This is the least the native-Linux milestone needs: the SSD and the stick above,
-and nothing else. The internal drive is neither repartitioned nor erased, and
+This is the optional reference-laptop route, separate from Q Pi's builder and
+headless plan. It assumes the SSD and stick described above; no current physical
+setup or media action is established by these instructions. The internal drive is neither repartitioned nor erased, and
 erasing the two external drives is the owner's act. Each result goes in the
 [roadmap's table](ROADMAP.md#alongside-the-phases--engines) as passed, failed or
 blocked, with the commit. A suite passing in WSL settles none of this.
@@ -329,20 +405,23 @@ Ninja:
 
 ```powershell
 . .\tools\dev\Enter-QorShell.ps1          # dot-source once per terminal
-cmake --preset windows-release
-cmake --build --preset windows-release
-ctest --preset windows-release
+cmake --preset ci-windows
+cmake --build --preset ci-windows
+ctest --preset ci-windows
 ```
 
-Or in one step: `.\tools\dev\build.ps1 [-Preset windows-debug] [-Test] [-Target all_qmllint] [-Fresh]`.
+Or in one step: `.\tools\dev\build.ps1 -Preset ci-windows [-Test] [-Target all_qmllint]`.
+Use the existing QOR heavy-job lock and resource preflight. Never rebuild/relink
+a running `windows-release` shell; the helper's default still names that preset,
+so select `ci-windows` explicitly on the owner's workstation.
 
 | Preset | Generator | Build type | Use |
 |--------|-----------|------------|-----|
-| `windows-release` | Ninja | RelWithDebInfo | Day-to-day work, benchmarks, screenshots |
+| `windows-release` | Ninja | RelWithDebInfo | Existing shell/benchmark folder; protected while its shell runs |
 | `windows-debug` | Ninja | Debug | Debugging (Qt debug DLLs) |
 | `windows-vs` | Visual Studio 17 2022 | multi-config | Works without a developer shell |
 | `linux-release`, `linux-debug` | Ninja | | Linux |
-| `ci-windows`, `ci-linux` | Ninja | RelWithDebInfo | CI. Both treat warnings as errors and require the QOR core |
+| `ci-windows`, `ci-linux` | Ninja | RelWithDebInfo | CI settings; `ci-windows` also isolates local work from the running release shell. Both require warnings as errors and the QOR core |
 
 Build options (`-D<option>=ON|OFF`):
 
@@ -404,7 +483,7 @@ security setting, installation or WSL resource limit is changed by this setup.
 ## 3. Run
 
 ```powershell
-.\tools\dev\run.ps1 [-Preset windows-release] -- <qor-shell options>
+.\tools\dev\run.ps1 -Preset ci-windows -- <qor-shell options>
 ```
 
 `qor-shell` options:
@@ -454,9 +533,9 @@ under `QOR-MATRIX/QTOS Shell` and Notes under the `notes` category.
 ### Separate service process
 
 ```powershell
-.\build\windows-release\qor-simd.exe --ephemeral            # terminal 1
-.\tools\dev\run.ps1 -- --services external --unlocked       # terminal 2
-.\build\windows-release\qorctl.exe watch                    # terminal 3
+.\build\ci-windows\qor-simd.exe --ephemeral                 # terminal 1
+.\tools\dev\run.ps1 -Preset ci-windows -- --services external --unlocked # terminal 2
+.\build\ci-windows\qorctl.exe watch                         # terminal 3
 ```
 
 ### Prism, the Wayland compositor (Linux)
@@ -506,9 +585,9 @@ development; on device, GPU buffer sharing is part of Phase 3.
 ## 4. Tests and lint
 
 ```powershell
-ctest --preset windows-release                       # all suites
-ctest --preset windows-release -LE gpu               # skip GPU-dependent suites
-cmake --build --preset windows-release --target all_qmllint
+ctest --preset ci-windows                           # all suites in this build
+ctest --preset ci-windows -LE gpu                    # excludes GPU-dependent suites
+cmake --build --preset ci-windows --target all_qmllint
 python tools\tokens\generate_tokens.py --check
 python tools\ci\check_headers.py
 .\.venv\Scripts\pre-commit run --all-files
@@ -556,7 +635,7 @@ header hardening audit, proves neither hardware timing nor a full Windows or OS 
 ## 5. Install and deploy
 
 ```powershell
-cmake --install build\windows-release --prefix dist\qor-os
+cmake --install build\ci-windows --prefix dist\qor-os
 ```
 
 The install step runs Qt's deployment script (`qt_generate_deploy_qml_app_script`,

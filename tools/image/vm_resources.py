@@ -91,7 +91,8 @@ def linux_available_memory(reader=None):
             or ".." in group.parts or str(group) != name):
         raise ValueError("Invalid cgroup ancestry")
     mounts = []
-    for line in observe("/proc/self/mountinfo").splitlines():
+    observe_mounts = observe("/proc/self/mountinfo")
+    for line in observe_mounts.splitlines():
         fields = line.split()
         if "-" not in fields:
             raise ValueError("Unknown cgroup mount observation")
@@ -102,13 +103,39 @@ def linux_available_memory(reader=None):
             mounts.append((fields[3], fields[separator + 1]))
     if mounts != [("/", "cgroup2")]:
         raise ValueError("Hidden or unsupported cgroup mount root")
+    # Controller interfaces exist only where the parent enabled that controller.
+    # An absent memory controller is not a missing counter: keep walking every
+    # ancestor, including a limiting domain above an uncontrolled/threaded leaf.
+    # Single unified membership above excludes unobserved v1 memory hierarchies.
+    topology = {}
+
+    def controllers(prefix):
+        path = prefix + "/cgroup.controllers"
+        raw = observe(path).strip()
+        names = raw.split()
+        if (len(names) > 64 or len(names) != len(set(names))
+                or any(not re.fullmatch(r"[a-z][a-z0-9_]{0,63}", name) for name in names)):
+            raise ValueError("Invalid cgroup controller observation")
+        topology[path] = raw
+        return set(names)
+
+    root_controllers = controllers("/sys/fs/cgroup")
     while str(group) != "/":
         prefix = "/sys/fs/cgroup" + str(group)
-        limit = observe(prefix + "/memory.max").strip()
-        current = number(observe(prefix + "/memory.current").strip())
-        if limit != "max":
-            available = min(available, max(0, number(limit) - current))
+        visible = controllers(prefix)
+        if not visible <= root_controllers:
+            raise ValueError("Inconsistent cgroup controller ancestry")
+        if "memory" in visible:
+            limit = observe(prefix + "/memory.max").strip()
+            current = number(observe(prefix + "/memory.current").strip())
+            if limit != "max":
+                available = min(available, max(0, number(limit) - current))
         group = group.parent
+    for path, raw in topology.items():
+        if observe(path).strip() != raw:
+            raise ValueError("Cgroup controllers changed during memory observation")
+    if observe("/proc/self/mountinfo") != observe_mounts:
+        raise ValueError("Cgroup mounts changed during memory observation")
     if observe("/proc/self/cgroup").rstrip("\n") != membership:
         raise ValueError("Cgroup membership changed during memory observation")
     return available

@@ -8,9 +8,9 @@ that bind everyone, people and AI assistants alike, are in
 
 ## Before you start
 
-- Read [`VISION.md`](VISION.md) (what QOR OS is and why),
-  [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) (how the code is organised)
-  and [`docs/ROADMAP.md`](docs/ROADMAP.md) (what is next).
+- Follow the ordered reading list in [`AGENTS.md`](AGENTS.md#1-read-these-in-this-order),
+  starting with current [`OWNER.md`](OWNER.md). The documentation index distinguishes
+  current guidance from dated handoffs and evidence.
 - Architectural changes need a decision record in
   [`docs/decisions/`](docs/decisions/README.md). Copy
   [`TEMPLATE.md`](docs/decisions/TEMPLATE.md), take the next `QOR-NNNN` number,
@@ -35,19 +35,24 @@ cd qor-os
 python -m venv .venv                                         # repo-local, gitignored
 .\.venv\Scripts\python -m pip install -r requirements-dev.txt   # clang-format 20.1.8, pre-commit, cryptography, pinned
 .\.venv\Scripts\pre-commit install                     # format, token and header checks on every commit
-.\tools\dev\build.ps1 -Test                      # configure, build and test (windows-release), with the QOR core
+.\tools\dev\build.ps1 -Preset ci-windows -Test   # separate folder; preserve a running windows-release shell
 .\tools\dev\products.ps1                         # build and test QQ, ARQADE and QOR Media
 ```
 
 Rust (1.91 or later, from [rustup](https://rustup.rs)) is needed for the QOR
 core.
 
+On the owner's workstation, use the existing QOR heavy-job lock and resource
+preflight before jobs; do not relink a running `windows-release` shell.
+See [BUILDING.md](docs/BUILDING.md). Setup/install examples are instructions for
+an authorised setup, not permission to change this machine or enable paused CI.
+
 ## Workflow
 
 1. **Branch from `main`.** Name branches by type:
    `feat/beam-unit-conversion`, `fix/shelf-hover-flicker`,
    `docs/services-reference`, `perf/backdrop-cache`.
-2. **Commit in [Conventional Commits](https://www.conventionalcommits.org/) style.**
+2. **When the owner has requested a commit**, use [Conventional Commits](https://www.conventionalcommits.org/) style.
    Scopes follow the areas: `kit`, `style`, `shell`, `compositor`, `services`,
    `sim`, `apps`, `store`, `input`, `audio`, `platform`, `core`, `qq`, `arqade`,
    `media`, `upstream`, `image`, `sdk`, `tools`, `ci`, `docs`.
@@ -67,9 +72,9 @@ core.
 
 ## Definition of done
 
-- [ ] `cmake --build --preset windows-release` (or `linux-release`) builds without warnings
-- [ ] `ctest --preset windows-release` passes, `tst_qorcore` included
-- [ ] `cmake --build --preset windows-release --target all_qmllint` reports zero warnings
+- [ ] `cmake --build --preset ci-windows` (or the appropriate Linux preset) builds without warnings
+- [ ] `ctest --preset ci-windows` passes, `tst_qorcore` included
+- [ ] `cmake --build --preset ci-windows --target all_qmllint` reports zero warnings
 - [ ] `pre-commit run --all-files` is clean (clang-format, generated tokens, SPDX headers)
 - [ ] Changes that touch QQ, ARQADE or QOR Media pass `tools/dev/products.ps1`
 - [ ] New behaviour has tests: C++ in `tests/`, QML logic in Qt Quick Test, Python tools with `unittest`

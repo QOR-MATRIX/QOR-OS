@@ -1,7 +1,10 @@
 # image — the QOR OS image (Phase 3)
 
-> **Status:** a private ISO boots automatically through the branded UEFI menu into the live OS.
-> Private stock installation, actual installer UI reboot and media-free welcome persistence pass. The base is **Fedora Atomic with bootc**
+> **Recorded private x86-64 VM evidence (7–8 November 2026):** an ISO booted
+> automatically through the branded UEFI menu into the live OS. Private stock
+> installation, actual installer UI reboot and media-free welcome persistence passed
+> at the revisions recorded below; this is not a rerun of today's tree or Q Pi proof.
+> The base is **Fedora Atomic with bootc**
 > ([QOR-0004](../docs/decisions/QOR-0004-the-base-image-is-fedora-atomic.md)).
 > The checked branding filesystem layer builds into a data-only container. The first-run
 > app runs in the installed private VM. The earlier image retains completion through two
@@ -35,6 +38,275 @@ still unqualified. Scratch budget, artifact paths and acceptance receipts remain
 unset. The application presets below provide an actual build entry point, but
 no image recipe is accepted. A stock desktop alone does not meet the Q Pi
 milestone without tested QOR applications and a small native development build.
+
+### Pi 5 builder bootstrap, before Q Pi
+
+The owner's temporary **stock Pi OS builder** remains unreachable in the latest
+authorised diagnostic on 11 November. From the PC's Wi-Fi interface, its hostname
+did not resolve, the last address timed out before SSH authentication, and one
+bounded mDNS query for that hostname returned no address. No subnet scan, new
+host trust or network setting change was made. These results cannot identify
+power, boot, addressing or network isolation as the cause. Check the Pi's power/
+status LEDs, then HDMI boot state and current address; do not reset or reflash it.
+Current diagnostic evidence: `build/q-pi-native-2026-11-11/session-02/`.
+The local ABI-audit increment made no connection attempts. Earlier on 11 November,
+authenticated observations confirmed Pi 5 Model B Rev 1.1,
+native ARM64, Debian 13/Trixie, kernel `6.18.50+rpt-rpi-2712` and 16-KiB pages.
+The supplied initial receipt reports 8,058 MiB total RAM and Debian point version
+13.7; subsequent bounded probes observed about 7,450 MiB available and
+114,904,260,608 free bytes on the home/root filesystem. These are snapshots,
+not an application/image scratch budget. Power/cooling, throttling, desktop and
+autologin policy still need verification. A **stock bootstrap OS**
+provides the local desktop on which to inspect the board and later build/test
+QOR applications. It is not the eventual **Q Pi image**, which must include
+qualified native QOR applications, deployment dependencies and its own tested
+first-boot policy. Installing a stock OS does not complete Q Pi.
+
+The owner approved first-use SSH host trust after risk disclosure; it is **not
+independently verified host identity**. The retained ED25519 fingerprint matched
+on fresh connections. After two private password-authenticated diagnostics, the
+owner separately installed and authorised a dedicated restricted key. Fresh
+key-only connections succeeded with batch mode, explicit identity selection,
+strict host checking and no PTY/agent/X11/port forwarding. No password or private
+key content entered this repository or its logs. Stop on host-key change; do not
+replace trust entries. This builder-specific grant does not enable SSH or embed
+credentials in a generic Q Pi image. The latest owner request authorises a
+reviewed standard builder-package transaction, including CMake, once connected;
+it does not approve new terms, credentials or service/network/security changes.
+Evidence: `build/q-pi-native-2026-11-11/session-01/`, including the original supplied
+receipt, authenticated observations, source hashes and native test log. The
+80 native resource/coordinator passes are historical evidence, not a live
+connection or application build. The generic first-boot/physical-receipt design
+below remains a separate untested flow.
+
+The official [OS catalogue](https://www.raspberrypi.com/software/operating-systems/)
+was rechecked on 10 November: the basic **64-bit Raspberry Pi OS Desktop** is
+Trixie (Debian 13), dated 6 October 2026, kernel 6.18, advertised download
+1,301 MB and installed storage 6,432 MB. The advertised hash still matches
+`pi/preparation.json`. These are upstream metadata, not a downloaded/hash-verified
+artifact or an installed Pi observation. Select Desktop, not Full, Lite, 32-bit
+or Legacy, for this route. The official
+[getting-started guide](https://www.raspberrypi.com/documentation/computers/getting-started.html)
+recommends at least 32 GB for Desktop; that boot minimum does **not** size Qt,
+source builds, sanitizers or image composition.
+
+The earlier Windows-reader observation of the Samsung EVO nominal 128-GB card was
+Disk 2, Generic Mass-Storage, **128177930240 bytes** (about 119.4 GiB), MBR,
+`D:` BOOT/FAT32 and an unlettered partition. This owner-supplied observation is
+identification only; neither the filesystem label nor that layout identifies
+its OS, contents, health or Pi 5 bootability. This continuation did not rescan or
+mount it. **The owner's 10 November update authorises this Samsung card as the
+eventual Q Pi image target, including erasure of its old Kali/data, once the image
+and first-boot plan are ready.** That replaces the earlier blanket no-card-write
+scope only for this eventual Q Pi image. It does not authorise a stock bootstrap
+image, standalone formatting, credentials, provisioning or security/access changes.
+The [action-time write gates](#authorised-q-pi-target-and-action-time-write-gates)
+still apply; no Q Pi image is ready and this session performed no media write.
+The separately established stock builder does not prove which physical card is
+currently in the Windows reader. Reidentify all media at action time. All other
+devices and installations remain outside scope.
+
+One card can hold the stock OS, working tree and Qt/application build files if
+its **measured** free local filesystem capacity covers the phase's peak plus
+reserve. An image output may also be an ordinary file there if the larger image
+budget fits. Never overwrite the card that the builder is booted from, or write
+an output image onto its backing block device. Separate scratch storage is
+needed only when measured capacity, I/O reliability or performance is inadequate;
+a second boot card is not required merely to inspect or compile on the Pi.
+For later Q Pi boot testing, spare boot media preserves the working builder and
+is the least disruptive option. The owner has authorised eventual Q Pi reuse
+of the Samsung card and discard of its old Kali/data. If a separately approved
+bootstrap later uses that card, preserve its QOR source/evidence and necessary
+builder recovery material in a verified **off-card** location before replacement.
+Reusing a builder's card requires shutdown followed by an external writer (or a separately qualified alternate
+boot medium). The image and sole backup cannot live only on the card being
+erased. Fresh identification and action-time erasure confirmation still apply;
+using a different card requires its own target authorisation.
+No extra storage purchase is presumed.
+
+Use the [headless first-boot design](#q-pi-first-boot-and-bluetooth-bootstrap)
+only after its image integration and exact bootstrap/access actions are authorised.
+USB/HDMI is optional recovery. If an existing
+approved card already boots suitable Trixie, inspect it before considering any
+reimage. For stock bootstrap, an unidentified existing OS remains a stop condition,
+not permission to replace it; this does not revoke the scoped eventual Q Pi write.
+Read-only inventory may proceed over verified, scoped SSH or a local console once
+access is authorised; bootstrap setup, package installation and image generation are
+different actions.
+
+### Read-only native bootstrap qualification
+
+After an authorised boot and verified local/SSH access, use the existing tools only. These commands neither install
+nor enable services, contact devices on the network, or inspect other disks.
+Run in the reviewed QOR checkout on the Pi; obtaining that checkout requires an
+approved transfer route and a verified revision, not invented SSH access.
+
+```bash
+python3 -B tools/image/pi_preflight.py --bootstrap-only
+uname -m
+uname -r
+getconf LONG_BIT
+getconf PAGE_SIZE
+dpkg --print-architecture
+grep -E '^(MemTotal|MemAvailable):' /proc/meminfo
+findmnt -n -o SOURCE,FSTYPE,OPTIONS -T .
+df -B1 --output=source,fstype,size,used,avail,target -- .
+command -v git python3 cmake ninja pkg-config gcc g++ readelf dbus-daemon
+# Optional only when already present; no sudo or installation to obtain them:
+vcgencmd get_throttled
+vcgencmd measure_temp
+```
+
+Record individual exits and missing commands rather than suppressing failures.
+Expected architecture is `aarch64`, userspace 64, Debian architecture `arm64`,
+page size **16384**. The new `--bootstrap-only` mode reads bounded Pi 5 model
+and public Trixie identity metadata plus the running page size and the existing
+3-GiB RAM guard. It needs no Qt kit, Git subprocess, package manager or source
+commit argument. It rejects other boards/OS routes, x86, WSL, 4-KiB pages and
+unmeasured/insufficient RAM. Exit 0 means only those observations passed;
+`builder_qualified` stays false. Debian/Raspbian identity fields do not authenticate
+a stock Raspberry Pi OS artifact. It cannot prove board authenticity, 8-GB capacity,
+Desktop installation/login, tools, cooling, scratch, entitlement or native apps.
+Missing/new board metadata needs review; never edit the probe to disguise it.
+
+Inspect root and the **explicit chosen** scratch path with `findmnt`/`df`, not
+an all-device scan. Repeat against that path if it differs from the checkout.
+Keep the distinction between total board RAM, kernel `MemAvailable` and the
+guard's cgroup-constrained available bytes. Swap is not headroom. The bootstrap
+review's initial 10 November observation measured 4,445 MiB available with WSL stopped, against
+3,072 MiB; C: 28,731,830,272 and X: 33,714,049,024 free bytes. Those numbers
+measure this Windows host only and are preserved under
+`build/q-pi-bootstrap-2026-11-10/review-01/`; recheck before jobs.
+The 11 November native observations above supersede the earlier absence of Pi
+RAM/free-space evidence; the full application/image peak budget remains unmeasured.
+
+Size application and image phases separately. For application work measure
+source, entitled kit, Release and ASan outputs, temporary build/test files and
+reserve on the actual volume. For composition also measure package caches,
+expanded roots, private generator tools, raw and compressed outputs using the
+existing seven-component scratch schema below. Count concurrent copies; an
+already-resident kit need not be allocated twice, but SDK staging/export may
+need another copy. Record measurement commands, selected inputs and peak
+method; unknown values stay unknown. Do not turn 128 GB nominal capacity or
+upstream OS size into a guessed build budget. The Linux scratch guard accepts
+supported local disk filesystems, including an on-board card's ext4 root when
+identified as such; Windows removable-reader capacity is not a qualified build
+volume. Observations reserve no space and must be repeated before each phase.
+
+### Review the package delta without installing
+
+**11 November concrete proposal, not installation approval:** the stock builder
+has GCC/G++ 14.2.0, binutils 2.44, Ninja 1.12.1, Python 3.13.5, Git, pkgconf,
+build-essential, D-Bus and its Python bindings. CMake is absent. The installed
+`libc6` is `2.41-12+rpt1+deb13u4`, and `libstdc++6` is `14.2.0-19`; these do not
+qualify the unseen Qt kit. No `qtpaths6`/`qmake6` or usual Qt directory was found.
+
+The prescribed `--simulate --no-download --no-remove` APT commands exited **100**
+with `Unable to fetch some archives`; that failure is preserved, not called a
+passing install plan. A separate read-only `apt.Cache(memonly=True)` resolver
+proposal, under the native lock/RAM guard, selected four new packages and no
+removals/downgrades or replacements of installed packages. It called no update,
+fetch or commit operation, and the package-status digest stayed unchanged.
+The [APT in-memory cache interface](https://apt-team.pages.debian.net/python-apt/library/apt.cache.html)
+distinguishes marking a proposal from committing it. Existing cached origins
+report Debian/stable/main and trusted; index freshness and downloaded artifacts
+have not been independently authenticated in this session.
+
+| New package | Exact candidate | Download bytes | Installed bytes |
+|---|---|---:|---:|
+| `cmake:arm64` | `3.31.6-2` | 9,905,888 | 36,104,192 |
+| `cmake-data` (`all`) | `3.31.6-2` | 2,268,208 | 12,168,192 |
+| `libjsoncpp26:arm64` | `1.9.6-3` | 72,912 | 287,744 |
+| `librhash1:arm64` | `1.4.5-1` | 128,888 | 281,600 |
+
+Total: **12,375,896 download bytes; 48,841,728 installed bytes**, before staging
+copies and reserve. Candidate SHA-256 digests, origins, dependencies and the
+installed-state digest are in `native-package-proposal.json` beside the evidence.
+These are repository metadata digests, not checksums of downloaded files.
+The owner's latest request authorises installing the necessary standard build
+prerequisites through a reviewed transaction. This historical proposal must first
+be rechecked against the connected builder. Under its existing coordinator and
+fresh resource checks, stage the matching four packages in a new confined
+directory, verify their hashes/provenance and review maintainer scripts before
+installation. No index refresh or service/security change is implicit. The
+download command below remains **unexecuted**:
+
+```bash
+apt-get download cmake:arm64=3.31.6-2 cmake-data=3.31.6-2 libjsoncpp26:arm64=1.9.6-3 librhash1:arm64=1.4.5-1
+```
+
+Refuse an unavailable version, changed hash/origin, new dependency or unreviewed
+script/service effect; do not fix it by adding foreign suites, forcing dependencies
+or accepting a larger delta. Preserve the pre-install state and receipts. A
+rollback requires a separately reviewed removal of only this approved delta;
+never run broad autoremove/purge or delete the builder/evidence. Qt is a separate
+entitlement/artifact decision and is not supplied by these Debian packages.
+
+Do this on the authorised native builder, using **existing APT indexes**. There
+is no exact install delta until that board's installed packages, candidates and
+resolver output have been observed. Do not run `apt update`, `install_deps.sh`,
+an installer or `sudo` in this review. Stale/missing indexes or inaccessible APT
+configuration make the result provisional; a later approved index refresh needs
+a fresh simulation and review before an installation decision.
+
+Keep two request lists. The **application-builder** starting list is:
+`git python3 cmake ninja-build pkgconf build-essential binutils dbus-daemon
+python3-dbus python3-gi`. These do not supply commercial Qt. A debugger/editor
+and graphics/audio development packages are separately reviewed additions based
+on the exact selected kit; do not blindly install a complete Qt source-build
+dependency list for a binary kit. The **image-generator** list is derived from
+the pinned `depends` manifest below, only when composition is needed. This
+avoids making Podman/namespaces prerequisites for a normal QQ compile.
+
+For the generator, verify clean source at
+`fb44a4cde4ac54847ef1966957149e2c2b716fdf` and SHA-256 of its `depends` file:
+`9f6b1b343fe87e8b98e9d5ea0e3ee48ffcbefdb12decb8fa107bd96748f5c8d7`.
+Read the manifest as data: each uncommented line
+is `category:command[:package]`; use the package field when present, otherwise
+the command. Deduplicate `all`, `bootstrap` and `build` entries. Compare the
+result with the reviewed names below; no shell sourcing or upstream installer
+execution. Verify additional selected layers' dependency manifests separately.
+
+In Bash, choose **one** reviewed list, not both automatically. For the initial
+application review the complete commands are:
+
+```bash
+packages=(git python3 cmake ninja-build pkgconf build-essential binutils dbus-daemon python3-dbus python3-gi)
+LC_ALL=C dpkg-query -W -f='${binary:Package}\t${Architecture}\t${Version}\t${db:Status-Status}\n' "${packages[@]}"
+LC_ALL=C apt-mark showhold
+LC_ALL=C apt-cache policy "${packages[@]}"
+LC_ALL=C apt-get --simulate --no-download --no-remove --verbose-versions install "${packages[@]}"
+```
+
+Missing `dpkg-query` entries can produce exit 1; retain that exit and every
+missing name. Simulation exit 0 is a **proposal**, not an installed state.
+[APT's simulation](https://manpages.debian.org/trixie/apt/apt-get.8.en.html)
+does not lock the package database and non-root access may hide configuration.
+Run with no concurrent package transaction; retain warnings. Read its complete
+`Inst`, `Conf` and any removal/error lines, including dependencies and recommended
+packages. Do not add `--no-install-recommends`, force/ignore flags or remove
+protections simply to obtain a smaller/green proposal.
+
+Before requesting installation, prepare a receipt for **every changed package**:
+name/architecture, old installed state/version, proposed exact version,
+new/upgrade/configure/removal action, reason (direct/dependency/recommendation),
+approved origin/suite, authenticated package/index identity, download bytes and
+installed-space change. Query the expanded delta's candidates as well as direct
+requests. Inspect the candidate package metadata and maintainer-script/service
+effects before approval, particularly Podman, user namespaces and session D-Bus.
+Do not dump APT auth/config files, repository credentials or private URLs into
+evidence. Keep local private details out of the sanitised receipt.
+
+Review any held/broken packages, removals, downgrades, foreign architecture,
+unauthenticated source, unexpected origin or unbounded storage as a stop.
+Record index age/provenance and installed-state identity. Once exact versions
+are selected, rerun the same **simulation** with reviewed
+`name:arm64=version` or architecture-appropriate `name=version` arguments for the
+complete delta; require the same resolved result. The later installation approval
+must cover that transaction and its service/permission effects. The current
+owner authorisation covers reviewed standard builder packages; unexpected effects
+remain outside it. If state or candidates change, invalidate the receipt and
+review the new concrete delta before proceeding.
 
 ### Reviewed environment and preparation checks
 
@@ -85,10 +357,13 @@ There is no built-in estimate; null, zero, floating-point, missing, duplicate,
 unknown and overflowing values fail. Budgets are at most 64 KiB.
 
 This read-only capacity observation creates no directory, allocates no file and
-reserves no space. It permits fixed local Windows volumes or native Linux local
-ext4/XFS/Btrfs/F2FS disk mounts. It refuses WSL observations, overlay/tmpfs and
-remote or removable storage rather than treating virtual free space as backing
-capacity. A Windows check can observe a local scratch volume but does not size a
+reserves no space. Windows requires `DRIVE_FIXED` and refuses removable/network
+volumes. Linux requires an ext4/XFS/Btrfs/F2FS mount with a `/dev/` source and a
+matching device number; overlay/tmpfs and ordinary network mounts fail. Neither
+that Linux check nor Windows's drive type attests physical backing. The Linux
+check does not resolve loop/device-mapper layers or inspect removability: review
+the selected backing storage separately. WSL observations are refused.
+A Windows check can observe a local scratch volume but does not size a
 WSL virtual disk's required growth. Omitted or invalid budgets remain blockers.
 Passing this check establishes only available capacity against the supplied
 numbers; the builder, realistic budget sizing and every other input still need
@@ -122,9 +397,10 @@ rules ([ELF program-loading specification](https://gabi.xinuos.com/elf/07-pheade
 A valid ELF header is still not Linux GNU ABI, licence or dependency
 closure proof. The supplied bundle stays unchanged.
 
-Run the low-memory, read-only probe on the existing WSL kit to reproduce the
-architecture blocker (exit 2 is expected). Use a reviewed full commit identity;
-the source-clean check also reports the local preparation edits until committed.
+The following is the **historical** read-only WSL refusal command (exit 2), not
+a reason to start WSL again. Reuse its architecture evidence. A fresh probe needs
+resident-WSL host headroom and a reviewed full commit identity; the source-clean
+check reports local preparation edits until the owner authorises a commit.
 
 ```powershell
 wsl.exe -d Ubuntu --exec python3 -B /mnt/x/Repoz/QOR-OS/tools/image/pi_preflight.py --source /mnt/x/Repoz/QOR-OS --qt-target /home/godmode/Qt/6.12.0/gcc_64 --expected-commit 3a5ddc35f3ec59dcb1cf17a7a07cb79e273d2572
@@ -146,7 +422,8 @@ generator commit rather than assuming every tool must be on PATH. The minimal
 example disables login passwords and is not a desktop recipe. Do not run
 `install_deps.sh`, grant privileges or use an unrestricted container by following
 this guide. Any such action needs its exact package/configuration changes reviewed
-and approved first. No native ARM64 builder has been selected or provisioned.
+and approved first. The physical Pi 5 is the practical candidate; no native
+ARM64 builder has been qualified or provisioned by this work.
 
 Candidate source pin: `fb44a4cde4ac54847ef1966957149e2c2b716fdf`, observed using
 `git ls-remote https://github.com/raspberrypi/rpi-image-gen.git HEAD`.
@@ -158,7 +435,7 @@ ca-certificates, xz-utils, mtools, pv, btrfs-progs, dctrl-tools, uuid-runtime,
 fdisk, python3-jsonschema, cryptsetup, python3-pip, make, build-essential,
 autoconf, automake, libtool, autopoint, flex, gettext, pkgconf and cmake.
 This is an upstream package-name review, not an approved installation or resolved
-package-version lock. First choose the separate supported builder, inspect its
+package-version lock. First establish the supported native Pi builder, inspect its
 existing packages and give the owner the exact install delta and namespace action
 before requesting approval. Do not apply that package list to this Windows/WSL
 host or the Kali installation. The pinned source checkout is preserved under
@@ -183,6 +460,24 @@ Check actual base/kit ABI compatibility and the commercial entitlement for all
 needed modules, native host tools and private packaging. Do not use a distro's
 older Qt or infer entitlement from Qt source files being present.
 
+Primary-source recheck on 10 November: Debian Trixie publishes
+[glibc 2.41](https://packages.debian.org/trixie/libc6),
+[G++ 14](https://packages.debian.org/trixie/g%2B%2B) and
+[CMake 3.31.6](https://packages.debian.org/trixie/cmake). Those nominal versions
+meet the documented version floors; this is an inference about prerequisites,
+not evidence of the chosen Pi filesystem's packages or symbol compatibility.
+Qt's Ubuntu ARM desktop reference and its separate Boot2Qt/Yocto configuration
+do not qualify a Raspberry Pi OS kit. Record the actual kit provenance, module
+entitlement, compiler/C++ runtime, base package versions and dependency results
+on the selected native builder before accepting it.
+
+Do not substitute older Boot2Qt download instructions: the
+[6.12 changelog](https://doc.qt.io/Boot2Qt/b2qt-changelog.html) says prebuilt
+images are no longer offered through the installer or customer portal and
+target images must be built. Its Yocto route remains separate from Q Pi's
+adopted Trixie desktop; neither route supplies an entitlement or target-ABI
+result merely because the owner's account is Enterprise.
+
 The probe also reads the literal `QT_QMAKE_TARGET_MKSPEC` assignment in
 `lib/cmake/Qt6/qt.toolchain.cmake` as bounded text, never as executable CMake.
 Its `qt_linux_desktop_metadata` check refuses Windows, Android and HarmonyOS
@@ -191,9 +486,41 @@ syntax. Linux GCC/Clang metadata alone does not certify ARM64, GNU ABI,
 16-KiB dependency closure or licence scope; those checks remain separate.
 On 10 November the installed Windows/Android/HarmonyOS 6.12.0 kits are refused
 by this new check. The WSL `gcc_64` kit reports `linux-g++` but is x86-64.
-The owner reports Enterprise Qt; no commercial Linux ARM64 kit or supported
-native ARM64 builder has thereby been verified. No account file or credential
-was read and no installer was run.
+The owner reports Enterprise Qt; that alone proves no commercial Linux ARM64 kit.
+The native stock builder has since been observed as described above, but no Qt
+kit was present. No account file or credential was read and no installer was run.
+
+**11 November commercial artifact candidates.** The official
+[installer catalogue](https://download.qt.io/official_releases/online_installers/)
+lists `qt-online-installer-linux-arm64-online.run`. The public
+[6.12 ARM64 package metadata](https://download.qt.io/online/qtsdkrepository/linux_arm64/desktop/qt6_6120/qt6_6120/Updates.xml)
+lists `qt.qt6.6120.linux_gcc_arm64`, version `6.12.0-0-202609280346`, with
+Ubuntu-24.04/AArch64 archive names. Add-on candidate roots are
+`qt.qt6.6120.addons.qtmultimedia`, `.qtquick3d`, `.qtquick3dphysics`, `.qtshadertools`
+and `.qtwaylandcompositor`, each with a `.linux_gcc_arm64` child. Resolve the
+actual entitled dependency graph (including Quick Timeline where required),
+docs/examples/tools selections and download/expanded sizes; public component
+existence is not proof the owner's commercial account offers that artifact.
+SpatialAudio belongs to Qt Multimedia, not a guessed separate installer module.
+
+Qt's [6.12 supported-platform reference](https://doc.qt.io/qt-6.12/supported-platforms.html)
+uses Pi 5/8 GB with Ubuntu 24.04/GCC 13 for ARM desktop and documents glibc 2.39
+for ARM installer binaries. Trixie is unlisted; the installed newer libc/compiler
+does not prove ABI or 16-KiB compatibility. Ubuntu remains an unadopted fallback.
+The [Enterprise Debian route](https://doc.qt.io/qt-6/qt-debian-packages.html)
+lists ARM64 Jammy and Bookworm/GLES, not Trixie, and names evaluation or **Qt for
+Device Creation** entitlement. Do not add those repositories or foreign-suite
+packages to this builder. Do not use credential-in-URL examples.
+
+Before Qt staging, obtain the existing subscription's confirmation for native
+Linux ARM64 6.12, every required add-on/private header, the isolated harness's
+Wayland Compositor, and Trixie/16-KiB operation (or an entitled source build).
+Separately confirm runtime/plugin redistribution and SDK/development-tool
+distribution. Record artifact/version/module manifest and hashes without account
+identifiers, credentials or new terms. Qt's
+[build-system licensing note](https://doc.qt.io/qt-6.12/qt6-buildsystem.html)
+does not make a configure switch proof of contractual entitlement. No commercial
+artifact has been selected, downloaded, installed or accepted here.
 
 Keep the supported base's Pi 5 kernel/modules, device trees/overlays, boot
 partition/configuration and Pi firmware files together. Do not transplant this
@@ -204,7 +531,7 @@ platform backend; llvmpipe/lavapipe is software evidence, not hardware graphics.
 Power supply, cooling and throttling also require actual Pi checks.
 For the physical setup, verify a suitable **5-V/5-A USB-C supply** and cooling
 for sustained builds against the [Pi 5 specification](https://www.raspberrypi.com/products/raspberry-pi-5/).
-Use micro-HDMI-to-HDMI for the display and temporary USB input; USB-C is the
+For optional display/input recovery, use micro-HDMI-to-HDMI and temporary USB input; USB-C is the
 power connection, not a display output. No accessory has been purchased or configured.
 
 Initial development-tool candidates are Git, Python, CMake, Ninja, pkg-config,
@@ -232,6 +559,268 @@ QOR payload scope must be proved independently:
   artifact source/architecture/dependencies. No paid service, tunnel, SDK copying,
   automatic offload or shared credentials are configured by this plan.
 
+### Commercial Qt kit and dependency acceptance
+
+Keep the Trixie route adopted in QOR-0025. Compare alternatives explicitly:
+
+| Route | Primary-source support evidence | Unresolved qualification |
+|---|---|---|
+| Pi 5, stock Raspberry Pi OS 64-bit Desktop Trixie | Raspberry Pi's OS catalogue; native Debian Trixie ARM64 is a supported `rpi-image-gen` host | Qt 6.12's desktop table does not list Trixie; actual entitled kit, native tools, complete ABI and 16-KiB dependencies must be checked |
+| Pi 5/8 GB, Ubuntu 24.04 ARM64 | Qt documents this ARM desktop reference, GCC 13 and installer binaries built with glibc 2.39 | Not the adopted Q Pi base or the generator's listed supported native host; OS/kit/page-size/dependency measurements still absent |
+
+Ubuntu is a possible **Qt reference reproduction fallback**, not an automatic
+image-builder replacement. If Trixie cannot be qualified, present the evidence
+and obtain a decision before changing the base; a changed adopted decision needs
+a superseding QOR record. Do not reimage the only card to try it implicitly.
+Bookworm's generator support does not make its older libc suitable for an
+Ubuntu-built kit. Newer Trixie libc alone does not prove compatibility with the
+kit's libstdc++, OpenSSL, Wayland/XCB, Mesa/EGL/GLES, audio/media or plugin stack.
+
+The owner's Enterprise statement is not a kit receipt or distribution grant.
+On 11 November, a sanitized local MaintenanceTool inventory confirmed the Windows
+MSVC2022 Qt 6.12.0 kit plus Multimedia, Quick 3D/Physics and Shader Tools. The
+targeted installed-package query found no Linux ARM64 row; this says nothing
+about the account's offered downloads. Browser access was unavailable, so no
+account session or entitlement was inspected. The smallest remaining private
+owner check is Qt Account's Licenses/Downloads: exact active product (Application
+Development or Device Creation) and whether Qt 6.12 Linux ARM64 Desktop is offered.
+Share only those facts, never account/licence identifiers or credential files.
+Qt documents that [installer components depend on the licence](https://doc.qt.io/qt-6/qt-online-installation.html);
+[MaintenanceTool `list`](https://doc.qt.io/qt-6/get-and-install-qt-cli.html)
+is installed inventory, not current commercial entitlement. The sanitized
+receipt is `build/q-pi-native-2026-11-11/session-02/qt-inventory-review.json`.
+Resolve these questions with the owner's existing entitlement records or Qt's
+written answer, without uploading credentials or accepting new terms:
+
+1. Which exact **commercial Qt 6.12 patch, Linux GNU ARM64 artifact/package IDs**
+   and native ARM64 tools are available under the existing entitlement? Are
+   Trixie/Pi 5 and a 16-KiB kernel supported, or must an entitled source build
+   and separately measured source-build budget be used? Record provenance and
+   hashes, not an assumed `gcc_arm64` directory name.
+2. Does the entitlement cover QQ's Core, Gui/private headers, Network, Multimedia,
+   Qml/private headers, Quick, Quick Controls, Quick 3D, **Quick 3D Physics**,
+   **Spatial Audio**, Test and D-Bus, plus Shader Tools and Wayland client/plugins
+   and the **Wayland Compositor** needed by the isolated harness? Confirm native
+   `moc`, `rcc`, `qmlcachegen`, `qmltyperegistrar`, `qmllint`, `qmlimportscanner`,
+   `qml` and `qsb` as applicable; a runtime-only kit cannot compile/test QQ.
+3. What is permitted for this developer's Pi build machine, private application
+   deployment, the eventual device image, and **SDK/development tools** shipped
+   on it? Runtime redistribution and copying an SDK are separate scopes. Record
+   required notices and third-party obligations. Do not infer rights from a
+   downloadable file or from module source availability.
+
+The module inventory is checked against `products/qq/CMakeLists.txt`, runtime
+and Player private-header dependencies, `Scene.qml`'s Physics import and the
+SpatialAudio imports in `Music.qml`, `Sound.qml`, `Voices.qml` and `World.qml`.
+Qt documents [Physics](https://doc.qt.io/qt-6.12/qtquick3dphysics-index.html) as
+a QML-only API; a successful CMake component search can therefore miss its runtime
+absence. [Spatial Audio](https://doc.qt.io/qt-6.12/qtspatialaudio-index.html) is a
+separate module, currently labelled Technology Preview. The
+[Wayland Compositor module](https://doc.qt.io/qt-6.12/qtwaylandcompositor-index.html)
+has its own licensing/dependency requirements. No installer was opened here.
+
+On the native builder, record installed `libc6`, `libstdc++6`, compiler/binutils
+and selected graphics/audio package versions with `dpkg-query`, then run the
+bounded `--qt-only` gate. Build a manifest covering the selected kit's native
+tools, application/runtime files, QML/platform/image/media plugins and helpers;
+run the [static payload audit](#static-target-payload-audit). Use trusted
+`readelf -lW -dW --version-info` on explicit files to record interpreter,
+`DT_NEEDED`, paths and required/provided `GLIBC_*`, `GLIBCXX_*`, `CXXABI_*` versions.
+That audit is static and cannot certify actual symbol/loader resolution. After
+provenance and entitlement checks, native configure/link/import/launch tests
+must demonstrate the target's actual resolution without the host's libraries
+leaking into a staging-root scan. QML import scanning/deployment and the real
+isolated suites must cover dynamically loaded plugins absent from `DT_NEEDED`.
+Never run `ldd` on untrusted supplied binaries. Check **every selected ELF** for
+16-KiB load compatibility, including system dependencies and sanitizer runtimes;
+linker flags on QOR executables alone do not fix a 4-KiB Qt plugin or loader.
+
+### Static target payload audit
+
+`tools/image/pi_payload.py` checks an explicit target-file inventory on this host
+without running ARM64 code, `ldd`, Qt tools or a kit's CMake. It neither walks an
+entire SDK nor searches the host for dependencies. Supply an existing ordinary
+target-root directory and a UTF-8 JSON manifest with exactly `schema: 1` and
+`files`. Each file entry has exactly:
+
+- `path`: a portable, case-distinct POSIX path relative to that root;
+- `sha256`: the expected 64 lowercase hexadecimal digits from the reviewed
+  build/export receipt, not a fabricated value;
+- `role`: `application`, `library`, `plugin`, `helper` or `loader`.
+
+Include every selected executable, Qt/system library, QML/platform plugin and
+helper, with each dependency and interpreter explicitly listed. Relative symlinks
+may resolve inside the root; an escaping or host-absolute link is refused unless
+it actually resolves inside the selected root. The interpreter path embedded in
+ELF is matched to a manifest `loader` entry, never opened as a host path. A
+manifest of Qt Core alone does not cover a product. No real target manifest is
+provided here because no native Q Pi payload has yet been built.
+Use a quiescent staging directory: identity and timestamp checks detect ordinary
+concurrent changes, not a hostile writer able to restore that metadata.
+
+```bash
+python3 -B tools/image/pi_payload.py --root /qualified/target-root --manifest /qualified/payload-files.json
+```
+
+The JSON report records file hashes, ARM64 ELF load layout, interpreter,
+`DT_NEEDED`, `DT_SONAME`, `DT_RPATH` and `DT_RUNPATH`. These fields come from
+[ELF program headers](https://gabi.xinuos.com/elf/07-pheader.html) and
+[dynamic metadata](https://gabi.xinuos.com/elf/08-dynamic.html), including tables
+beyond the first MiB. Every needed name must have exactly one candidate among
+the listed files; each candidate is checked in turn. Missing, ambiguous,
+wrong-architecture, incompatible-layout, changed-hash and malformed inputs fail
+with exit 2. Exit 0 means only `static_audit_passed`; `build_qualified` stays
+false. The tool writes no target file and produces its report on stdout.
+
+The same audit now reads GNU `DT_VERNEED`/`DT_VERDEF` label tables and their
+count tags, following [glibc's structures](https://raw.githubusercontent.com/bminor/glibc/master/elf/elf.h)
+and [label matching](https://raw.githubusercontent.com/bminor/glibc/master/elf/dl-version.c).
+It validates paired tags, revision, relative chains, counts, mapped/nonoverlapping
+records, indices and ELF label hashes. `version_needs` and `version_definitions`
+retain observations; `version_label_checks` records the unique dependency candidate
+and missing labels. Only the first definition name supplies a label; parents and
+base names do not. Exact labels must agree with that candidate: a higher-looking
+`GLIBC`/`GLIBCXX` label or a label in another library is insufficient.
+
+This qualification policy is deliberately stricter than glibc's loader: missing
+weak requirements and unversioned providers also refuse the audit. Absent version
+tables produce empty observations, not a claim that unversioned symbols resolve.
+Unsupported forms fail closed. Review a refusal before changing policy; never
+delete requirements or omit a dependency to obtain a passing report.
+
+Bounds are 256 KiB of manifest, 512 files, 512 MiB per ELF and 2 GiB aggregate
+file content, with an 8-MiB report ceiling. The reader visits at most 4,096
+combined version records/auxiliaries, reads at most 16 MiB of metadata and emits
+at most 64 KiB of strings per file, counting repeated labels and parents. ELF
+dynamic tables and individual strings have further bounds. Larger inputs need a reviewed
+policy change, not an unchecked fallback. Use the existing QOR lock and memory
+guard when auditing a substantial real payload; the portable tests use tiny
+temporary synthetic files.
+
+Name/label agreement is **not actual dynamic-loader resolution or symbol ABI proof**.
+The audit does not resolve RPATH/RUNPATH or the target loader cache, inspect
+per-symbol `DT_VERSYM` bindings/default visibility or relocations, or select
+`dlopen`/QML plugins. It does not certify manifest
+completeness, source authenticity, entitlement, hardware or image readiness.
+Use [Qt's deployment support](https://doc.qt.io/qt-6.12/qt-deploy-runtime-dependencies.html)
+and QML import analysis on the qualified builder for complete selection, then
+check actual target resolution and execution. CMake's
+[dependency scanner](https://cmake.org/cmake/help/v3.31/command/file.html#get-runtime-dependencies)
+can consult host `ldconfig`; a scan on this Windows/WSL host cannot establish
+the target's dependency closure.
+
+The local version-label increment and validation status are recorded under
+`build/q-pi-abi-2026-11-11/session-01/`; the owner's requested validation
+continuations are in adjacent `session-02/` and `session-03/`, and [OWNER](../OWNER.md).
+After authorised RAM recovery, all **59 focused ELF/payload tests pass on Windows
+Python, zero failures/skips**, at the unchanged candidate source hashes. Original
+Windows coordination and the 3,072-MiB guard remain in force. These synthetic
+ELF regression cases are not real Qt artifacts or native/Pi acceptance. When
+access and approved tooling/kit staging are available, audit the actual selected
+ARM64 payload, then perform native loader and Qt/QOR smoke tests separately.
+
+### Native Linux heavy-job coordination
+
+`tools/dev/heavy.py` is the repository's **native Linux counterpart**, not a
+replacement for the original Windows `msvcrt` coordinator. Windows and WSL must
+continue using the original wrapper and its actual lock. There is no cross-host
+lock: an authorised remote launch must respect each host's coordinator when
+performing heavy work there. The 11 November native qualification established
+the Pi's permanent per-account lock; Windows performed only lightweight SSH
+transport while its own heavy-job RAM guard was below the floor.
+
+The native launcher uses one designated ordinary build account's passwd home,
+at `.local/state/qor-os/heavy.lock`, independently of checkout, working directory,
+`HOME` and `XDG_STATE_HOME`. All native QOR workers must use that same account,
+mount namespace and permanent inode. It rejects root, WSL, unsupported/network
+mounts, linked files, unsafe ownership/modes and changed directory/lock identities.
+The existing local-filesystem probe checks mount metadata, not physical backing.
+Do not relocate, replace or delete this lock, change permissions to bypass a
+refusal, or run a second coordinator under another account/container. The scope
+is cooperative coordination on that host, **not isolation from that UID/root,
+coordination across mount namespaces or automatic interception of raw builds**.
+
+Admission takes a nonblocking exclusive OS lock and then calls the unchanged
+`vm_resources.require_headroom` with `linux_available_memory`: at least 3,072 MiB
+of available RAM, including visible cgroup limits, with no lower-floor option.
+It records no argv, PID, credentials or caller-supplied path. Busy exits 75;
+invalid/unsafe/unmeasurable/incomplete state exits 2. Insufficient RAM reports
+available, required and shortfall bytes. Check-only mode creates no files and
+reserves nothing; an uninitialised coordinator refuses it. Resource snapshots
+are not reservations; measured scratch, build concurrency and all other guards
+remain separate. Child output is inherited unchanged: use only reviewed commands
+that already obey the no-secrets-in-logs rule, never secret arguments.
+
+Before spawning, the launcher durably writes a fixed `heavy.active` marker,
+passes the locked descriptor to the immediate child and becomes a child
+subreaper (the kernel returns orphaned descendants to it). Normal completion
+removes only its own marker after the kernel reports no children remain. The
+permanent lock is closed, never explicitly unlocked or unlinked. SIGINT/SIGTERM/
+SIGHUP send TERM to the launched process group, followed by KILL only if its
+direct child remains unreaped after a bounded wait. Once that child is reaped,
+no further group signals are sent; surviving descendants retain the marker.
+The command deadline defaults to four hours, configurable from
+1 to 86,400 seconds; timeout exits 124 after confirmed drain, and interrupted
+completion returns 128 plus the signal number. Surviving/detached descendants,
+supervisor death or uncertain cleanup retain the marker and block later work.
+An inherited descriptor alone cannot account for descendants that close it.
+
+After builder/access/resource qualification, first run this bounded fixture suite
+as the designated account from the repository root, preserving stdout/stderr,
+exit status, source hashes, Python/kernel identity and resource observations under
+`build/`. It needs no Qt and makes no network/device/security changes:
+
+```bash
+python3 -B tools/dev/heavy.py --timeout-seconds 120 -- python3 -B -m unittest discover -s tests/tools -p test_heavy.py -v
+python3 -B tools/dev/heavy.py --check
+```
+
+The suite's Linux cases exercise actual temporary-file locks, inherited
+descriptors, child adoption, signals and crash markers in dedicated subprocesses.
+Their filesystem qualification is deliberately mocked, and the escaped-child
+case uses a controlled deadline after a readiness handshake. Fixtures never use
+or remove the production lock. They do not prove production mount/namespace scope,
+ARM64 application execution, image boot or hardware. Separately verify the real
+account/path/inode and existing QOR workers on the intended host before admitting
+an application build. Historical Windows evidence on 10 November is **28 portable
+passes, 11 Linux skips**, plus the Windows CLI's expected refusal, under
+`build/q-pi-lock-2026-11-10/review-01/`. On 11 November, **80 tests passed with zero
+failures/skips on the actual aarch64 Pi**: 39 coordinator cases and 41 resource
+cases. The real Linux lock/process cases ran. The production lease held the
+unchanged RAM guard, native child supervisor and tests; CLI `--check` passed
+afterward. Ten hash-checked Python files (128,941 bytes) remain in a unique owned
+`qor-qualification-20261111-*` home directory for evidence. Do not delete its
+production `.local/state/qor-os/heavy.lock`, copy the coordinator into another
+lock domain, or repeat completed tests without changed code or a new concern.
+
+The initial native RAM failure is preserved: this Pi advertises no cgroup v2
+memory controller, so `memory.max/current` legitimately do not exist. The corrected
+reader checks bounded controller metadata at every ancestor, reads required
+memory counters wherever advertised, and rechecks topology, membership and
+mounts. Missing advertised counters, mixed/v1 or hidden layouts and changed
+metadata still refuse. There is no swap fallback or reduced floor, and no kernel
+setting was changed. This follows the
+[kernel's controller interfaces](https://docs.kernel.org/admin-guide/cgroup-v2.html#enabling-and-disabling).
+An uncontrolled leaf still inherits any limiting memory ancestor. On this full
+v2 hierarchy without that controller, the host's `MemAvailable` constrains admission.
+
+**Interrupted-run recovery:** stop submitting QOR work; retain logs and the
+constant marker as evidence. A stale PID/note or a free lock is insufficient:
+review the original job and its QOR descendants in the same account/namespace,
+and establish that none remain. Never stop unrelated services. If quiescence
+cannot be established, keep the builder blocked. Once established, recovery is
+a separately reviewed operation holding the existing OS lock and rechecking
+directory/lock/marker ownership and inode identity before removing only
+`heavy.active`. There is intentionally no force/clear switch or automatic stale
+recovery. Never delete `heavy.lock`, and never use an unguarded `rm` as recovery.
+
+The design follows [Linux flock lifetime semantics](https://man7.org/linux/man-pages/man2/flock.2.html),
+[child subreaper semantics](https://man7.org/linux/man-pages/man2/PR_SET_CHILD_SUBREAPER.2const.html),
+[directory-relative opens](https://man7.org/linux/man-pages/man2/open.2.html) and
+[Python subprocess descriptor/session behavior](https://docs.python.org/3/library/subprocess.html).
+These explain the implementation; local fixtures and documentation do not
+substitute for its native qualification.
+
 ### Native QOR application build
 
 `products/qq/CMakePresets.json` now supplies `q-pi-release` and `q-pi-asan` for
@@ -243,33 +832,99 @@ preserves read-only relocation protection on that kernel
 ([GNU ld](https://sourceware.org/binutils/docs/ld/Options.html)). Every Qt/plugin/
 system dependency still needs its separate ELF layout and ABI checks.
 
-First supply an existing native Debian/Raspberry Pi OS Trixie ARM64 builder
-and its entitled Qt 6.12 Linux ARM64 kit. The current machine has neither:
-WSL and its `gcc_64` kit are x86-64; the installed Windows/Android ARM64 kits
-are unsuitable. No remote builder access is configured by this procedure.
+The stock native Pi builder and restricted remote access were previously observed;
+its entitled Qt 6.12 Linux ARM64 kit is still missing. WSL and its `gcc_64`
+kit are x86-64; installed Windows/Android ARM64 kits remain unsuitable.
 Required native application tools are CMake 3.27+, Ninja, GNU C++, pkg-config,
 Python and Git. The kit must include Core, Gui/GuiPrivate, Multimedia, Network,
-Qml/QmlPrivate, Quick, Quick 3D/Physics, Quick Controls, Test and D-Bus, with
+Qml/QmlPrivate, Quick, Quick 3D/Physics, Spatial Audio, Quick Controls, Test and D-Bus, with
 Shader Tools for QML assets. Qualify these through the source's `find_package`
 and QML imports, not a guessed desktop-only Qt subset. Commercial entitlement,
 glibc/C++ ABI, graphics/audio/input dependencies and Secret Service still need
 verification. No installation or licence acceptance is implicit.
 
-After source/kit/dependency/resource qualification, hold the builder's existing
-QOR heavy-job lock and check `vm_resources.require_headroom` using
-`vm_resources.linux_available_memory` on that native host. Size source, kit,
-cache and build outputs on its actual backing disk. There is no measured budget
-yet; this host's 10 November snapshot had about 30.0 GiB free on C: and 31.4 GiB
-on X:, while WSL advertised 883.7 GiB. That virtual capacity is not usable as a
-physical budget. Do not copy the SDK into an image without the confirmed scope.
+Before normal Qt package discovery, the native preset invokes host Python for
+`pi_preflight.py --qt-only --qt-target "$QOR_QT_DIR"`. It requires regular root
+config/version entry points and matching literal Qt6/Core 6.12 versions, refusing
+ambiguous/dynamic versions, non-Linux target metadata and a Qt Core library that
+is not shared ARM64 with the required page layout. Conflicting normal, cached or
+environment package paths are refused without rewriting those inputs; `Qt6_DIR`
+names the checked root config directory. This small check
+does not inspect the entire kit or establish the entitlement/dependency gates.
+An explicitly supplied CMake toolchain runs before the top-level include; the
+check does not sandbox arbitrary user-selected CMake code. Keep such inputs
+separately reviewed and pinned.
+
+After source/kit/dependency/resource qualification, inspect actual QOR workers
+and qualify [native coordination](#native-linux-heavy-job-coordination). Keep
+native jobs serial through `tools/dev/heavy.py`; the original Windows/WSL lock
+remains unchanged. Leave execution blocked until the intended host's actual
+coordination is verified. Do not disturb a release shell or an unrelated service.
+
+The smallest next native Qt milestone now has a concrete entry point in
+[`tests/pi/CMakeLists.txt`](../tests/pi/CMakeLists.txt) and its
+[`presets`](../tests/pi/CMakePresets.json). It compiles the **existing** Prism
+command-line source and `tst_prismoptions.cpp` in development-option and
+device-option variants, using commercial Qt 6.12 Core/Test. The tests use
+[QTEST_GUILESS_MAIN](https://doc.qt.io/qt-6/qtest.html#QTEST_GUILESS_MAIN), which
+creates a core application without a graphical application. Neither variant
+starts a simulator, compositor, display, service, keyring or physical device.
+The existing native/static-kit gate is included even for direct `-S` configuration;
+hardening, warnings as errors, both 16-KiB linker settings, one build/test job and
+one autogen job are retained. The sanitizer preset adds address/undefined checks;
+CTest refuses an empty suite and each test has a 30-second timeout. The presets
+do not acquire a lock themselves: every command below requires the existing
+coordinator, freshly qualified host/resources, measured scratch budget and
+reviewed commercial kit/dependencies. No native smoke build has run.
+
+From `tests/pi/`, after those prerequisites:
+
+```bash
+python3 ../../tools/dev/heavy.py -- cmake --preset q-pi-smoke
+python3 ../../tools/dev/heavy.py -- cmake --build --preset q-pi-smoke
+python3 ../../tools/dev/heavy.py -- python3 ../../tools/ci/check_hardening.py ../../build/q-pi-smoke
+# Inspect both executables, Qt Core/Test and the loader/dependency ELF closure
+# before execution, using the explicit payload audit and reviewed manifest.
+python3 ../../tools/dev/heavy.py -- ctest --preset q-pi-smoke
+python3 ../../tools/dev/heavy.py -- cmake --preset q-pi-smoke-asan
+python3 ../../tools/dev/heavy.py -- cmake --build --preset q-pi-smoke-asan
+python3 ../../tools/dev/heavy.py -- python3 ../../tools/ci/check_hardening.py ../../build/q-pi-smoke-asan
+# Review the sanitizer runtime/dependency closure too before execution.
+python3 ../../tools/dev/heavy.py -- ctest --preset q-pi-smoke-asan
+```
+
+Passing would show only these two real QOR parser variants compiled and ran with
+that native Core/Test kit. It does not qualify the compositor, complete ABI,
+graphics, other Qt modules or an image. Windows regressions for preset parsing
+and wrong-host refusal were added but not started: the 11 November admission
+refused 2,741 MiB against the unchanged 3,072-MiB minimum. Source review found no
+blocking issue. See `build/q-pi-native-2026-11-11/session-02/` for the refusal;
+the unchanged 59 ELF/payload fixture passes remain separate historical evidence.
+
+Then exercise bounded QML imports including Physics and SpatialAudio
+and the isolated harness prerequisites. Configure the unchanged `q-pi-release` preset and build
+`qq-player` for initial QOR feedback, then complete the full Studio/Player/tests,
+hardening, zero-warning lint and sanitizer sequence below. No smoke or QOR build
+has run yet; do not substitute system Qt or lower the 6.12/module requirements.
+
+Immediately before each heavy phase, run `--bootstrap-only` again for the native
+3-GiB check and review the measured application/scratch budget. Use
+`tools/dev/heavy.py`, which calls the unchanged native RAM guard while holding
+its lock; the no-argument
+`tools/image/vm_resources.py` CLI is the Windows guard. Keep build/test concurrency
+at one and the existing sanitizer/resource limits. Image-generator namespace
+qualification is separate: no `sudo`, capability grant, privileged container or
+security relaxation is needed or authorised just to inspect this Pi or compile
+an ordinary application. Do not copy the SDK into an image without confirmed scope.
 
 On the qualified builder, with `QOR_QT_DIR` set to that kit, run from
 `products/qq/` (these commands were **not** run on ARM64 here):
 
 ```bash
-cmake --preset q-pi-release
-cmake --build --preset q-pi-release
-python3 ../../tools/ci/check_hardening.py ../../build/q-pi-qq-release/qq
+python3 ../../tools/dev/heavy.py -- cmake --preset q-pi-release
+python3 ../../tools/dev/heavy.py -- cmake --build --preset q-pi-release
+python3 ../../tools/dev/heavy.py -- cmake --build --preset q-pi-release --target all_qmllint
+python3 ../../tools/dev/heavy.py -- python3 ../../tools/ci/check_hardening.py ../../build/q-pi-qq-release/qq
 ```
 
 Use the existing product harness for hidden display/isolated-keyring tests.
@@ -279,9 +934,12 @@ single-job build. Do not run raw CTest on a builder's real desktop/keyring. The
 matching CTest presets are for an already isolated environment:
 
 ```bash
-# From the repository root, still inside the single guarded heavy job:
-tools/dev/products.sh --product qq --preset q-pi-release --qt "$QOR_QT_DIR" --build-root build/q-pi-qq-release --attempts 1
-# Repeat with q-pi-asan and build/q-pi-qq-asan for the sanitizer build/tests.
+# From the repository root; one guarded command at a time, never nested:
+python3 tools/dev/heavy.py -- tools/dev/products.sh --product qq --preset q-pi-release --qt "$QOR_QT_DIR" --build-root build/q-pi-qq-release --attempts 1
+python3 tools/dev/heavy.py -- tools/dev/products.sh --product qq --preset q-pi-asan --qt "$QOR_QT_DIR" --build-root build/q-pi-qq-asan --attempts 1
+python3 tools/dev/heavy.py -- python3 tools/ci/check_hardening.py build/q-pi-qq-asan/qq
+# From products/qq after the isolated sanitizer harness:
+# python3 ../../tools/dev/heavy.py -- cmake --build --preset q-pi-asan --target all_qmllint
 ```
 
 The harness requires Qt Wayland Compositor for its hidden display and
@@ -291,49 +949,352 @@ and its existing performance floor is not waived. `--preset` refuses other
 products and unknown preset names before building or downloading dependencies.
 The sanitizer preset must also build and run the hostile-input suites before
 acceptance. Real Pi graphics, a local saved/reopened project, image composition
-and physical boot remain separate gates. This session passed the portable
-resource/ELF/preset-refusal suites: 59 Windows cases plus four platform skips,
-and all 63 cases under x86-64 WSL. These are not ARM64 application results.
+and physical boot remain separate gates. Preserve each command's exit/log and
+the exact source/kit/base/renderer identities; no zero-warning or test gate is
+waived. Historical WSL/Windows results and the current portable fixture passes
+are not ARM64 application results. Run repository hooks for the final source;
+native acceptance still requires all relevant builds/tests, hardening and zero
+QML lint warnings. Capture failures/skips before choosing an independent next task.
+
+Only after application acceptance, qualified generator inputs/namespace actions
+and measured image budget may composition begin. The full read-only image probe
+then takes `--source <checkout> --expected-commit <reviewed-40-digit-commit>
+--qt-target <kit> --scratch-root <existing-dir> --scratch-budget <measured.json>`.
+Its `qualified_image_inputs` blocker is deliberately always false today: a
+successful bootstrap or application build does not remove that unfinished gate.
+Do not fake receipts or lower it to start an image job. No accepted Q Pi recipe
+or generator execution command is offered until those inputs are concrete.
 
 ### Q Pi first boot and Bluetooth bootstrap
 
-This is an unapplied plan. No media is connected or authorised. Preserve Kali;
-its media and partitions are never candidates for this preparation.
+The current preparation route is **headless Wi-Fi and key-only SSH**, with no
+pre-paired Bluetooth, keyboard, mouse or monitor required. USB/HDMI remains an
+optional recovery route, not a prerequisite for headless enrolment. This updates
+the earlier local-input preference within QOR-0025's already scoped headless
+option. **Preparation is authorised; real provisioning/access is not.** The
+Samsung card's eventual Q Pi write grant does not approve stock bootstrap,
+credential creation, Wi-Fi configuration, enabling SSH or ongoing assistant access.
+Normal local console/desktop login remains mandatory, with both autologin modes
+off. No headless Pi boot, Wi-Fi association or SSH login has been tested.
 
-1. **Preferred first boot: temporary USB keyboard/mouse and HDMI.** Bluetooth
-   devices are unavailable until paired. Use the supported base's first-user
-   workflow to choose a local account/password, disable autologin and require
-   the real login before the desktop. Enter Wi-Fi credentials and regulatory
-   country locally through the base networking interface. Ethernet is optional.
-   Pair and trust the Bluetooth keyboard/mouse using the base desktop, then test
-   reconnect at the login screen and after a cold boot before removing USB input.
-2. **Optional later headless bootstrap:** after approval for one exact Pi/media,
-   account, public key and private network, use the supported base's
-   [Imager customisation](https://www.raspberrypi.com/documentation/computers/getting-started.html)
-   to enter Wi-Fi/country, a chosen local account and SSH **public-key** access
-   locally. Do not send credentials through chat or logs. Explicitly disable
-   autologin: account creation alone does not disable it. A custom generator image
-   must separately implement and test this protocol; Imager compatibility cannot
-   be assumed. Do not use the obsolete boot-partition Wi-Fi-file shortcut.
-3. Require key-only SSH for the intended ordinary account, no root SSH and no
-   password SSH. Verify these settings on the actual selected image; package
-   presence or an Imager setting is not proof of effective daemon configuration.
-   Confirm the Pi's host-key fingerprint through a trusted local console/channel
-   before first SSH; discovery or `ssh-keyscan` alone is not authentication. Without
-   that trusted route, first remote authentication remains unresolved. Never
-   bypass a changed-host-key warning. No public port forwarding or cloud enrolment.
-4. For Bluetooth pairing through SSH, a working BlueZ authentication agent and
-   the devices' passkey/confirmation workflow must be tested. Do not promise a
-   remote desktop or pairing at the greeter merely because SSH works. A separately
-   approved base remote-desktop service must have verified authentication and
-   private-network scope before use; USB input remains the recovery path.
-5. A reusable image has no Wi-Fi password, account password, private key, provider
-   credential, SSH host key or shared machine identity. Per-device provisioning
-   necessarily writes private configuration to that one device, never the golden
-   image or repository. Generate unique host identity/keys on first boot, with
-   interruption/retry tests that preserve existing state. SSH stays disabled in
-   the generic image until expressly provisioned. No local desktop/project save
-   should require Internet access.
+#### Supported Trixie provisioning interface
+
+The [Raspberry Pi cloud-init announcement](https://www.raspberrypi.com/news/cloud-init-on-raspberry-pi-os/)
+introduced `meta-data`, `network-config` and `user-data` on the FAT boot partition
+for Trixie images from 24 November 2025. Review against the **actual image version**,
+not just the name Trixie: initial October 2025 images used a different first-run
+interface. The current reviewed reference is **Imager v2.0.12**, commit
+`84b03d96cd4c390ebe475a4b5db5735e5535e9a6`, whose
+[versioned format documentation](https://github.com/raspberrypi/rpi-imager/blob/84b03d96cd4c390ebe475a4b5db5735e5535e9a6/doc/os_customisation_formats.md)
+describes `cloudinit-rpi`. No Imager installation or write occurred.
+
+The stock [vendor cloud-init configuration](https://github.com/RPi-Distro/rpi-cloud-init-mods/blob/05b72290f6f6da9343296bed99d3657ff8a3fb1c/etc/cloud/cloud.cfg.d/99_raspberry-pi.cfg)
+selects NoCloud data from `file:///boot/firmware`. Networking uses version-2
+`network-config`, Netplan and NetworkManager, with the correct Wi-Fi regulatory
+country. Do not use a boot-partition `wpa_supplicant.conf`, empty `ssh` file,
+legacy `firstrun.sh` or a guessed `userconf` recipe as proof of this interface.
+A boot FAT partition on the connected card is not proof these components exist.
+
+A custom Q Pi artifact needs a reviewed `.rpi-imager-manifest` with `os_list`,
+`init_format: "cloudinit-rpi"`, Pi 5 device selection, a local `file:///...` artifact
+URL and **actual** compressed/extracted sizes and hashes, matching the pinned
+[Imager schema/helper](https://github.com/raspberrypi/rpi-imager/blob/84b03d96cd4c390ebe475a4b5db5735e5535e9a6/doc/local_json/create_local_json.py).
+An arbitrary local image defaults to no customization. Declaring a format does
+not implement it. The pinned `rpi-image-gen` [cloud-init example](https://github.com/raspberrypi/rpi-image-gen/blob/fb44a4cde4ac54847ef1966957149e2c2b716fdf/contrib/src/cloud-init/README.md)
+uses separate CIDATA media; its `image.json` is IDP provisioning metadata, not an
+Imager manifest. Q Pi must deliberately integrate the boot-FAT datasource, pinned
+packages, first-boot ordering and desktop/login policy. There is no accepted
+recipe or populated Imager manifest yet. No stock image may be substituted.
+
+#### Per-device accounts, secrets and disabled autologin
+
+After separate action-time provisioning approval, the owner supplies Wi-Fi/country,
+a unique ordinary local account/password and its SSH public key through a trusted
+local interface. Do not collect these in chat. Private signing keys stay on the
+approved Windows side; host private keys stay on the Pi. No shared/default user
+credentials, host keys, machine identity, Wi-Fi settings or pairing state enter
+the generic image or repository. Per-device seed files and cloud-init caches can
+contain credentials/hashes: keep them outside `build/`, prompts and logs; restrict
+physical/access exposure and review retention. Deleting seed files is not secure
+erasure of flash and must not be claimed as such. Never dump cloud-init user-data,
+NetworkManager connection files or whole logs to obtain a diagnostic.
+
+The [released Imager generator](https://github.com/raspberrypi/rpi-imager/blob/84b03d96cd4c390ebe475a4b5db5735e5535e9a6/src/customization_generator.cpp)
+uses `user.name`, `user.shell`, `user.lock_passwd: false`, a locally produced
+`user.passwd` hash, `user.ssh_authorized_keys`, explicit `user.sudo: null`, and
+`ssh_pwauth: false` for the password-required local account/key-only SSH path.
+This describes fields, not a runnable seed. `passwd` applies on account creation;
+reapplying it does not establish that an existing account changed. Preserve the
+admin-password requirement; never inherit passwordless sudo. Do not lock the local
+password account as an SSH-hardening shortcut. The released source removed the
+older `enable_ssh: true` field because it was ignored; enabling SSH instead emits
+`systemctl enable --now ssh` in `runcmd`. **Omit that activation for Q Pi's gated
+receipt phase**; a reviewed QOR integration must activate access only after its
+matching owner-approved marker and scope. Generic SSH stays disabled.
+
+`ssh_pwauth: false` alone does not prove all authentication policy. Before access,
+validate effective `sshd -T` for the selected account/address: public-key-only
+`AuthenticationMethods`, root/password/keyboard-interactive/GSSAPI login off,
+no agent/X11/port forwarding and only the intended ordinary account/key. Review
+an explicit source-address restriction and key expiry for the approved window
+using [OpenSSH authorized-key options](https://man.openbsd.org/sshd.8). Expiry
+prevents later authentication; it does not terminate an existing session or create
+an execution sandbox. The approval must identify the one board/account, client
+identity, endpoint/private network, allowed operations and start/expiry window.
+An untrusted/unsynchronised Pi clock blocks expiry-based activation; no silent time,
+agent or network-setting fix is authorised. Do not silently renew access or run privileged commands.
+
+There is no `cloudinit-rpi` autologin Boolean. Supported
+[`raspi-config nonint do_boot_behaviour B3`](https://github.com/RPi-Distro/raspi-config/blob/22cea75ecbcb8e6f6e2e80a7f565d6cfe154bc02/raspi-config)
+selects a graphical login while disabling both console and LightDM autologin;
+B1 alone does not clear the desktop setting. Running B3 late cannot prove there
+was no earlier automatic login. Q Pi must ship both modes disabled and gate
+getty/display startup until account setup/policy checks complete. The reviewed
+[cloud-init Raspberry Pi account hook](https://github.com/canonical/cloud-init/blob/29d50e12104e264f8881d3abe0f7acc6f3e442b2/cloudinit/distros/raspberry_pi_os.py)
+and [rename-user helper](https://github.com/RPi-Distro/userconf-pi/blob/2dec0368f79b084d9def4e4cfb0cf0720d3ff30c/rename-user)
+can enter first-run wizard/autologin setup. Their actual image versions and ordering
+must be qualified before declaring this policy satisfied. No setting was changed.
+
+#### First host identity without local input
+
+Prefer native per-device host-key generation over putting a private host key in
+cloud-init data. Stock Trixie's [generation service](https://github.com/RPi-Distro/raspberrypi-sys-mods/blob/15fa44812659b8cfab0b8605ac2b525c1277ff51/debian/raspberrypi-sys-mods.regenerate_ssh_host_keys.service)
+uses `ConditionFirstBoot=yes`, removes existing host keys, then runs `ssh-keygen -A`
+before SSH/first-boot completion; it has no automatic restart policy. Vendor
+cloud-init defaults leave deletion/generation to that service. An interrupted
+first boot can therefore regenerate identity. The generator's separate SSH layer
+has different lifecycle/defaults and enables SSH/password authentication unless
+explicitly changed. Select **one** generation owner; do not combine them blindly.
+[systemd machine identity](https://www.freedesktop.org/software/systemd/man/latest/machine-id.html)
+must also be unique on first boot and preserved afterward; never publish its value.
+
+The proposed QOR enrolment sequence is deliberately independent of Wi-Fi success:
+
+1. During later approved personalization, retain a public per-device UUIDv4,
+   unique `qpi-...` hostname and the verified artifact digest in a separate Windows
+   write record. Supply that public binding to the future first-boot hook. The
+   generic image cannot contain its own final whole-image hash. A receipt echoes
+   that binding; it does not authenticate provenance by itself.
+2. Start with remote access gated off. Complete account/network configuration,
+   login-policy checks and `first-boot-complete.target`. Record the public host
+   key, then perform a controlled stability reboot. If generation or provisioning
+   failed, stop enrolment; a finished service process alone is not success.
+3. After reboot, require the same instance binding and public key. Only then
+   publish `qor-headless-host.json` to the selected boot FAT and gracefully power
+   off. The record contains only schema/kind, instance UUID, hostname, image
+   digest, Ed25519 **public** host key and its SHA-256 fingerprint. No address,
+   SSID, password, username, private key, machine ID or log dump is exported.
+4. After confirmed shutdown, the owner moves that exact card into this Windows
+   reader. Verify the public receipt against the independently retained write
+   record, including a separate hostname comparison, and preserve its public key/fingerprint in a dedicated pin file outside
+   the repo. This physical chain of custody is the trust channel, not a network
+   announcement. A changed/missing/malformed receipt or uncertain card stops the
+   process. Hostname matching and `ssh-keyscan` cannot replace this trust step.
+5. Only after a separate account/key/network/access-window approval, personalize
+   a non-secret access marker bound to that instance, image digest and pinned
+   fingerprint; then return the card and boot. The native gate must validate it
+   and the effective SSH/login policy before opening access. The marker is not a
+   secret or remote authentication mechanism; physical-media trust and owner
+   approval remain essential. First access performs only the bounded identity
+   probe before any separately scoped build command.
+
+This is a **QOR design built on supported primitives**, not a turnkey upstream
+feature. Hook installation/order, stable-reboot checks, public-receipt publication,
+shutdown, marker consumption/expiry and Wi-Fi-independent recovery are **not yet
+integrated or qualified in an image**. Do not remove/power-cycle the card merely
+because a timer elapsed. Until graceful shutdown is demonstrated, stop and use
+an expressly approved physical recovery route. The physical receipt exchange
+requires no keyboard, mouse, Bluetooth pairing or local monitor.
+
+#### Implemented preparation and Windows assistant access
+
+`tools/image/pi_headless.py` implements bounded public receipt validation,
+SHA-256 public-key fingerprint calculation and an offline Windows OpenSSH argument
+plan. It reads no private key and has no network, SSH execution, service or block
+device operation. `publish_receipt()` is a library helper for later hook integration,
+tested only against temporary ordinary directories. Exclusive creation never
+replaces an existing entry: identical receipts can be reused; changed or partial
+receipts fail. It is **not** an atomic FAT/power-loss durability guarantee. A failed
+flush is not completion; native persistence and shutdown remain separate gates.
+Inputs are at most 8 KiB, reject duplicate/unknown fields, malformed keys and unsafe
+paths; path ancestors must be trusted and quiescent, not concurrently controlled
+by a hostile writer. Symlinks/reparse points at selected files/directories fail.
+Receipt construction strips public-key comments so account/email text is not
+exported. Validation of a received receipt instead refuses a commented key as
+noncanonical. The helper never claims a successful boot or authenticated access.
+
+Read-only public-receipt check, with public values from the independent record:
+
+This helper compares the UUID and image digest, and an optional prior fingerprint.
+It validates hostname syntax but does not compare it with the independent record;
+the reviewer must perform that comparison separately.
+
+```powershell
+.venv/Scripts/python.exe -B tools/image/pi_headless.py --receipt <public-receipt.json> --instance-id <recorded-uuid> --image-sha256 <recorded-image-digest>
+```
+
+The real Windows client was observed at
+`C:/Windows/System32/OpenSSH/ssh.exe`: **OpenSSH_for_Windows_9.5p2**, LibreSSL 3.8.2.
+[Microsoft supports](https://learn.microsoft.com/en-us/windows-server/administration/openssh/openssh-overview)
+this client for SSH management of Linux. This assistant's local command tool can
+invoke that existing client after approval; an online chat or a VS Code sidebar
+alone confers no Pi access. No Windows SSH server, firewall change, tunnel,
+forwarded port, Raspberry Pi Connect or persistent agent setup is needed by this
+client route. Availability/configuration parsing is not a successful network login.
+
+The plan CLI adds `--fingerprint <independently-pinned-fingerprint>`, `--address
+<one-private-IPv4>`, `--user <approved-account>`, `--identity-file <literal-Windows-path>`
+and `--known-hosts-file <literal-Windows-path>`. It returns **argv data**, not a shell
+script, and never executes it. Do not feed it to `Invoke-Expression` or concatenate
+it into a command string. A real plan contains the supplied identity-file path:
+keep it transient, or remove private paths before retaining sanitised evidence.
+A later approved invocation must verify the pin file
+contains exactly the generated public line and apply a 30-second outer timeout.
+The prepared first command is fixed and fails on a failed subcommand: architecture,
+kernel page size and numeric user ID. `verify_probe_output()` also requires a zero
+exit and exactly ARM64/16384/non-root results, with a 1-KiB output bound; banners,
+extra lines and wrong values fail. This checks output only, not the authenticity
+of the transport. It does not install or configure anything. IPv6/public endpoints require
+a separately reviewed extension; this candidate accepts one RFC1918 IPv4 address.
+
+The generated options disable user/system SSH configuration (`-F none`), proxy
+commands/jumps, local commands, agent/port/X11 forwarding and connection sharing.
+They require the pinned Ed25519 key with `StrictHostKeyChecking=yes`, no automatic
+key update/DNS trust, public-key authentication only, one connection attempt and
+no interactive prompts. Paths are literal absolute Windows paths; expansion
+syntax and additional trust-file injection are rejected. Read-only `ssh -G`
+validation tests argument interpretation, **not** reachability or authentication.
+The plan disables agent use: an approved credential must already be usable by the
+client without a prompt. An encrypted key requiring unlocking remains an access
+blocker; do not ask for its passphrase in chat or silently enable/store it in an
+agent. Any owner-controlled temporary signing/unlock arrangement needs its own
+approval and a reviewed plan change. Do not inspect existing private-key files.
+
+#### Discovery, retries and recovery
+
+For the approved private LAN, try only the preselected unique hostname through
+normal `.local` resolution, or have the owner identify the exact Pi in the router's
+DHCP lease view. Treat both as address **candidates**. Record one candidate and
+verify it is in the approved network; do not scan subnets, enumerate unrelated
+devices, change router settings or invent an address. Multicast DNS may fail or
+collide on Windows/network equipment; use the owner-confirmed lease instead of
+opening firewall ports or installing a discovery service. An optional, approved
+single-endpoint TCP-22 check proves reachability only. Authentication needs the
+physically obtained host pin **and** the specifically authorised client identity.
+
+One bounded SSH attempt follows pin/credential approval. A key mismatch stops
+immediately; never use `StrictHostKeyChecking=no`, `accept-new`, blind `ssh-keyscan`
+trust, or deletion of known-host entries to retry. Wrong account/key is not fixed
+by allowing passwords/root. Preserve only sanitised phase/exit/timing metadata;
+do not record seed data, passwords, private paths/values or broad debug logs.
+A successful probe establishes that scoped session only; future actions and access
+renewal remain subject to the approved purpose/window.
+
+| Failure/interruption | Required behavior and recovery |
+|---|---|
+| Before bootstrap completes | Keep SSH closed, retain the same instance seed; inspect sanitised phase state locally through the approved recovery method. Do not assume cloud-init retries every failed module. |
+| Stability reboot changes the host key | Stop before publication/access. Investigate generation ownership and first-boot completion; do not replace a pinned identity automatically. |
+| Partial/failed receipt publication or flush | Do not signal completion or open access. Keep the partial evidence; explicit recovery of that public receipt is separate from changing host keys. |
+| Receipt complete but marker absent | Reboots preserve identity and remain closed. Owner can repeat the physical public-receipt retrieval; no new credentials or shared identity are created. |
+| Wi-Fi unavailable | Bounded wait, then stop; check country, supported band, credentials, signal and AP isolation privately. The qualified offline receipt/shutdown path must still work. |
+| Hostname unresolved | Use only the owner's exact DHCP lease/candidate. No broad discovery or firewall workaround. |
+| SSH timeout/refusal | Distinguish no network, closed service, incomplete provisioning and expired/unapproved access. Preserve the failure; no retry loop or automatic enablement. |
+| Lost pin, changed host key or reimage | Re-establish trust through the physical channel and new explicit approval; do not reuse a stale marker. |
+
+Practical fallbacks are an owner-approved Ethernet connection to the existing
+private router (no bridge/Internet sharing or router changes), returning the
+powered-off card to the reader for reviewed recovery, or optional HDMI/temporary
+USB input. Ethernet does not bypass SSH authentication or host-key trust. If
+neither safe shutdown nor network access is available, report that physical
+recovery is required rather than guaranteeing a zero-input rescue. Do not run
+`cloud-init clean`, alter instance ID, delete host keys, reapply password hashes,
+reimage or relax login settings as an automatic repair. Cloud-init's
+[first-boot/cache rules](https://docs.cloud-init.io/en/latest/explanation/first_boot.html)
+make those operations potentially identity-changing. Bluetooth can be paired later
+under approval; it plays no role in the initial headless trust/access path.
+
+### Stop conditions and the next owner actions
+
+Stop the affected phase for wrong/unknown board or OS, absent approved access/recovery,
+unverified image/media/required recovery, broken normal login or unexpected remote access,
+unstable power/cooling/storage, non-16-KiB kernel or dependency, insufficient or
+unmeasured resources, uncoordinated workers, unentitled/incomplete Qt, unresolved
+ABI/plugins, unapproved package/namespace changes, or dirty/unreviewed build
+source. Do not retry heavy jobs or change guards to mask these conditions.
+Continue independent repository/research work where possible.
+
+The smallest next actions are: confirm the Pi's current boot/OS and power/cooling,
+the intended private Wi-Fi and physical card-return/recovery route (no credentials
+in chat); choose preservation or separately approved stock bootstrap if needed;
+and confirm the exact commercial Qt artifact/module and
+device/SDK scope. No password, token, remote account or purchase is needed in
+chat. Once headless integration is qualified, separately approved per-device
+provisioning and authenticated access or an optional local console can produce
+the real package delta, RAM and storage measurements. Only **after those receipts
+exist** request the exact installation/native-job actions. The Samsung card is
+already the authorised eventual Q Pi target; any needed off-card builder recovery
+or alternative media arrangement is resolved before its action-time write gates.
+
+Keep evidence under a new `build/` attempt: source/patch hashes, bootstrap JSON,
+sanitised package proposal, kit identities, capacities, commands/exits, failures
+and skips. Preserve the earlier `q-pi-qualification-2026-11-10/session-01`
+606-pass/70-skip Windows run and its initial corrected-driver failure; these
+portable results do not become ARM64 evidence. Do not overwrite failed attempts
+or personal backups. Repository edits are reversible without touching original
+Prism changes. An eventual package installation is not assumed reversible by
+uninstalling: preserve its approved recovery path first. Reimaging the only card
+requires the off-card preservation/recovery path above for any later builder
+state that must survive; the owner has already authorised discarding old Kali/data.
+
+### Authorised Q Pi target and action-time write gates
+
+The owner's 10 November update, also recorded as planning metadata in
+`pi/preparation.json`, selects the plugged-in Samsung EVO nominal 128-GB microSD
+for the **eventual Q Pi image**, including old Kali/data erasure. Do not ask again
+for that broad intent. This is not a completed write receipt, proof of current
+device identity, approval of an unready image, or permission to substitute a
+stock builder image. If stock bootstrap is needed first, prepare its concrete
+artifact, purpose, package/access boundaries and media/recovery decision for
+separate approval **before** writing it.
+
+Immediately before an eventual Q Pi write:
+
+1. Reidentify the exact attached card from current **capacity and USB reader/device
+   identity**, corroborating the physical card and layout. Match the intended
+   Samsung target, not merely the last `Disk 2`, `D:` or BOOT label. Verify it is
+   neither a system nor a currently booted disk, and that no builder is running
+   from it. Do not inspect or operate unrelated devices to guess the target.
+   Ambiguous readers/identities, changed capacity or uncertain system/boot status
+   require stopping, not selecting the closest-looking disk.
+2. Verify the selected **Q Pi** artifact's provenance and immutable source/base/
+   package/Qt receipts; recompute its recorded checksum immediately before use.
+   Check Pi 5/ARM64 boot assets, 16-KiB target/dependency compatibility, partition
+   bounds and expanded write size against the freshly observed capacity. Review
+   native application/build evidence, static image validation and the first-boot
+   plan. Hardware acceptance follows boot testing; it cannot be claimed from
+   these pre-write checks. A stock OS, a partial image or unverified input is not
+   an authorised substitute. Today the image and these receipts do not exist.
+3. Preserve build evidence and any necessary recovery material **off the target**.
+   Old Kali/data on this card is authorised for discard; do not invent a requirement
+   to retain it. Confirm separately any later builder state/data that must survive.
+   Present the exact current device identity/capacity, image identity/hash/size and
+   irreversible erasure scope for the required **action-time confirmation**. The
+   owner's update expressly retains that confirmation and other applicable safety
+   checks. If the device or image changes afterward, stop and revalidate/reconfirm.
+4. After confirmation, use the approved writer for that verified target only.
+   Flush the completed write and use its verified read-back or an equivalent full
+   written-image-range comparison against the verified uncompressed image.
+   Record the verification method, covered byte range, exit/status and result;
+   a writer exit 0 or visible BOOT partition alone does not prove the write.
+   A failed or interrupted write remains unaccepted: preserve logs and stop for
+   diagnosis, without a blind retry against a remembered disk number.
+5. Report the exact artifact/device identification, checksum, write/read-back
+   outcomes and any errors/skips. Keep **write verified** separate from **Pi boot,
+   login and hardware accepted**. Account credentials, pairing/network provisioning
+   and security/remote-access changes remain separately gated.
+
+This is a procedure only. No writer was launched, card content read, device
+reconfigured or irreversible-erasure confirmation requested in this update.
 
 ### Pi image and hardware acceptance
 
@@ -347,8 +1308,10 @@ SSH policy. First-boot expansion must target only the verified booted media,
 never an arbitrary attached disk. No Pi-capable emulation has run; emulation
 would still not prove this board's boot firmware, graphics or radios.
 
-Only after a separate exact **spare-media** selection, backup and write
-authorisation: verify the Pi 5/ARM64 identity and kernel page size; complete real
+Only after the scoped Samsung-target authorisation and all
+[action-time write gates](#authorised-q-pi-target-and-action-time-write-gates)
+are satisfied, or equivalent separate authorisation for different test media:
+verify the Pi 5/ARM64 identity and kernel page size; complete real
 login; test HDMI/scaling, hardware rendering, Wi-Fi, Bluetooth reconnection at
 login, input, audio, USB/Ethernet, power/cooling and shutdown. Open a native QOR
 app, save/reopen a local project and compile/run a small native program, offline
@@ -379,8 +1342,9 @@ before the Linux runtime build. The image driver checks before expensive phases;
 the VM launcher checks before ISO hashing and again before launch. Below 3 GiB of
 available host RAM they report **not started** and return failure. The guard only
 reads memory availability; it changes no setting, stops no process and uses no
-retry loop. Owner-authorized temporary service stops and cache/page reclamation
-in the recorded local run are separate orchestration, with restoration receipts.
+retry loop. Earlier host-service orchestration is historical and superseded by
+the current QOR-only resource policy. Never restore or rerun retired cross-project
+wrappers or inspect/manage unrelated services to satisfy this guard.
 
 `stage_vm_runtime.py` builds the requested non-simulator targets with one worker,
 checks source snapshots, warnings, kit identity and native build results, then
@@ -543,20 +1507,18 @@ The ISO is 3,601,670,144 bytes, SHA-256
 Both new image branches pass 14 fatal-warning bootc checks, with zero warnings and
 one skipped check. The live installation peaks at 15 tasks within the unchanged
 64-task limit, with four I/O workers and no memory-limit, out-of-memory or task-limit
-hits. All launch RAM checks retain the 3-GiB minimum. The VM is shut down and the
-approved non-database service pause is restored with PostgreSQL healthy. The earlier
+hits. All launch RAM checks retain the 3-GiB minimum. The recorded run ended with
+the VM shut down; this audit did not launch it or refresh host-service state. The earlier
 `feed626` proof, both normal UI failures and all diagnostic outputs remain separate.
 
-RAM preflights and a bounded reclamation-helper interruption are retained as failed
-orchestration records. The accepted continuation uses the same installed disk,
-without a reset. Pause/restore receipts retain the failures and service-identity
-changes: containers were replaced during an idle interval, then current identities
-were revalidated. Pause batches exclude PostgreSQL and preserve volumes. Final
-lookups of removed identities fail and remain recorded; all current services are
-running or restarting and the database is healthy. Final checked proof is
+QOR RAM-preflight failures and resume boundaries remain dated evidence. The
+accepted continuation used the same installed disk without a reset. Old
+cross-project orchestration is not a current prerequisite or a reusable procedure;
+current work uses only QOR's existing lock/resource guard. The earlier checked proof is
 `v12b-installation-proof/full-sequence-result.json`. Actual screenshots, immutable
 input records, native failures and the exact resume history live in
-`build/vm-install-2026-11-06/`. These ignored artifacts are private development
+`build/vm-install-2026-11-06/`. The later actual-UI result is the separate
+8 November accepted receipt named above. These ignored artifacts are private development
 evidence, not release assets.
 
 ## Intended full device image

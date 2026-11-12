@@ -2,6 +2,7 @@
   "cmake.useCMakePresets": "always",
   "cmake.configureOnOpen": false,
   "cmake.configureOnEdit": false,
+  "cmake.automaticReconfigure": false,
   "cmake.buildBeforeRun": false,
   "cmake.copyCompileCommands": "${workspaceFolder}/compile_commands.json",
   "C_Cpp.intelliSenseEngine": "disabled",

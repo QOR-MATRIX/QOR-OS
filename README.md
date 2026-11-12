@@ -10,10 +10,11 @@ Prism compositor · Lumen design · QQ engine · ARQADE · the QOR network · Qt
 
 </div>
 
-QOR OS is a Linux operating system whose whole experience is drawn by Qt. The
+QOR OS is a Linux operating system in development, targeting an experience drawn by Qt. The
 compositor and shell, the design system, the system services, the game engine
 and its studio, the arcade, the media player and the account system are all
-QOR OS's own. It joins two projects
+QOR OS's intended stack; the account service and full device integration remain unfinished.
+It joins two projects
 ([QOR-0002](docs/decisions/QOR-0002-one-repository-from-qtos-and-demiurge.md)):
 
 - **QTOS**, the operating system QOR OS grew from, brings Prism, a Wayland compositor whose
@@ -52,7 +53,7 @@ still to come.
 | ![Sound](docs/images/sound.webp) | **Sound and an audio-reactive interface**: a real-time engine with a five-band equaliser; the wallpaper and the Rail move with the music. |
 | ![Prism nested](docs/images/prism-nested.webp) | **Prism**: the real Wayland compositor, with several displays, controllers and three-finger gestures, running real clients. |
 
-**Performance:** an 8-second scripted tour of Overview, Beam, Control Center
+**Historical simulator performance (23 October 2026):** an 8-second scripted tour of Overview, Beam, Control Center
 and Space switches, at 1539×844 logical and 125% scaling, on Direct3D 11.
 
 | GPU | Average | p50 | p95 | p99 |
@@ -78,11 +79,15 @@ CMake and Ninja come with Qt's tools.
 ```powershell
 git clone https://github.com/QOR-MATRIX/qor-os.git
 cd qor-os
-.\tools\dev\build.ps1 -Test                 # the OS and the QOR core: configure, build, test
-.\tools\dev\run.ps1                         # the shell in simulation, on the lock screen (any password unlocks)
-.\tools\dev\run.ps1 -- --unlocked --open files,music
+.\tools\dev\build.ps1 -Preset ci-windows -Test # separate build folder; preserves a running windows-release shell
+.\tools\dev\run.ps1 -Preset ci-windows      # simulation lock screen (any password unlocks)
+.\tools\dev\run.ps1 -Preset ci-windows -- --unlocked --open files,music
 .\tools\dev\products.ps1                    # QQ, ARQADE and QOR Media: build and test
 ```
+
+These are development simulator commands, not
+device-login or Q Pi instructions. Check the [build prerequisites and resource
+guards](docs/BUILDING.md) before starting jobs on the owner's workstation.
 
 Then try:
 
@@ -108,7 +113,7 @@ On Linux, Prism runs as a real Wayland compositor nested in your session; see
 | [`products/qq/`](products/qq/) | **QQ**, the QOR Engine: runtime, QQ Studio, QQ Player, the agent's tools (from demiurge-chain, developed here since [QOR-0015](docs/decisions/QOR-0015-the-products-are-developed-here.md)) |
 | [`products/arqade/`](products/arqade/) | **ARQADE**: the Qt app and its games (developed here), and their replay fixtures (carried) |
 | [`tools/qor-media/`](tools/qor-media/) | **QOR Media**: player, viewer, editor and PDF reader (from demiurge-chain, developed here) |
-| [`image/`](image/) | The QOR OS image on Fedora Atomic (Phase 3) |
+| [`image/`](image/) | Fedora image preparation and private VM evidence; Q Pi native builder and headless first-boot preparation, still unqualified |
 | [`sdk/`](sdk/), [`tools/`](tools/), [`tests/`](tests/) | App template; `qorctl`, generators, dev, CI and upstream scripts; tests |
 | [`docs/`](docs/) | Architecture, building, development, CI, performance, roadmap, design, decisions |
 
@@ -127,12 +132,13 @@ On Linux, Prism runs as a real Wayland compositor nested in your session; see
 
 ## Status
 
-**Phase 0 · Clear the ground**, complete on 27 October 2026. This repository
-holds:
+**Phase 0 · Clear the ground** records the 27 October 2026 baseline. The current
+tree contains:
 
-- the complete Prism shell, carried from QTOS, which runs in simulation on
+- the Prism shell, carried from QTOS, which runs in simulation on
   Windows and as a nested Wayland compositor on Linux;
-- Demiurge's QQ, ARQADE and QOR Media, which build and pass their suites here;
+- QQ, ARQADE and QOR Media sources and build/test harnesses; results and open
+  failures are scoped to their recorded revision and environment in the roadmap;
 - the QOR core at demiurge-chain `6a4822d`, with every module the Windows
   launcher has (`desktop`);
 - one name throughout: QOR OS
@@ -140,6 +146,13 @@ holds:
 
 Now under way: **Phase 1 · One stack**, the products running inside Prism on
 Linux, driven by a controller. See [docs/ROADMAP.md](docs/ROADMAP.md).
+
+Qt CI jobs remain paused pending runner isolation; historical green jobs are not
+current readiness. The private x86-64 VM installation/reboot evidence is separate
+from full device acceptance. Q Pi has native ARM64 build entry points and portable
+qualification/headless tooling, but no built or tested ARM64 QOR application or
+bootable Pi image. [OWNER.md](OWNER.md) gives the current handoff and
+[image/README.md](image/README.md) keeps the exact evidence and remaining gates.
 
 ## License
 

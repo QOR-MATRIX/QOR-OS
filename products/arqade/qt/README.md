@@ -2,10 +2,17 @@
 
 ARQADE's app: the QOR Launcher's arcade, in Qt 6, C++20, Qt Quick and Qt Quick 3D. It is docked inside the launcher
 over its ARQADE screen, under the launcher's product host, as QOR Media is docked over the Library.
-[ADR-102](../../../docs/decisions/ADR-102-arqade-in-the-launcher-on-qt.md) decided it, and roadmap item P7.19 in
-[`docs/DIRECTION.md`](../../../docs/DIRECTION.md) tracks it.
+Upstream ADR-102 and P7.19 in demiurge-chain's `docs/DIRECTION.md` record that launcher history;
+they are not local QOR OS documents or its current roadmap.
 
-Changed for QOR OS: Ever Rift, Darkveil and Bellwick, QOR OS's own games, among those it plays and tests.
+Changed for QOR OS: Ever Rift, Darkveil and Bellwick, QOR OS's own games, among those it plays and tests;
+current documentation links and the distinction from the inherited launcher flow.
+
+Development now belongs to QOR OS ([UPSTREAM.md](../../../docs/UPSTREAM.md)).
+On Wayland, [Prism hosts the app](../../../docs/ARCHITECTURE.md#hosted-by-prism) as a toplevel
+client; the launcher docking/sign-in sections below describe the carried protocol,
+not proof of a working QOR OS account service. Use the [roadmap](../../../docs/ROADMAP.md)
+and [current handoff](../../../OWNER.md) for validation and remaining work.
 
 This is the shell: the home, the games, the arenas and their rankings, and the player's Sparks. The four games and the
 two arenas are rebuilt in QQ (P7.20, P7.24), in [`../games/`](../games/README.md), and all six play here: the arenas

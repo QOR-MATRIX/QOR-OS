@@ -21,6 +21,11 @@ Keyboard and mouse keep working throughout.
 
 ## Supported controllers
 
+This table describes implemented backend/driver coverage, not certification of
+every physical device and connection mode. The virtual-controller suites do not
+establish real Linux/Pi pairing, rumble or input acceptance; the roadmap keeps
+those hardware gates open.
+
 Every controller is presented in one standard layout (the one SDL, the Linux
 gamepad specification and the W3C Gamepad API share): South, East, West,
 North, two shoulders, two analogue triggers, Back, Start, Guide, two sticks

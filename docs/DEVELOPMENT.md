@@ -8,12 +8,19 @@ before changing them.
 
 ## 1. Daily loop
 
+On the owner's Windows machine, use `ci-windows` for changes while the
+`windows-release` shell may be running. Never kill or relink that shell.
+Configure explicitly when needed; automatic IDE configure/build remains disabled.
+The commands below are the normal workflow once the resource/worker checks below pass.
+
 ```powershell
 . .\tools\dev\Enter-QorShell.ps1
-cmake --build --preset windows-release            # incremental build (QML is compiled too)
-.\tools\dev\run.ps1 -- --unlocked --open files    # run
-ctest --preset windows-release                    # test
-cmake --build --preset windows-release --target all_qmllint
+cmake --preset ci-windows
+cmake --build --preset ci-windows                  # incremental build (QML is compiled too)
+.\tools\dev\run.ps1 -Preset ci-windows -- --unlocked --open files
+ctest --preset ci-windows
+cmake --build --preset ci-windows --target all_qmllint
+python tools/ci/check_hardening.py build/ci-windows
 ```
 
 For visual work, `tools\screenshots\capture.ps1 -Scenes desktop,beam -OutDir $env:TEMP\shots`
@@ -22,7 +29,20 @@ produces deterministic frames you can compare before and after a change.
 Before a local heavy job, inspect QOR's worktrees and active QOR build/test workers. Identify their current project-local
 build wrapper and check its actual operating-system lock; a leftover holder note does not mean the lock is held. Reuse that
 QOR lock and keep heavy jobs serial. Preserve active workers and unfinished changes. Local implementation follows QOR's
-worker and lock state.
+worker and lock state. Image/Q Pi work also uses the unchanged 3-GiB guard in
+`tools/image/vm_resources.py` and a measured scratch budget. Never manage unrelated
+services to obtain headroom. The original Windows/WSL coordinator remains in
+place. `tools/dev/heavy.py` supplies the separate
+[native Linux coordinator](../image/README.md#native-linux-heavy-job-coordination):
+one designated account/namespace, permanent OS lock, guarded RAM admission and
+an incomplete-run marker that requires reviewed recovery. It does not wrap raw
+builds automatically. On 11 November the native Pi ran all 80 focused resource/
+coordinator cases and its production lock check successfully. This is historical:
+the latest authorised PC diagnostic found unresolved hostname/last-address
+connectivity and no targeted mDNS address. See the image guide for physical
+recovery and the prepared `tests/pi/` Core/Test smoke sequence. Recheck that host's
+workers and resources before each job; kit/dependency and measured build-budget
+qualification remain separate. Windows/WSL resources are not inferred from the Pi.
 
 ## 2. C++ conventions
 
@@ -41,7 +61,9 @@ worker and lock state.
   (`requirements-dev.txt`, pre-commit, CI). Do not hand-format.
 - Warnings: `/W4` (MSVC) or `-Wall -Wextra -Wpedantic …`. Third-party headers are
   external. `ci-windows` builds with warnings as errors.
-- Every file starts with `// SPDX-License-Identifier: LicenseRef-QOR-OS-Proprietary`.
+- New QOR OS C++ files start with `// SPDX-License-Identifier: LicenseRef-QOR-OS-Proprietary`.
+  Carried Apache-2.0 product files retain their notices and receive the required
+  `Changed for QOR OS:` comment; do not replace their licence headers.
 
 ## 3. QML conventions
 
@@ -107,7 +129,7 @@ worker and lock state.
 1. Edit `kit/tokens/lumen.tokens.json`.
 2. `python tools/tokens/generate_tokens.py` regenerates `kit/Tokens.qml`,
    `platform/common/lumentokens.h` and `docs/design/tokens.md`.
-3. `python -m unittest discover -s tests/tools` checks the contrast
+3. `python -m unittest discover -s tests/tools -p test_generate_tokens.py` checks the contrast
    guarantees (text on accent at every preset hue, and the high-contrast
    targets).
 4. Rebuild, run the golden-image tests (below), and update the references if
@@ -157,8 +179,9 @@ If a platform must render a case differently on purpose, run the test with
 `tests/golden/references/<os>/`, which takes precedence on that OS.
 
 When a case fails, `build/<preset>/tests/golden-out/` holds `<case>-actual.png`
-and `<case>-diff.png`, with visible differences in red. CI uploads them as the
-`golden-diff-windows` artifact. To accept an intended change:
+and `<case>-diff.png`, with visible differences in red. The Windows workflow is
+configured to upload `golden-diff-windows` when its job runs; Qt jobs remain paused
+pending runner isolation ([CI.md](CI.md#what-ci-trusts)). To accept an intended change:
 
 1. Inspect the diff images.
 2. Run `update_golden`.
@@ -228,7 +251,8 @@ While a script runs, only its own input and the controller interface's
 reach the window (`qor::input::InjectedInput`). Real pointer and key input
 is dropped: a person's mouse crossing the window, or a host compositor's
 pointer over a nested Prism, would otherwise cancel scripted drags or fire
-shortcuts. Running tests on a machine in use is safe.
+shortcuts. This isolates input events; it does not establish resource, credential,
+display or runner isolation. Use the guarded hidden harness where documented.
 
 A **target** is `[x, y]` in window coordinates, or
 `{"window": spec, "part": "frame|titlebar|content|close|maximize|minimize", "at": [x, y]}`,
@@ -344,7 +368,7 @@ export QOR_GAMES=$PWD/products/qq/samples   # the QQ games Home and the Library 
 ARQADE and QQ Studio are then in Beam. Home and the Library (Guide, or Beam's
 Home and Library) offer every game and the person's media: QQ games from
 `QOR_GAMES`, else `share/qor-os/games` beside Prism and in the data folder;
-the person's own QQ projects in Documents; ARQADE's seven; and video, music and
+the person's own QQ projects in Documents; the ARQADE entries in `Library::arqadeGames()`; and video, music and
 pictures. A game plays in the QQ Player (`Desktop.playQQGame(scene)`) or in
 ARQADE (`Desktop.playInArqade(game)`), and QOR Media opens the files
 (`Desktop.openInMedia(path, kind)`), where they stopped when the Library
@@ -353,8 +377,12 @@ knows.
 ### Add an icon
 
 Add the Lucide name to `kit/icons/icons.txt`, then run
-`python tools/icons/import_lucide.py <lucide-static package dir>` (download
-with `npm pack lucide-static`). CMake picks the list up automatically.
+`python tools/icons/import_lucide.py <lucide-static package dir>` against the
+reviewed exact package version. The carried icons currently record 1.61.0 in
+`THIRD_PARTY_NOTICES.md`; retain the package's source/hash/licence evidence when
+updating it. The importer reads a local package and does not verify its provenance;
+an unversioned `npm pack lucide-static` is not a reproducible input. CMake picks
+the icon list up automatically.
 
 ### Add a Kit component
 
@@ -409,6 +437,10 @@ as it was. A change to ARQADE's rules is also made upstream, with its fixture
 ([UPSTREAM.md](UPSTREAM.md#changing-a-games-rules)).
 
 ### Pull ARQADE's fixtures and the one look from upstream
+
+`status` compares against the local upstream clone's last fetched `origin/main`;
+it does not fetch. `pull` fetches and creates commits, so use it only for an
+owner-authorised upstream update from a clean tree, preserving existing work.
 
 ```bash
 tools/upstream/demiurge.sh status          # last upstream commits, whether ARQADE's rules match, the core's pin
@@ -467,5 +499,8 @@ and mark any record it supersedes or amends.
 | `tools/dev/secret-service.py` | That run's keyring: an in-memory Secret Service on the run's own session bus ([QOR-0011](decisions/QOR-0011-the-creators-provider-key-in-the-secret-service.md)) |
 | `tools/dev/prism-products.py` | Prism hosting stand-ins for ARQADE, QOR Media, QQ Studio and the QQ Player, offscreen and in software (`prism_products`) |
 | `tools/upstream/demiurge.sh` | Pull ARQADE's fixtures and the one look from demiurge-chain, check ARQADE's rules match it, write patches for upstream |
-| `tools/ci/runners.ps1` | Move the workstation's two CI runners to the organisation or a repository, and start them |
+| `tools/ci/runners.ps1` | Historical runner registration/start helper; do not run while the isolation pause is in force ([CI.md](CI.md#what-ci-trusts)) |
+| `tools/image/pi_preflight.py` | Read-only bootstrap, Qt-kit and image-input rejection gates; a pass is not native build acceptance |
+| `tools/image/pi_payload.py` | Bounded static target inventory/hash/ELF audit; no target execution or complete loader/ABI proof |
+| `tools/image/pi_headless.py` | Public receipt validation and offline Windows SSH plans; no provisioned hook or authenticated access |
 | `qorctl` | Drive services from the command line ([SERVICES.md](SERVICES.md#qorctl)) |

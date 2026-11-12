@@ -13,11 +13,11 @@ behaviour.
 
 | Metric | Target | Status (measured in simulation) |
 |--------|--------|----------------|
-| Compositor frame, shell animating | GPU ≤ 3 ms, CPU ≤ 2 ms | **2.79 ms average frame interval at 360 Hz** on the RTX 4060 (the frame interval includes vsync wait, so render cost is lower) |
-| Idle wakeups with nothing animating | ~0 | Met by design: springs stop on settle, clock wakes once a minute, no continuous animations |
-| First-party app launch → first frame | ≤ 300 ms | Apps are in-process QML in simulation; measured in Phase 3 with Qt Application Manager |
+| Compositor frame, shell animating | GPU ≤ 3 ms, CPU ≤ 2 ms | Historical **2.79 ms average frame interval at 360 Hz** on the RTX 4060; includes vsync and does not independently measure GPU or CPU render cost |
+| Idle wakeups with nothing animating | ~0 | Design goal: springs stop on settle and the clock wakes once a minute; no current whole-process wakeup measurement |
+| First-party app launch → first frame | ≤ 300 ms | Apps are in-process QML in simulation; device measurement with Qt Application Manager remains planned for Phase 3 |
 | Beam keystroke → results | ≤ 16 ms | Search is synchronous JS over about 60 entries; not yet instrumented |
-| Pointer input → photon | ≤ 1 frame + scanout | Input to swap: 5.9 ms p50 on the RTX 4060 at 360 Hz (about 2.1 frames, measured through the Windows compositor); 9.2 ms on Intel UHD. Measured on device in Phase 3 |
+| Pointer input → photon | ≤ 1 frame + scanout | Historical input to swap: 5.9 ms p50 on the RTX 4060 at 360 Hz (about 2.1 frames, through the Windows compositor); 9.2 ms on Intel UHD. Device/photon measurement remains planned for Phase 3 |
 | Boot / login budgets | ≤ 5 s / ≤ 700 ms | Phase 3 (image) |
 
 ## Baseline (2026-10-23)

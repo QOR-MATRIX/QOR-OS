@@ -1,0 +1,50 @@
+{
+  "version": 6,
+  "cmakeMinimumRequired": {"major": 3, "minor": 27, "patch": 0},
+  "vendor": {
+    "qorsync.dev/qor-os/1.0": {
+      "SPDX-License-Identifier": "LicenseRef-QOR-OS-Proprietary"
+    }
+  },
+  "configurePresets": [
+    {
+      "name": "q-pi-smoke",
+      "displayName": "Q Pi · native Core/Test qualification",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/../../build/q-pi-smoke",
+      "condition": {"type": "equals", "lhs": "${hostSystemName}", "rhs": "Linux"},
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "RelWithDebInfo",
+        "CMAKE_PREFIX_PATH": "$penv{QOR_QT_DIR}",
+        "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
+        "CMAKE_COMPILE_WARNING_AS_ERROR": "ON",
+        "CMAKE_AUTOGEN_PARALLEL": "1",
+        "QOR_WARNINGS_AS_ERRORS": "ON",
+        "QOR_HARDENING": "ON",
+        "QOR_SANITIZE": ""
+      }
+    },
+    {
+      "name": "q-pi-smoke-asan",
+      "inherits": "q-pi-smoke",
+      "binaryDir": "${sourceDir}/../../build/q-pi-smoke-asan",
+      "cacheVariables": {"CMAKE_BUILD_TYPE": "Debug", "QOR_SANITIZE": "address,undefined"}
+    }
+  ],
+  "buildPresets": [
+    {"name": "q-pi-smoke", "configurePreset": "q-pi-smoke", "jobs": 1},
+    {"name": "q-pi-smoke-asan", "configurePreset": "q-pi-smoke-asan", "jobs": 1}
+  ],
+  "testPresets": [
+    {
+      "name": "q-pi-smoke", "configurePreset": "q-pi-smoke",
+      "output": {"outputOnFailure": true},
+      "execution": {"jobs": 1, "stopOnFailure": true, "noTestsAction": "error"}
+    },
+    {
+      "name": "q-pi-smoke-asan", "configurePreset": "q-pi-smoke-asan",
+      "output": {"outputOnFailure": true},
+      "execution": {"jobs": 1, "stopOnFailure": true, "noTestsAction": "error"}
+    }
+  ]
+}

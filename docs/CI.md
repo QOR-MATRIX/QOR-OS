@@ -4,8 +4,8 @@ Workflows live in [`.github/workflows/`](../.github/workflows/).
 
 | Workflow | Runs on | Needs Qt | Checks |
 |----------|---------|----------|--------|
-| **Lint** (`lint.yml`) | `ubuntu-24.04` | No | Generated tokens are current, token generator tests, the Store's signed catalogue, SPDX headers, no secret in the tracked files, the rules of QOR OS's own ARQADE games in Node (`products/arqade/tests/*.test.mjs`, [QOR-0017](decisions/QOR-0017-arqades-new-games.md)), clang-format 20.1.8, JSON validity. The products keep their own form, so the format checks skip them; the header check skips only their files from demiurge-chain (`LICENSES/from-demiurge-chain.txt`, [UPSTREAM.md](UPSTREAM.md)) |
-| **Build** (`build.yml`) | Windows and Linux, self-hosted (or hosted with the online installer) | Yes (commercial) | Configure (`ci-windows`/`ci-linux`, warnings as errors, the QOR core required), build, every program's exploit mitigations read back, and no Store demonstration in the folder (`tools/ci/check_hardening.py`), `all_qmllint`, `ctest -LE gpu` (plus `-L gpu` when enabled), and on Linux the same suites again under AddressSanitizer and UBSan (the `linux-asan` preset). On each where its variable says so, the carried products (QQ, ARQADE, QOR Media) when they changed. Tags and manual runs also upload an installable Windows artifact (kept 7 days) |
+| **Lint** (`lint.yml`) | `ubuntu-24.04` | No | Generated tokens are current, Python tooling suites under `tests/tools` (including portable Q Pi fixtures), the Store's signed catalogue, SPDX headers, no secret in the tracked files, the rules of QOR OS's own ARQADE games in Node (`products/arqade/tests/*.test.mjs`, [QOR-0017](decisions/QOR-0017-arqades-new-games.md)), clang-format 20.1.8, JSON validity. The products keep their own form, so the format checks skip them; the header check skips only their files from demiurge-chain (`LICENSES/from-demiurge-chain.txt`, [UPSTREAM.md](UPSTREAM.md)) |
+| **Build** (`build.yml`) | Windows and Linux, self-hosted (or hosted with the online installer), subject to isolation gates | Yes (commercial) | Configure (`ci-windows`/`ci-linux`, warnings as errors, the QOR core required), build, every program's exploit mitigations read back, and no Store demonstration in the folder (`tools/ci/check_hardening.py`), `all_qmllint`, `ctest -LE gpu` (plus `-L gpu` when enabled). Linux also builds/tests the `linux-asan` non-GPU subset with AddressSanitizer and UBSan; that preset disables the core and platform plugins and does not run product sanitizer suites. On each where its variable says so, the products (QQ, ARQADE, QOR Media) when requested. Tags and manual runs also upload a Windows application bundle (kept 7 days) |
 | **Security** (`security.yml`) | `ubuntu-24.04`, never the workstation | No | `gitleaks` over the whole history, redacted, its download checked by SHA-256. Weekly and on demand, `cargo audit` of the QOR core's lock file at the pin ([QOR-0018](decisions/QOR-0018-the-security-and-quality-bar.md)) |
 
 All three run on pushes to `main`, on pull requests and on demand; Build also runs on `v*` tags and Security every
@@ -20,9 +20,17 @@ and item-text privacy controls, zero failures/skips; this does not mean paused C
 
 ## What CI trusts
 
-**Build's jobs on the workstation are paused, and both of its runners are stopped, since 1 November 2026.** Lint and Security
-still run, on hosted runners. So nothing builds or tests QOR OS on GitHub today, and evidence comes only from runs on the machine
-that say what they ran at which commit.
+**The workstation Qt-job pause remains in force pending runner isolation.** Both
+runners were recorded stopped on 1 November 2026; this document is not a fresh
+service-state or GitHub-run observation. Lint and Security are configured on hosted
+runners, including portable tooling tests. Qt application/build evidence must name
+the actual machine, revision, commands, failures and skips; registration or a fixture
+pass does not establish that a Qt CI job ran.
+
+No workflow builds or tests native ARM64 QOR applications. Portable tests may
+invoke `q-pi-release` to verify refusal before compiler/Qt execution; the Linux Qt
+package configuration is still x86-64 (`gcc_64`). Those fixtures therefore establish
+neither native ARM64 CI nor a qualified Pi builder, target kit, image or hardware.
 
 **A runner being there is not a build having passed.** Runners online, runners allowed, a job that ran and a test that passed are
 four different things:
@@ -33,7 +41,7 @@ four different things:
   every step a release needs ran and passed: each platform's job, the suites that draw, Prism's protocol check, and the products
   (which may stand down when a push or pull request did not change them, and never at a tag or a manual run). It also requires
   the products run unrelaxed on a Linux machine with a graphics card, since in software some of their checks are eased; no job
-  does that yet, so that line reads "not run" and no commit is ready for a release until one does. So a run that built
+   supplies `LINUX_PRODUCTS_GPU` to readiness yet, so that line reads "not run" and no commit is ready for a release until one does. So a run that built
   nothing is red, as the Build workflow's result, by design. Its summary tells a step that failed from a step that did not run.
   An allowed unchanged-product skip retains exit 0 for that non-release check, while its summary explicitly says
   **Non-release checks passed** and **Not ready for a release**. Only every required step actually succeeding produces
@@ -42,7 +50,7 @@ four different things:
   Linux. This is tool validation, not a real CI run or isolation proof.
   `tests/tools/test_release_readiness.py` and `test_build_workflow.py` hold it to this.
 
-The workstation's Windows runner runs as the signed-in person. Its Linux runner runs in WSL in the `sudo` and `docker`
+The recorded workstation Windows runner configuration used the signed-in person. Its Linux runner used WSL in the `sudo` and `docker`
 groups, with the Windows drives mounted and Windows programs a call away. That machine holds the Store's signing keys and
 their backup, and SSH, cloud, GitHub CLI and Qt credentials, so a job there can reach them all, and these jobs run other
 people's code: pinned actions, and the Rust crates the QOR core builds, with their build scripts. Running a job hidden, one
@@ -57,17 +65,18 @@ at a time or away from the GPU changes none of this. So:
 - **On Linux it stops if `AF_VSOCK` opens at all.** Under WSL that reaches Windows' file server whatever `wsl.conf` says
   (measured 1 November 2026). Elsewhere such a socket can open with nothing behind it, and the job still stops: a Linux job must
   run where `AF_VSOCK` is refused.
-- **What is still open:** the runners are stopped but still registered. Started again, they would be reached by any workflow
+- **What the recorded pause leaves open:** stopped runners remain registered. Started again, they would be reached by any workflow
   naming their labels, so
   whatever can write workflows could run code there. That is the owner, and the GitHub Apps installed on the organisation with
   workflow access, until the owner limits them. The check covers the places it names, not everything a job could do.
 
-What GitHub itself enforces on this private repository, on the Free plan: no forks, so no pull requests from them; a read-only
-default token; and no secrets for a job to take. It does **not** offer branch protection or rulesets (both refused by the API,
-which asks for a paid plan), or secret scanning. So the checks at commit time are local and can be skipped, and the secret
+The 1 November 2026 repository/API review recorded the Free plan, no forks or fork pull requests, a read-only
+default token and no secrets for a job to take. Branch protection and rulesets were refused by the API,
+which required a paid plan; secret scanning was unavailable. The checks at commit time are local and can be skipped, and the secret
 scan in Security comes after the push; neither equals a control on the server. Hosted minutes come from the plan's allowance,
-2,000 a month per GitHub's published plans. Each job rounds up to a minute, and this repository used 129 from 27 October to
-1 November (billing API), at no charge. If they ran out, Qt availability could not run, and neither could any Build.
+2,000 a month in the plan documentation reviewed then. The billing API recorded 129 minutes from 27 October to
+1 November, at no charge. These are dated observations, not current billing or account guarantees;
+recheck the actual repository/plan before changing CI. Exhausted hosted minutes would also prevent Qt availability and Build.
 
 As for the rest ([QOR-0018](decisions/QOR-0018-the-security-and-quality-bar.md)):
 
@@ -309,7 +318,7 @@ machine's addresses and port numbers, and no credential.
   demiurge-chain at a pinned commit through Corrosion
   ([QOR-0003](decisions/QOR-0003-the-qor-core-at-a-pinned-commit.md)). The CI
   presets set `QOR_BUILD_CORE=ON`, so a runner without Rust fails at configure
-  instead of skipping the core. The workstation's runners use Rust 1.98.1.
+  instead of skipping the core. The recorded workstation toolchains use Rust 1.98.1.
   Linux also needs `libdbus-1-dev` and `pkg-config`, because the core's
   keychain uses the Secret Service.
 - **Network access to GitHub** at configure time. It fetches demiurge-chain at
@@ -327,9 +336,11 @@ The suites drive real windows, on Windows on the runner's desktop, so they run
 only when:
 
 - the push or pull request changes `products/`, `tools/qor-media/`, `.qmllint.ini`,
-  `docs/design/tokens.json`, `tools/dev/products.ps1` (`products.sh`,
-  `products-display.qml`, `products-report.py`, `secret-service.py` and
-  `.github/qt-packages.json` on Linux) or `build.yml`;
+  `docs/design/tokens.json`, `cmake/QorHardening.cmake`, `tools/dev/products.ps1`,
+  `products.sh`, `products-tests.ps1`, `products-display.qml`, `products-report.py`,
+  `secret-service.py`, `tools/ci/check_hardening.py`, `tools/ci/with_display.py`,
+  `.github/qt-packages.json` or `.github/workflows/build.yml`. Windows and Linux
+  use the same change-path filter;
 - the run is for a tag;
 - the run was started by hand.
 
@@ -385,9 +396,11 @@ and the frame helper for frame-driven raising. The original raising wait failed 
 sources; height and elapsed frame time agreed. GPU waits and all tolerances remain unchanged. This is functional evidence,
 not native graphics, sound or controller proof.
 
-**`QOR_RUN_LINUX_PRODUCTS` is not set and Build is paused, so today CI runs none of this.** With it set, the job runs
-every suite each product registers with CTest, hidden: **in software under WSL or with no GPU device, and on the GPU
-on a Linux machine that has a working one.**
+**The variable was recorded unset and the Qt-job pause remains in force.** Once
+a runner is qualified and its product step is enabled, the harness runs each
+product's registered CTest suites hidden: **in software when fenced or without a
+render node, and expecting GPU rendering when a render node is available.**
+That selection is not itself proof that the observed renderer or hardware passed.
 
 - **Fenced from the GPU.** Under WSL the script hides `/dev/dxg` in a namespace of
   its own, and Mesa draws with llvmpipe. A machine with no door to a GPU at all
@@ -521,29 +534,30 @@ QOR OS uses the commercial Qt 6.12 kit, which CI cannot download
 anonymously. Configure **one** of the following in
 *Settings → Secrets and variables → Actions*.
 
-### Option A: self-hosted runners (current)
+### Option A: self-hosted runners (recorded setup)
 
-Hosted Windows minutes are billed at 2× on private repositories, and a cold
-Qt install takes several minutes. A self-hosted runner on a machine that
-already has Qt is faster, free, builds incrementally and has a real GPU.
+A self-hosted runner can reuse its installed Qt kit and incremental build cache.
+Its credential/resource isolation and actual GPU access still need verification;
+neither the labels nor the presence of a kit supplies that evidence.
 
-**Current setup.** The owner's workstation (the reference laptop) runs two
-runners:
+**Recorded workstation layout (October 2026; paused 1 November).** The two
+runner registrations used these folders and labels. This is not evidence that
+either runner is currently online or approved to run:
 
 | Runner | Where | Labels |
 |--------|-------|--------|
 | `<COMPUTERNAME>-qtos` | `%USERPROFILE%\ghr\qtos`, work folder `w` | `self-hosted, Windows, X64, qt, msvc, gpu` |
 | `<COMPUTERNAME>-qtos-linux` | WSL2 Ubuntu, `~/ghr/qtos-linux` | `self-hosted, Linux, X64, qt, gcc, wsl, gpu` |
 
-- Both run as the signed-in user, so no admin rights are needed.
-- A full Windows build of the OS with its tests takes about 2½ minutes once
-  incremental. The first build with the QOR core compiles its Rust
-  dependencies, which takes several more minutes.
+- Both were configured as the signed-in user; this did not provide isolation.
+- An incremental Windows build with its tests was observed at about 2½ minutes then.
+  The first build also compiled the QOR core's Rust dependencies. These timings
+  are historical, not a budget for the current tree or an ARM64 builder.
 
 ### Where the runners are registered
 
-A runner serves either one repository or the organisation. **Both runners are
-registered to `QOR-MATRIX/qor-os`, since 29 October 2026.** From 27 October they
+A runner serves either one repository or the organisation. **Both registrations
+were moved to `QOR-MATRIX/qor-os` on 29 October 2026.** From 27 October they
 served the organisation, in its Default runner group, which does not allow
 public repositories. On 29 October GitHub stopped giving jobs to the
 organisation's runners (below); moved to the repository, they took the waiting
@@ -558,7 +572,9 @@ why GitHub stopped giving it the organisation's runners, whose group refuses pub
 repositories; nobody has tested that. If it is ever made public, the runners
 come off it first.
 
-`tools/ci/runners.ps1` moves both runners in one command:
+`tools/ci/runners.ps1` is the historical registration/start helper. Do not run the
+following setup commands while the isolation pause remains in force; a replacement
+and its activation need the owner's approval. Its implementation:
 
 1. It leaves a runner already registered at the scope asked for as it is, so
    running it twice is harmless.
@@ -582,10 +598,11 @@ gh auth refresh -h github.com -s admin:org   # only for -Scope org, which took n
 
 QTOS is frozen, so its CI runs only if someone pushes to it.
 
-Repository variables (*Settings → Secrets and variables → Actions → Variables*,
+Recorded repository variables (*Settings → Secrets and variables → Actions → Variables*,
 or `gh variable set <NAME> --body <VALUE> --repo QOR-MATRIX/qor-os`). The
-private repositories of a Free organisation cannot read organisation
-variables, so each repository sets its own:
+review found that the private repository could not read its Free organisation's
+variables, so it used repository variables. Names below match the workflow;
+values and unset states are recorded configuration, not a fresh API observation:
 
 | Variable | Value | Effect |
 |----------|-------|--------|
@@ -594,7 +611,7 @@ variables, so each repository sets its own:
 | `QOR_WINDOWS_RUNNER_ISOLATED` | `true` (unset) | Lets the job run on a kit's runner, once that runner cannot reach the owner's keys or credentials ([why](#what-ci-trusts)) |
 | `QOR_LINUX_RUNNER_ISOLATED` | `true` (unset) | The same for Linux |
 | `QOR_RUN_GPU_TESTS` | `true` (optional) | Also run GPU-labelled suites, and the products on Windows (opens brief test windows on the runner's desktop) |
-| `QOR_RUN_LINUX_PRODUCTS` | `true` (optional, unset) | Also run the products on Linux, in software and out of sight ([what it runs](#what-linux-runs), [why it was off](#why-linux-is-fenced)), and lets the job take 270 minutes, its Products step 180 |
+| `QOR_RUN_LINUX_PRODUCTS` | `true` (optional; recorded unset) | Also run the products on a hidden Linux display; the harness expects software when fenced or without a render node, GPU otherwise ([what it runs](#what-linux-runs)). Job timeout 270 minutes, Products step 180; this flag does not supply the separate native product GPU readiness result |
 | `QOR_LINUX_RUNNER` | `["self-hosted","linux","qt"]` | Linux job runs in WSL on the workstation |
 | `QOR_LINUX_QT_DIR` | `/home/<user>/Qt/6.12.0/gcc_64` | Use the installed kit |
 
@@ -663,9 +680,10 @@ and `--url https://github.com/QOR-MATRIX`.
 
 #### Linux runner in WSL2
 
-The Linux job runs inside WSL2 Ubuntu, using the commercial kit in `~/Qt`
+The historical workstation Linux runner used WSL2 Ubuntu and the commercial kit in `~/Qt`
 ([BUILDING.md](BUILDING.md#linux-on-wsl2-windows-workstation)) and Rust from
-rustup in `~/.cargo` (1.98.1).
+rustup in `~/.cargo` (recorded 1.98.1). This setup is paused and fails the current
+isolation requirement; it is not a qualified replacement runner or Pi builder.
 
 With `QOR_RUN_GPU_TESTS`, the Linux job also runs two things on WSLg's
 display: the GPU suites, and `tools/dev/prism-protocol-check.sh`, which
@@ -783,9 +801,11 @@ virtual and cannot be selected. List available IDs with the installer's
 `search` command, for example
 `qt-online-installer-windows-x64-online.exe --root C:\tmp search qt.qt6.6120`.
 
-Without either option, the Build workflow's preflight job succeeds and writes
-a summary explaining how to enable Qt builds, so pull requests are not
-blocked.
+Without either Qt source, the availability job succeeds and explains the missing
+prerequisite, but the platform jobs do not run. Build's final readiness job still
+runs unless cancelled and fails missing required outcomes. Availability success
+therefore does not make the Build workflow green or establish release readiness;
+branch/merge enforcement is a separate repository setting.
 
 ## Branch protection
 
