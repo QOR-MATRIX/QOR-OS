@@ -21,6 +21,9 @@ their changes since, and pulls of what is still shared, are recorded here.
   audits remain failed, and the optional Rust 1.100 report retains 66 SDK macro
   lint diagnostics. The separate validator-recovery check is in progress.
   These results remain separate from QOR OS's unchanged core pin and release gates.
+  The engine table now records the passing native Studio save/reopen cases;
+  the complete creator/player journey is queued after the active product run
+  under the original lock, source checks and unchanged memory floor.
 
 - **Native QOR Media dependencies, 13 November.** The Linux product helper now
   selects pinned x64 or ARM64 PDFium archives and keeps their extracted caches

@@ -496,7 +496,7 @@ not a vendor's support. The commit and date go in the row.
 |---------------|---------------|--------------|-----------------|----------|-------|------------|--------------|----------------|-------------|
 | QQ, Windows 11, in CI, at `3bf213a` | passed, suites | passed, suites | untested | passed, suites | suites, deaf to the machine | virtual only | passed, suites | untested: the build step has not run on Windows | project in the Player: passed, suites; packaged: untested |
 | QQ, Ubuntu in WSL2, software, hidden display, at `72945fe` | passed, suites | passed, suites | untested | software only | deaf to the machine | virtual only | passed, suites | passed, suites (`tst_gamebuild`, `first_journey`) | what was built, in the real Player: passed, suites; from the Library: Prism starts a stand-in there, and the real Player plays what it asked for |
-| QQ, native Linux | blocked: machine | blocked: machine | blocked: machine | blocked: machine | blocked: machine | blocked: machine | blocked: machine | blocked: machine | blocked: machine |
+| QQ, native ARM64 Linux (Q Pi), software, 13 November 2026, product source unchanged from `ed3526e` | passed, Studio suite (29 Qt Test results) | untested: full acceptance | untested | software only; World suite passes | untested: physical devices hidden | untested: physical devices hidden | passed, Studio save/reopen cases; workspace suite pending | untested: suite pending | untested: play/player suites in progress; complete journey queued |
 | Unreal 5.8 | blocked: licence, not installed | blocked | blocked: Prism's interfaces | blocked | blocked | blocked | blocked | blocked | blocked |
 | Unity 6.3 | blocked: operation gated | blocked | blocked | blocked | blocked | blocked | blocked | blocked | blocked |
 
@@ -939,10 +939,13 @@ evidence; no Q Pi image has been built or accepted.
   fixtures: 720 Python tests pass with 124 platform skips and all 63 ARQADE
   tests pass. The follow-up at `74d22e9` passes the same checks, including a stale
   extraction marker being removed before retrying an incomplete package.
-  These tooling changes are merged through PR #5 (`ed3526e`); continuation is on
-  `feat/native-qq-qualification`. The first-journey preparation verifies the five
-  existing simulator-enabled Prism programs and the journey script, but execution
-  waits for the active QQ procedure to release the original native lock.
+  These tooling changes are merged through PR #5 (`ed3526e`). The first-journey
+  preparation verifies the five existing simulator-enabled Prism programs and
+  the journey script. Its bounded queue waits for the active QQ procedure to
+  exit, then uses the original native lock and rechecks source/program identities
+  and sustained memory before execution. No complete product/journey pass is
+  claimed. The current native Studio save/reopen evidence is reflected in the
+  existing engine table above; hardware acceptance remains open.
 - [ ] Build and statically validate a regular-file image with a real maintained
   Pi login/desktop, native QOR apps and local development tools; no simulator.
 - [ ] After the [action-time write gates](../image/README.md#authorised-q-pi-target-and-action-time-write-gates), prove Pi boot, hardware graphics,

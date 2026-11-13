@@ -1,7 +1,7 @@
 # Where QOR OS stands
 
 For Andrew, 13 November 2026. PR #5 is merged on main at `ed3526e`.
-Continuation is on `feat/native-qq-qualification`. Linux tooling passes 720 tests
+Native product qualification continues. Linux tooling passes 720 tests
 with 124 platform skips; Windows passes 746 with 98 skips. All 23 Linux harness
 fixtures and 63 ARQADE rule tests pass. Windows stayed above 3,314 MiB available;
 the original 3,072-MiB memory floor is unchanged.
@@ -16,7 +16,7 @@ checks. Qt PDF modules are absent on the Pi, so Media is not built there.
 Q Pi's broader QQ procedure uses a private software display and isolated device
 and network views. World, scene and Studio pass 11, 56 and 29 Qt Test results;
 play tests are running. Earlier publishing passes 11 results.
-The complete creator/player journey is prepared against verified Prism programs
+The complete creator/player journey is queued against verified Prism programs
 and waits for the shared lock. Product memory-error, hardware and image checks
 remain open.
 
