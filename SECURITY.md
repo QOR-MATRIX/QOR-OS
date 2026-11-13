@@ -71,6 +71,13 @@ asking for one is an error before anything is read (`tst_prismoptions_device`).
 mitigations on every program, read back in CI; the suites under AddressSanitizer
 and UBSan; everything CI runs pinned by content; secrets looked for at the door
 and through the whole history; the QOR core's dependencies audited weekly.
+These are configured gates, not a claim that every job ran on the current commit.
+Qt jobs remain paused pending runner isolation. Local results and omissions are
+recorded in `OWNER.md`; [CI.md](docs/CI.md) distinguishes configuration from execution.
+The Actions policy is checked offline and its server settings were read back on
+13 November: selected action repositories, full commit pins and read-only default
+tokens. Branch protection remains unavailable on the current private-repository
+plan. The prepared ruleset is not an enforced control.
 
 ## What a game or an app can and cannot do
 
@@ -97,7 +104,7 @@ Say so if you find a way past one; these are the walls we know are low.
 
 - **This repository was public from 27 October to 1 November 2026,** against its own
   documents, while CI ran on the owner's machine. It was recorded as made private on 1 November;
-  repository visibility was not queried again in the 10 November documentation audit. Treat the code as
+  private visibility was reconfirmed through the repository API on 13 November. Treat the code as
   copied up to `a3a2fd4`. GitHub counted 239 clones (85 unique) and does not say by whom. CI's
   jobs explain at most about 163 of them, and the gap is widest on 31 October, at 133 clones
   against 45 jobs. The history's secret scan passed at that commit, and no artifact was
@@ -114,8 +121,8 @@ Say so if you find a way past one; these are the walls we know are low.
   and SSH, cloud, GitHub CLI and Qt credentials. Those jobs are off until their runner is isolated
   ([docs/CI.md](docs/CI.md#what-ci-trusts)). The "runners stay online" observation belonged to
   1 November; later repository policy requires them stopped pending isolation. Current workflow
-  configuration remains paused, but this documentation audit did not independently query live
-  runner services or GitHub Apps. Any registered online runner remains addressable by workflows
+  configuration remains paused. GitHub reported both registered runners offline and not busy on
+  13 November; local runner services and GitHub Apps were not inspected. Any registered online runner remains addressable by workflows
   allowed to target it; a paused job alone does not establish host isolation.
 - **Under WSL, any Linux process can reach the Windows drive with the Windows user's rights.** Measured on 1 November 2026: with
   drives unmounted and interop off, a process with no privilege opened `AF_VSOCK` to Windows' 9P file server and attached to

@@ -5,7 +5,7 @@ labels: ["type: bug", "status: needs-triage"]
 body:
   - type: markdown
     attributes:
-      value: Thanks for helping make QOR OS better. Please include enough detail to reproduce the problem.
+      value: Include enough detail to reproduce the problem. Report vulnerabilities through the private security form. Remove credentials, personal identifiers and restricted third-party engine material from every attachment.
   - type: dropdown
     id: area
     attributes:
@@ -26,6 +26,7 @@ body:
         - Games (Steam, Proton, gamescope)
         - Displays (KMS backend, refresh rates, GPUs)
         - Image (Fedora Atomic, drivers, updates)
+        - Q Pi / native ARM64
         - Build / CI / tooling
     validations:
       required: true
@@ -57,12 +58,12 @@ body:
     attributes:
       label: Environment
       description: OS, GPU and graphics API (Settings › About shows the API), Qt version, preset.
-      placeholder: Windows 11 · RTX 4060 · Direct3D 11 · Qt 6.12.0 · windows-release
+      placeholder: Windows 11 · RTX 4060 · Direct3D 11 · Qt 6.12.0 · ci-windows
     validations:
       required: true
   - type: textarea
     id: logs
     attributes:
       label: Logs and screenshots
-      description: Run with QT_FORCE_STDERR_LOGGING=1 and QT_LOGGING_RULES="qor.*=true". Attach screenshots or captures.
+      description: Include the failing command, relevant output and any skips. Review and redact before attaching logs or captures; never include tokens, keys, passwords, sign-in links or email addresses.
       render: shell

@@ -1,49 +1,49 @@
 # Where QOR OS stands
 
-For Andrew, 13 November 2026. Q Pi development is reopened alongside QOR OS.
-The reviewed checkpoint `9d67ab2` is pushed to `integration/owner-brief` in the
-private repository. This continuation fixes ARM64 (64-bit Arm) demonstration-store metadata
-and records the next native validation results.
+For Andrew, 13 November 2026. QOR OS and Q Pi development continue on
+`integration/owner-brief`, following the pushed checkpoint `6a0b861`.
 
-## Native OS software checks pass
+## Contributions are safer to prepare
 
-The Pi 5 builds the complete core-enabled development configuration with the
-owner's Qt 6.12.0 ARM64 kit and Rust 1.98.1 compiler. All **27 selected software suites**
-pass without failures or skips. Exploit-hardening checks pass 42 programs;
-44 linked executable/library files pass ARM64 and 16-KiB memory-page checks.
-Interface-code (QML) checks report zero warnings. The core's upstream revision
-and dependency versions are unchanged. This is a development build with simulated services,
-not an image or physical-device acceptance.
+GitHub now allows six reviewed action repositories and requires their full commit
+identifiers. Its default job token remains read-only and cannot approve reviews.
+The settings were read back successfully; both registered Qt build workers remain
+offline. The repository stays private. Branch protection is still unavailable on
+its current plan; the stronger ruleset file is prepared, not installed.
 
-The first run exposed four Store failures: its signed demonstration packages
-omitted `linux-arm64`. Their portable QQ source and assets now advertise that
-platform in both catalogue and package manifests. Only demonstration fixtures
-were regenerated, with throwaway keys. Every packaged art, game and licence
-file is byte-identical; the first-party catalogue and its keys are unchanged.
-The generator regression fails before the fix and all 15 tests pass after it.
-The affected three Windows Store/Library suites pass too.
+The local hook and hosted Lint configuration now check action pins, token access
+and checkout credential handling. The checks caught two build checkouts that
+persisted credentials; both are corrected. Setup reports rejected settings as
+failures and verifies Actions changes by reading them back. Contribution and
+review instructions now preserve the running release shell, carried Apache
+notices and precise evidence. Agent handoffs use the existing rulebook and roadmap.
+No application behavior, Lumen styling or dependency version changed.
 
-QQ's complete scene-data suite passes 56 Qt Test results; the Player's Linux
-sandbox, which confines a game, passes three. These counts include setup/cleanup, with no failures
-or skips. Tests use private settings, offscreen software rendering, disconnected
-desktop/audio services and virtual controllers. Full QQ and the creator/player
-journey remain separate.
+## Verified in this session
 
-## Quality gates still open
+Windows configures and builds in `ci-windows`; all **22 software suites** pass,
+33 programs pass exploit-hardening checks and QML interface-code checks have zero
+warnings. Rust still reports the pinned `proc-macro-error2` warning about future
+compiler compatibility, so warning-free acceptance remains open.
 
-Rust still reports a future-compatibility warning in `proc-macro-error2` 2.0.1.
-Upstream main retains it; an ordinary pin advance does not fix it. The
-warning-free build gate remains unmet, pending a reviewed upstream repair.
-No compiler setting or platform/signature check was weakened.
+The full tooling run has 720 passes and 92 platform-specific skips (812 total);
+the final Actions-policy suite separately passes all 22 tests. The documentation audit finds
+500 valid local link targets across 19 guides and verifies 105 earlier evidence
+hashes. Final hook and staged scans accompany the commit.
 
-The earlier Windows result remains 22 software suites passing, 33 hardened
-programs and zero QML warnings. Native focused Prism Release and sanitizer
-(memory and undefined-behavior checks) results remain seven selected suites each; full product sanitizer coverage is
-still needed. Next: repair the upstream warning, complete native product and
-whole-journey checks, then prove runner isolation before Qt CI (automated builds) resumes.
-Physical graphics, sound, controller, complete dependency/image qualification
-and release gates remain open. Lumen's visual and performance standards stand.
+On the Pi, seven additional QQ launcher-protocol cases pass (nine results including
+setup/cleanup), covering handshake, ordering, refusal, malformed frames and
+connection loss. They use a local stand-in and publish nothing. All 1,404 source
+hashes, including the committed Store correction, and the binary's ARM64/16-KiB
+layout were verified. The initial stale-manifest refusal is preserved.
 
-Both original build locks are free. Initial failures and corrected results are
-preserved under `build/development-2026-11-13/session-02/`; earlier evidence is
-in `session-01/`. No image publication, media write or service change occurred.
+## Next gates
+
+Repair the Rust warning upstream, then complete native product/sanitizer checks
+and the whole creator/player journey. Prove runner isolation before Qt automated
+builds resume. Physical graphics, sound, controllers, complete dependency/image
+qualification and release acceptance remain open. The native 27-suite OS result
+from session-02 is preserved; today's protocol check does not replace those gates.
+
+New receipts and settings recovery snapshots are under
+`build/development-2026-11-13/session-03/`; earlier sessions remain intact.

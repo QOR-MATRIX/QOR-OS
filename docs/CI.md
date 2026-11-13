@@ -20,9 +20,9 @@ and item-text privacy controls, zero failures/skips; this does not mean paused C
 
 ## What CI trusts
 
-**The workstation Qt-job pause remains in force pending runner isolation.** Both
-runners were recorded stopped on 1 November 2026; this document is not a fresh
-service-state or GitHub-run observation. Lint and Security are configured on hosted
+**The workstation Qt-job pause remains in force pending runner isolation.** GitHub
+reported both registered runners offline and not busy on 13 November 2026. That
+API observation does not inspect local services or prove isolation. Lint and Security are configured on hosted
 runners, including portable tooling tests. Qt application/build evidence must name
 the actual machine, revision, commands, failures and skips; registration or a fixture
 pass does not establish that a Qt CI job ran.
@@ -809,19 +809,79 @@ branch/merge enforcement is a separate repository setting.
 
 ## Branch protection
 
-[`.github/rulesets/main.json`](../.github/rulesets/main.json) defines the
-`main` ruleset:
+[`.github/rulesets/main.json`](../.github/rulesets/main.json) prepares the
+default-branch ruleset. **It is not installed.** The 13 November API audit again
+refused both rulesets and branch protection because the private repository's plan
+does not support them. Do not make the repository public to work around this.
+The prepared rules require:
 
 - no deletion and no force-push
-- linear history
 - pull requests required, with stale approvals dismissed and conversations resolved
-- the Lint job required
-- repository admins can bypass
+- Lint, history secret scanning and Release readiness to pass
+- no configured administrator bypass
 
-Apply it with `python tools/github/bootstrap.py --ruleset`. GitHub only
-enforces rulesets on **private** repositories on the Team or Enterprise
-plans (or on public repositories). On the Free plan the command reports that
-the ruleset could not be applied.
+Squash and rebase remain available; merge commits are also allowed to preserve
+the upstream fixture history required by [UPSTREAM.md](UPSTREAM.md). A blanket
+linear-history rule would conflict with those imports. The template retains zero
+required approving reviews; CODEOWNERS names the responsible owner but does not
+by itself enforce review. GitHub reported no CODEOWNERS syntax errors on
+13 November. When the plan supports rulesets, review and apply with
+`python tools/github/bootstrap.py --ruleset`; this also synchronises repository
+settings, labels and milestones. A refused request now exits nonzero. Read back
+the installed ruleset before claiming enforcement. Its readiness requirement
+will deliberately block merges while required Qt jobs are paused.
+
+GitHub documents [ruleset availability](https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/managing-rulesets/about-rulesets)
+by plan; the API response is the observation for this repository.
+
+## Repository settings and recovery
+
+On 13 November 2026, repository API readback confirms private visibility, disabled
+forking and automatic merge, deletion of merged branches, and a read-only default
+workflow token that cannot approve pull requests. Dependabot vulnerability alerts
+and automated security fixes are enabled. Both registered runners are offline;
+no runner service or isolation variable was changed.
+
+[`.github/actions-policy.json`](../.github/actions-policy.json) is the reviewed
+Actions policy. It selects six explicit public action repositories, disables broad
+GitHub-owned/verified-publisher allowances and requires full commit pins. The `@*`
+allowlist permits reviewed Dependabot pin updates; the separate full-SHA rule
+rejects mutable version tags. Both current `main` and the integration branch use
+those same six action repositories. These settings were applied and read back
+successfully; this is configuration evidence, not a new workflow run.
+
+```powershell
+python tools/github/check_actions_policy.py               # offline; no mutation
+python tools/github/bootstrap.py --actions-only           # authenticated admin; changes only Actions policy
+gh api repos/QOR-MATRIX/qor-os/actions/permissions
+gh api repos/QOR-MATRIX/qor-os/actions/permissions/selected-actions
+gh api repos/QOR-MATRIX/qor-os/actions/permissions/workflow
+```
+
+The offline check runs in the local hook and hosted Lint. It rejects unreviewed
+actions, incomplete pins, write-token grants, persisted checkout credentials,
+privileged follow-up events, duplicate keys and YAML aliases. Local actions,
+container actions and reusable workflows are unsupported until separately
+reviewed. It does not inspect external action implementations, their transitive
+dependencies or prove a runner boundary. PyYAML is already pinned and hashed in
+`requirements-dev.txt` and is now an explicit input in `requirements-dev.in`;
+no dependency version or artifact hash changed. The two external pre-commit
+hook repositories also use full commit pins at their existing reviewed versions.
+
+Before applying a change, save the three readbacks above under a new ignored
+`build/` evidence directory and review the policy against all active branches.
+The setup tool validates local workflows first, writes the three endpoints in
+order and verifies their returned values. It exits nonzero on rejection or drift;
+earlier writes can remain applied. Inspect those same endpoints before retrying.
+For an accidentally omitted action, correct the reviewed allowlist and reapply.
+For an incorrect value, restore only that value from the saved, reviewed snapshot
+through the matching GitHub settings page or API endpoint, then read it back.
+Do not respond to an error by granting all actions, enabling write tokens or
+unpausing a runner. This session's before/after receipts are in
+`build/development-2026-11-13/session-03/`.
+
+The implementation follows GitHub's [Actions security guidance](https://docs.github.com/en/actions/reference/security/secure-use)
+and [permissions API](https://docs.github.com/en/rest/actions/permissions).
 
 ## Dependabot
 
@@ -833,6 +893,7 @@ pinned Python tooling monthly.
 Everything CI runs can be run locally:
 
 ```powershell
+python tools/github/check_actions_policy.py
 python tools/tokens/generate_tokens.py --check
 python -m unittest discover -s tests/tools -v
 python tools/store/build_store.py check

@@ -8,7 +8,7 @@ exclude: '^(kit/fonts/|kit/icons/|prism/compositor/protocols/|kit/Tokens\.qml$|p
 
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v5.0.0
+    rev: cef0300fd0fc4d2a87a85fa2093c6b283ea36f4b # v5.0.0
     hooks:
       - id: trailing-whitespace
         exclude: '\.md$'
@@ -24,7 +24,7 @@ repos:
         exclude: '\.ps1$'
 
   - repo: https://github.com/pre-commit/mirrors-clang-format
-    rev: v20.1.8
+    rev: 182152eb8c5ce1cf5299b956b04392c86bd8a126 # v20.1.8
     hooks:
       - id: clang-format
         types_or: [c++, c]
@@ -32,6 +32,12 @@ repos:
 
   - repo: local
     hooks:
+      - id: actions-policy
+        name: Reviewed Actions policy
+        entry: python tools/github/check_actions_policy.py
+        language: system
+        pass_filenames: false
+        files: '^(\.github/(workflows/|actions-policy\.json)|tools/github/)'
       - id: lumen-tokens
         name: Lumen tokens are generated
         entry: python tools/tokens/generate_tokens.py --check

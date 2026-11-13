@@ -11,11 +11,15 @@ inventory of an installed Enterprise kit or proof of its entitlement. Status:
 - **Evaluate**: needs a QOR decision before adoption.
 - **Not used**: superseded or out of scope (with the reason).
 
-Q Pi still needs an entitled commercial Qt 6.12 Linux ARM64 kit, native tools,
-private headers, QML/plugins and complete 16-KiB-compatible dependencies. Existing
-x86-64/Windows kit evidence does not establish that kit or distribution scope.
+Q Pi acceptance requires an entitled commercial Qt 6.12 Linux ARM64 kit, native
+tools, private headers, QML/plugins and complete 16-KiB-compatible dependencies.
+The owner's native kit builds development applications; that result does not
+establish complete dependency qualification or distribution scope.
 The [kit acceptance procedure](../image/README.md#commercial-qt-kit-and-dependency-acceptance)
-is the canonical checklist; no ARM64 application or image has been built.
+is the canonical checklist. Native ARM64 development applications now build and
+selected software suites pass; a complete target kit, dependency closure and
+bootable Pi image remain separate acceptance gates. See [OWNER.md](../OWNER.md)
+and [ROADMAP.md](ROADMAP.md) for current evidence and remaining work.
 
 ## Essentials
 

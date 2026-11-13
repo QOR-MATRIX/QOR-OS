@@ -1,15 +1,18 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: LicenseRef-QOR-OS-Proprietary
 """Applies the repository's GitHub configuration with the GitHub CLI.
 
 Idempotent: safe to re-run after editing the files it reads.
 
     python tools/github/bootstrap.py                 # labels, milestones, settings
     python tools/github/bootstrap.py --ruleset       # also apply .github/rulesets/main.json
+    python tools/github/bootstrap.py --actions-only  # apply and verify only the Actions policy
 
 Reads:
     .github/labels.json        label names, colours, descriptions
     .github/milestones.json    roadmap phases
     .github/rulesets/main.json branch ruleset for the default branch
+    .github/actions-policy.json reviewed Actions permissions and allowlist
 
 Requires `gh` authenticated with admin rights on the repository.
 """
@@ -21,6 +24,8 @@ import json
 import subprocess
 import sys
 from pathlib import Path
+
+from check_actions_policy import check_repository
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_REPO = "QOR-MATRIX/qor-os"
@@ -66,7 +71,8 @@ def apply_settings(repo: str) -> None:
         "has_wiki": False,
         "allow_squash_merge": True,
         "allow_rebase_merge": True,
-        "allow_merge_commit": False,
+        # Upstream fixture imports retain git-subtree ancestry (docs/UPSTREAM.md).
+        "allow_merge_commit": True,
         "delete_branch_on_merge": True,
         "allow_update_branch": True,
         "squash_merge_commit_title": "PR_TITLE",
@@ -78,12 +84,34 @@ def apply_settings(repo: str) -> None:
                         "fedora-atomic"]}
     gh("api", "-X", "PUT", f"repos/{repo}/topics", payload=topics)
     # Dependabot vulnerability alerts and automatic security fixes.
-    gh("api", "-X", "PUT", f"repos/{repo}/vulnerability-alerts", check=False)
-    gh("api", "-X", "PUT", f"repos/{repo}/automated-security-fixes", check=False)
+    gh("api", "-X", "PUT", f"repos/{repo}/vulnerability-alerts")
+    gh("api", "-X", "PUT", f"repos/{repo}/automated-security-fixes")
     print("settings: applied")
 
 
-def apply_ruleset(repo: str) -> None:
+def apply_actions_policy(repo: str) -> None:
+    policy, _, _ = check_repository(REPO_ROOT)
+    endpoints = (
+        ("permissions", "actions/permissions"),
+        ("selected_actions", "actions/permissions/selected-actions"),
+        ("workflow_permissions", "actions/permissions/workflow"),
+    )
+    # GitHub accepts a selected-action list only after selected mode is enabled.
+    # A partial failure remains restrictive. Never automatically restore 'all'.
+    for key, endpoint in endpoints:
+        gh("api", "-X", "PUT", f"repos/{repo}/{endpoint}", payload=policy[key])
+    for key, endpoint in endpoints:
+        actual = json.loads(gh("api", f"repos/{repo}/{endpoint}").stdout)
+        for name, value in policy[key].items():
+            found = actual.get(name) if isinstance(actual, dict) else None
+            if isinstance(value, list) and isinstance(found, list):
+                value, found = sorted(value), sorted(found)
+            if json.dumps(found, sort_keys=True) != json.dumps(value, sort_keys=True):
+                raise ValueError("Actions policy readback did not match; inspect repository settings")
+    print("Actions policy: applied and verified by readback")
+
+
+def apply_ruleset(repo: str) -> bool:
     ruleset = json.loads((REPO_ROOT / ".github" / "rulesets" / "main.json").read_text(encoding="utf-8"))
     existing = gh("api", f"repos/{repo}/rulesets", check=False)
     if existing.returncode == 0:
@@ -97,24 +125,33 @@ def apply_ruleset(repo: str) -> None:
         result = existing
     if result.returncode == 0:
         print("ruleset: applied")
+        return True
     else:
-        message = (result.stderr or result.stdout).strip()
-        print(f"ruleset: not applied ({message})", file=sys.stderr)
-        print("Rulesets on private repositories need GitHub Team/Enterprise, or a public repository.",
-              file=sys.stderr)
+        print("ruleset: not applied; check repository permissions and plan support", file=sys.stderr)
+        return False
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--repo", default=DEFAULT_REPO)
     parser.add_argument("--ruleset", action="store_true", help="also apply .github/rulesets/main.json")
+    parser.add_argument("--actions-only", action="store_true", help="apply and read back only the reviewed Actions policy")
     args = parser.parse_args()
+    if args.actions_only and args.ruleset:
+        parser.error("--actions-only cannot be combined with --ruleset")
 
-    apply_settings(args.repo)
-    sync_labels(args.repo)
-    sync_milestones(args.repo)
-    if args.ruleset:
-        apply_ruleset(args.repo)
+    try:
+        if args.actions_only:
+            apply_actions_policy(args.repo)
+        else:
+            apply_settings(args.repo)
+            sync_labels(args.repo)
+            sync_milestones(args.repo)
+            if args.ruleset and not apply_ruleset(args.repo):
+                return 1
+    except (OSError, ValueError, TypeError, RecursionError, subprocess.CalledProcessError):
+        print("GitHub setup failed; earlier settings may have applied. Inspect and read back before retrying.", file=sys.stderr)
+        return 1
     return 0
 
 

@@ -493,7 +493,8 @@ and mark any record it supersedes or amends.
 | `tools/icons/import_lucide.py` | Reproducible icon import |
 | `tools/ci/check_headers.py` | SPDX header check |
 | `tools/ci/install_qt.py` | Unattended commercial Qt install for CI |
-| `tools/github/bootstrap.py` | Apply labels, milestones, repository settings and ruleset |
+| `tools/github/bootstrap.py` | Apply labels, milestones, repository settings and optional ruleset; `--actions-only` applies and reads back the reviewed Actions policy ([CI.md](CI.md#repository-settings-and-recovery)) |
+| `tools/github/check_actions_policy.py` | Offline check of reviewed action pins, token permissions, checkout credentials and privileged events |
 | `tools/dev/products.ps1` | Build and test QQ, ARQADE and QOR Media with their own scripts |
 | `tools/dev/products.sh` | Build and test QQ, ARQADE and QOR Media on Linux, on a display nobody sees and, under WSL, fenced from the GPU ([BUILDING.md](BUILDING.md#on-linux)) |
 | `tools/dev/products-display.qml` | That display: a compositor on Qt's offscreen platform, for the products' suites |

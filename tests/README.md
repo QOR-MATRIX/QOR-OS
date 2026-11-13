@@ -6,6 +6,12 @@ files register their own. Python tooling tests are in `tests/tools/` and run
 through `unittest` discovery. See [CI.md](../docs/CI.md) for configured gates
 and [OWNER.md](../OWNER.md) for evidence and tests not run.
 
+`tests/tools/test_github_policy.py` exercises the offline Actions trust checks and
+administration failures, including mutable/unreviewed actions, malformed input,
+token escalation, credential persistence, rejected writes and readback drift.
+It uses fake API responses; no test changes a real repository or exposes response
+values. Run with `python -m unittest discover -s tests/tools -p test_github_policy.py -v`.
+
 | Suite | Path | Framework | Notes |
 |-------|------|-----------|-------|
 | `tst_spring` | `kit/tst_spring.cpp` | Qt Test | Spring physics; deterministic stepping via `Spring::step` |
@@ -56,6 +62,17 @@ and `tst_playerwall` suites pass 56 and three Qt Test results, including setup/
 cleanup, without failures/skips. These are isolated software checks, with the
 Rust dependency warning, full product/sanitizer and hardware gates still open.
 Receipts: `build/development-2026-11-13/session-02/`.
+
+The next native check passes all seven non-windowed QQ launcher-protocol cases
+in `tst_publish` (nine Qt Test results including setup/cleanup), without failures
+or skips. It covers handshake identity, commit-before-publication ordering,
+decline/refused handshake, split/coalesced frames, oversized-frame refusal and
+disconnect. The launcher is a local stand-in; nothing is published to a service.
+The source snapshot and committed Store overlay were verified before the cached
+binary ran; the initial stale-manifest refusal is retained. The binary passes
+ARM64/16-KiB layout inspection. This does not cover the two windowed publication
+cases or the full creator/player journey. Receipts:
+`build/development-2026-11-13/session-03/native-qq-protocol-20261113-attempt2/`.
 
 `tests/tools/test_prism_benchmark.py` runs the actual gate's embedded Python
 evaluator with inert metadata and directly tests its shared production validator.

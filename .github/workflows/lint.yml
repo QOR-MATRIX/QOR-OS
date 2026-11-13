@@ -32,6 +32,9 @@ jobs:
       - name: Install tooling
         run: python -m pip install -r requirements-dev.txt
 
+      - name: Reviewed Actions policy
+        run: python tools/github/check_actions_policy.py
+
       - name: Lumen tokens are generated and current
         run: python tools/tokens/generate_tokens.py --check
 

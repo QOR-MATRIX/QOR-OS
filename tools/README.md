@@ -17,7 +17,8 @@ installation, repository-administration or device commands. Follow
 | `dev/heavy.py` | Native Linux per-account job coordination and existing RAM guard; [scope, qualification and incomplete-run recovery](../image/README.md#native-linux-heavy-job-coordination). Original Windows/WSL coordinator unchanged |
 | `ci/check_headers.py` | Verifies SPDX headers |
 | `ci/install_qt.py` | Unattended commercial Qt install for CI |
-| `github/bootstrap.py` | Applies repository settings, labels, milestones and (optionally) the branch ruleset |
+| `github/bootstrap.py` | Applies repository settings, labels and milestones; optional ruleset failures exit nonzero. `--actions-only` applies and reads back only the reviewed Actions policy ([CI.md](../docs/CI.md#repository-settings-and-recovery)) |
+| `github/check_actions_policy.py` | Offline workflow/policy check for reviewed action pins, token permissions, checkout credentials and privileged events |
 | `image/pi_preflight.py` | Read-only host/Qt/resource qualification probes; [scope and commands](../image/README.md#q-pi-development-edition) |
 | `image/pi_elf.py`, `image/pi_payload.py` | Bounded ARM64 ELF, explicit payload manifest and GNU version-label checks; no target execution, symbol binding or full ABI qualification |
 | `image/pi_headless.py` | Public host-identity receipts and offline Windows SSH argument plans; no connection or provisioning |

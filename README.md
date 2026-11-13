@@ -149,9 +149,10 @@ Linux, driven by a controller. See [docs/ROADMAP.md](docs/ROADMAP.md).
 
 Qt CI jobs remain paused pending runner isolation; historical green jobs are not
 current readiness. The private x86-64 VM installation/reboot evidence is separate
-from full device acceptance. Q Pi has native ARM64 build entry points and portable
-qualification/headless tooling, but no built or tested ARM64 QOR application or
-bootable Pi image. [OWNER.md](OWNER.md) gives the current handoff and
+from full device acceptance. Native ARM64 development builds and selected software
+checks now pass on the Pi, including the core-enabled OS and focused QQ suites.
+The Rust dependency warning, full product/sanitizer checks and physical-device
+acceptance remain open; no bootable Pi image is accepted. [OWNER.md](OWNER.md) gives the current handoff and
 [image/README.md](image/README.md) keeps the exact evidence and remaining gates.
 
 ## License

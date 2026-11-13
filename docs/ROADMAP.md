@@ -98,6 +98,14 @@ The Rust warning still prevents warning-free acceptance; full product/sanitizer,
 whole-journey, GPU and isolated-CI gates remain. Receipts, including initial
 failures: `build/development-2026-11-13/session-02/`.
 
+The next continuation passes seven non-windowed QQ launcher-protocol cases
+(nine Qt Test results including setup/cleanup), without failures/skips. These
+use a local stand-in and cover handshake, ordering, refusal, framing and loss of
+connection. The cached binary and all 1,404 snapshot/overlay source hashes were
+verified before execution; the initial stale-manifest refusal is preserved in
+`build/development-2026-11-13/session-03/`. The two windowed publication cases and
+whole creator/player journey remain unvalidated on the Pi.
+
 **Earlier 12 November Windows/WSL continuation.**
 The warning candidate at the pushed `01ba206` checkpoint compiled without warnings in the focused Qt 6.12
 Linux Release and ASan/UBSan builds. Each passes all 42 pointer-capture results
@@ -654,6 +662,15 @@ vendor's claim. No firmware turns an output-only HDMI port into an input, so thi
   and advisories looked for
 - [x] The repository private, as its documents always said (1 November; it had been public since 27 October, while CI ran on
   the owner's machine)
+- On 13 November, GitHub Actions settings were tightened and read back: six reviewed
+  action repositories, full commit pins, read-only default tokens and no review
+  approval by jobs. Offline regression checks also caught and removed persisted
+  credentials in the two platform checkouts. Contribution guidance now records
+  exact commands/outcomes and keeps the carried Apache notices. The prepared
+  ruleset requires Lint, history scanning and readiness without an administrator
+  bypass; the API still refuses installation on this private repository's plan.
+  Both registered runners report offline. These controls do not close the isolation
+  or release gates below; [CI.md](CI.md#repository-settings-and-recovery) owns setup and recovery.
 - [ ] CI that cannot reach the owner's keys or credentials ([CI.md](CI.md#what-ci-trusts)). Build's workstation jobs fail closed
   until their runner is isolated (pull request #2, merged 1 November 2026), both runners are stopped, and Release readiness fails
   while a required build or test did not run

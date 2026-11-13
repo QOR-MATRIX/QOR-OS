@@ -1,16 +1,31 @@
-## Summary
+## Change and reason
 
-<!-- What does this change and why? Link the issue: "Closes #123". -->
+<!-- Describe the problem and resulting behavior. Link the issue and decision, if any. -->
 
-## Screenshots / recordings
+## Validation
 
-<!-- Required for visual changes. Use tools/screenshots/capture.ps1 for consistent framing. -->
+<!-- Follow CONTRIBUTING.md and AGENTS.md. Use ci-windows on the owner's workstation;
+     preserve a running windows-release shell. Name revision/overlay and environment.
+     Mark each relevant check passed, failed, blocked or not run, with reasons/skips.
+     Older receipts and a paused CI job are not current passes. -->
 
-## Checklist
+| Check and command | Revision / environment | Outcome and remaining limits |
+|---|---|---|
+| Build, tests and hardening | | |
+| QML lint and all-file hooks | | |
+| Affected products / sanitizers | | |
 
-- [ ] Builds with `windows-release` (or `linux-release`) and `ctest` passes
-- [ ] `all_qmllint` is clean (zero warnings)
-- [ ] `pre-commit run --all-files` is clean (clang-format, tokens, SPDX headers)
-- [ ] Visual changes checked in light and dark, and with Reduce Motion / Reduce Transparency
-- [ ] Performance: no new continuous rendering when idle; `--benchmark` p95 not regressed for shell changes
-- [ ] Docs updated (README, docs/, ADR for architectural decisions, CHANGELOG)
+## Visual and performance evidence
+
+<!-- If affected: light/dark, accent hues, reduced motion/transparency, accessibility,
+     controller navigation; before/after captures and same-machine performance results.
+     Keep credentials, personal identifiers and restricted engine material out of attachments. -->
+
+## Handoff
+
+- [ ] Behavior has tests and the relevant checks above have explicit outcomes
+- [ ] CHANGELOG, affected guides and OWNER are current; decisions are indexed when needed
+- [ ] Shared-code notices, source boundaries and privacy requirements are preserved
+
+<!-- State any blockers, rollback considerations and the next executable step.
+     Distinguish local, pushed, merged and release-ready states. -->

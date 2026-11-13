@@ -9,6 +9,28 @@ their changes since, and pulls of what is still shared, are recorded here.
 
 ## [Unreleased]
 
+- **Native QQ protocol continuation, 13 November.** All seven non-windowed
+  launcher-protocol cases pass on ARM64 (nine Qt Test results including setup and
+  cleanup, no failures/skips). They exercise ordering, refusal and hostile framing
+  against a local stand-in; no live publication occurs. The source snapshot plus
+  committed Store overlay and binary layout were verified. The initial stale
+  snapshot refusal remains in session-03 evidence. Windowed publication, complete
+  products and the whole creator/player journey remain open.
+
+- **Contribution workflow and Actions policy, 13 November.** Corrected the unsafe
+  release-folder recommendation, carried-code licensing wording and commit-message
+  guidance; added explicit validation outcomes and an assistant handoff checklist.
+  GitHub now requires full action commit pins and selects six reviewed action
+  repositories, verified by API readback. The offline hook/Lint check exposed two
+  platform checkouts with persisted credentials; both now disable persistence.
+  Setup verifies Actions writes and fails on rejected rulesets/security settings.
+  Regression tests cover malformed inputs, privilege changes and API failures.
+  Merge commits are available for required upstream fixture ancestry. The prepared
+  ruleset requires Lint, history scanning and readiness, with no administrator
+  bypass, but remains unapplied because the private-repository plan rejects it.
+  The repository stays private and both Qt runners remain offline. Evidence and
+  settings recovery snapshots: `build/development-2026-11-13/session-03/`.
+
 - **Native OS software gate and ARM64 Store fixtures, 13 November.** After the
   reviewed `9d67ab2` checkpoint was pushed, the full core-enabled Pi development
   build completed. Its first test run passed 25 of 27 suites: four cases failed
