@@ -214,7 +214,7 @@ class BootstrapTest(unittest.TestCase):
         def reject_alerts(*args, **kwargs):
             if args[-1] == "repos/" + bootstrap.DEFAULT_REPO:
                 self.assertEqual(kwargs["payload"]["homepage"],
-                                 "https://github.com/QOR-MATRIX/qor-os/blob/main/docs/README.md")
+                                 "https://qorsync.dev")
             if args[-1].endswith("/vulnerability-alerts"):
                 raise subprocess.CalledProcessError(1, "gh")
             return subprocess.CompletedProcess(args, 0, "{}", "")

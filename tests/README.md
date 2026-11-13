@@ -1,5 +1,9 @@
 # tests
 
+`tests/tools/test_domains.py` checks retired-host detection, encoded links,
+safe diagnostics and refusal of linked, oversized or malformed tracked inputs.
+It also checks the current tracked tree against the domain policy.
+
 Selected suite entry points follow, not an exhaustive test inventory or pass
 report. `tests/CMakeLists.txt` registers the root CTest suites; product CMake
 files register their own. Python tooling tests are in `tests/tools/` and run

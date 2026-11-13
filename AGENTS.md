@@ -108,6 +108,13 @@ From Demiurge's rules and
 
 ## 5. Language
 
+Public first-party addresses use **QORSYNC.DEV** and its approved service
+subdomains ([QOR-0026](docs/decisions/QOR-0026-qorsync-is-the-public-domain.md)).
+The project repository is `QOR-MATRIX/QOR-OS`. Never reintroduce retired website
+hosts, including in examples or historical copy. Preserve accurate upstream
+source/licence links, stable application identifiers and protocol separators;
+a source edit is not proof of a live service or a credential migration.
+
 QOR is infrastructure for players and makers, not a vehicle for appreciation
 (Demiurge ADR-008). These never appear in copy, comments, identifiers or
 documents:

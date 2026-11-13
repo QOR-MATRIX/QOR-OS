@@ -17,6 +17,7 @@ installation, repository-administration or device commands. Follow
 | `dev/prism-gate.sh`, `dev/prism_benchmark.py` | Existing display diagnostic and its bounded benchmark-report validator; [scope and evidence requirements](../docs/PERFORMANCE.md#how-to-measure), not hardware/release acceptance by themselves |
 | `dev/heavy.py` | Native Linux per-account job coordination and existing RAM guard; [scope, qualification and incomplete-run recovery](../image/README.md#native-linux-heavy-job-coordination). Original Windows/WSL coordinator unchanged |
 | `ci/check_headers.py` | Verifies SPDX headers |
+| `ci/check_domains.py` | Refuses retired first-party hosts in supported tracked text formats; reports locations without contents ([QOR-0026](../docs/decisions/QOR-0026-qorsync-is-the-public-domain.md)) |
 | `ci/install_qt.py` | Unattended commercial Qt install for CI |
 | `github/bootstrap.py` | Applies repository settings, labels and milestones; optional ruleset failures exit nonzero. `--actions-only` applies and reads back only the reviewed Actions policy ([CI.md](../docs/CI.md#repository-settings-and-recovery)) |
 | `github/check_actions_policy.py` | Offline workflow/policy check for reviewed action pins, token permissions, checkout credentials and privileged events |

@@ -9,6 +9,14 @@ their changes since, and pulls of what is still shared, are recorded here.
 
 ## [Unreleased]
 
+- **Canonical public domain, 13 November.** QORSYNC.DEV and its service
+  subdomains are the approved first-party addresses (QOR-0026). GitHub setup
+  retains that homepage; README navigation keeps direct developer/progress links.
+  Retired contact-domain references were removed from release guidance without
+  inventing replacement mailboxes. A bounded tracked-text check and hostile-input
+  tests join commit hooks and hosted Lint. Upstream source, hosting configuration,
+  mail verification and installed clients remain separately verified work.
+
 - **Pinned core audit, 13 November.** The on-demand hosted dependency check
   reports four vulnerability advisories and 13 warnings at core pin `6a4822d`.
   The same affected versions remain in upstream `74a1014`. The security limits

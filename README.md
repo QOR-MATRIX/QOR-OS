@@ -10,7 +10,7 @@ Prism compositor · Lumen design · QQ engine · ARQADE · the QOR network · Qt
 
 </div>
 
-[Current progress](OWNER.md) · [Masterplan](docs/ROADMAP.md) ·
+[QORSYNC.DEV](https://qorsync.dev) · [Current progress](OWNER.md) · [Masterplan](docs/ROADMAP.md) ·
 [Developer start](sdk/README.md) · [Documentation](docs/README.md) ·
 [Contributing](CONTRIBUTING.md) · [Security](SECURITY.md)
 

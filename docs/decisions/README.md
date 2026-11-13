@@ -35,6 +35,7 @@ record supersedes it, and both say so.
 | [QOR-0023](QOR-0023-installation-uses-proven-backends.md) | Proven installation backends; Calamares as the native Qt candidate; inactive disk/deployment integration until verified; real first-run app and checked image data kept separate from install readiness | Accepted for local development, 2026-11-05; no installer certified |
 | [QOR-0024](QOR-0024-disposable-vm-installation-lab.md) | Private Fedora bootc/Qt installation lab, restricted QEMU, pinned regular-file target and guest ancestry guard; actual install and two boots required | Accepted for local development, 2026-11-06; private installation/persistence checked 2026-11-07; actual UI reboot and repaired-image persistence checked 2026-11-08 ([scope](../../image/README.md#private-disposable-vm-lab)) |
 | [QOR-0025](QOR-0025-q-pi-development-edition.md) | Q Pi: supported Pi desktop/login and native QOR applications first; scoped development exception, no simulator; 2D Studio and remote builds later | Accepted for local preparation 2026-11-09; no image/hardware accepted |
+| [QOR-0026](QOR-0026-qorsync-is-the-public-domain.md) | QORSYNC.DEV and approved service subdomains; accurate source links, retired public hosts removed, identity/provenance retained | Accepted 2026-11-13; source checks do not prove live deployment |
 
 ## QTOS (inherited)
 

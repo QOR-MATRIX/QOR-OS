@@ -35,6 +35,9 @@ jobs:
       - name: Reviewed Actions policy
         run: python tools/github/check_actions_policy.py
 
+      - name: Canonical ecosystem domains
+        run: python tools/ci/check_domains.py
+
       - name: Lumen tokens are generated and current
         run: python tools/tokens/generate_tokens.py --check
 

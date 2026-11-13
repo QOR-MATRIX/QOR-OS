@@ -360,6 +360,17 @@ controller-first Home.
 *Ongoing.* Exit: an outside developer ships a QQ game to QOR OS using only the public
 SDK.
 
+- [x] Record QORSYNC.DEV and approved service subdomains as the public domain
+  policy ([QOR-0026](decisions/QOR-0026-qorsync-is-the-public-domain.md)); remove
+  retired-host references from checked QOR OS text, enforce the check in hooks/CI,
+  and verify GitHub's homepage field. Thirty focused domain/GitHub tests pass.
+- [ ] Complete the corresponding upstream domain work and live verification.
+  Source maintenance is prepared on `session/qorsync-domains`: Launcher guidance,
+  disabled frozen destinations, historical redactions and inert obsolete deployment
+  helpers. Vercel confirms apex/`www` assignments and Cloudflare nameservers, but
+  the connected account cannot access the assigned project. Social/ARQADE service
+  hosts, mail, installed settings and released clients need separate acceptance.
+
 The 13 November owner direction makes developer access across every system an
 explicit workstream alongside the native validation gates. The main repository
 homepage links the canonical [developer entry point](../sdk/README.md), current

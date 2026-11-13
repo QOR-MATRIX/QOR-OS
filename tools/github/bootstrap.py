@@ -66,7 +66,7 @@ def apply_settings(repo: str) -> None:
     settings = {
         "description": "QOR OS: the operating system for players, game makers and creators. "
                        "Qt 6.12, Prism, QQ, ARQADE and the QOR network.",
-        "homepage": f"https://github.com/{repo}/blob/main/docs/README.md",
+        "homepage": "https://qorsync.dev",
         "has_issues": True,
         "has_projects": True,
         "has_wiki": False,

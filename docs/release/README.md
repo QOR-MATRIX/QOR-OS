@@ -56,7 +56,7 @@ registered legal entity.
 | "Demiurge" | demiurge-chain's `LICENSE` ("Copyright 2026 Demiurge"), which QOR OS ships as [`LICENSES/Apache-2.0.txt`](../../LICENSES/Apache-2.0.txt) |
 | "Laustrup Group" | demiurge-chain `tools/qor-launcher/src-tauri/Cargo.toml`, `authors` |
 | "Astra Matrix, Inc" | demiurge-chain `tools/qor-launcher/src-tauri/tauri.conf.json`, `bundle.copyright`: "Astra Matrix, Inc & Laustrup Group" |
-| An individual (the name matches the owner's GitHub login) | demiurge-chain `services/qor-auth/Cargo.toml` (QOR ID), `authors`, with a `demiurge.io` address |
+| An individual (the name matches the owner's GitHub login) | demiurge-chain `services/qor-auth/Cargo.toml` (QOR ID), `authors`; confirm the legal identity independently of retired contact details |
 
 The Qt licensee may be a company or the owner personally. The assistant's
 notes of what the owner said record the licence but not the licensee. Until

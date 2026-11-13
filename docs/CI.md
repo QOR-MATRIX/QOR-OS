@@ -1,5 +1,11 @@
 # Continuous integration
 
+Hosted Lint and commit hooks also run `tools/ci/check_domains.py`, enforcing
+[QOR-0026](decisions/QOR-0026-qorsync-is-the-public-domain.md) for supported tracked
+text formats. It checks source references, not live DNS, hosting or installed
+client settings. Restricted secret files are not read, and findings print only
+file/line locations. Its hostile-input tests run in the Python tooling suite.
+
 Workflows live in [`.github/workflows/`](../.github/workflows/).
 
 | Workflow | Runs on | Needs Qt | Checks |

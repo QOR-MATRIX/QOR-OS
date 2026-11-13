@@ -85,7 +85,7 @@ From `services/qor-auth/migrations/001` to `025` and `SECURITY.md`:
 |------|-------|-------|
 | Usernames, emails, pending email changes | `users` (001, 016, 019, 023) | Usernames unique; a chosen name for automatic `key_…` accounts |
 | Password hashes | `users` | Argon2 |
-| Email verification and password-reset links | `email_verifications`, `password_resets` | Sent through Resend from `noreply@demiurge.cloud` |
+| Email verification and password-reset links | `email_verifications`, `password_resets` | Resend; verify the sender under the approved QORSYNC.DEV domain before deployment. Current provider configuration has not been reverified |
 | Backup codes | `backup_codes` (014) | Only a SHA-256 of each code; each works once |
 | Suppressed email addresses | `email_suppressions` (017) | Only a SHA-256 of the address; from Resend's bounce and complaint reports |
 | Resend webhook deliveries | `resend_webhook_deliveries` (017) | [fields: check] |
