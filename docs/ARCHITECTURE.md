@@ -329,9 +329,27 @@ state. On 12 November, the focused Linux Release and ASan/UBSan builds and their
 existing raw-client/integration suites passed in hidden, GPU-fenced software.
 The raw-client suite includes unique global advertisement and manager
 bind/destroy/rebind, including cursor-shape v1/v2 and last-binding destruction.
-Root QML lint and hardening passed in both configurations. Direct null/wrong-object
-and pending-to-acknowledged size regressions remain unimplemented; the focused
-builds exclude the core library and do not establish hardware/full-OS acceptance.
+Root QML lint and hardening passed in both configurations at the `01ba206`
+checkpoint; the focused builds exclude the core library and do not establish
+hardware/full-OS acceptance. The later local increment moves the unchanged
+`WindowManagement` class into `prism/compositor/windowmanagement.{h,cpp}`, shared
+by Prism and `tst_windowmanagement`. That suite exercises null and unrelated
+objects directly and through the Qt invokable interface. The raw-client suite
+adds pending/older/latest acknowledgement and unchanged-geometry commit cases.
+The new test target now resolves Qt's Wayland imports in its own CMake directory.
+The Windows/WSL continuation stopped at the unchanged memory guard; its failed
+attempts remain in `build/prism-boundary-2026-11-12/`. Subsequent native ARM64
+Release and ASan/UBSan builds completed on 12 November. The acknowledgement
+fixture first exposed its own invalid focus-stealing assumption; it now asserts
+that policy and explicitly activates the second window through the normal Shelf
+path. Each configuration passes all seven selected suites without skips,
+including 43 pointer-capture and six window-management Qt Test results.
+All 11 programs in each configuration pass hardening and 16-KiB layout checks;
+Release QML lint has zero warnings. These focused builds exclude the core,
+use software rendering and product stand-ins, and do not check memory leaks.
+Their 50 preserved evidence files were hash-verified on 13 November, along with
+the unchanged source snapshot and test overlay. Native receipts:
+`build/q-pi-connect-2026-11-12/session-01/`.
 See [the current Phase 1 work](ROADMAP.md#phase-1--one-stack).
 
 ## 9. Testing

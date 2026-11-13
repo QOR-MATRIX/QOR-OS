@@ -101,29 +101,54 @@ single-card recovery boundaries and measured budget requirements. The current
 Windows heavy wrapper remains unchanged. The repository's
 [native coordinator](../image/README.md#native-linux-heavy-job-coordination)
 adds a permanent per-account OS lock, incomplete-run marker and guarded RAM
-admission. On 11 November the actual Pi ran 80 resource/coordinator tests with
-zero failures/skips, and its production lock check passed. These are historical
-results: a later authorised PC diagnostic could not resolve the Pi hostname or
-connect to its last address, and targeted mDNS found no address. Physical boot/
-address observation is needed; this is not evidence of a broken key. Restricted key access
-was separately authorised and observed, with strict host checking; initial trust
-was owner-approved first use, not independently verified identity. CMake's four
-pinned package candidates remain a historical proposal. The latest owner request
-authorises a reviewed standard prerequisite install once current native state,
-package provenance and effects are checked; nothing has been installed here.
-Qt and a measured application/image scratch budget remain missing. Qt's Ubuntu
-24.04 ARM reference remains an unadopted fallback. The smallest prepared native
-Core/Test entry is `tests/pi/` (`q-pi-smoke` and `q-pi-smoke-asan`), reusing the
-real Prism parser and its tests. Follow the [guarded smoke sequence](../image/README.md#native-qor-application-build);
-its native build/run and the new Windows configuration regressions remain unrun.
+admission. The 11 November resource/coordinator pass and subsequent unresolved
+hostname diagnostic are historical; authorised key-based access was restored
+on 12 November without weakening strict host checking. Initial trust remains
+owner-approved first use, not independently verified identity.
+
+The Pi now has CMake 3.31.6, the owner's Qt 6.12.0 Linux ARM64 kit and 18 reviewed
+distro development packages; the latter changed no existing package versions
+and removed none. `tests/pi/` built and passed both native parser configurations
+(23 Qt Test results each, four hardened programs). Native resource/tooling checks
+also recorded 196 passes and two wrong-host skips. These are distinct scopes.
+
+The current-source Prism snapshot built serially with warnings as errors, hardening
+and the native 16-KiB gate. A test-only correction explicitly activates a second
+client through the Shelf path instead of assuming it may steal focus. Corrected
+Release passes all seven selected headless suites without skips; 11 programs
+pass hardening/layout checks and Release QML lint has zero warnings. Native
+ASan/UBSan also passes the same seven suites without skips or sanitizer diagnostics;
+all 11 sanitizer programs pass hardening/layout checks and their instrumentation
+is verified. The existing preset disables leak checking. Both configurations
+exclude the QOR core. Evidence, exact source overlay and initial failures:
+`build/q-pi-connect-2026-11-12/session-01/`.
+
+On 13 November the pinned core and Corrosion fetches configured through
+`ci-linux` in a separate native cache with the existing Pi kit/page gate.
+Rust 1.98.1 built the core's `desktop` features serially with its Cargo.lock
+unchanged. `tst_qorcore` passes nine Qt Test results without failures/skips;
+the executable passes hardening and ARM64/16-KiB checks. Tests use private
+HOME/XDG/TMP paths and disconnected buses/audio. The `proc-macro-error2` 2.0.1
+future-compatibility warning remains, and only the core bridge target was built.
+Full native OS/product and warning-free acceptance remain open. Qt helpers
+exited naturally and the original coordinator returned cleanly. Receipts:
+`build/development-2026-11-13/session-01/native-core-20261113/`.
+
+The installed kit's bounded ELF checks and these software-only runs do not certify
+all dependencies, commercial redistribution terms, real graphics/audio/input or
+a measured application/image scratch budget. Enterprise entitlement is reported
+by the owner; Trixie is not Qt's listed Pi reference OS. Ubuntu 24.04 remains an
+unadopted reference alternative. The original Windows/WSL guard remains unchanged.
 
 The Pi 5 ARM64 development edition is scoped by
 [QOR-0025](decisions/QOR-0025-q-pi-development-edition.md). QQ now has native ARM64
 `q-pi-release` and `q-pi-asan` configure/build/test presets in
 `products/qq/CMakePresets.json`. They build Studio, Player and their tests, keep
 hardening and warnings as errors, and link for the 2712 kernel's 16-KiB pages.
-The presets reject this x86-64 host before compiler or Qt-tool execution. They
-have not yet compiled on a qualified ARM64 builder. Follow the
+The presets reject x86-64 hosts before compiler or Qt-tool execution. The native
+Release preset compiled Studio, Player and tests on 12 November without warnings;
+16 programs passed hardening/layout checks and six selected non-rendering cases
+passed. Full QQ, sanitizer-product and graphics acceptance remain open. Follow the
 [native application procedure](../image/README.md#native-qor-application-build)
 before using them; they neither install tools nor compose an image.
 
@@ -174,6 +199,35 @@ startup observation fell from 3,577 MiB to 1,419 MiB available without a compile
 the separate monitored metadata attempt was stopped at 1,189 MiB. No QOR build
 worker was available to reclaim. Do not reduce the floor or manage unrelated
 services: free host memory outside this workflow or use another qualified builder.
+
+The 12 November Prism continuation measured process private resident memory and
+WSL cache use before reclamation. Clean guest page-cache reclamation admitted a
+build, but subsequent host pressure stopped it at 2,956 MiB. A stricter temporary
+`MemoryHigh=268435456` threshold on only the next owned scope, retaining its
+1-GiB hard limit and the original Windows lock/3,072-MiB floor, still stopped at
+3,060 MiB. Idle Search/Widgets working sets were then trimmed after process
+identity, visibility and CPU checks. ChatGPT, the call, editors and active work
+were excluded. These bounded actions are recorded in
+`build/prism-boundary-2026-11-12/session-02/`; they are not automatic build steps
+or an instruction to repeat cache trimming. MemoryHigh constrains the owned job,
+not all WSL memory; a transient cold-host margin does not permit another build.
+The subsequent `session-03/` held a lightweight guest observer resident throughout
+a 30-second post-reclamation admission check. Even this admitted continuation
+fell from about 3,519 MiB at submission to a 3,008-MiB guard stop while compiling.
+Budget working headroom beyond the floor and preserve the incremental cache;
+passing an idle admission observation does not guarantee a complete build.
+
+The owner's separately authorised service/resource review is recorded in
+`build/prism-resource-2026-11-12/session-01/`. Google Play Games Services was the
+only confirmed stop candidate (about 26 MiB); the non-elevated session could not
+open it for stopping, so no service/application stopped. Clean guest-cache
+reclamation produced 3,860–4,067 MiB during an observer-resident 30-second check,
+but the actual validation scope hit 2,869 MiB before admission and was stopped.
+No compiler/test ran. Keep a lightweight observer alive through the transition
+to the actual worker and qualify that worker before submitting a job; do not
+treat the earlier idle measurement as permission. The 203-MiB measured deficit
+only reaches admission, without compiler margin. This is a bounded maintenance
+receipt, not a new automatic service-management or cache-reclamation build step.
 
 On native Linux, the same probe uses the kernel's `MemAvailable` estimate and
 visible cgroup v2 memory limits, including ancestor limits. Controller metadata
@@ -583,6 +637,16 @@ expected. Clients fall back to shared-memory buffers, which is fine for
 development; on device, GPU buffer sharing is part of Phase 3.
 
 ## 4. Tests and lint
+
+On 13 November the current local tree configured/built with `ci-windows`, passed
+all 22 suites selected by `ctest --preset ci-windows -LE gpu --parallel 1`, passed
+hardening for 33 programs and reported zero QML lint warnings. The test harness
+used temporary profile/settings folders, offscreen software rendering, silent
+audio and virtual controllers. Rust's pinned `proc-macro-error2` 2.0.1
+future-compatibility warning remains: a successful build exit is not a
+warning-free result. Full GPU/product, native Linux OS and isolated-CI acceptance
+remain separate. Exact commands and receipts:
+`build/development-2026-11-13/session-01/`.
 
 ```powershell
 ctest --preset ci-windows                           # all suites in this build

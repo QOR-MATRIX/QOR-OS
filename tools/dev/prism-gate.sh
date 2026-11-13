@@ -301,60 +301,25 @@ fi
 [ -f "$out/report.json" ] || { echo "No report; the end of $out/prism.log:" >&2; tail -n 25 "$out/prism.log" >&2; exit 4; }
 
 status=0
-GATE_TRIAL=$([ "$action" = try ] && echo 1 || echo 0) GATE_DEVICE="$device" GATE_OUTPUTS="$outputs" python3 - "$out" << 'PY' || status=$?
-import json
-import math
+GATE_TRIAL=$([ "$action" = try ] && echo 1 || echo 0) GATE_DEVICE="$device" GATE_OUTPUTS="$outputs" python3 - "$out" "$here" << 'PY' || status=$?
 import os
 import platform
 import subprocess
 import sys
 from datetime import date
 
+sys.path.insert(0, sys.argv[2])
+from prism_benchmark import InvalidReport, LATENCY_SAMPLES, assess_report, load_report
+
 out = sys.argv[1]
 trial = os.environ.get("GATE_TRIAL") == "1"
-report = json.load(open(os.path.join(out, "report.json")))
-if not isinstance(report, dict):
-    raise SystemExit("Invalid benchmark report: expected an object")
-outputs = report.get("outputs", [])
-latency = report.get("inputToSwap", {})
-
-
-def number(value):
-    return type(value) in (int, float) and math.isfinite(value)
-
-
-def count(value):
-    return number(value) and value >= 0 and int(value) == value
-
-
-def invalid(field):
-    # Say which field failed, never echo arbitrary supplied values into a diagnostic.
-    raise SystemExit("Invalid benchmark report: " + field)
-
-
-if not isinstance(outputs, list) or len(outputs) != int(os.environ["GATE_OUTPUTS"]):
-    invalid("output count differs from the running setup")
-for index, output in enumerate(outputs):
-    field = f"output {index + 1}"
-    if not isinstance(output, dict) or not count(output.get("frames")):
-        invalid(field + " frame count")
-    refresh = output.get("refreshHz")
-    interval = output.get("p95Ms")
-    missed = output.get("missedPercent")
-    if not number(refresh) or refresh <= 0:
-        invalid(field + " refresh rate")
-    if not number(interval) or interval < 0:
-        invalid(field + " frame interval")
-    if not number(missed) or not 0 <= missed <= 100:
-        invalid(field + " missed percentage")
-if not isinstance(latency, dict) or not count(latency.get("samples")):
-    invalid("input sample count")
-for key in ("p50Ms", "p95Ms"):
-    value = latency.get(key)
-    if not number(value) or value < 0:
-        invalid("input " + key)
-if latency["p50Ms"] > latency["p95Ms"]:
-    invalid("input percentiles are not ordered")
+try:
+    report = load_report(os.path.join(out, "report.json"))
+    verdict = assess_report(report, int(os.environ["GATE_OUTPUTS"]))
+except InvalidReport as error:
+    raise SystemExit(str(error))
+outputs = report["outputs"]
+latency = report["inputToSwap"]
 
 
 def run(command):
@@ -366,20 +331,16 @@ def run(command):
 
 gpu = "; ".join(line for line in run(["lspci"]).splitlines() if "VGA" in line or "3D controller" in line)
 rows = []
-passed = True
 for index, o in enumerate(outputs):
-    ok = o.get("frames", 0) > 0 and o.get("missedPercent", 100) < 1.0
-    passed &= ok
+    ok = verdict["output_passes"][index]
     rows.append(f"| {index + 1} | {o.get('screen', '?')} | {o.get('size', '?')} | {o.get('refreshHz', 0):.1f} Hz "
                 f"| {o.get('frames', 0)} | {o.get('p95Ms', 0):.2f} ms | {o.get('missedPercent', 0):.2f}% "
                 f"| {'pass' if ok else 'FAIL'} |")
-refresh = outputs[0].get("refreshHz", 60) if outputs else 60
-budget = 2 * 1000.0 / refresh
-latency_ok = latency.get("samples", 0) > 0 and latency.get("p95Ms", 1e9) <= budget
-passed &= latency_ok
-distinct = len({round(o.get("refreshHz", 0)) for o in outputs}) > 1
-enough = len(outputs) >= 2
-gate_passed = passed and enough and distinct
+budget = verdict["budget_ms"]
+latency_ok = verdict["latency_ok"]
+distinct = verdict["distinct_refresh_rates"]
+enough = verdict["enough_outputs"]
+gate_passed = verdict["passed"]
 
 title = "Trial inside a desktop session (not gate data)" if trial else "Compositor decision gate: measurement"
 summary = f"""# {title} ({date.today().isoformat()})
@@ -396,14 +357,15 @@ summary = f"""# {title} ({date.today().isoformat()})
 """ + "\n".join(rows) + f"""
 
 Input to swap: p50 {latency.get("p50Ms", 0):.1f} ms, p95 {latency.get("p95Ms", 0):.1f} ms \
-({latency.get("samples", 0)} samples); two refresh periods of output 1 are {budget:.1f} ms: \
+({latency["samples"]}/{latency["posted"]} samples recorded/posted; {LATENCY_SAMPLES} required); two refresh periods of output 1 are {budget:.1f} ms: \
 {"pass" if latency_ok else "FAIL"}.
 
 **Result: {"every criterion passes" if gate_passed else "a criterion fails"}.** \
 {"" if enough and distinct else "The setup does not yet match the gate (two outputs at different refresh rates). "}\
 Keep this report for the next compositor decision; docs/PERFORMANCE.md describes the gate.
 """
-open(os.path.join(out, "summary.md"), "w").write(summary)
+with open(os.path.join(out, "summary.md"), "w", encoding="utf-8") as stream:
+    stream.write(summary)
 print(summary)
 sys.exit(0 if trial or gate_passed else 1)
 PY

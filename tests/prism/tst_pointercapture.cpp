@@ -198,8 +198,13 @@ public:
         static const xdg_surface_listener surfaceListener = [] {
             xdg_surface_listener listener {};
             listener.configure = [](void *data, xdg_surface *object, uint32_t serial) {
+                auto *window = static_cast<Window *>(data);
+                if (window->deferConfigures) {
+                    window->deferredConfigures.append({ serial, window->m_configuredSize });
+                    return;
+                }
                 xdg_surface_ack_configure(object, serial);
-                static_cast<Window *>(data)->draw();
+                window->draw();
             };
             return listener;
         }();
@@ -207,7 +212,9 @@ public:
         toplevel = client->keep(xdg_surface_get_toplevel(xdg));
         static const xdg_toplevel_listener toplevelListener = [] {
             xdg_toplevel_listener listener {};
-            listener.configure = [](void *, xdg_toplevel *, int32_t, int32_t, wl_array *) { };
+            listener.configure = [](void *data, xdg_toplevel *, int32_t width, int32_t height, wl_array *) {
+                static_cast<Window *>(data)->m_configuredSize = QSize(width, height);
+            };
             listener.close = [](void *, xdg_toplevel *) { };
             return listener;
         }();
@@ -267,10 +274,18 @@ public:
     wl_surface *surface = nullptr;
     xdg_surface *xdg = nullptr;
     xdg_toplevel *toplevel = nullptr;
+    struct Configure
+    {
+        uint32_t serial;
+        QSize size;
+    };
+    bool deferConfigures = false;
+    QList<Configure> deferredConfigures;
 
 private:
     Client *m_client;
     QSize m_size;
+    QSize m_configuredSize;
     wl_buffer *m_buffer = nullptr;
 };
 
@@ -526,6 +541,7 @@ private Q_SLOTS:
     void offersBothGlobals();
     void offersAllProtocolGlobals();
     void protocolManagersCanBeReleasedAndRebound();
+    void aClientSizeWaitsForTheLatestConfigureAcknowledgement();
     void aWindowOpeningAsAnotherGoesIsNotLost();
     void aLockWaitsForAPerson();
     void aKeyIsAnActionAndAModifierOrARepeatIsNot();
@@ -912,6 +928,99 @@ void TestPointerCapture::protocolManagersCanBeReleasedAndRebound()
     QVERIFY(rebind(&zwp_pointer_constraints_v1_interface, 1, [](wl_proxy *manager) {
         zwp_pointer_constraints_v1_destroy(reinterpret_cast<zwp_pointer_constraints_v1 *>(manager));
     }));
+}
+
+void TestPointerCapture::aClientSizeWaitsForTheLatestConfigureAcknowledgement()
+{
+    const QSize original(640, 480);
+    std::unique_ptr<Game> game = open(u"Delayed acknowledgement"_s, original);
+    DO(game);
+    Client &client = *game->client;
+    Window &window = *game->window;
+    QVERIFY(client.roundtrip());
+    window.deferConfigures = true;
+
+    // Focus changes send real configure events without imposing a maximized
+    // size. The client may legally keep drawing at its old normal geometry.
+    std::unique_ptr<Game> other = open(u"Other focus"_s, QSize(320, 240));
+    DO(other);
+    QJsonObject state;
+    DO(windowState(game->title, &state));
+    QVERIFY(state[u"focused"_s].toBool());
+    DO(windowState(other->title, &state));
+    QVERIFY(!state[u"focused"_s].toBool());
+    // A different client cannot steal focus merely by opening a window. Use
+    // the same activation path as the Shelf, as a person choosing it would.
+    DO(run(uR"({"restore":{"title":"Other focus"}})"_s));
+    DO(windowState(other->title, &state));
+    QVERIFY(state[u"focused"_s].toBool());
+    QTRY_VERIFY_WITH_TIMEOUT((client.roundtrip() && !window.deferredConfigures.isEmpty()), 5000);
+    QCOMPARE(window.deferredConfigures.last().size, original);
+    DO(windowState(game->title, &state));
+    QVERIFY(!state[u"focused"_s].toBool());
+    const uint32_t older = window.deferredConfigures.last().serial;
+
+    // Click an exposed part of the first client, avoiding the other window's
+    // entire frame, including its title bar. No production test hook changes focus.
+    DO(windowState(other->title, &state));
+    const QRect otherFrame = rectOf(state[u"onScreen"_s]);
+    const QRect inset = game->area.adjusted(8, 8, -8, -8);
+    bool clicked = false;
+    for (const QPoint point : { inset.topLeft(), inset.topRight(), inset.bottomLeft(), inset.bottomRight() }) {
+        if (!otherFrame.contains(point)) {
+            DO(click(point));
+            clicked = true;
+            break;
+        }
+    }
+    QVERIFY(clicked);
+    QTRY_VERIFY_WITH_TIMEOUT((client.roundtrip() && window.deferredConfigures.last().serial != older
+                              && window.deferredConfigures.last().size == original),
+                             5000);
+    const uint32_t latest = window.deferredConfigures.last().serial;
+    DO(settled(game.get()));
+    DO(windowState(game->title, &state));
+    QVERIFY(state[u"focused"_s].toBool());
+    QVERIFY(!state[u"maximized"_s].toBool());
+    QCOMPARE(state[u"configuredSize"_s].toArray(), (QJsonArray { 640, 480 }));
+    const QSize originalFrame = rectOf(state[u"frameRect"_s]).size();
+    const QSize decoration = originalFrame - original;
+
+    // Geometry is within the existing buffer. A commit before any acknowledgement
+    // must not replace the shell's configured size with this older-sized content.
+    xdg_surface_set_window_geometry(window.xdg, 0, 0, 520, 360);
+    window.draw();
+    QVERIFY(client.roundtrip());
+    DO(settled(game.get()));
+    DO(windowState(game->title, &state));
+    QCOMPARE(rectOf(state[u"clientGeometry"_s]).size(), QSize(520, 360));
+    QCOMPARE(state[u"configuredSize"_s].toArray(), (QJsonArray { 640, 480 }));
+    QCOMPARE(rectOf(state[u"frameRect"_s]).size(), originalFrame);
+    QCOMPARE(window.deferredConfigures.last().serial, latest);
+
+    // Answering only an older configure still leaves the latest one pending.
+    xdg_surface_ack_configure(window.xdg, older);
+    xdg_surface_set_window_geometry(window.xdg, 0, 0, 500, 340);
+    window.draw();
+    QVERIFY(client.roundtrip());
+    DO(settled(game.get()));
+    DO(windowState(game->title, &state));
+    QCOMPARE(rectOf(state[u"clientGeometry"_s]).size(), QSize(500, 340));
+    QCOMPARE(state[u"configuredSize"_s].toArray(), (QJsonArray { 640, 480 }));
+    QCOMPARE(rectOf(state[u"frameRect"_s]).size(), originalFrame);
+    QCOMPARE(window.deferredConfigures.last().serial, latest);
+
+    // After the latest acknowledgement, redraw the SAME geometry. Adoption must
+    // happen on commit even though there is no new geometry-change notification.
+    xdg_surface_ack_configure(window.xdg, latest);
+    window.draw();
+    QVERIFY(client.roundtrip());
+    DO(settled(game.get()));
+    DO(windowState(game->title, &state));
+    QCOMPARE(rectOf(state[u"clientGeometry"_s]).size(), QSize(500, 340));
+    QCOMPARE(state[u"configuredSize"_s].toArray(), (QJsonArray { 500, 340 }));
+    QCOMPARE(rectOf(state[u"frameRect"_s]).size(), QSize(500, 340) + decoration);
+    QVERIFY(client.isAlive());
 }
 
 void TestPointerCapture::aWindowOpeningAsAnotherGoesIsNotLost()

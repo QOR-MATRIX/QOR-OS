@@ -1,43 +1,53 @@
 # Where QOR OS stands
 
-For Andrew, 12 November 2026. Owner-authorised checkpoint on
-`integration/owner-brief`, based on `1b9c485`: Prism manager fixes, native Linux
-job coordination, prepared Q Pi tooling, editor settings and reconciled guides.
-All 52 incoming file fingerprints and 150 saved evidence files were rechecked
-before preparing this commit. Build evidence remains local under `build/`.
+For Andrew, 13 November 2026. Q Pi development is reopened alongside QOR OS.
+The owner authorised committing and pushing the complete reviewed checkpoint on
+`integration/owner-brief`, based on `01ba206`. It includes the tested Prism
+boundary regressions, benchmark validation and documentation. Preserved local
+receipts distinguish each platform's checks from the remaining release gates.
 
-## Prism's existing Linux software checks pass
+## New native core and Windows evidence
 
-Prism is the compositor and shell. Its saved candidate builds without warnings
-in Release and with ASan/UBSan (address and undefined-behavior checks).
-**Each configuration passed 42 pointer-capture results, with no failures or
-skips, and all four affected suites.** These include unique announcements and
-bind/destroy/rebind for all five protocol managers, including cursor-shape v1/v2.
+The Pi 5 builds the pinned QOR core, the Rust library reached through a C
+interface, using Rust 1.98.1 and the owner's Qt 6.12.0 ARM64 kit. Its dependency
+lockfile is unchanged. The serial build took 23 minutes 6 seconds. The interface
+suite passes nine Qt Test results, including setup/cleanup, with no failures or
+skips. Its program passes exploit-hardening checks and checks for the Pi's
+16-KiB memory pages. The three approved D-Bus development packages are installed
+at their exact versions. The old receipt's package-name check failed; a fresh
+package audit passes without repeating installation.
 
-Root QML (Qt interface language) lint reports zero warnings in both builds.
-Hardening (compiled exploit defenses) passes for 15 Release and 36 sanitizer
-programs. All 18 exercised program identities were verified; all nine sanitizer
-programs link both runtimes. Leak detection was off.
+The core-enabled Windows build completes in the separate `ci-windows` folder.
+All 22 selected software suites pass without failed/skipped suites. Hardening
+passes 33 programs; QML static analysis reports zero warnings. Tests use private
+settings, offscreen software rendering, silent audio and virtual controllers.
 
-Windows tooling checks pass **203 tests**, with 15 Linux-only skips. The initial
-missing-Ninja failure and successful rerun with the installed build tool on PATH
-are preserved under `build/commit-checkpoint-2026-11-12/session-01/`.
+**The warning-free gate remains open on both hosts:** Rust reports a future
+compatibility warning in pinned dependency `proc-macro-error2` 2.0.1. A successful
+build exit does not clear it. The fix belongs upstream, followed by a reviewed
+core-pin update. No check or compiler setting was weakened.
 
-## Host recovery and remaining work
+All 51 performance-gate and bundle fixture tests now pass on native Linux with
+zero failures/errors/skips, closing the 25 cases skipped on Windows. They use
+inert programs and hardware metadata, not actual graphics or input measurements.
 
-Owner-requested cleanup stopped six optional services and eight background
-workers without changing startup settings. Windows Search and Phone Link had
-returned at verification. The first build attempt stopped at 3,040 MiB available;
-additional cleanup allowed completion under the original job lock and unchanged
-3,072-MiB floor, with WSL (Linux on Windows) resident, graphics hardware access
-blocked and software/virtual devices only.
+## Preserved results and next work
 
-Next: add the deferred configure-acknowledgement size regression and direct
-null/wrong-object cases, using production logic without a test hook. These
-focused builds exclude the core library; full-OS, hardware and isolated CI
-(automated build service) acceptance remain separate.
+All 66 saved native Prism/QQ evidence files and the 1,404-file source snapshot
+were reverified. The 12 November Prism Release and ASan/UBSan results (address
+and undefined-behavior checks) remain seven selected suites passing per build;
+leak checking was off. QQ Studio, Player and tests already compile, with six
+selected non-rendering cases passing. These results were not rerun or expanded
+into full product acceptance. Stale roadmap and guide claims are reconciled.
 
-Commands, failures, successful checks and preserved files:
-`build/prism-completion-2026-11-12/session-02/`.
-Q Pi and Qt Account/ARM64 work remain **on hold**. This checkpoint does not
-establish an image, media-write, hardware or release result.
+Next: resolve the upstream warning; complete native core-enabled OS and product
+checks, including product sanitizers and the whole creator/player journey;
+then prove runner isolation before Qt CI (automated builds) resumes. Physical
+graphics, sound, controller, complete dependency/image qualification and release
+gates remain open. Lumen's visual, accessibility and measured-performance rules
+remain unchanged. No image, publication, media write or service change occurred.
+
+Both original build locks are free; Qt helpers exited naturally. All-file hooks,
+the working-tree secret scan and local document-link checks pass. Current
+receipts and continuation: `build/development-2026-11-13/session-01/`.
+Earlier native receipts: `build/q-pi-connect-2026-11-12/session-01/`.

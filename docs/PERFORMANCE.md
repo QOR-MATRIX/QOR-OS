@@ -41,7 +41,9 @@ Re-measured on 2026-10-24 with the shared benchmark driver:
   360 Hz refresh.
 - **Intel UHD:** bimodal between runs. Two runs in five reproduce the
   baseline (avg 7.2 ms, p95 9.1 ms); the others sit at p95 about 11.1 ms,
-  which looks like a GPU power state. Compare the better of several runs.
+  which was suspected to reflect a GPU power state but was not established.
+  Retain every run, report the spread and compare alternating baseline/candidate
+  series under the same recorded conditions; do not select only faster runs.
 
 Re-measured on 2026-10-30, before and after Prism's windows took the size
 their clients ask for (`c2dd379` and `866aa18`, both `ci-windows`, three
@@ -181,6 +183,22 @@ latency samples over about 6 seconds. The driver is `prism/shell/shellbenchmark.
 | `graphicsApi`, `size`, `devicePixelRatio`, `screen`, `seconds` | Context |
 | `outputs[]` | The same frame fields for every output (one window per `WaylandOutput` under Prism) |
 | `inputToSwap` | `samples`, `posted`, `averageMs`, `p50Ms`, `p95Ms`, `p99Ms`, `maxMs` (see above) |
+
+The diagnostic gate validates these distributions through
+`tools/dev/prism_benchmark.py`, also included in its bundle. A result can meet
+the timing criteria only with **40 recorded / 40 posted inputs**, matching the
+collector, plus nonempty frame data on every discovered output. Dropped input
+samples cannot make a deceptively short latency tail pass. Valid partial or
+zero-sample `--try` runs remain diagnostic successes with failed criteria;
+malformed reports fail even in trial mode. Old reports missing required fields
+remain historical evidence and need a fresh measurement for current acceptance.
+
+The reader bounds reports to one MiB, 64 outputs, 16 levels and 16,384 values;
+rejects duplicate JSON fields and non-finite values; checks every distribution's
+ordering, sample counts, and agreement of missed-frame percentages/frame rates
+with their underlying counts/intervals. The accepted targets remain under 1%
+missed frames and input-to-swap p95 within two refresh periods of output one.
+This validates internal consistency, not a report's provenance or a hardware claim.
 
 Intervals come from `QQuickWindow::frameSwapped` through `qor::FrameStats`,
 which never requests frames itself. While the tour is measured, the benchmark
@@ -434,3 +452,189 @@ motion hints keep it still. Actual device startup/login timing remains unmeasure
 - `Reduce Transparency` removes the glass sampling cost entirely.
 - Phase 3 adds direct scanout for full-screen clients and overlay planes for
   video and cursor in the KMS backend.
+
+## Linux and platform optimization research (2026-11-12)
+
+**Status: research candidates, not an accepted architecture change or measured
+speedup.** This review changes no kernel, configuration, service, dependency or
+resource guard. It is not a new roadmap. The order in [OWNER](../OWNER.md) and
+[ROADMAP](ROADMAP.md) remains: Prism regressions, Release/sanitizer validation,
+full core-enabled OS/product checks, runner isolation before Qt CI, then Q Pi
+and single-image feasibility. Research can inform later work without admitting
+another build or claiming a blocked milestone passed.
+
+### Evidence and recommendation
+
+Repository context reviewed: [VISION](../VISION.md), this performance record,
+[architecture](ARCHITECTURE.md), [QOR-0004](decisions/QOR-0004-the-base-image-is-fedora-atomic.md)
+and [QOR-0025](decisions/QOR-0025-q-pi-development-edition.md). At this review,
+local work follows `01ba206`; the development handoff owns runtime status.
+Existing observations above are historical and scoped to their binaries and
+environments. They identify backdrop recapture as an integrated-GPU cost and
+first-use pipeline creation as a hitch. They do not establish native Linux GPU
+budgets, real input-to-photon latency or Q Pi acceptance.
+
+**Current recommendation:** keep maintained Linux kernels with tested,
+hardware-specific configurations and a shared QOR performance policy. Profile
+Prism, QQ and their userspace dependencies before redesigning the kernel. This
+matches VISION's principle of leveraging mature foundations rather than
+rewriting them. A future bottleneck may justify changing that recommendation;
+no candidate below is an assertion that a particular workload becomes faster.
+
+| Option | Benefit to investigate | Cost and decision trigger |
+|--------|------------------------|---------------------------|
+| Maintained Linux plus configuration/userspace profiles | Existing drivers, Qt, graphics, audio, storage and developer ecosystem | Default path; compare against the distribution's supported baseline |
+| Small downstream Linux patches | Fix a reproduced kernel bottleneck or missing platform behavior | Require a minimal reproducer, upstream assessment, security/driver testing, upgrade ownership and rollback |
+| Deep Linux fork | More control over internals | Requires evidence that smaller changes cannot meet the product need and a funded maintenance/compatibility plan |
+| Entirely new kernel | Architectural freedom | Linux applications and drivers do not automatically work; requires explicit scope and ownership for ABI, GPU/display, USB, storage, networking, power and security before replacing Linux |
+
+Linux's userspace interface is stable, but its in-kernel driver interface is not
+[source K8]. Custom kernels therefore increase module validation work. NVIDIA
+modules must match their corresponding firmware and userspace release [G2].
+Linux is GPL-2.0 with a syscall exception [K9]; kernel distribution compliance
+and Qt distribution entitlement are separate questions. No approach guarantees
+all games, engines, peripherals or anti-cheat systems will work.
+
+### Prioritized experiments, not default-setting instructions
+
+| Candidate | QOR/QQ benefit to measure | Tradeoff and boundary |
+|-----------|--------------------------|-----------------------|
+| Damage-aware rendering and bounded effects | Capture only changed regions behind visible glass; stop settled timers and hidden previews; keep UI threads responsive | Preserve trusted UI, accessibility, appearance and interrupted-animation correctness. Use QML profiling [Q1], not assumptions |
+| QML ahead-of-time compilation and pipeline caches | Lower launch and first-use shader stalls; verify compiled bindings and cold/warm behavior [Q2, Q3] | Cache behavior is graphics-backend/device/driver dependent. Do not ship a cache as universally compatible |
+| Native display/graphics path | Per-output pacing, direct scan-out where eligible, supported synchronization/VRR and efficient hybrid-GPU buffer transfer | Full-screen does not guarantee scan-out: overlays, effects and formats can require composition. WSL/software tests are not bare-metal proof; gamescope nested and embedded paths differ [G1] |
+| Background-work resource policy | Bound imports, builds, indexing and thumbnails; compare CPU/I/O weights and parallelism while a game or editor is active [K1] | Prefer delaying restartable work to killing applications. Do not overprotect memory or weaken the existing build-admission guard |
+| Pressure-aware memory and bounded caches | Measure pressure stall information (PSI), cache growth and reclaim; evaluate supported Multi-Gen LRU and modest zram [K2-K4] | Compression costs CPU and memory, not extra physical RAM. Aggressive reclaim/OOM policy can lose unsaved work. No blanket cache-dropping scripts |
+| Power and thermal profiles | Compare balanced versus optional gaming/creation policies, including sustained Pi load [P1] | Peak clock is not sustained performance. Heat, fan noise and battery life are metrics; no blanket performance governor or default overclock |
+| Storage scheduling | Compare stock with supported alternatives while loading a project/game during background I/O [K5] | BFQ trades CPU/throughput for responsiveness; do not impose it on every NVMe/SD device. Retain journaling and durability |
+| Audio scheduling and buffers | Measure PipeWire quantum/rate, deadline misses and XRUNs for gameplay, QQ preview and media [A1, A2] | Lower buffers increase scheduling pressure; Bluetooth adds latency. Use supported bounded real-time handling, not unlimited priority for arbitrary apps |
+| Kernel preemption/scheduler experiments | Compare supported preemption modes and task performance hints only after profiling [K6] | Availability and effects vary by architecture/kernel. PREEMPT_RT is not a generic gaming upgrade |
+| sched_ext or targeted patches | Investigate a reproduced scheduling problem with a reversible experiment [K7] | Requires support in the actual kernel and regression/security/upgrade testing; fallback to the fair scheduler is not performance proof |
+
+For QQ Studio, first measure asynchronous/cancelable asset import, bounded build
+parallelism, inactive viewport rendering, texture/thumbnail budgets, scalable
+preview effects and editor responsiveness during compilation. Current QQ uses
+Quick 3D; a deliberately lightweight 2D edition is future product work, not an
+existing feature toggle. Remote heavy work must remain optional and user-controlled.
+Premium appearance means coherent typography, motion, accessibility and pacing,
+not enabling every expensive effect on every device.
+
+### Hardware profiles and compatibility
+
+- **PC QOR OS:** qualify Intel, AMD, NVIDIA and hybrid layouts separately with
+  supported kernel/Mesa/firmware/driver combinations. Keep security mitigations,
+  signing and a known-good rollback. Hardware capability claims require testing.
+- **Pi 5 first:** retain its supported Raspberry Pi OS hardware stack and the
+  existing 16-KiB-page qualification. Pi 5 has a real GPU: Mesa V3D/V3DV render
+  support and VC4 display support [G3]. Check correct hardware acceleration,
+  adequate power and cooling before interpreting software tuning results.
+- **Wider Pi support:** model-specific boot/kernel/graphics/RAM profiles are
+  necessary. Official firmware distinguishes `kernel_2712.img`, common ARM64
+  `kernel8.img` and older 32-bit paths [P2]. Do not label every ARM device Q Pi
+  or claim all Pis are supported; Pico microcontrollers are not Linux desktops.
+- **One-download vision:** a combined QOR OS image may contain several
+  architecture-specific boot paths and kernels. One package does not imply one
+  universal kernel binary. Installer feasibility and hardware acceptance remain
+  separate milestones, not consequences of this research.
+
+### Reproducible evaluation and decision gates
+
+1. Record source/binary/image digests, kernel/configuration, firmware, GPU driver,
+   storage, RAM, display modes, power policy and ambient/thermal conditions.
+2. Establish a stock **native hardware** baseline. Use the existing Prism
+   benchmark for its measured scope; keep software, WSL and hardware data separate.
+3. Change one factor at a time. Alternate baseline/candidate runs, repeat enough
+   to characterize variance, retain outliers and failures, and report all runs
+   rather than selecting only the best power state. Separate cold/warm caches.
+4. Exercise idle/launch, glass/window motion, mixed-refresh displays, QQ editing
+   plus imports/builds, a reproducible game replay with background load, media
+   and audio under load, and sustained Pi thermal behavior.
+5. Record frame p50/p95/p99 and long stalls, missed frames, input-to-swap separately
+   from input-to-photon, CPU/GPU use, memory/PSI, I/O latency, audio XRUNs, power
+   and temperature. Measure individual CPU/GPU work rather than treating frame
+   intervals as rendering costs.
+6. Define a user-relevant threshold before the experiment. Accept only repeatable
+   gains beyond run-to-run noise without correctness, compatibility, security,
+   accessibility, data-loss or sustained-power regressions. Keep a stock fallback.
+7. Revisit a kernel change only when a trace identifies a kernel limitation,
+   upstream/configuration/userland alternatives are assessed, and driver,
+   licensing, recovery and ongoing maintenance are accounted for. A new accepted
+   architecture decision must follow the existing decision process.
+
+This review ran no performance tests. Documentation research neither resolves
+the Windows/WSL RAM blocker nor authorizes changes to settings, services, kernels,
+physical media, security boundaries or the running development session.
+
+### Primary references
+
+Reviewed on 12 November 2026. Live upstream documentation can change; recheck
+against the exact package/kernel version before implementing a candidate.
+
+- **Q1:** [Qt Quick performance and profiling](https://doc.qt.io/qt-6/qtquick-performance.html).
+- **Q2:** [Qt Quick Compiler](https://doc.qt.io/qt-6/qtqml-qtquick-compiler-tech.html).
+- **Q3:** [Qt graphics configuration and pipeline caches](https://doc.qt.io/qt-6/qquickgraphicsconfiguration.html).
+- **K1:** [Linux cgroup v2](https://docs.kernel.org/admin-guide/cgroup-v2.html).
+- **K2:** [Pressure stall information](https://docs.kernel.org/accounting/psi.html).
+- **K3:** [Multi-Gen LRU](https://docs.kernel.org/admin-guide/mm/multigen_lru.html).
+- **K4:** [zram](https://docs.kernel.org/admin-guide/blockdev/zram.html).
+- **K5:** [BFQ I/O scheduler and tradeoffs](https://docs.kernel.org/block/bfq-iosched.html).
+- **K6:** [Scheduler preemption models](https://docs.kernel.org/scheduler/sched-preemption.html).
+- **K7:** [sched_ext](https://docs.kernel.org/scheduler/sched-ext.html).
+- **K8:** [Linux kernel driver interfaces](https://docs.kernel.org/process/stable-api-nonsense.html).
+- **K9:** [Linux kernel licensing rules](https://docs.kernel.org/process/license-rules.html).
+- **G1:** [Valve gamescope](https://github.com/ValveSoftware/gamescope).
+- **G2:** [NVIDIA open GPU kernel modules](https://github.com/NVIDIA/open-gpu-kernel-modules).
+- **G3:** [Mesa V3D/V3DV](https://docs.mesa3d.org/drivers/v3d.html).
+- **P1:** [Raspberry Pi 5 hardware and cooling](https://www.raspberrypi.com/products/raspberry-pi-5/).
+- **P2:** [Raspberry Pi kernel selection](https://www.raspberrypi.com/documentation/computers/config_txt.html).
+- **A1:** [PipeWire pw-top measurements](https://docs.pipewire.org/page_man_pw-top_1.html).
+- **A2:** [PipeWire real-time module](https://docs.pipewire.org/page_module_rt.html).
+
+### Implementation assessment against the current tree (2026-11-12)
+
+The separately authorised implementation pass preserves the research above and
+the ordered Prism milestones. It adds no dependency, kernel policy or Qt build.
+
+- **Implemented now: trustworthy benchmark acceptance.** The previous real
+  evaluator incorrectly accepted three inert reports: 1 recorded / 40 posted
+  inputs, more recorded samples than posted events, and a missed percentage
+  inconsistent with the missed count. The shared bounded reader/validator now
+  rejects them. This is an evidence-quality improvement, not a rendering speedup.
+  The real embedded report evaluator and its shared production validator pass
+  26 portable tests on Windows, including malformed input and exact timing-target
+  boundaries. That Windows run skips the 25 Linux launcher/bundle process tests;
+  both Bash scripts pass syntax checks. Six unchanged, hash-verified historical
+  software reports satisfy the new structural checks and remain single-output
+  diagnostics, not hardware-gate passes. Evidence and the initial failures:
+  `build/performance-gate-2026-11-12/session-01/`.
+  On 13 November the unchanged sources ran under the Pi's original coordinator:
+  all **51 tests pass, zero failures/errors/skips**, including those 25 Linux
+  process cases. These fixtures use inert programs and hardware metadata; no
+  compositor, GPU, real input or timing benchmark runs. Native receipts:
+  `build/development-2026-11-13/session-01/native-gate-20261113/`.
+- **Already present; retain and measure.** Prism's `qt_add_qml_module` build uses
+  Qt's script compilation path, consistent with Q2. `AssetThumbnails` requests
+  asynchronous image loading and uses `QImageReader::setScaledSize`; Studio's
+  Project/Library images request 40-by-40 sources. Its signed-byte validation and
+  image-size limits must remain. `StatsOverlay` samples only while visible, and
+  `FrameStats` stops its publication timer at idle. Linux product builds already
+  specify one compile job. Adding duplicate caches, global thread settings or
+  another idle timer would not implement a missing research finding.
+- **Next bounded experiments after Prism's runtime gates.** Profile asset imports
+  and inactive QQ viewports with representative small/large projects; measure
+  UI responsiveness, peak memory, cancellation and project-switch correctness.
+  Compare baseline/candidate cold and warm runs on the same platform, retaining
+  every result and source/binary digest. Before changing damage regions or effect
+  budgets, measure backdrop recapture and check visual/accessibility equivalence.
+  These candidates need actual Qt/product runtime tests and same-machine benchmarks;
+  source inspection supplies neither a bottleneck measurement nor a speed claim.
+- **Hardware/architecture-dependent work stays explicit.** Direct scan-out,
+  multi-GPU pacing/VRR, driver pipeline caches, kernel/scheduler/MM changes, zram,
+  power/thermal policy, I/O scheduling and audio buffer changes require the
+  supported hardware's baseline, sustained-load tests and rollback. QOR-0005's
+  installed-image backend acceptance and QOR-0025's native Pi qualification still
+  apply. No setting is enabled from research alone, and neither ARM architecture
+  nor a synthetic report establishes an edition or hardware support.
+
+No native rendering benchmark or new performance-gain measurement ran in this
+implementation pass. Full OS/product checks, runner isolation, Q Pi and the
+single-download installer remain in the owner's existing order.

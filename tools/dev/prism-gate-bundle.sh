@@ -51,6 +51,7 @@ mkdir -p "$root/prism/compositor" "$root/tests" "$root/qt/lib" "$root/qt/plugins
 cp "$build/prism/compositor/prism" "$root/prism/compositor/"
 cp "$build/tests/prism-test-client" "$root/tests/"
 cp "$here/prism-gate.sh" "$root/"
+cp "$here/prism_benchmark.py" "$root/"
 
 # The platforms Prism and its clients use, nested and on bare metal.
 for plugin in platforms/libqeglfs.so platforms/libqwayland.so platforms/libqminimal.so platforms/libqoffscreen.so \

@@ -37,12 +37,13 @@ place. `tools/dev/heavy.py` supplies the separate
 one designated account/namespace, permanent OS lock, guarded RAM admission and
 an incomplete-run marker that requires reviewed recovery. It does not wrap raw
 builds automatically. On 11 November the native Pi ran all 80 focused resource/
-coordinator cases and its production lock check successfully. This is historical:
-the latest authorised PC diagnostic found unresolved hostname/last-address
-connectivity and no targeted mDNS address. See the image guide for physical
-recovery and the prepared `tests/pi/` Core/Test smoke sequence. Recheck that host's
-workers and resources before each job; kit/dependency and measured build-budget
-qualification remain separate. Windows/WSL resources are not inferred from the Pi.
+coordinator cases and its production lock check successfully. Access was restored
+on 12 November, followed by native parser, Prism and selected QQ checks. On
+13 November the existing restricted SSH route, permanent lock inode and reviewed
+source snapshot were reverified before continuing. See the image guide for the
+exact scopes. Recheck that host's workers and resources before each job;
+dependency closure and measured build-budget qualification remain separate.
+Windows/WSL resources are not inferred from the Pi.
 
 ## 2. C++ conventions
 

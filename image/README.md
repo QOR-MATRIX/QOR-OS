@@ -17,6 +17,24 @@
 > the history before commit "Retire the Yocto skeleton for Fedora Atomic"
 > (`git log -- image/meta-qtos`).
 
+The owner's 12 November request is a **single downloadable QOR OS image containing
+both full QOR OS and Q Pi**, booting supported hardware and selecting a compatible
+edition. Its feasibility assessment is deferred until Prism regressions, full
+core-enabled OS/product validation and runner isolation pass. No combined image
+layout, boot chain or installer backend has been adopted. The assessment must use
+explicit architecture, firmware and hardware profiles; ARM does not imply Q Pi.
+Uncertain detection must offer a compatible manual choice or an unsupported
+notice, never guess. Any supported alternative needs its tradeoffs explained, and
+readiness requires testing on the intended hardware. Shared Lumen behavior,
+accessibility, visual quality and measured performance remain acceptance criteria.
+
+The owner will supply storage when builds and the installation plan are ready.
+No physical-media write, formatting or replacement is authorised in this increment.
+Older card observations and scoped authorisations below remain historical; they
+do not select or approve a current target. Q Pi work resumes alongside QOR OS only
+after the preceding milestones pass. This paragraph records requirements, not a
+feasibility conclusion or a change to the accepted base-image decisions.
+
 ## Q Pi development edition
 
 [QOR-0025](../docs/decisions/QOR-0025-q-pi-development-edition.md) scopes **Q Pi**:
@@ -422,8 +440,9 @@ generator commit rather than assuming every tool must be on PATH. The minimal
 example disables login passwords and is not a desktop recipe. Do not run
 `install_deps.sh`, grant privileges or use an unrestricted container by following
 this guide. Any such action needs its exact package/configuration changes reviewed
-and approved first. The physical Pi 5 is the practical candidate; no native
-ARM64 builder has been qualified or provisioned by this work.
+and approved first. The physical Pi 5 now builds native applications, with the
+focused results below. Its image-generation toolchain, complete dependency
+closure and measured image budget remain unqualified.
 
 Candidate source pin: `fb44a4cde4ac54847ef1966957149e2c2b716fdf`, observed using
 `git ls-remote https://github.com/raspberrypi/rpi-image-gen.git HEAD`.
@@ -653,8 +672,9 @@ helper, with each dependency and interpreter explicitly listed. Relative symlink
 may resolve inside the root; an escaping or host-absolute link is refused unless
 it actually resolves inside the selected root. The interpreter path embedded in
 ELF is matched to a manifest `loader` entry, never opened as a host path. A
-manifest of Qt Core alone does not cover a product. No real target manifest is
-provided here because no native Q Pi payload has yet been built.
+manifest of Qt Core alone does not cover a product. Native applications have
+been built, but no complete staged deployment manifest is provided here;
+selected executable checks do not establish the whole dependency closure.
 Use a quiescent staging directory: identity and timestamp checks detect ordinary
 concurrent changes, not a hostile writer able to restore that metadata.
 
@@ -832,9 +852,26 @@ preserves read-only relocation protection on that kernel
 ([GNU ld](https://sourceware.org/binutils/docs/ld/Options.html)). Every Qt/plugin/
 system dependency still needs its separate ELF layout and ABI checks.
 
-The stock native Pi builder and restricted remote access were previously observed;
-its entitled Qt 6.12 Linux ARM64 kit is still missing. WSL and its `gcc_64`
-kit are x86-64; installed Windows/Android ARM64 kits remain unsuitable.
+The stock Pi now has authorised restricted access, CMake 3.31.6 and the owner's
+Qt 6.12.0 Linux ARM64 kit. On 12 November native parser smokes passed in Release
+and sanitizer configurations, and the real Prism's seven selected Release suites
+passed after a test-only focus-activation correction. The same focused native
+ASan/UBSan suites also pass without skips or sanitizer diagnostics. These builds
+exclude the core, use software rendering and do not claim leak checking. QQ's
+native Release preset also built Studio, Player and tests without warnings;
+16 programs passed hardening/layout checks and six non-rendering cases passed.
+Full products, hardware and image acceptance remain pending. Source/kit checks and exact scopes are recorded in
+`build/q-pi-connect-2026-11-12/session-01/`. Trixie is still not Qt's listed Pi
+reference OS; owner-reported Enterprise entitlement is not a redistribution review.
+WSL and its `gcc_64` kit are x86-64; Windows/Android ARM64 kits remain unsuitable.
+
+On 13 November the existing pinned core integration also built on this Pi with
+Rust 1.98.1, its `desktop` features and unchanged Cargo.lock. Its C bridge test
+passes nine Qt Test results without failures/skips, and the executable passes
+hardening and ARM64/16-KiB checks. Rust's `proc-macro-error2` 2.0.1 dependency
+warning remains. This focused target does not qualify the complete native OS,
+product/deployment closure or image. Receipts:
+`build/development-2026-11-13/session-01/native-core-20261113/`.
 Required native application tools are CMake 3.27+, Ninja, GNU C++, pkg-config,
 Python and Git. The kit must include Core, Gui/GuiPrivate, Multimedia, Network,
 Qml/QmlPrivate, Quick, Quick 3D/Physics, Spatial Audio, Quick Controls, Test and D-Bus, with
@@ -918,7 +955,8 @@ security relaxation is needed or authorised just to inspect this Pi or compile
 an ordinary application. Do not copy the SDK into an image without confirmed scope.
 
 On the qualified builder, with `QOR_QT_DIR` set to that kit, run from
-`products/qq/` (these commands were **not** run on ARM64 here):
+`products/qq/` (the Release build has native evidence; the full product test and
+sanitizer sequence below remains a separate gate):
 
 ```bash
 python3 ../../tools/dev/heavy.py -- cmake --preset q-pi-release
@@ -1752,6 +1790,11 @@ base was supplied or built in this session. The existing device CMake cache excl
 simulation but also excludes the QOR core; it cannot establish a complete device build.
 
 ## Evidence and next prerequisites
+
+This subsection preserves the initial installer checkpoint. Later private VM
+installation and reboot receipts are documented in
+[the disposable VM lab](#private-disposable-vm-lab); the earlier absences below
+must not be read as a current inventory of completed work.
 
 Local Qt tests exercise actual first-run QML, keyboard completion, close-without-complete,
 small/HD/UHD layouts, malformed/changed/linked records and once-after-unlock launch/error

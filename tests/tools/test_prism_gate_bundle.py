@@ -35,6 +35,7 @@ class PrismGateBundle(unittest.TestCase):
         self.script = self.root / "prism-gate-bundle.sh"
         self.script.write_bytes(TOOL.read_bytes())
         (self.root / "prism-gate.sh").write_text("#!/usr/bin/env bash\n# inert launcher fixture\n")
+        shutil.copy2(TOOL.with_name("prism_benchmark.py"), self.root / "prism_benchmark.py")
         self.prism = self.file(self.build / "prism/compositor/prism", b"inert Prism fixture\n", executable=True)
         self.file(self.build / "tests/prism-test-client", b"inert client fixture\n", executable=True)
         self.file(self.qt / "lib/libQt6Core.so.6", b"inert Qt library fixture\n")
@@ -150,6 +151,8 @@ class PrismGateBundle(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         with tarfile.open(self.out) as archive:
             metadata = archive.extractfile("qor-gate/BUNDLE.txt").read().decode()
+            self.assertEqual(archive.extractfile("qor-gate/prism_benchmark.py").read(),
+                             TOOL.with_name("prism_benchmark.py").read_bytes())
         self.assertIn("Launcher checkout HEAD: fixture-checkout", metadata)
         self.assertIn("Executable build revision: not established by this packager", metadata)
         self.assertIn(hashlib.sha256(self.prism.read_bytes()).hexdigest(), metadata)

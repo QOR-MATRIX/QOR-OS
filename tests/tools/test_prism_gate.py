@@ -41,6 +41,7 @@ class PrismGate(unittest.TestCase):
         # Override the discovery function before its first call; no real /sys, lspci or DRM probe can be used.
         source = source.replace(before_probe, 'probe() { best=fixture; best_count=2; total=2; panel=""; }\n\n' + before_probe, 1)
         self.script.write_text(source)
+        shutil.copy2(TOOL.with_name("prism_benchmark.py"), self.root / "prism_benchmark.py")
         self.program(
             self.build / "prism/compositor/prism",
             "import os,pathlib,sys,time\n"
@@ -76,10 +77,13 @@ class PrismGate(unittest.TestCase):
         report = {
             "graphicsApi": "fixture",
             "outputs": [
-                {"screen": f"fixture-{i}", "size": "100x100", "refreshHz": rate, "frames": 120, "p95Ms": 8, "missedPercent": 0.1}
+                {"screen": f"fixture-{i}", "size": "100x100", "refreshHz": rate, "frames": 1000,
+                 "averageMs": 8, "averageFps": 125, "p50Ms": 7, "p95Ms": 8, "p99Ms": 10,
+                 "maxMs": 30, "missedFrames": 1, "missedPercent": 0.1}
                 for i, rate in enumerate(rates)
             ],
-            "inputToSwap": {"samples": 20, "p50Ms": 5, "p95Ms": 10},
+            "inputToSwap": {"samples": 40, "posted": 40, "averageMs": 7,
+                            "p50Ms": 5, "p95Ms": 10, "p99Ms": 11, "maxMs": 12},
         }
         if mutate:
             mutate(report)
@@ -222,8 +226,9 @@ class PrismGate(unittest.TestCase):
     def test_zero_samples_can_be_a_valid_diagnostic_trial(self):
         def empty(report):
             for output in report["outputs"]:
-                output.update(frames=0, p95Ms=0, missedPercent=0)
-            report["inputToSwap"].update(samples=0, p50Ms=0, p95Ms=0)
+                output.update(frames=0, averageMs=0, averageFps=0, p50Ms=0, p95Ms=0,
+                              p99Ms=0, maxMs=0, missedFrames=0, missedPercent=0)
+            report["inputToSwap"].update(samples=0, posted=0, averageMs=0, p50Ms=0, p95Ms=0, p99Ms=0, maxMs=0)
         for trial in (False, True):
             with self.subTest(trial=trial):
                 self.out = self.root / f"empty-{trial}"

@@ -9,6 +9,137 @@ their changes since, and pulls of what is still shared, are recorded here.
 
 ## [Unreleased]
 
+- **Reviewed development checkpoint authorised for Git, 13 November.** The owner
+  requested committing and pushing all pending QOR OS work. This checkpoint
+  includes the validated Prism regressions, benchmark evidence checks and
+  reconciled native/Windows documentation. Build receipts stay under ignored
+  `build/`; the Rust warning, full native/product checks and release gates retain
+  their recorded limits.
+
+- **Native core bridge and Windows validation, 13 November.**
+  The owner reopened Q Pi alongside QOR OS. The existing `ci-windows` preset
+  configures and builds; all 22 selected software suites pass without failed or
+  skipped suites, 33 programs pass hardening, and QML lint has zero warnings.
+  Tests use private settings, offscreen software rendering, silent audio and
+  virtual controllers. Rust still reports the pinned `proc-macro-error2` 2.0.1
+  future-compatibility warning, so the warning-free gate remains unmet. The
+  native core also builds through the existing pinned FetchContent/Corrosion
+  integration with Rust 1.98.1 and unchanged Cargo.lock (1,385.79 seconds).
+  Its bridge suite passes nine Qt Test results, zero failures/skips; the program
+  passes hardening and ARM64/16-KiB layout checks. The same dependency warning
+  remains on ARM64. Temporary Qt helpers exit naturally before the original
+  coordinator releases its lock. Complete native OS, products, GPU suites and
+  isolated CI remain separate.
+  Reverified 66 saved native Prism/QQ evidence files and the 1,404-file source
+  snapshot, corrected stale roadmap/guide claims, and confirmed the approved
+  D-Bus package versions without repeating installation. Original failures,
+  source work and locks are preserved. Receipts:
+  `build/development-2026-11-13/session-01/`.
+
+- **Linux performance-gate fixtures validated, 13 November.** All 51 validator,
+  launcher and bundle tests pass natively on the Pi with zero failures/errors/skips,
+  including the 25 Linux process cases previously skipped on Windows. The
+  original coordinator and resource floor are unchanged. Sources are unchanged;
+  fixtures use inert programs and hardware metadata, so this is tooling evidence,
+  not a measured graphics/input improvement or hardware acceptance.
+
+- **Native QQ compile and selected logic checks, 12 November.** Studio, Player
+  and test programs compile without warnings under the native preset and original
+  serial guard (883.16 seconds). All 16 programs pass hardening and ARM64/16-KiB
+  layout checks. Three scene cases and three fake-launcher protocol cases pass
+  without failures/skips: ten Qt Test results including setup/cleanup. They use
+  private folders and disconnected desktop/audio/keyring services, without
+  overriding renderer expectations or publishing anything. This is not full QQ,
+  physical graphics, other products, x86 or OS acceptance. Official Rust 1.98.1
+  ARM64 components are checksum-verified and installed only in a separate user
+  prefix, with no shell/system settings changed; core compilation is still pending.
+  Receipts: `build/q-pi-connect-2026-11-12/session-01/native-qq-20261112/`.
+
+- **Native ARM64 Prism validation and acknowledgement-fixture correction, 12 November.**
+  The Pi's Qt 6.12.0 kit and 18 reviewed distro development packages enabled a
+  warning-free serial Prism build in 1,678.5 seconds, with no package upgrades
+  or removals. The initial new regression failed reproducibly because it expected
+  another client to steal focus. Its test-only fix asserts that refusal, then
+  explicitly activates the second window through the existing Shelf path;
+  production focus behavior, timeouts and all acknowledgement/geometry checks
+  remain unchanged. Corrected Release passes seven selected suites, zero skipped:
+  pointer capture has 43 Qt Test results and window management six. All 11 built
+  programs pass hardening and ARM64/16-KiB layout checks; QML lint has zero warnings.
+  The native ASan/UBSan build also completes without warnings (3,005.93 seconds),
+  and its same seven suites pass without skips or sanitizer diagnostics. Actual
+  compiler flags and both sanitizer libraries are verified on Prism and the tests;
+  all 11 sanitizer programs pass hardening/layout checks. Leak checking remains
+  disabled by the existing preset. Temporary licensing helpers exited naturally
+  before reviewed incomplete-marker recovery; the original
+  lock inode, memory guard and license behavior remain unchanged. Source, initial
+  failures, exact overlay and receipts: `build/q-pi-connect-2026-11-12/session-01/`.
+  These core-disabled, software-rendered tests use product stand-ins and are not
+  full OS/product/hardware, leak-check or release acceptance.
+
+- **Explicitly authorised Prism resource review, 12 November.** Reverified 23
+  incoming file fingerprints, 57 sealed research evidence files and both
+  incremental caches. The only confirmed service candidate, Google Play Games
+  Services (about 26 MiB), could not be opened for a graceful stop by this
+  non-elevated session; no service or application stopped. One measured clean
+  guest-cache reclamation produced 30 seconds of observer-resident headroom at
+  3,860–4,067 MiB, but the actual validation scope was stopped before admission
+  at 2,869 MiB, 203 MiB below the unchanged floor. No compiler/test ran and no
+  further validation attempt followed. Protected work and all source candidates
+  remain intact. Receipts: `build/prism-resource-2026-11-12/session-01/`.
+
+- **Performance research applied to benchmark evidence quality.** Prism's
+  diagnostic gate now requires all 40 posted input samples for timing acceptance,
+  validates complete distributions and count/rate consistency, and bounds report
+  parsing. The bundle carries the same production validator. Valid partial trials
+  remain diagnostics; malformed reports fail. Three reproduced false passes are
+  fixed, 26 portable tests pass, and six preserved real software reports validate
+  without being rerun. Linux launcher/bundle process tests remain platform-skipped.
+  Existing timing targets and the Prism milestone order are unchanged; no speed,
+  hardware or release-readiness gain is claimed. The performance guide records
+  what is already implemented, what can follow runtime validation and what needs
+  hardware evidence, and removes advice to select only faster runs.
+
+- **Saved Prism continuation reverified, 12 November.** All 16 incoming source
+  hashes and 78 saved evidence files match; both focused caches and Release's
+  extracted production object remain present. No source fix was needed during
+  this continuation. One measured clean WSL-cache reclamation allowed 30 seconds
+  of resident host headroom above the unchanged 3,072-MiB guard. The preserved
+  incremental Release build resumed at about 3,519 MiB, then the guard stopped
+  its owned scope at 3,008 MiB. No additional compilation unit completed and no
+  new regression or sanitizer ran. There was no unchanged retry, app closure or
+  service/security/startup change. Evidence: `build/prism-boundary-2026-11-12/session-03/`.
+
+- **Prism boundary build advanced; runtime remains memory-blocked, 12 November.**
+  Fixed the new test target's Qt Wayland import scope: the sibling tests directory
+  now resolves the same installed modules. Release configuration/generation then
+  succeeded, and the unchanged extracted production source compiled. Compilation
+  did not finish; the new tests and ASan/UBSan have not run. Measured clean WSL
+  page-cache reclamation admitted the job, but the unchanged host guard stopped
+  it at 2,956 MiB. A fresh incremental continuation with a stricter, temporary
+  256-MiB memory-pressure threshold stopped at 3,060 MiB, below the 3,072-MiB floor.
+  An identity/visibility/idle-checked Search/Widgets working-set trim followed;
+  no further compile was attempted without stable resident headroom. ChatGPT,
+  the voice call and active work were untouched; no app was closed, no service,
+  security or startup setting changed. Evidence: `build/prism-boundary-2026-11-12/session-02/`.
+
+- **Linux/platform performance research documented, 12 November.** Added a
+  source-linked research section to `docs/PERFORMANCE.md`, distinguishing
+  historical observations from unmeasured candidates, hardware-specific
+  tradeoffs and future decision gates. Recommends maintained Linux foundations
+  while leaving evidence-led configuration or kernel changes open. No behavior,
+  kernel/configuration, runtime test, resource guard or milestone order changed.
+
+- **Prism acknowledgement-boundary regressions prepared, 12 November.** The raw
+  client withholds real focus-change configure acknowledgements, checks that
+  changed geometry cannot replace the configured frame before the latest reply,
+  and requires unchanged geometry to be adopted on a later acknowledged commit.
+  `tst_windowmanagement` exercises null and wrong-object inputs directly and via
+  Qt's invokable interface. The unchanged production class now has its own files
+  shared by Prism and the test, without a production test hook. In the initial
+  session compilation and runtime were unrun: the resident Windows guard stopped this owned Linux
+  scope at 2,384 MiB against its unchanged 3,072-MiB floor, before build admission.
+  Prior passing evidence remains separate. See OWNER for the ordered continuation.
+
 - **Owner-authorised source checkpoint, 12 November.** Rechecked all 52 incoming
   file fingerprints and 150 saved evidence files before commit preparation.
   Windows verification passes 203 portable tooling tests, with 15 Linux-only

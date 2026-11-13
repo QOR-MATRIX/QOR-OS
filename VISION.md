@@ -49,8 +49,9 @@ It is planned to run native QOR applications on that host desktop and ship no si
 The full device architecture and its acceptance gates below remain the target.
 This is an intended architecture, not a feature-completion report: device
 authentication/services, KMS, direct scan-out and the full image remain subject
-to the roadmap's gates. Q Pi preparation has not produced or tested a native
-ARM64 QOR application or bootable Pi image.
+to the roadmap's gates. Native ARM64 Prism and QQ builds have focused software
+test evidence; full application, hardware and bootable Q Pi image acceptance
+remain open in the [roadmap](docs/ROADMAP.md#q-pi-development-edition).
 
 ## 1. Principles
 

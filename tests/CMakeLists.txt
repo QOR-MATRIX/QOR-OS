@@ -323,10 +323,22 @@ if(TARGET prism)
         set_tests_properties(tst_scriptprivacy PROPERTIES TIMEOUT 120)
     endif()
 
+    # The exact QML boundary implementation linked into Prism, without a compositor,
+    # protocol fixture, copied helper or production test hook.
+    # Qt's imported targets in prism/compositor are scoped to that directory;
+    # resolve the same installed modules here for this sibling test target.
+    find_package(Qt6 ${QOR_QT_MIN_VERSION} REQUIRED COMPONENTS
+        WaylandCompositor WaylandCompositorPrivate WaylandScannerTools)
+    qor_add_test(tst_windowmanagement
+        SOURCES prism/tst_windowmanagement.cpp
+                ../prism/compositor/windowmanagement.h ../prism/compositor/windowmanagement.cpp
+        LIBRARIES Qt6::Quick Qt6::WaylandCompositor Qt6::WaylandCompositorPrivate)
+    target_include_directories(tst_windowmanagement PRIVATE "${CMAKE_SOURCE_DIR}/prism/compositor")
+    set_tests_properties(tst_windowmanagement PROPERTIES TIMEOUT 30)
+
     # Pointer lock and relative motion (QOR-0020), from the client's side: raw Wayland
     # clients of a Prism this suite starts, offscreen and in software, and drives with a
     # person's input through `prism --script`. No display and no graphics card.
-    find_package(Qt6 ${QOR_QT_MIN_VERSION} REQUIRED COMPONENTS WaylandScannerTools)
     find_package(PkgConfig REQUIRED)
     pkg_check_modules(QOR_WAYLAND_CLIENT REQUIRED IMPORTED_TARGET wayland-client)
     enable_language(C)

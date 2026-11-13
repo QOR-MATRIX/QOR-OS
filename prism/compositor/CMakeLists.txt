@@ -45,6 +45,7 @@ qt_add_qml_module(prism
         Compositor.qml
     SOURCES
         extensions.h extensions.cpp
+        windowmanagement.h windowmanagement.cpp
         pointercapture.h pointercapture.cpp
     DEPENDENCIES
         QtQuick

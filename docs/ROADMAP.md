@@ -58,8 +58,34 @@ products included on Windows.
 *About 2–4 weeks.* Exit: Orb Run plays inside Prism on Linux with a DualSense, and Linux CI runs
 QQ's, ARQADE's and QOR Media's suites.
 
-**Current local priority, 12 November: finish the Prism argument-boundary regressions.**
-The saved warning candidate now compiles without warnings in the focused Qt 6.12
+**Current local priority, 13 November: core-enabled OS and product validation.**
+The later native Pi continuation completed the added Prism boundary regressions
+in both Release and ASan/UBSan: all seven selected suites pass without skips,
+including 43 pointer-capture and six window-management Qt Test results. The
+test-only correction activates a second client through Shelf after asserting
+focus-stealing prevention. All 11 programs in each configuration pass hardening
+and ARM64/16-KiB checks; Release QML lint has zero warnings. These focused builds
+exclude the core and use software rendering and product stand-ins. On 13 November,
+all 66 saved Prism/QQ evidence files and 1,404 source files were rechecked; local
+differences from the built snapshot were documentation only. Native receipts:
+`build/q-pi-connect-2026-11-12/session-01/`. Earlier Windows/WSL attempts below
+remain historical evidence for that host, not a blocker on the completed Pi runs.
+
+The 13 November core-enabled Windows configure/build completes, all 22 selected
+software suites pass without failed/skipped suites, hardening passes 33 programs
+and QML lint has zero warnings. The pinned `proc-macro-error2` 2.0.1 dependency
+still emits Rust's future-compatibility warning; the warning-free gate remains
+unmet and requires an upstream fix followed by a reviewed core-pin update.
+These tests exclude GPU-labelled suites and do not cover full products, native
+Linux OS acceptance or isolated CI. On the Pi, the unchanged pinned core builds
+with the `desktop` features and Rust 1.98.1; its C bridge suite passes nine Qt
+Test results without failures/skips, and the program passes hardening and
+ARM64/16-KiB checks. Its dependency warning remains too. This focused target
+does not complete the full native OS build/test gate. Receipts:
+`build/development-2026-11-13/session-01/`.
+
+**Earlier 12 November Windows/WSL continuation.**
+The warning candidate at the pushed `01ba206` checkpoint compiled without warnings in the focused Qt 6.12
 Linux Release and ASan/UBSan builds. Each passes all 42 pointer-capture results
 with zero failures/skips, including unique announcements and bind/destroy/rebind
 for all five custom managers, cursor-shape v1/v2 and last-binding destruction.
@@ -82,11 +108,62 @@ remain separate. Current evidence: `build/prism-completion-2026-11-12/session-02
 The original candidate and metadata logs remain under
 `build/prism-metadata-2026-11-10/` and `build/prism-resume-2026-11-10/`.
 
-Next, the real pending/acknowledged-size regression fits the existing raw-client
-harness. Direct null/wrong-object coverage still needs an in-process target or
-internal refactor using production logic; neither case is implemented yet.
-Do not add a production test hook. Recheck workers, the actual QOR lock and the
-3,072-MiB guard with WSL resident before another heavy job.
+The local continuation adds a real delayed-acknowledgement regression: normal
+focus changes supply two configure serials; geometry cannot resize the shell
+before acknowledgement or after only the older reply. A commit of unchanged
+geometry after the latest reply must adopt it. `WindowManagement` moved unchanged
+to dedicated production files shared by Prism and a new in-process suite covering
+null/wrong objects through direct and invokable calls. No production hook or
+copied implementation was added. The initial 2,384-MiB admission refusal remains
+in `build/prism-boundary-2026-11-12/session-01/`. The measured-memory continuation
+fixed the test target's directory-scoped Qt imports; Release configuration and
+generation then succeeded, and the extracted production source compiled. The
+build remains incomplete and the new tests and sanitizers are unrun. Clean WSL
+page-cache reclamation admitted compilation, which stopped at 2,956 MiB. A fresh
+incremental run with a stricter temporary 256-MiB job-memory pressure threshold
+stopped at 3,060 MiB against the unchanged 3,072-MiB floor. Only owned scopes were
+stopped. Subsequent idle Search/Widgets cache trimming produced a modest observed
+headroom increase, without a further compile attempt. ChatGPT, the voice call and
+active work stayed untouched; no service/security/startup changes or app closures
+occurred. Evidence: `build/prism-boundary-2026-11-12/session-02/`.
+
+The next continuation reverified all 16 saved source hashes, 78 evidence files
+and both incremental caches. After one measured clean guest-cache reclamation,
+30 seconds of resident host headroom passed admission. Release resumed at about
+3,519 MiB, then stopped at 3,008 MiB against the same 3,072-MiB floor. No new
+compilation unit or test completed; no unchanged retry followed. Current evidence:
+`build/prism-boundary-2026-11-12/session-03/`. Source and active work remain intact.
+
+The later explicitly authorised resource review preserved all 23 incoming file
+fingerprints and 57 sealed research evidence files. No service/application was
+stopped: the reviewed Google Play Games service's normal stop request could not
+open the service from this non-elevated session. A single clean guest-cache
+reclamation passed an observer-resident check, but the actual validation scope
+was stopped before admission at 2,869 MiB, 203 MiB below the unchanged floor.
+No build/test ran and no further validation attempt followed. Current receipt:
+`build/prism-resource-2026-11-12/session-01/handoff.json`. Additional sustained
+worker-resident headroom or a qualified builder remains the dependency.
+
+An independently authorised research implementation improves the existing
+benchmark gate's evidence checks, using portable tests and preserved reports;
+it does not change Prism's runtime sources or advance a blocked milestone.
+The [performance assessment](PERFORMANCE.md#implementation-assessment-against-the-current-tree-2026-11-12)
+distinguishes that implemented improvement, existing mechanisms and deferred
+runtime/hardware experiments.
+
+On 13 November all 51 benchmark-validator and Linux launcher/bundle fixture tests
+pass on the Pi, with zero failures/errors/skips. This closes the 25 cases skipped
+by the earlier Windows run. The fixtures use inert programs and hardware metadata;
+they establish tooling behavior, not compositor timing or physical-device results.
+Receipts: `build/development-2026-11-13/session-01/native-gate-20261113/`.
+
+Continue in the owner's order: run the full core-enabled OS and appropriate
+product checks, then prove runner isolation before Qt CI resumes. Native focused
+Prism validation above completes that earlier prerequisite. Recheck workers,
+the original OS lock and resident headroom before each job. The owner authorised
+committing and pushing the reviewed increment on 13 November. The existing Lumen tokens, accessibility,
+golden-image comparisons and same-machine performance gates continue to govern
+visual changes; this validation work does not claim a new visual or speed gain.
 
 - [x] QQ, ARQADE's app and games, and QOR Media are developed here from 29 October
   ([QOR-0015](decisions/QOR-0015-the-products-are-developed-here.md)); demiurge-chain freezes its copies (its ADR-126),
@@ -613,15 +690,27 @@ the owner's advisers.
 
 ## Release deliverable · The image
 
+The owner's 12 November installer request is **one downloadable QOR OS image
+containing full QOR OS and Q Pi**, booting supported hardware and selecting a
+compatible edition, not two independent images placed on a card. Assess
+feasibility only after the preceding Prism, full-validation and runner-isolation
+milestones. Profiles must name architecture, firmware and supported hardware;
+ARM alone must not select Q Pi. Ambiguity requires a safe manual choice or an
+unsupported notice. No combined layout/backend has been adopted or validated.
+The owner will supply storage when ready; no physical media is to be written in
+this increment. [Image guidance](../image/README.md) holds the requirements.
+
 ### Q Pi development edition
 
-**On hold at the owner's request, 11 November.** Files, patches and evidence are
-preserved. Pi connectivity, ARM64 kits, tests and image work are deferred; their
-outstanding questions are not prerequisites for core QOR OS progress.
+**Reopened by the owner on 13 November alongside QOR OS.** Continue from the
+native application evidence under the existing qualification gates. The earlier
+hold is superseded; image composition, hardware acceptance and publication still
+have their own prerequisites.
 
 [QOR-0025](decisions/QOR-0025-q-pi-development-edition.md) scopes Pi 5 ARM64,
 8 GB RAM and 128 GB nominal storage. The reviewed preparation and read-only
-probe are local source work; no Pi image or native application has been built.
+probe are local source work. Native Prism and QQ builds now have focused software
+evidence; no Q Pi image has been built or accepted.
 
 - [x] Review the supplied preparation against the current architecture and
   workers; preserve unrelated projects, existing proof and worktrees; add bounded
@@ -635,14 +724,15 @@ probe are local source work; no Pi image or native application has been built.
   Pi 5/ARM64/Trixie/16-KiB metadata and bootstrap RAM checks pass. Initial SSH trust
   remains owner-approved first use, not independent identity verification. The
   earlier Windows media identity is historical. No package installation or Q Pi
-  media write ran here. The later authorised PC diagnostic found no hostname
-  resolution, last-address SSH response or targeted mDNS address. Physical boot/
-  address observation is pending. Prior observations
-  and the 80 native tooling tests below are not current connectivity evidence.
+  media write ran in that bootstrap review. A later hostname/access failure was
+  resolved on 12 November; restricted key-based access was reverified on
+  13 November with strict host checking unchanged. Prior observations
+  and the 80 native tooling tests below are dated evidence.
   Qt's Ubuntu ARM reference is an unadopted fallback. `tests/pi/` now prepares a
   smaller Core/Test build of the existing Prism parser suites with native gating,
-  hardening and release/sanitizer presets. Native execution remains unrun; its
-  new Windows configuration checks were refused by the 3,072-MiB guard.
+  hardening and release/sanitizer presets. Both native parser configurations
+  subsequently passed 23 Qt Test results each, with four hardened programs;
+  the older Windows configuration refusal remains separate.
 - [x] Prepare the headless Wi-Fi/key-only SSH design against pinned current Imager
   `cloudinit-rpi` sources, preserving both autologin modes off. Add bounded public
   host-identity receipt/retry checks and strict offline Windows SSH argument plans.
@@ -657,7 +747,8 @@ probe are local source work; no Pi image or native application has been built.
   failures/skips**, including real Linux lock/descendant cases, under its permanent
   production lock; post-run CLI check passes. Correct the resource reader for
   positively observed absent memory controllers without lowering its floor or
-  changing kernel settings. Full application/image budgets and Qt remain open.
+  changing kernel settings. Full application/image budgets and complete Qt
+  dependency qualification remain open.
 - [ ] Integrate and qualify the actual headless first-boot hook, account/login
   ordering, stable host identity across a completed bootstrap/reboot, public receipt
   publication/shutdown and approved access-marker/expiry policy. Real credentials,
@@ -675,14 +766,17 @@ probe are local source work; no Pi image or native application has been built.
   WSL continues to require the Windows guard. Synthetic counter tests are not
   qualification of a native ARM64 builder.
   Native free RAM/storage snapshots now exist, but no complete application/image
-  peak budget has been measured; this qualification item stays open. CMake is
-  absent; four exact Debian package candidates have a read-only in-memory proposal,
-  while the no-download APT simulation's exit 100 remains preserved. Artifact/
-  maintainer-script review and installation approval are still required.
+  peak budget has been measured; this qualification item stays open. CMake 3.31.6,
+  the owner's Qt 6.12.0 Linux ARM64 kit, reviewed distro development packages and
+  user-local Rust 1.98.1 are installed. The three additional D-Bus development
+  packages were reverified at their exact approved versions on 13 November,
+  with a clean package audit and no repeated installation. The earlier install
+  receipt's architecture-qualified package-name verification failure is preserved.
   The probe now rejects Windows/mobile Qt target-platform metadata by reading
   its literal mkspec without executing the toolchain. Installed kit inspection
-  still identifies no Linux ARM64 target; the reported Enterprise licence is
-  not target-kit or dependency verification.
+  now verifies the installed Linux ARM64 Core layout; the reported Enterprise
+  licence and selected binary checks do not establish redistribution terms or
+  the complete deployment dependency closure.
   Native preset configuration now enforces the existing bounded version,
   target-platform and Qt Core ELF checks before normal Qt discovery. A separate
   explicit payload audit checks hashes, ARM64/16-KiB layouts, interpreter entries
@@ -699,6 +793,10 @@ probe are local source work; no Pi image or native application has been built.
   generator source and boot/tool recipes have been inspected locally.
 - [ ] Compile and test those actual applications on the qualified ARM64 builder,
   including hostile inputs under sanitizers, before staging image content.
+  Native QQ Studio, Player and test programs compile without warnings; all 16
+  programs pass hardening/layout checks and six selected non-rendering cases
+  pass. The full product and sanitizer suites remain required, so this item
+  stays open.
 - [ ] Build and statically validate a regular-file image with a real maintained
   Pi login/desktop, native QOR apps and local development tools; no simulator.
 - [ ] After the [action-time write gates](../image/README.md#authorised-q-pi-target-and-action-time-write-gates), prove Pi boot, hardware graphics,
