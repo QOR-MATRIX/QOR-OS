@@ -2,8 +2,9 @@
 
 For Andrew, 13 November 2026. Main includes PR #4's Linux test-harness fix and
 updated developer/security guidance. The next branch is
-`feat/native-publishing-validation`. Upstream repairs are pushed at `042941c`
-in Demiurge-chain draft PR #118; the QOR OS core pin remains `6a4822d`.
+`feat/native-publishing-validation`, with a contributor handoff for native tests
+and agent-tool discovery. Upstream repair code is validated at `042941c`; draft
+PR #118 now has documentation head `3043551`. The QOR OS core pin remains `6a4822d`.
 
 ## Verified progress
 
@@ -17,7 +18,7 @@ Q Pi development is reopened. The full native QQ publishing suite passes all
 11 Qt Test results, including both Studio windows, without failures or skips.
 It uses a private software display, two rendering workers and isolated views of
 devices and networking. Hardware devices are hidden, networking is local only,
-and the original resource lock remains held. Free memory stays above 6,956 MiB
+and the original resource lock was held throughout. Free memory stayed at or above 6,956 MiB
 against the unchanged 3,072-MiB floor. Earlier diagnostic timeouts are preserved.
 This is application evidence, not a Q Pi image or hardware qualification.
 

@@ -443,6 +443,40 @@ product's own formatting, and run `tools/dev/products.ps1` and
 as it was. A change to ARQADE's rules is also made upstream, with its fixture
 ([UPSTREAM.md](UPSTREAM.md#changing-a-games-rules)).
 
+### Continue native product qualification
+
+Start with the [canonical roadmap](ROADMAP.md#q-pi-development-edition) and
+[native build evidence](BUILDING.md#q-pi-preparation). Discover the relevant
+entry points without running them or opening a provider account:
+
+```bash
+python3 tools/dev/developer.py show q-pi --json
+python3 tools/dev/developer.py show qq-mcp --json
+```
+
+For each native continuation:
+
+1. Record the source revision or snapshot/overlay hashes, the actual binary hash,
+   Qt/Rust versions and selected preset. Compare the files that the binary uses
+   with the current tree. A cached executable does not validate later source edits.
+2. Use the [original native coordinator and resource checks](../image/README.md#native-linux-heavy-job-coordination).
+   Observe sustained headroom with the worker resident and monitor the run. Keep
+   the 3,072-MiB floor; a refusal does not authorize service changes or another
+   identical attempt.
+3. Keep application tests on a private display with inaccessible hardware devices,
+   desktop sockets and external networking when claiming software isolation.
+   Derive the renderer expectation from the available devices and verify the
+   renderer actually used. Environment flags alone are not a device boundary;
+   trusted product-test isolation does not qualify a CI runner.
+4. Record render-worker count, outer time budget, Qt watchdog and test selection.
+   A diagnostic cut-off is an incomplete run, not an assertion failure or a pass.
+   Preserve it when testing a changed configuration. Keep every test assertion
+   and performance floor; a passing selected case does not replace the full suite.
+5. Preserve commands, environment choices, failures/skips and hashed evidence
+   under `build/`. Check that the coordinator exits cleanly, then update the
+   canonical roadmap and owner brief with the exact acceptance scope. Full
+   products, sanitizers, the creator/player journey and hardware remain distinct.
+
 ### Pull ARQADE's fixtures and the one look from upstream
 
 `status` compares against the local upstream clone's last fetched `origin/main`;

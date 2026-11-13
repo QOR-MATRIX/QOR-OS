@@ -9,6 +9,12 @@ their changes since, and pulls of what is still shared, are recorded here.
 
 ## [Unreleased]
 
+- **Native contribution continuation, 13 November.** The next development branch
+  documents offline Q Pi/QQ agent-tool discovery, source/binary matching, original
+  resource coordination, private software-test boundaries and reproducible handoffs.
+  It distinguishes diagnostic time limits, selected cases, complete suites and
+  hardware acceptance without introducing a second roadmap.
+
 - **Dependency repair and Linux test isolation, 13 November.** Upstream PR #118
   now carries patched core/Launcher dependencies and Cargo artifact discovery
   for the real-spawn tests, plus compatible blockchain dependency patches.
