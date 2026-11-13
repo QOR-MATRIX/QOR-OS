@@ -709,7 +709,9 @@ vendor's claim. No firmware turns an output-only HDMI port into an input, so thi
   pin. Do not suppress findings or copy the core into this repository.
   Repair commit `042941c` is pushed in upstream PR #118: local core/host audits
   now report zero vulnerability advisories, retaining 13/23 warnings. Compatible
-  chain dependency patches remove nine findings (44 remain, plus 36 warnings).
+  chain dependency patches initially remove nine findings. The certificate and
+  compression follow-up at `3d71009` passes all 213 hosted chain tests with
+  WebAssembly built and reduces the audit to 38 findings and 26 warnings.
   QOR ID and Social each retain one SQLite advisory; stable SQLx also rejects the
   fixed version. The Launcher test helper now uses Cargo's reported executable
   path. Hosted build/test acceptance and the QOR OS pin review remain open.
@@ -906,6 +908,20 @@ evidence; no Q Pi image has been built or accepted.
   [building guide](BUILDING.md#q-pi-preparation) records the source-match boundary.
   The Linux harness's separate short-runtime regression fails
   against the old script and all 18 fixture tests pass with the fix on ARM64.
+  The next full-harness attempt stopped before tests because its filtered native
+  snapshot omitted the tracked in-memory keyring fixture. A private tools overlay
+  now includes that fixture; the broader software run is in progress. The harness
+  gains an earlier missing-fixture diagnostic and a regression that checks no bus,
+  display, configure or suite starts. Hosted Linux Lint at `148c91f` passes the
+  new regression and all 19 harness fixtures; its 840 Python results include
+  124 platform skips, and all 63 ARQADE Node tests pass.
+  The QOR Media helper additionally selects a pinned native ARM64 PDFium package
+  with a separate cache. Its digest and library layout pass static inspection;
+  the Pi kit lacks Qt PDF/PDF Quick, so native Media compilation and runtime
+  acceptance remain open. Hosted Linux Lint at `c1902f2` passes all 23 harness
+  fixtures: 720 Python tests pass with 124 platform skips and all 63 ARQADE
+  tests pass. The follow-up at `74d22e9` passes the same checks, including a stale
+  extraction marker being removed before retrying an incomplete package.
 - [ ] Build and statically validate a regular-file image with a real maintained
   Pi login/desktop, native QOR apps and local development tools; no simulator.
 - [ ] After the [action-time write gates](../image/README.md#authorised-q-pi-target-and-action-time-write-gates), prove Pi boot, hardware graphics,

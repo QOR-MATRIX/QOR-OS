@@ -9,6 +9,26 @@ their changes since, and pulls of what is still shared, are recorded here.
 
 ## [Unreleased]
 
+- **Native QOR Media dependencies, 13 November.** The Linux product helper now
+  selects pinned x64 or ARM64 PDFium archives and keeps their extracted caches
+  separate. Unsupported architectures, checksum failures and incomplete
+  extraction refuse before Media configuration. Retrying extraction invalidates
+  any earlier completion marker before unpacking. The official ARM64 archive's
+  digest and library's ARM64/16-KiB layout were checked without executing it.
+  Native Media builds still require the kit's missing Qt PDF modules.
+
+- **Complete native test fixtures, 13 November.** The Linux product harness
+  refuses a missing fake-keyring fixture before starting its private bus, display,
+  build or suites. The diagnostic names the missing tracked helper; a regression
+  checks that no test services or build commands start. Native contribution
+  guidance includes test-support files when preparing a reviewed source snapshot.
+
+- **Native contribution continuation, 13 November.** The next development branch
+  documents offline Q Pi/QQ agent-tool discovery, source/binary matching, original
+  resource coordination, private software-test boundaries and reproducible handoffs.
+  It distinguishes diagnostic time limits, selected cases, complete suites and
+  hardware acceptance without introducing a second roadmap.
+
 - **Dependency repair and Linux test isolation, 13 November.** Upstream PR #118
   now carries patched core/Launcher dependencies and Cargo artifact discovery
   for the real-spawn tests, plus compatible blockchain dependency patches.

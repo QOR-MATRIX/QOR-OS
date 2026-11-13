@@ -111,8 +111,13 @@ SQLx 0.9.0 rejects the fixed libsqlite3-sys version, so that trial was removed.
 An isolated resolution with default SQLx features disabled and only PostgreSQL,
 macros and migration support still retains the affected SQLite lock dependency;
 feature trimming alone does not clear this gate.
-The chain's compatible QUIC, libz-sys 1.1.31 and Wasmtime 36.0.20 patches reduce
-its report from 53 to 44 vulnerability findings, with 36 warnings. Its SDK pin
+The chain's compatible QUIC, libz-sys 1.1.31 and Wasmtime 36.0.20 patches first
+reduce its report from 53 to 44 vulnerability findings, with 36 warnings. The
+follow-up at `3d71009` selects rustls-webpki 0.103.17, webpki-root-certs 1.0.12,
+zstd 0.13.5, zstd-safe 7.4.1 and zstd-sys 2.1.3+zstd.1.5.7: its audit reports
+38 findings and 26 warnings. All 213 hosted chain tests pass with WebAssembly
+built on that revision. The attempted tracing-subscriber update is refused
+because sc-tracing 47.0.0 requires exactly 0.3.19. Its SDK pin
 and runtime source are unchanged. No new exception was added. Service/chain
 findings and core maintenance warnings remain upstream work, not a reason to
 silently update this repository's pin.

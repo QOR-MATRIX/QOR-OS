@@ -1,44 +1,42 @@
 # Where QOR OS stands
 
-For Andrew, 13 November 2026. Main includes PR #4's Linux test-harness fix and
-updated developer/security guidance. The next branch is
-`feat/native-publishing-validation`. Upstream repairs are pushed at `042941c`
-in Demiurge-chain draft PR #118; the QOR OS core pin remains `6a4822d`.
+For Andrew, 13 November 2026. The native product tooling at `74d22e9` passes
+hosted Linux CI, automated checks: 720 Python tests, 124 platform skips and all
+63 ARQADE rule tests. All 23 harness fixtures pass, including missing test
+support, architecture selection and incomplete dependency extraction.
 
 ## Verified progress
 
-Hidden Linux product tests now use a private short runtime directory and leave
-the desktop's directory untouched. All 18 harness fixtures pass on the Pi; the
-new regression also fails against the old script. Repository-wide hooks pass.
-Hosted Lint passes 715 Python tests with 124 platform skips and all 63 ARQADE
-rule tests at `1cdeef6`.
+The Linux harness checks its fake keyring before starting test services. Media
+selects pinned x64 or ARM64 PDFium, its PDF editing library, in separate caches;
+failed extraction cannot keep an old completion marker. The official ARM64
+archive's digest and library layout pass the 16-KiB page check. Qt PDF modules
+are absent on the Pi, so Media is not built there.
 
-Q Pi development is reopened. The full native QQ publishing suite passes all
-11 Qt Test results, including both Studio windows, without failures or skips.
-It uses a private software display, two rendering workers and isolated views of
-devices and networking. Hardware devices are hidden, networking is local only,
-and the original resource lock remains held. Free memory stays above 6,956 MiB
-against the unchanged 3,072-MiB floor. Earlier diagnostic timeouts are preserved.
-This is application evidence, not a Q Pi image or hardware qualification.
+Q Pi's broader QQ procedure is running with a private software display,
+isolated device/network views and the original 3,072-MiB memory guard. World
+rendering passes 11 Qt Test results and scene handling passes 56; Studio is
+running. The full run has not passed. The earlier publishing suite passes all
+11 results. Four Prism source differences were only line endings; raw hashes
+and the earlier Release/sanitizer evidence remain separate from this run.
 
-Upstream's repaired Launcher helper uses Cargo, the Rust build tool, to find its
-executable. All four formerly failing spawn tests pass. Hosted checks pass 213
-chain tests with WebAssembly, portable runtime code, built; 245 core tests pass
-with 10 ignored and 109 Launcher tests pass with five ignored. Core and host
-audits report zero vulnerability findings, retaining 13 and 23 maintenance warnings.
-Both services still fail on an SQLite database dependency. The chain's patches
-remove nine findings, leaving 44 and 36 warnings. No exception was added.
+Demiurge-chain draft PR #118 has certificate/compression patches at `3d71009`.
+All 213 hosted chain tests pass with WebAssembly, portable runtime code, built.
+Its audit reports 38 vulnerability findings and 26 warnings, down from 44/36.
+The chain framework pins the affected logging dependency exactly; that upgrade
+was refused. Framework pin, runtime source and QOR OS core pin `6a4822d` remain
+unchanged. Both service audits still fail on SQLx's SQLite database dependency.
+The earlier core/Launcher repair passes 245/109 tests with 10/five ignored;
+its audits retain maintenance warnings.
 
 ## Continuation
 
-Continue the full native product/sanitizer and creator/player journeys, resolve
-upstream service dependencies and warnings, then validate a core-pin update before
-expanding DRC-369 asset or agent commands. The bridge, the shell-to-core interface,
-still has four version/amount commands. Evidence and exact limits are in
-`build/development-2026-11-13/session-05/` and the canonical roadmap.
+Finish native products, memory-error checks and the creator/player journey;
+resolve service dependencies and warnings before a tested core-pin update and
+richer DRC-369 asset or agent commands. The bridge, the shell-to-core interface,
+still has four version/amount commands. The roadmap owns these gates; receipts
+are in `build/development-2026-11-13/session-06/`.
 
-GitHub's homepage is QORSYNC.DEV; offline discovery covers 14 contribution areas.
-Qt CI, automated native builds, stays paused pending isolated workers. Public
-security-report routing, live service domains, Vercel project access, hardware,
-image and release gates remain open. No image, package, release or production
-deployment was published.
+GitHub's homepage is QORSYNC.DEV. Native Qt CI remains paused pending isolated
+workers. Live domains, Vercel access, public security routing, hardware, image
+and release gates remain open. No release or production deployment occurred.

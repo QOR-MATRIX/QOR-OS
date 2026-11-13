@@ -168,12 +168,30 @@ the run (minimum observed: 6,956 MiB). This is isolation of trusted product test
 not qualification of a CI runner or a sandbox for untrusted applications.
 
 The 1,404-file source snapshot was reverified. Its 187 QQ and 203 Kit files also
-match the current tree; four newer Prism compositor files differ and are outside
-this standalone display test. The original coordinator returned cleanly. Source,
+match the current tree. A later comparison of the four Prism compositor byte
+differences found only CRLF versus LF line endings; their source text matches
+after newline normalization. Both raw hashes are retained in session-06 evidence.
+Prism remains outside this standalone publishing test's scope; its earlier
+seven-suite Release/sanitizer evidence is described above. The original coordinator returned cleanly. Source,
 binary and evidence hashes, commands and failed attempts are preserved under
 `build/development-2026-11-13/session-05/native/`. This closes the publishing-suite
 software check only; full products, sanitizers and the complete creator/player
 journey remain required.
+
+For QOR Media, `tools/dev/products.sh` selects the native Linux x64 or ARM64
+PDFium archive from the existing pinned `chromium/8111` release. Each has its own
+SHA-256 and extraction directory; unsupported architectures and failed extraction
+refuse before CMake configuration. A successful-extraction marker prevents reuse
+of a package whose entry point was written before an unpack failure. The old
+shared cache is left untouched. This helper is for native builds, not cross builds.
+The [official ARM64 asset](https://github.com/bblanchon/pdfium-binaries/releases/tag/chromium/8111)
+was downloaded and matched to digest
+`042de247138f96341534cccf24ed21c2550a7245b936bb4a60d2340120000f05`;
+its `libpdfium.so` is 64-bit AArch64 with 65,536-byte load alignment, compatible
+with the selected 16-KiB page check. It was neither extracted nor executed.
+The current native kit lacks `Qt6Pdf` and `Qt6PdfQuick`, so this is dependency
+preparation, not a compiled or tested QOR Media application. Evidence is in
+`build/development-2026-11-13/session-06/pdfium-arm64-review.json`.
 
 The installed kit's bounded ELF checks and these software-only runs do not certify
 all dependencies, commercial redistribution terms, real graphics/audio/input or
