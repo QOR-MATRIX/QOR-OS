@@ -9,6 +9,14 @@ their changes since, and pulls of what is still shared, are recorded here.
 
 ## [Unreleased]
 
+- **Developer/domain integration, 13 November.** Main includes the new offline
+  discovery and canonical-domain policy through `0cdae3d`, after hosted Lint
+  passed 714 Python tests with 124 platform skips and all 63 ARQADE rule tests.
+  GitHub's homepage field is verified as QORSYNC.DEV. Upstream domain maintenance
+  is draft PR #118; source checks, automatic previews, dependency-audit failures
+  and the still-open live service migration are recorded separately. The final
+  local all-file validation remained resource-blocked; normal commit hooks pass.
+
 - **Canonical public domain, 13 November.** QORSYNC.DEV and its service
   subdomains are the approved first-party addresses (QOR-0026). GitHub setup
   retains that homepage; README navigation keeps direct developer/progress links.

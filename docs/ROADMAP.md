@@ -363,13 +363,16 @@ SDK.
 - [x] Record QORSYNC.DEV and approved service subdomains as the public domain
   policy ([QOR-0026](decisions/QOR-0026-qorsync-is-the-public-domain.md)); remove
   retired-host references from checked QOR OS text, enforce the check in hooks/CI,
-  and verify GitHub's homepage field. Thirty focused domain/GitHub tests pass.
+  and verify GitHub's homepage field. The initial 30 focused domain/GitHub tests
+  pass locally; the expanded checks pass in hosted Lint at `0cdae3d`.
 - [ ] Complete the corresponding upstream domain work and live verification.
-  Source maintenance is prepared on `session/qorsync-domains`: Launcher guidance,
+  Source maintenance is in [upstream PR #118](https://github.com/QOR-MATRIX/demiurge-chain/pull/118): Launcher guidance,
   disabled frozen destinations, historical redactions and inert obsolete deployment
   helpers. Vercel confirms apex/`www` assignments and Cloudflare nameservers, but
   the connected account cannot access the assigned project. Social/ARQADE service
   hosts, mail, installed settings and released clients need separate acceptance.
+  Automated Vercel preview checks pass; production was not promoted. Upstream
+  dependency audits fail, so the PR remains a draft with its gates intact.
 
 The 13 November owner direction makes developer access across every system an
 explicit workstream alongside the native validation gates. The main repository
@@ -383,9 +386,9 @@ services, QQ's agent tools and the upstream QOR Launcher/DRC-369 boundary.
   integration areas using Python only. It validates local path existence and
   pinned upstream URL syntax, not installed tools or upstream content. It grants
   no execution rights; the [developer guide](../sdk/README.md#offline-discovery)
-  describes the contract. This increment is on `feat/developer-discovery`, based
-  on main `3e1e2a6`; the installable SDK and runtime integrations remain open.
-  Hosted Lint at `5a853c2` passes 706 tooling tests with 124 platform skips and
+  describes the contract. This increment is integrated on main through `0cdae3d`;
+  the installable SDK and runtime integrations remain open.
+  Hosted Lint at `0cdae3d` passes 714 tooling tests with 124 platform skips and
   all 63 ARQADE rule tests. All 14 discovery tests also pass on Windows. The full
   local tooling run and all-file hooks remain resource-blocked; this does not
   replace native product, sanitizer or isolated-runner acceptance.

@@ -1,8 +1,8 @@
 # Where QOR OS stands
 
-For Andrew, 13 November 2026. Main is pushed at `3e1e2a6`, after integration
-merge `0c45307`. Developer discovery and domain policy are on
-`feat/developer-discovery`; their integration status is recorded with the commit.
+For Andrew, 13 November 2026. Main includes the earlier integration merge
+`0c45307` and the developer-discovery/domain work through `0cdae3d`, pushed
+after its hosted Lint passed. This page records the subsequent status update.
 
 ## Developer access and domains
 
@@ -20,18 +20,19 @@ The installable SDK, the software development kit, remains planned.
 
 Launcher and DRC-369 asset work remain upstream. The core bridge, the shell's
 command interface, has four version/amount commands only. Upstream domain source
-maintenance is on `session/qorsync-domains`, with developer links and frozen
-destinations corrected. Vercel confirms the homepage domain assignments and
+maintenance is in draft PR #118, with developer links and frozen destinations
+corrected. Vercel confirms the homepage domain assignments and
 Cloudflare nameservers, but project access fails. Service-domain migration,
 mail, installed settings and released clients are not yet accepted.
 
 ## Evidence and continuation
 
-Hosted Lint at `5a853c2` passed 706 Python tests with 124 platform skips and 63
-ARQADE rule tests. Fourteen discovery tests passed on Windows; the initial domain
+Hosted Lint at `0cdae3d` passed 714 Python tests with 124 platform skips (838
+total) and all 63 ARQADE rule tests, plus the configured source checks.
+Fourteen discovery tests passed on Windows; the initial domain
 and GitHub-policy run passed 30 tests. The final expanded local validation was
 refused at 3,064 MiB available against the unchanged 3,072-MiB floor. Earlier
-incomplete local runs remain preserved, and final hosted checks are separate.
+incomplete local runs remain preserved. Git's normal commit hooks passed.
 Upstream's 33 homepage checks and Launcher registry check pass locally. Evidence
 is in `build/development-2026-11-13/session-04/`.
 
@@ -43,4 +44,5 @@ ignored, and an inventory finding is not a demonstrated exploit.
 Qt CI, automated native builds, stays paused pending isolated workers. Native
 product/sanitizer journeys, hardware and release gates remain open; Q Pi stays
 on hold. Branch protection is unavailable on the private repository's current
-plan. No image, package, release or deployment was published.
+plan. No image, package or release was published. GitHub reports successful
+automatic Vercel preview checks; no production promotion was performed.
