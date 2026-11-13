@@ -1,6 +1,9 @@
 // A panel on a game's screen (P3.8): the ground a menu or a message stands on. With no size, it is a veil over the whole
 // screen, which a title or pause screen draws first so the world falls back behind it. Parts are drawn in the order of
 // the scene's file, so a panel comes before the parts it carries.
+// Changed for QOR OS: the drawing stays bound to the screen part that supplies its size, colour and shade.
+
+pragma ComponentBehavior: Bound
 
 import QtQuick
 import QQ

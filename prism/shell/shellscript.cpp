@@ -3,11 +3,13 @@
 
 #include "gamepadmanager.h"
 #include "injection.h"
+#include "keycodes.h"
 #include "library.h"
 #include "producthost.h"
 #include "services.h"
 #include "store.h"
 #include "storeengine.h"
+#include "storefronts.h"
 
 #include <QtCore/QCoreApplication>
 #include <QtCore/QDir>
@@ -120,7 +122,7 @@ private:
             }
             const QJsonObject step = m_steps.at(m_next++).toObject();
             if (!expand(step)) {
-                fail(step);
+                fail();
                 return;
             }
         }
@@ -128,17 +130,17 @@ private:
         m_queue.pop_front();
         const int delay = action();
         if (delay < 0) {
-            fail(m_steps.at(m_next - 1).toObject());
+            fail();
             return;
         }
         QTimer::singleShot(delay, this, [this] { pump(); });
     }
 
-    void fail(const QJsonObject &step)
+    void fail()
     {
-        const QByteArray json = QJsonDocument(step).toJson(QJsonDocument::Compact);
-        std::fprintf(stderr, "script: step %lld %s failed: %s\n", static_cast<long long>(m_next), json.constData(),
-                     qPrintable(m_error));
+        // A step can contain supplied credentials or other private arguments. Its number locates it without echoing
+        // them.
+        std::fprintf(stderr, "script: step %lld failed: %s\n", static_cast<long long>(m_next), qPrintable(m_error));
         QCoreApplication::exit(4);
     }
 
@@ -585,8 +587,34 @@ private:
         installed.sort();
         return {
             { u"ready"_s, engine->state() == store::StoreEngine::State::Ready },
-            { u"items"_s, int(engine->catalog().items.size()) },
+            { u"items"_s, int(engine->catalog().formatOneItems().size()) },
             // Installed ids with their versions, comma-separated: "id@1.0.0,…".
+            { u"installed"_s,
+              [&] {
+                  QStringList list;
+                  for (const QString &id : installed)
+                      list.append(id + u'@' + engine->installed().value(id).version);
+                  return list.join(u',');
+              }() },
+        };
+    }
+
+    // Empty but for `available` in a build without a second engine.
+    static QJsonObject storefrontsState()
+    {
+        const store::StoreEngine *engine = store::Storefronts::engine();
+        if (!engine)
+            return { { u"available"_s, false } };
+        QStringList installed = engine->installed().keys();
+        installed.sort();
+        return {
+            { u"available"_s, true },
+            { u"ready"_s, engine->state() == store::StoreEngine::State::Ready },
+            { u"error"_s, engine->error() },
+            { u"sequence"_s, engine->lastSequence() },
+            { u"creatorFeatures"_s, engine->creatorFeatures() },
+            { u"player"_s, int(engine->listings(store::View::Player).size()) },
+            { u"creator"_s, int(engine->listings(store::View::Creator).size()) },
             { u"installed"_s,
               [&] {
                   QStringList list;
@@ -745,6 +773,17 @@ private:
                 mouse(QEvent::MouseMove, *p, Qt::NoButton);
                 return 100;
             });
+        } else if (step.contains(u"press"_s) || step.contains(u"release"_s)) {
+            // {"press": target}, {"release": target}: a button held across other steps.
+            const bool down = step.contains(u"press"_s);
+            const QJsonValue target = step[down ? u"press"_s : u"release"_s];
+            m_queue.push_back([this, target, down] {
+                const auto p = resolve(target);
+                if (!p)
+                    return -1;
+                mouse(down ? QEvent::MouseButtonPress : QEvent::MouseButtonRelease, *p, Qt::LeftButton);
+                return 60;
+            });
         } else if (step.contains(u"drag"_s)) {
             enqueueDrag(step[u"drag"_s].toObject());
         } else if (step.contains(u"gesture"_s)) {
@@ -786,6 +825,22 @@ private:
                         : QString();
                 key(k, combination.keyboardModifiers(), text);
                 return 150;
+            });
+        } else if (step.contains(u"keyRepeat"_s)) {
+            // {"keyRepeat": "a"}: what a key held down sends after the first press.
+            const QKeySequence sequence = QKeySequence::fromString(step[u"keyRepeat"_s].toString());
+            if (sequence.isEmpty()) {
+                m_error = u"cannot parse key"_s;
+                return false;
+            }
+            const int k = sequence[0].key();
+            m_queue.push_back([this, k] {
+                ensureFocus();
+                const input::InjectedInput injected;
+                const quint32 code = input::evdevKeyCode(k);
+                QWindowSystemInterface::handleExtendedKeyEvent(m_window, ulong(m_clock.elapsed()), QEvent::KeyPress, k,
+                                                               {}, code ? code + 8 : 0, 0, 0, QString(), true);
+                return 100;
             });
         } else if (step.contains(u"call"_s)) {
             const QString method = step[u"call"_s].toString();
@@ -873,6 +928,20 @@ private:
                         return -1;
                     }
                     value = windowState(window);
+                } else if (expectation.contains(u"item"_s)) {
+                    // What a person is shown: {"expect": {"item": "storeItemName", "path": "text", "contains":
+                    // "Ember"}}
+                    const QQuickItem *item = findItem(expectation[u"item"_s].toString());
+                    if (!item) {
+                        if (expectation[u"equals"_s] == QJsonValue(u"absent"_s))
+                            return 0;
+                        m_error = u"no item named \"%1\""_s.arg(expectation[u"item"_s].toString());
+                        return -1;
+                    }
+                    value = QJsonObject { { u"visible"_s, item->isVisible() },
+                                          { u"enabled"_s, item->isEnabled() },
+                                          { u"text"_s, item->property("text").toString() },
+                                          { u"textFormat"_s, item->property("textFormat").toInt() } };
                 } else {
                     value = state();
                 }
@@ -890,8 +959,12 @@ private:
                         value = value.toObject().value(key);
                     }
                 }
+                // What an item shows may be whatever a field holds, a password's for one, so a failure says how long
+                // its text is and never what it says.
+                const bool quiet = expectation.contains(u"item"_s) && value.isString();
                 const QString actual =
-                    QString::fromUtf8(QJsonDocument(QJsonArray { value }).toJson(QJsonDocument::Compact));
+                    quiet ? u"a text of %1 characters"_s.arg(value.toString().size())
+                          : QString::fromUtf8(QJsonDocument(QJsonArray { value }).toJson(QJsonDocument::Compact));
                 if (expectation.contains(u"near"_s)) {
                     // "near" is a literal array, or a path into the state (for
                     // example "workArea"), optionally scaled per component.
@@ -917,8 +990,11 @@ private:
                         return -1;
                     }
                 } else if (expectation.contains(u"contains"_s)) {
-                    // A string holding another: a path made where the run is.
-                    if (!value.toString().contains(expectation[u"contains"_s].toString())) {
+                    // A string holding another, a path made where the run is; or a list holding it as one of its own.
+                    const QJsonValue wanted = expectation[u"contains"_s];
+                    const bool holds = value.isArray() ? value.toArray().contains(wanted)
+                                                       : value.toString().contains(wanted.toString());
+                    if (!holds) {
                         m_error = u"%1 is %2, expected to contain %3"_s.arg(path, actual,
                                                                             expectation[u"contains"_s].toString());
                         return -1;
@@ -932,6 +1008,32 @@ private:
                 }
                 return 0;
             });
+        } else if (step.contains(u"hostFocus"_s)) {
+            // {"hostFocus": false}: nested, what the person going to another of the host's windows sends.
+            const bool focused = step[u"hostFocus"_s].toBool();
+            m_queue.push_back([this, focused] {
+                QWindowSystemInterface::handleFocusWindowChanged<QWindowSystemInterface::SynchronousDelivery>(
+                    focused ? m_window : nullptr, Qt::ActiveWindowFocusReason);
+                return 100;
+            });
+        } else if (step.contains(u"hostPointer"_s)) {
+            // {"hostPointer": "left"} or {"hostPointer": [x, y]}: nested, the host's pointer
+            // leaving Prism's window, or coming back into it at that point.
+            const QJsonValue where = step[u"hostPointer"_s];
+            m_queue.push_back([this, where] {
+                if (where.isArray()) {
+                    const auto p = resolve(where);
+                    if (!p)
+                        return -1;
+                    QWindowSystemInterface::handleEnterEvent<QWindowSystemInterface::SynchronousDelivery>(
+                        m_window, *p, m_window->mapToGlobal(*p));
+                } else {
+                    QWindowSystemInterface::handleLeaveEvent<QWindowSystemInterface::SynchronousDelivery>(m_window);
+                }
+                return 100;
+            });
+        } else if (step.contains(u"follow"_s)) {
+            enqueueFollow(path(step[u"follow"_s].toString()), 0);
         } else if (step.contains(u"log"_s)) {
             const QString message = step[u"log"_s].toString();
             m_queue.push_back([message] {
@@ -943,6 +1045,37 @@ private:
             return false;
         }
         return true;
+    }
+
+    // {"follow": folder}: steps handed over one at a time, for a test that decides what
+    // comes next from what a client of Prism's saw (tst_pointercapture). Each is N.json
+    // in the folder, counting from 0, answered by N.done once it has run; {"stop": true}
+    // ends them.
+    void enqueueFollow(const QString &folder, int index)
+    {
+        m_queue.push_back([this, folder, index] {
+            const QDir dir(folder);
+            QFile file(dir.filePath(QString::number(index) + u".json"_s));
+            if (!file.open(QIODevice::ReadOnly)) {
+                enqueueFollow(folder, index);
+                return 5;
+            }
+            const QJsonObject step = QJsonDocument::fromJson(file.readAll()).object();
+            if (step.contains(u"stop"_s))
+                return 0;
+            if (!expand(step))
+                return -1;
+            m_queue.push_back([this, dir, index] {
+                QFile done(dir.filePath(QString::number(index) + u".done"_s));
+                if (!done.open(QIODevice::WriteOnly)) {
+                    m_error = u"cannot write %1"_s.arg(done.fileName());
+                    return -1;
+                }
+                return 0;
+            });
+            enqueueFollow(folder, index + 1);
+            return 0;
+        });
     }
 
     // Supported conditions: {"windows": n} (open, non-closing windows),
@@ -983,6 +1116,8 @@ private:
             { u"decorated"_s, w->property("decorated").toBool() },
             { u"focused"_s, w->property("focused").toBool() },
             { u"demandsAttention"_s, w->property("demandsAttention").toBool() },
+            // The pointer is over it, its content included: its controls light up.
+            { u"pointerOver"_s, w->property("pointerOver").toBool() },
             { u"awaitingSize"_s, w->property("awaitingSize").toBool() },
             { u"maximized"_s, w->property("maximized").toBool() },
             { u"minimized"_s, w->property("minimized").toBool() },
@@ -1079,7 +1214,7 @@ private:
               snapshot("settings",
                        { "darkMode", "accentHue", "reduceMotion", "reduceTransparency", "increaseContrast",
                          "livingWallpaper", "audioReactive", "reactiveIntensity", "reactiveLowHz", "reactiveHighHz",
-                         "controllerInterface", "controllerAutoSwitch", "theme", "widgets" }) },
+                         "controllerInterface", "controllerAutoSwitch", "theme", "widgets", "creatorFeatures" }) },
             { u"audio"_s, snapshot("audio", { "volume", "muted", "outputDevice", "equalizer", "equalizerPreset",
                                               "systemSounds", "systemVolume", "active" }) },
             { u"media"_s,
@@ -1094,11 +1229,15 @@ private:
             { u"overviewProgress"_s, m_desktop->property("overviewProgress").toDouble() },
             { u"gesture"_s, gestureState() },
             { u"store"_s, storeState() },
+            { u"storefronts"_s, storefrontsState() },
             { u"editingWidgets"_s, m_desktop->property("editingWidgets").toBool() },
             // The desktop's widgets in Settings order: "id@col,row;…".
             { u"desktopWidgets"_s, desktopWidgets() },
             { u"surface"_s, m_desktop->property("surface").toString() },
             { u"locked"_s, m_desktop->property("locked").toBool() },
+            // A client holds the pointer (Prism), and what the shell last said in passing.
+            { u"pointerCaptured"_s, m_desktop->property("pointerCapturedBy").value<QObject *>() != nullptr },
+            { u"toast"_s, toastText() },
             { u"controller"_s, QJsonValue::fromVariant(plain(m_desktop->property("controllerState"))) },
             // Frames the shell has drawn: a client inside Prism gets frame
             // callbacks only when Prism draws, which a host compositor (WSLg)
@@ -1110,19 +1249,38 @@ private:
         };
     }
 
-    // The Library and Home: the ids of its games, how much media it holds,
-    // what was played last, its first, and the page Home shows.
+    QString toastText() const
+    {
+        const QObject *toast = m_desktop->findChild<QObject *>(u"toast"_s);
+        return toast ? toast->property("text").toString() : QString();
+    }
+
+    // The Library and Home: the ids of its games, and of each where it came from
+    // and what it is called, those that are the person's own projects, how much
+    // media it holds, what was played last, its first, and the page Home shows.
     QJsonObject libraryState() const
     {
         auto *library = m_engine ? m_engine->singletonInstance<Library *>("QOR.Shell", "Library") : nullptr;
         if (!library)
             return {};
         QJsonArray games;
-        for (const QVariant &game : library->games())
-            games.append(game.toMap().value(u"id"_s).toString());
+        QJsonArray sources;
+        QJsonArray titles;
+        QJsonArray mine;
+        for (const QVariant &game : library->games()) {
+            const QVariantMap item = game.toMap();
+            games.append(item.value(u"id"_s).toString());
+            sources.append(item.value(u"source"_s).toString());
+            titles.append(item.value(u"title"_s).toString());
+            if (item.value(u"source"_s) == u"mine"_s)
+                mine.append(item.value(u"id"_s).toString());
+        }
         const QVariantList recent = library->recent();
         QObject *home = m_desktop->findChild<QObject *>(u"home"_s);
         return { { u"games"_s, games },
+                 { u"gameSources"_s, sources },
+                 { u"gameTitles"_s, titles },
+                 { u"mine"_s, mine },
                  { u"media"_s, int(library->media().size()) },
                  { u"recent"_s, recent.isEmpty() ? QString() : recent.first().toMap().value(u"id"_s).toString() },
                  { u"scanning"_s, library->scanning() },

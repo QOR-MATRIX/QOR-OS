@@ -1,6 +1,9 @@
 // The QQ Player's window: one game, full bleed, with a line of help that fades once play is under way. F11 fills the
 // screen; Ctrl+R plays the scene again from the start.
 
+// Changed for QOR OS: startup problems, including supplied filenames, stay literal text.
+// Changed for QOR OS: scene and follower labels read their properties across their different types.
+
 import QtQuick
 import QtQuick3D
 import QQ
@@ -14,11 +17,13 @@ Window {
     property int seed: 0
     property QtObject recorder: null
 
+    function entityValue(entity: QtObject, field: string): var { return entity ? entity[field] : undefined }
+
     width: 1280
     height: 720
     visible: true
     color: "#07080c"
-    title: (game.scene ? game.scene.name : "QQ") + " — QQ Player"
+    title: (game.scene ? entityValue(game.scene, "name") : "QQ") + " — QQ Player"
 
     /// What a capture or a measurement waits for: the game's first frame proper.
     readonly property bool settled: game.settled
@@ -50,7 +55,7 @@ Window {
         font.pixelSize: 13
         font.letterSpacing: 0.4
         // A 2D game has no eye to turn: its hint is the hands' alone (P3.10).
-        text: game.flat && game.follow && game.follow.style === "top-down" ? qsTr("WASD or the left stick to move  ·  Shift to run")
+        text: game.flat && game.follow && window.entityValue(game.follow, "style") === "top-down" ? qsTr("WASD or the left stick to move  ·  Shift to run")
             : game.flat && game.follow ? qsTr("A and D or the left stick to move  ·  Space or A to jump  ·  Shift to run")
             : game.flat ? ""
             : game.follow ? qsTr("WASD or the left stick to move  ·  Space or A to jump  ·  Shift to run  ·  drag or the right stick to look")
@@ -75,6 +80,7 @@ Window {
             wrapMode: Text.Wrap
             color: "#f2c4cc"
             font.pixelSize: 14
+            textFormat: Text.PlainText
             text: qsTr("This game could not start: %1").arg(game.problem)
         }
     }

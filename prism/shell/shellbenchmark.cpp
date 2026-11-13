@@ -237,6 +237,7 @@ void runShellBenchmark(const QList<QQuickWindow *> &windows, const ShellBenchmar
     QList<FramePump *> pumps;
     for (QQuickWindow *window : windows) {
         auto *probe = new FrameStats(window);
+        probe->setCaptureIdleGaps(true);
         probe->setWindow(window);
         stats.append(probe);
         pumps.append(new FramePump(window));
@@ -285,14 +286,26 @@ void runShellBenchmark(const QList<QQuickWindow *> &windows, const ShellBenchmar
         report.insert(u"inputToSwap"_s, input);
 
         const QByteArray json = QJsonDocument(report).toJson(QJsonDocument::Indented);
+        bool written = true;
         if (!options.outputPath.isEmpty()) {
             QFile file(options.outputPath);
-            if (file.open(QIODevice::WriteOnly))
-                file.write(json);
+            written = file.open(QIODevice::WriteOnly);
+            if (written) {
+                written = file.write(json) == json.size();
+                if (!file.flush())
+                    written = false;
+                file.close();
+                if (file.error() != QFileDevice::NoError)
+                    written = false;
+            }
         }
-        std::fputs(json.constData(), stdout);
-        std::fflush(stdout);
-        QCoreApplication::exit(0);
+        if (std::fputs(json.constData(), stdout) == EOF)
+            written = false;
+        if (std::fflush(stdout) != 0)
+            written = false;
+        if (!written)
+            std::fputs("Could not write benchmark report.\n", stderr);
+        QCoreApplication::exit(written ? 0 : 1);
     };
 
     QTimer::singleShot(kWarmupMs, primary, [stats, pumps, tour] {

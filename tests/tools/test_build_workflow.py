@@ -8,6 +8,7 @@ it, the script that decides whether a job on a kit's runner may start.
 import os
 import pathlib
 import re
+import shlex
 import shutil
 import subprocess
 import sys
@@ -38,6 +39,58 @@ def preflight_script():
 
 
 class WorkflowTest(unittest.TestCase):
+    def _product_lint(self, name):
+        lines = job(name)
+        start = lines.index("      - name: qmllint (the products)")
+        end = next((i for i in range(start + 1, len(lines)) if lines[i].strip() and not lines[i].startswith("        ")), len(lines))
+        return lines[start:end]
+
+    def test_both_platforms_lint_changed_products(self):
+        for name in ("windows", "linux"):
+            with self.subTest(job=name):
+                block = self._product_lint(name)
+                self.assertIn("        if: steps.products.outputs.run == 'true'", block)
+                script = "\n".join(block)
+                self.assertIn("all_qmllint", script)
+                for product in ("qq", "arqade", "media"):
+                    self.assertRegex(script, rf"\b{product}\b")
+
+    def test_product_lint_stops_at_a_native_failure(self):
+        import json
+        import tempfile
+
+        windows = sys.platform == "win32"
+        shell = shutil.which("pwsh" if windows else "bash")
+        self.assertTrue(shell)
+        block = self._product_lint("windows" if windows else "linux")
+        start = block.index("        run: |") + 1
+        script = "\n".join(line[10:] for line in block[start:])
+        with tempfile.TemporaryDirectory() as folder:
+            root = pathlib.Path(folder)
+            log = root / "calls.jsonl"
+            fixture = root / "cmake.py"
+            fixture.write_text(
+                "import json, os, sys\n"
+                "with open(os.environ['QOR_LINT_CALLS'], 'a') as output:\n"
+                "    output.write(json.dumps(sys.argv[1:]) + '\\n')\n"
+                "sys.exit(23 if os.environ['QOR_LINT_FAIL'] == 'yes' else 0)\n", encoding="utf-8")
+            if windows:
+                (root / "cmake.cmd").write_text(f'@echo off\n"{sys.executable}" "{fixture}" %*\n', encoding="utf-8")
+            else:
+                command = root / "cmake"
+                command.write_text(f'#!/bin/sh\nexec {shlex.quote(sys.executable)} {shlex.quote(str(fixture))} "$@"\n', encoding="utf-8")
+                command.chmod(0o700)
+            env = dict(os.environ, PATH=str(root) + os.pathsep + os.environ.get("PATH", ""), QOR_LINT_CALLS=str(log))
+            for failure in ("no", "yes"):
+                with self.subTest(failure=failure):
+                    log.unlink(missing_ok=True)
+                    args = [shell, "-NoProfile", "-Command", script] if windows else [shell, "-euo", "pipefail", "-c", script]
+                    done = subprocess.run(args, cwd=root, env=dict(env, QOR_LINT_FAIL=failure), capture_output=True, text=True, timeout=30)
+                    self.assertEqual(done.returncode, 23 if failure == "yes" else 0, done.stdout + done.stderr)
+                    calls = [json.loads(line) for line in log.read_text(encoding="utf-8").splitlines()]
+                    self.assertEqual(calls, [["--build", f"build/ci-products/{product}", "--target", "all_qmllint", "--parallel", "1"]
+                                             for product in (("qq",) if failure == "yes" else ("qq", "arqade", "media"))])
+
     def test_nothing_of_the_repository_runs_before_the_boundary(self):
         for name in ("windows", "linux"):
             with self.subTest(job=name):
@@ -127,7 +180,7 @@ class WorkflowTest(unittest.TestCase):
         self.assertEqual(patterns[0], patterns[1], "the two platforms ask about the same files")
         changes = re.compile(patterns[0])
         repository = WORKFLOW.parents[2]
-        named = {".github/workflows/build.yml", ".github/qt-packages.json", "docs/design/tokens.json"}
+        named = {".github/workflows/build.yml", ".github/qt-packages.json", ".qmllint.ini", "docs/design/tokens.json"}
         # What the products' builds include from outside their own folders.
         for cmake in ("products/qq/CMakeLists.txt", "products/arqade/qt/CMakeLists.txt", "tools/qor-media/CMakeLists.txt"):
             folder = (repository / cmake).parent
@@ -140,7 +193,7 @@ class WorkflowTest(unittest.TestCase):
                 if line.strip() == "if: steps.products.outputs.run == 'true'":
                     run = next(l for l in lines[i + 1 : i + 4] if l.strip().startswith("run:"))
                     named.update(path.replace("\\", "/") for path in re.findall(r"tools[\\/][\w./\\-]+\.\w+", run))
-        for script in ("tools/dev/products.sh", "tools/dev/products.ps1"):
+        for script in ("tools/dev/products.sh", "tools/dev/products.ps1", "tools/dev/products-tests.ps1"):
             named.add(script)
             named.update(re.findall(r"tools/dev/[\w.-]+\.(?:py|qml|sh|ps1)", (repository / script).read_text(encoding="utf-8")))
         self.assertIn("cmake/QorHardening.cmake", named)

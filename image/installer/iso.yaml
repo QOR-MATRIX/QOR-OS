@@ -1,0 +1,9 @@
+# SPDX-License-Identifier: LicenseRef-QOR-OS-Proprietary
+# osbuild generic-iso input, not a bootable live environment by itself.
+label: QOR_OS_LIVE
+grub2:
+  timeout: 5
+  entries:
+    - name: Try QOR OS
+      linux: ${kernelpath} ${root}
+      initrd: ${initrdpath}

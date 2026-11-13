@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# The compositor decision gate (ADR-0003, issue #9) on real hardware.
+# SPDX-License-Identifier: LicenseRef-QOR-OS-Proprietary
+# The deferred compositor decision gate (QOR-0005) on real hardware.
 #
 # Runs Prism on Qt's eglfs platform with its KMS integration, one output per
 # display on the GPU, with an animating Wayland client on each. It records
@@ -18,7 +19,7 @@
 # --build-dir defaults to this script's folder in a gate bundle
 # (prism-gate-bundle.sh). --mode picks a display's mode, e.g. eDP-1=1920x1080@60
 # (connector names as --probe prints them). Writes report.json, summary.md (the
-# data for ADR-0011), the logs and a .zip of them all. Exits 0 when every
+# measurement and verdict), the logs and a .zip of them all. Exits 0 when every
 # criterion passes. See docs/PERFORMANCE.md, "Running the decision gate".
 
 set -euo pipefail
@@ -155,7 +156,12 @@ else
     fi
 fi
 
-mkdir -p "$out"
+# A failed run must never consume a previous run's report or replace its logs.
+mkdir -p -- "$(dirname -- "$out")"
+if ! mkdir -- "$out"; then
+    echo "Choose a new output folder; the gate never reuses an existing one: $out" >&2
+    exit 2
+fi
 out=$(cd "$out" && pwd)
 if [ "$action" = gate ]; then
     # Every display on the GPU is a screen, side by side, the built-in one first.
@@ -191,10 +197,28 @@ PY
 fi
 
 pids=()
+client_pids=()
 cleanup() {
     if [ ${#pids[@]} -gt 0 ]; then
         kill "${pids[@]}" 2> /dev/null || true
     fi
+}
+
+# A measurement with the animating load gone cannot stand in for the requested gate.
+# ShellBenchmark writes the report at measurement's end, before closing the display. The new output folder ensures
+# this cannot be an older report. A later disconnect is expected; the producer must still exit successfully.
+check_clients() {
+    local pid client_status
+    [ ! -f "$out/report.json" ] || return 0
+    for pid in "${client_pids[@]}"; do
+        if ! kill -0 "$pid" 2> /dev/null && kill -0 "$prism_pid" 2> /dev/null; then
+            client_status=0
+            wait "$pid" || client_status=$?
+            echo "An animating client exited with status $client_status before Prism finished; this run cannot pass." >&2
+            [ "$client_status" -ne 0 ] || client_status=4
+            exit "$client_status"
+        fi
+    done
 }
 # The results, or the logs of a run that failed, packed for upload. A .zip:
 # GitHub issues refuse .tgz attachments.
@@ -243,29 +267,59 @@ grep '^Output ' "$out/prism.log" || true
 for i in $(seq 1 "$outputs"); do
     WAYLAND_DISPLAY="$socket" QT_QPA_PLATFORM=wayland "$client" --title "Gate client $i" \
         --app-id dev.qorsync.GateClient --size 900x560 --animate > "$out/client-$i.log" 2>&1 < /dev/null &
-    pids+=($!)
+    client_pid=$!
+    pids+=("$client_pid")
+    client_pids+=("$client_pid")
     sleep 0.5
+    if ! kill -0 "$prism_pid" 2> /dev/null; then
+        prism_status=0
+        wait "$prism_pid" || prism_status=$?
+        echo "Prism finished before the animating clients were ready; this run cannot pass." >&2
+        [ "$prism_status" -ne 0 ] || prism_status=4
+        exit "$prism_status"
+    fi
+    if [ -f "$out/report.json" ]; then
+        echo "Prism measured before all animating clients were ready; this run cannot pass." >&2
+        exit 4
+    fi
+    check_clients
 done
 echo "Measuring for about $((seconds + 15)) s. The screens return when it is done."
-wait "$prism_pid" || true
+while kill -0 "$prism_pid" 2> /dev/null; do
+    check_clients
+    sleep 0.1
+done
+prism_status=0
+wait "$prism_pid" || prism_status=$?
 cleanup
 pids=()
+if [ "$prism_status" -ne 0 ]; then
+    echo "Prism exited with status $prism_status; this run cannot pass. The end of $out/prism.log:" >&2
+    tail -n 25 "$out/prism.log" >&2
+    exit "$prism_status"
+fi
 [ -f "$out/report.json" ] || { echo "No report; the end of $out/prism.log:" >&2; tail -n 25 "$out/prism.log" >&2; exit 4; }
 
 status=0
-GATE_TRIAL=$([ "$action" = try ] && echo 1 || echo 0) GATE_DEVICE="$device" python3 - "$out" << 'PY' || status=$?
-import json
+GATE_TRIAL=$([ "$action" = try ] && echo 1 || echo 0) GATE_DEVICE="$device" GATE_OUTPUTS="$outputs" python3 - "$out" "$here" << 'PY' || status=$?
 import os
 import platform
 import subprocess
 import sys
 from datetime import date
 
+sys.path.insert(0, sys.argv[2])
+from prism_benchmark import InvalidReport, LATENCY_SAMPLES, assess_report, load_report
+
 out = sys.argv[1]
 trial = os.environ.get("GATE_TRIAL") == "1"
-report = json.load(open(os.path.join(out, "report.json")))
-outputs = report.get("outputs", [])
-latency = report.get("inputToSwap", {})
+try:
+    report = load_report(os.path.join(out, "report.json"))
+    verdict = assess_report(report, int(os.environ["GATE_OUTPUTS"]))
+except InvalidReport as error:
+    raise SystemExit(str(error))
+outputs = report["outputs"]
+latency = report["inputToSwap"]
 
 
 def run(command):
@@ -277,19 +331,16 @@ def run(command):
 
 gpu = "; ".join(line for line in run(["lspci"]).splitlines() if "VGA" in line or "3D controller" in line)
 rows = []
-passed = True
 for index, o in enumerate(outputs):
-    ok = o.get("frames", 0) > 0 and o.get("missedPercent", 100) < 1.0
-    passed &= ok
+    ok = verdict["output_passes"][index]
     rows.append(f"| {index + 1} | {o.get('screen', '?')} | {o.get('size', '?')} | {o.get('refreshHz', 0):.1f} Hz "
                 f"| {o.get('frames', 0)} | {o.get('p95Ms', 0):.2f} ms | {o.get('missedPercent', 0):.2f}% "
                 f"| {'pass' if ok else 'FAIL'} |")
-refresh = outputs[0].get("refreshHz", 60) if outputs else 60
-budget = 2 * 1000.0 / refresh
-latency_ok = latency.get("samples", 0) > 0 and latency.get("p95Ms", 1e9) <= budget
-passed &= latency_ok
-distinct = len({round(o.get("refreshHz", 0)) for o in outputs}) > 1
-enough = len(outputs) >= 2
+budget = verdict["budget_ms"]
+latency_ok = verdict["latency_ok"]
+distinct = verdict["distinct_refresh_rates"]
+enough = verdict["enough_outputs"]
+gate_passed = verdict["passed"]
 
 title = "Trial inside a desktop session (not gate data)" if trial else "Compositor decision gate: measurement"
 summary = f"""# {title} ({date.today().isoformat()})
@@ -306,15 +357,16 @@ summary = f"""# {title} ({date.today().isoformat()})
 """ + "\n".join(rows) + f"""
 
 Input to swap: p50 {latency.get("p50Ms", 0):.1f} ms, p95 {latency.get("p95Ms", 0):.1f} ms \
-({latency.get("samples", 0)} samples); two refresh periods of output 1 are {budget:.1f} ms: \
+({latency["samples"]}/{latency["posted"]} samples recorded/posted; {LATENCY_SAMPLES} required); two refresh periods of output 1 are {budget:.1f} ms: \
 {"pass" if latency_ok else "FAIL"}.
 
-**Result: {"every criterion passes" if passed else "a criterion fails"}.** \
+**Result: {"every criterion passes" if gate_passed else "a criterion fails"}.** \
 {"" if enough and distinct else "The setup does not yet match the gate (two outputs at different refresh rates). "}\
-Record the decision in ADR-0011 (docs/adr/).
+Keep this report for the next compositor decision; docs/PERFORMANCE.md describes the gate.
 """
-open(os.path.join(out, "summary.md"), "w").write(summary)
+with open(os.path.join(out, "summary.md"), "w", encoding="utf-8") as stream:
+    stream.write(summary)
 print(summary)
-sys.exit(0 if trial or (passed and enough) else 1)
+sys.exit(0 if trial or gate_passed else 1)
 PY
 exit $status

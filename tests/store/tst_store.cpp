@@ -32,7 +32,8 @@ const QString kCatalog = QStringLiteral(QOR_STORE_CATALOG);
 const QString kFixtures = QStringLiteral(QOR_STORE_FIXTURES);
 const QString kStorePub = QStringLiteral(QOR_STORE_PUB);
 
-// Rewrites a package with `edit` applied to its entries.
+// Rewrites a package with `edit` applied to its entries. Stored, as a package is: the Store refuses a compressed entry
+// before it looks at anything else, and each case below is about something else.
 QByteArray rezip(const QByteArray &archive, const std::function<void(QMap<QString, QByteArray> &)> &edit)
 {
     QBuffer in;
@@ -46,6 +47,7 @@ QByteArray rezip(const QByteArray &archive, const std::function<void(QMap<QStrin
     QBuffer out;
     out.open(QIODevice::WriteOnly);
     QZipWriter writer(&out);
+    writer.setCompressionPolicy(QZipWriter::NeverCompress);
     for (auto it = entries.cbegin(); it != entries.cend(); ++it)
         writer.addFile(it.key(), it.value());
     writer.close();
@@ -199,9 +201,12 @@ private Q_SLOTS:
             QCOMPARE(store.installed().value(theme).version, u"1.0.0"_s);
             QVERIFY(QFile::exists(store.installDirectory(widget) + u"/Test.qml"_s));
         }
-        // What is installed is remembered.
+        // What is installed is remembered. A format 1 listing says nothing of where it came from, and nor does the
+        // record.
         StoreEngine store(data.path(), key);
         QCOMPARE(store.installed().size(), 2);
+        QVERIFY(!store.installed().value(theme).provenance);
+        QVERIFY(!readFile(data.path() + u"/installed.json"_s).contains("provenance"));
         const QByteArray before = readFile(store.installDirectory(theme) + u"/theme.json"_s);
 
         // A newer catalogue offers an update.

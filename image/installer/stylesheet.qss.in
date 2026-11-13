@@ -1,0 +1,14 @@
+/* SPDX-License-Identifier: LicenseRef-QOR-OS-Proprietary */
+QWidget { background-color: @background@; color: @textPrimary@; }
+QLabel { background-color: transparent; }
+QPushButton { padding: 0.6em 1.2em; border: 1px solid @textSecondary@; border-radius: @radius_m@px; }
+QPushButton:focus, QLineEdit:focus, QComboBox:focus, QAbstractItemView:focus {
+    border: 2px solid @accentText@;
+}
+QPushButton:hover { background-color: @surfaceRaised@; }
+QPushButton:disabled { color: @textDisabled@; }
+QLineEdit, QComboBox, QAbstractItemView { background-color: @surface@; padding: 0.4em; }
+QAbstractItemView { selection-background-color: @accent@; selection-color: @onAccent@; }
+QProgressBar { border: 1px solid @textSecondary@; border-radius: @radius_xs@px; text-align: center; }
+QProgressBar::chunk { background-color: @accent@; }
+/* Keep native check/radio indicators, keyboard focus and backend progress. */

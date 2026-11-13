@@ -1,0 +1,17 @@
+# SPDX-License-Identifier: LicenseRef-QOR-OS-Proprietary
+[Unit]
+Description=QOR OS private VM shutdown-only guest agent
+After=systemd-modules-load.service
+BindsTo=dev-virtio\x2dports-org.qemu.guest_agent.0.device
+After=dev-virtio\x2dports-org.qemu.guest_agent.0.device
+
+[Service]
+Type=simple
+RuntimeDirectory=qor-vm-agent
+RuntimeDirectoryMode=0700
+ExecStartPre=/usr/bin/python3 /usr/libexec/qor-os/vm_session.py check-agent
+ExecStart=/usr/bin/qemu-ga --config=/usr/share/qor-os/vm-agent.conf --method=virtio-serial --path=/dev/virtio-ports/org.qemu.guest_agent.0 --statedir=/run/qor-vm-agent --allow-rpcs=guest-sync-delimited,guest-ping,guest-info,guest-shutdown
+Restart=no
+
+[Install]
+WantedBy=multi-user.target

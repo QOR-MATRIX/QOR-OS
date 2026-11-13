@@ -1,4 +1,5 @@
 // Changed for QOR OS: the key goes to no redirect, and a looping answer stops at the limit on answers (QOR-0018).
+// Changed for QOR OS: forget(), so nothing of a run stays when the Studio changes project.
 #include "designloop.h"
 
 #include <QHostAddress>
@@ -405,6 +406,21 @@ bool DesignLoop::undo()
     emit canUndoChanged();
     setStatus(tr("Put back as it was before the run."));
     return true;
+}
+
+void DesignLoop::forget()
+{
+    stop();
+    // Whatever is still on its way from the run finds a different run.
+    ++m_run;
+    m_before.clear();
+    m_messages = QJsonArray();
+    m_steps.clear();
+    m_usage.clear();
+    setStatus(QString());
+    emit stepsChanged();
+    emit usageChanged();
+    emit canUndoChanged();
 }
 
 }  // namespace qq

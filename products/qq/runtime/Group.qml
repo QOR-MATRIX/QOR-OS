@@ -6,6 +6,8 @@
 // those on from its own parent. Players, the ground, the sun, tile maps, and what has no place in the world stay at the
 // scene's top (SceneIO::nestable). A group made into a prefab is written to a file of its own (Prefab.qml).
 
+// Changed for QOR OS: state reads preserve the mixed parent types through their structural interface.
+
 import QtQuick
 import QtQuick3D
 
@@ -20,12 +22,15 @@ Node {
     property url fromPrefab
 
     // The scene's state, passed on to what is in the group.
-    readonly property bool playing: parent !== null && parent.playing === true
-    readonly property bool replaying: parent !== null && parent.replaying === true
-    readonly property bool paused: parent !== null && parent.paused === true
-    readonly property real _owed: parent !== null && parent._owed !== undefined ? parent._owed : 0
-    readonly property string view: parent !== null && parent.view !== undefined ? parent.view : "3d"
-    readonly property real pixelsPerUnit: parent !== null && parent.pixelsPerUnit !== undefined ? parent.pixelsPerUnit : 16
+    readonly property bool playing: parent !== null && _parentValue("playing") === true
+    readonly property bool replaying: parent !== null && _parentValue("replaying") === true
+    readonly property bool paused: parent !== null && _parentValue("paused") === true
+    readonly property real _owed: parent !== null && _parentValue("_owed") !== undefined ? _parentValue("_owed") : 0
+    readonly property string view: parent !== null && _parentValue("view") !== undefined ? _parentValue("view") : "3d"
+    readonly property real pixelsPerUnit: parent !== null && _parentValue("pixelsPerUnit") !== undefined ? _parentValue("pixelsPerUnit") : 16
     /// True while the scene this belongs to plays.
     readonly property bool live: playing
+
+    // A parent can be a Scene, Group or Prefab; none is the sole parent type.
+    function _parentValue(field: string): var { return group.parent[field] }
 }

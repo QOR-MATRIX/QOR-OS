@@ -1,6 +1,9 @@
 # QOR-0020: Unreal Engine on QOR OS, with Epic's own builds
 
-- **Status:** Accepted
+- **Status:** Accepted; its order and its Store check amended by
+  [QOR-0021](QOR-0021-projects-engines-and-two-stores.md). Decision 8 is under review in
+  [QOR-0022](QOR-0022-assistants-and-unreal-engine-after-epics-change.md), proposed: Epic changed its clause on AI on
+  29 October, which this record missed. Decision 8 stands until that is accepted.
 - **Date:** 2026-11-01
 - **Deciders:** the owner, who asked to "find the best way to implement Unreal
   Engine 5 into our ecosystem", to support developing with it fully within QOR OS.

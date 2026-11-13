@@ -1,5 +1,11 @@
 blank_issues_enabled: false
 contact_links:
+  - name: Developer start and integration boundaries
+    url: https://github.com/QOR-MATRIX/qor-os/blob/main/sdk/README.md
+    about: App and asset templates, agent tools, QOR Launcher and DRC-369 source ownership.
+  - name: Current progress and masterplan
+    url: https://github.com/QOR-MATRIX/qor-os/blob/main/docs/ROADMAP.md
+    about: Check phased work, verified results and remaining acceptance gates.
   - name: Security vulnerability
     url: https://github.com/QOR-MATRIX/qor-os/security/advisories/new
     about: Report security issues privately. Do not open a public issue.

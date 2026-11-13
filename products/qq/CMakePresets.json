@@ -1,0 +1,75 @@
+{
+  "version": 6,
+  "cmakeMinimumRequired": {
+    "major": 3,
+    "minor": 27,
+    "patch": 0
+  },
+  "vendor": {
+    "qorsync.dev/qor-os/1.0": {
+      "SPDX-License-Identifier": "LicenseRef-QOR-OS-Proprietary"
+    }
+  },
+  "configurePresets": [
+    {
+      "name": "q-pi-release",
+      "displayName": "Q Pi · native ARM64 · QQ Studio and Player",
+      "description": "Private native build on the qualified Pi builder; QOR_QT_DIR names the entitled Linux ARM64 Qt 6.12 kit.",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/../../build/q-pi-qq-release/qq",
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Linux"
+      },
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "RelWithDebInfo",
+        "CMAKE_PREFIX_PATH": "$penv{QOR_QT_DIR}",
+        "CMAKE_PROJECT_TOP_LEVEL_INCLUDES": "${sourceDir}/../../cmake/QorPiNative.cmake",
+        "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
+        "CMAKE_COMPILE_WARNING_AS_ERROR": "ON",
+        "CMAKE_AUTOGEN_PARALLEL": "1",
+        "QT_QML_GENERATE_QMLLS_INI": "OFF",
+        "QQ_PLAYER_ONLY": "OFF",
+        "QOR_HARDENING": "ON",
+        "QOR_SANITIZE": ""
+      }
+    },
+    {
+      "name": "q-pi-asan",
+      "displayName": "Q Pi · native ARM64 · address and undefined behavior checks",
+      "inherits": "q-pi-release",
+      "binaryDir": "${sourceDir}/../../build/q-pi-qq-asan/qq",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "QOR_SANITIZE": "address,undefined"
+      }
+    }
+  ],
+  "buildPresets": [
+    {
+      "name": "q-pi-release",
+      "configurePreset": "q-pi-release",
+      "jobs": 1
+    },
+    {
+      "name": "q-pi-asan",
+      "configurePreset": "q-pi-asan",
+      "jobs": 1
+    }
+  ],
+  "testPresets": [
+    {
+      "name": "q-pi-release",
+      "configurePreset": "q-pi-release",
+      "output": {"outputOnFailure": true},
+      "execution": {"jobs": 1, "stopOnFailure": true}
+    },
+    {
+      "name": "q-pi-asan",
+      "configurePreset": "q-pi-asan",
+      "output": {"outputOnFailure": true},
+      "execution": {"jobs": 1, "stopOnFailure": true}
+    }
+  ]
+}

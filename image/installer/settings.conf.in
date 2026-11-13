@@ -1,0 +1,25 @@
+# SPDX-License-Identifier: LicenseRef-QOR-OS-Proprietary
+# Deliberately inactive. A proved bootc adapter and final disk review must
+# replace these placeholders; do not feed this template to Calamares.
+branding: qor-os
+modules-search: [local]
+sequence:
+  - show:
+      - welcome
+      - locale
+      - keyboard
+      - partition
+      - users
+      - summary
+      - "@VERIFIED_DISK_REVIEW_MODULE@"
+  - exec:
+      - "@VERIFIED_BOOTC_DEPLOYMENT_SEQUENCE@"
+  - show:
+      - finished
+prompt-install: true
+dont-chroot: false
+oem-setup: false
+disable-cancel: false
+disable-cancel-during-exec: false
+hide-back-and-next-during-exec: true
+quit-at-end: false

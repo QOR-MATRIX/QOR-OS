@@ -3,6 +3,12 @@
 // each field holds. A change is written to the entity at once, and `edited` tells the Studio the scene changed.
 
 // Changed for QOR OS: Open outside opens only the project's own QML (QOR-0018).
+// Changed for QOR OS: the colour swatch gives its preferred size to the layout instead of competing with it.
+// Changed for QOR OS: field editors keep their inspector context, typed loader fields and literal source filenames.
+// Changed for QOR OS: selected entity metadata uses the existing dynamic lookup across its different types.
+
+pragma ComponentBehavior: Bound
+
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Controls.Material
@@ -13,6 +19,7 @@ import QQ
 ColumnLayout {
     id: inspector
 
+    // The selected objects have different types; their declared field metadata is read dynamically.
     property QtObject target: null
     signal edited()
     /// What was edited last, as the target's name and the field ("Crate/colour"): the Studio's undo makes quick edits of
@@ -39,27 +46,35 @@ ColumnLayout {
     // A file field is named for what it holds.
     readonly property var fileLabels: ({ Prop: qsTr("Model file"), Sound: qsTr("Sound file"), Behaviour: qsTr("Logic file") })
 
+    // Entity metadata is declared by each selected type rather than its shared QObject base.
+    function metadata(field: string): var {
+        return target ? target[field] : undefined
+    }
+
     function labelFor(field) {
-        if (field === "source" && target && fileLabels[target.kind])
-            return fileLabels[target.kind]
+        if (field === "source" && target && fileLabels[metadata("kind")])
+            return fileLabels[metadata("kind")]
         return labels[field] ?? field
     }
     function set(field, value) {
         target[field] = value
-        lastEdit = target.name + "/" + field
+        lastEdit = metadata("name") + "/" + field
         inspector.edited()
     }
 
-    Repeater {
-        model: inspector.target ? inspector.target.fields : []
+    component FieldLoader: Loader {
+        required property string modelData
+        readonly property string field: modelData
+    }
 
-        delegate: Loader {
+    Repeater {
+        model: inspector.target ? inspector.metadata("fields") : []
+
+        delegate: FieldLoader {
             id: row
-            required property string modelData
-            readonly property string field: modelData
             readonly property string type: SceneIO.fieldType(inspector.target, field)
             Layout.fillWidth: true
-            sourceComponent: inspector.target && inspector.target.choices && inspector.target.choices[field] ? choiceEditor
+            sourceComponent: inspector.target && inspector.metadata("choices") && inspector.metadata("choices")[field] ? choiceEditor
                            : type === "vector3d" ? vectorEditor
                            : type === "color" ? colourEditor
                            : type === "bool" ? boolEditor
@@ -70,6 +85,7 @@ ColumnLayout {
     }
 
     component FieldLabel: Label {
+        textFormat: Text.PlainText
         font.family: Look.ui
         font.weight: Font.DemiBold
         font.pixelSize: Look.sizeMicro
@@ -81,13 +97,15 @@ ColumnLayout {
     Component {
         id: textEditor
         ColumnLayout {
-            readonly property string field: parent ? parent.field : ""
+            id: textRow
+            readonly property string field: (parent as FieldLoader)?.field ?? ""
             spacing: 2
-            FieldLabel { text: inspector.labelFor(parent.field) }
+            FieldLabel { text: inspector.labelFor(textRow.field) }
             TextField {
                 Layout.fillWidth: true
-                text: inspector.target ? inspector.target[parent.field] : ""
-                onEditingFinished: if (text !== inspector.target[parent.field]) inspector.set(parent.field, text)
+                // A row can outlive its old target for a moment while the selected kind changes.
+                text: inspector.target ? inspector.target[textRow.field] ?? "" : ""
+                onEditingFinished: if (text !== inspector.target[textRow.field]) inspector.set(textRow.field, text)
             }
         }
     }
@@ -96,8 +114,8 @@ ColumnLayout {
         id: numberEditor
         ColumnLayout {
             id: numberRow
-            readonly property string field: parent ? parent.field : ""
-            readonly property var range: inspector.target && inspector.target.ranges ? inspector.target.ranges[field] : undefined
+            readonly property string field: (parent as FieldLoader)?.field ?? ""
+            readonly property var range: inspector.target && inspector.metadata("ranges") ? inspector.metadata("ranges")[field] : undefined
             spacing: 2
             RowLayout {
                 FieldLabel { text: inspector.labelFor(numberRow.field); Layout.fillWidth: true }
@@ -129,7 +147,7 @@ ColumnLayout {
         id: vectorEditor
         ColumnLayout {
             id: vectorRow
-            readonly property string field: parent ? parent.field : ""
+            readonly property string field: (parent as FieldLoader)?.field ?? ""
             readonly property vector3d value: inspector.target ? inspector.target[field] : Qt.vector3d(0, 0, 0)
             spacing: 2
             FieldLabel { text: inspector.labelFor(vectorRow.field) }
@@ -138,6 +156,7 @@ ColumnLayout {
                 Repeater {
                     model: ["x", "y", "z"]
                     delegate: TextField {
+                        id: axisField
                         required property string modelData
                         required property int index
                         Layout.fillWidth: true
@@ -147,10 +166,10 @@ ColumnLayout {
                         text: Number(vectorRow.value[modelData]).toFixed(2).replace(/\.?0+$/, "")
                         leftPadding: 18
                         Label {
-                            text: modelData
+                            text: axisField.modelData
                             x: 4
                             anchors.verticalCenter: parent.verticalCenter
-                            color: ["#ff4d5e", "#6cf07f", "#4da3ff"][index]
+                            color: ["#ff4d5e", "#6cf07f", "#4da3ff"][axisField.index]
                             font.pixelSize: 11
                         }
                         onEditingFinished: {
@@ -169,13 +188,13 @@ ColumnLayout {
         id: colourEditor
         ColumnLayout {
             id: colourRow
-            readonly property string field: parent ? parent.field : ""
+            readonly property string field: (parent as FieldLoader)?.field ?? ""
             spacing: 2
             FieldLabel { text: inspector.labelFor(colourRow.field) }
             RowLayout {
                 Rectangle {
-                    width: 30
-                    height: 30
+                    Layout.preferredWidth: 30
+                    Layout.preferredHeight: 30
                     radius: 4
                     color: inspector.target ? inspector.target[colourRow.field] : "black"
                     border.color: Qt.rgba(1, 1, 1, 0.25)
@@ -202,7 +221,7 @@ ColumnLayout {
     Component {
         id: boolEditor
         Switch {
-            readonly property string field: parent ? parent.field : ""
+            readonly property string field: (parent as FieldLoader)?.field ?? ""
             text: inspector.labelFor(field)
             // As the selection changes kind, a row can briefly read a field the new one does not have.
             checked: inspector.target ? inspector.target[field] === true : false
@@ -214,10 +233,10 @@ ColumnLayout {
         id: choiceEditor
         ColumnLayout {
             id: choiceRow
-            readonly property string field: parent ? parent.field : ""
+            readonly property string field: (parent as FieldLoader)?.field ?? ""
             // Guarded: while the selection changes, this row can briefly see an entity that has no choices.
-            readonly property var options: inspector.target && inspector.target.choices
-                                           ? inspector.target.choices[field] ?? [] : []
+            readonly property var options: inspector.target && inspector.metadata("choices")
+                                           ? inspector.metadata("choices")[field] ?? [] : []
             spacing: 2
             FieldLabel { text: inspector.labelFor(choiceRow.field) }
             ComboBox {
@@ -233,12 +252,13 @@ ColumnLayout {
         id: urlEditor
         ColumnLayout {
             id: urlRow
-            readonly property string field: parent ? parent.field : ""
+            readonly property string field: (parent as FieldLoader)?.field ?? ""
             spacing: 2
             FieldLabel { text: inspector.labelFor(urlRow.field) }
             Label {
                 Layout.fillWidth: true
                 elide: Text.ElideMiddle
+                textFormat: Text.PlainText
                 text: inspector.target ? decodeURIComponent(String(inspector.target[urlRow.field]).split("/").pop()) : ""
             }
             RowLayout {
@@ -261,8 +281,8 @@ ColumnLayout {
             FileDialog {
                 id: fileChooser
                 title: qsTr("Choose a file")
-                nameFilters: inspector.target && inspector.target.fileTypes && inspector.target.fileTypes[urlRow.field]
-                             ? inspector.target.fileTypes[urlRow.field] : [qsTr("Any file (*)")]
+                nameFilters: inspector.target && inspector.metadata("fileTypes") && inspector.metadata("fileTypes")[urlRow.field]
+                             ? inspector.metadata("fileTypes")[urlRow.field] : [qsTr("Any file (*)")]
                 onAccepted: inspector.set(urlRow.field, selectedFile)
             }
         }

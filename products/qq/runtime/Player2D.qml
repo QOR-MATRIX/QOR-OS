@@ -13,6 +13,10 @@
 // goes; without one, a plain figure in `colour`. `activity` says what it is doing (idle, run, jump or fall), for logic
 // to play the look's frames by. A 2D scene's eye follows it. `position` is where its feet are.
 
+// Changed for QOR OS: the private carrier body binds to its owning player.
+
+pragma ComponentBehavior: Bound
+
 import QtQuick
 import QtQuick3D
 import QtQuick3D.Physics

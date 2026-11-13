@@ -1,5 +1,9 @@
 // Text on a game's screen (P3.8): a score, a timer, a title, a message. Logic sets `text` as the game goes. Drawn in
 // QQ's faces (Look): the interface face, or the display face for a title, with a soft shadow so it reads over any sky.
+// Changed for QOR OS: game-supplied text is drawn literally, never parsed as markup.
+// Changed for QOR OS: the drawing stays bound to the screen part that supplies its text, face and size.
+
+pragma ComponentBehavior: Bound
 
 import QtQuick
 import QtQuick.Effects
@@ -23,6 +27,7 @@ ScreenPart {
 
     drawing: Component {
         Text {
+            textFormat: Text.PlainText
             text: words.text
             color: words.colour
             font.family: words.typeface === "display" ? Look.display : Look.ui

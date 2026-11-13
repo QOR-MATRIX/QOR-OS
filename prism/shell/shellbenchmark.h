@@ -27,6 +27,7 @@ struct ShellBenchmarkOptions
 // 3. Prints a JSON report and quits. The top-level fields describe the first
 //    window, as in earlier versions; "outputs" has one entry per window, with
 //    missed frames judged against that output's own refresh rate.
+//    Exit 1 if stdout or the requested output file cannot be written completely.
 void runShellBenchmark(const QList<QQuickWindow *> &windows, const ShellBenchmarkOptions &options);
 
 } // namespace qor

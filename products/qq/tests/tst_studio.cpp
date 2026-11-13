@@ -5,8 +5,12 @@
 // the disk.
 //
 // Changed for QOR OS: a warning from QQ's own QML (an undefined name, a failed binding) fails the case it happens in;
-// a Studio is open once its window has the keyboard too, so that a shortcut is not pressed before it can answer; and no
-// controller on the machine joins in (virtualpads.cpp).
+// a Studio is open once its window has the keyboard too, so that a shortcut is not pressed before it can answer; no
+// controller on the machine joins in (virtualpads.cpp); and drawn in software alone, what play does to bodies is waited
+// for on the physics world's clock.
+// Changed for QOR OS: supplied logic problem descriptions are displayed literally.
+// Changed for QOR OS: the group selector must display supplied names literally.
+// Changed for QOR OS: source filenames are literal and loaded inspector editors keep their selected fields.
 
 #include <QDir>
 #include <QElapsedTimer>
@@ -22,6 +26,7 @@
 #include <QQuickStyle>
 #include <QQuickWindow>
 #include <QRegularExpression>
+#include <QSignalSpy>
 #include <QStandardPaths>
 #include <QTemporaryDir>
 #include <QTest>
@@ -30,6 +35,7 @@
 #include <cmath>
 #include <QtQml/qqmlextensionplugin.h>
 
+#include "drawnin.h"
 #include "gamepadmanager.h"
 #include "gpu.h"
 #include "mixer.h"
@@ -80,6 +86,8 @@ struct Studio {
         // give it only after the first frame, which in software can take seconds; a window that never gets it is left
         // to the cases that need it.
         [[maybe_unused]] const bool hasKeyboard = QTest::qWaitForWindowActive(window, 15000);
+        // Says what draws it, and stops the suite if products.sh expected otherwise.
+        [[maybe_unused]] const bool software = qq::drawnInSoftware(window);
         return true;
     }
 
@@ -526,8 +534,31 @@ private slots:
         QVERIFY(s.playScene() && s.playScene() != s.scene());
         QVERIFY(!s.call("saveScene").toBool());  // nothing is saved from play
 
+        // On a GPU, `ms` on the wall's clock, so what follows checks too that the world keeps up with real time. Bodies move by
+        // the physics world's clock, which frames drawn in software leave behind the wall's: there alone, `ms` of that, with a
+        // limit on the wall's time that only stops a game that has hung (docs/CI.md#what-linux-runs).
+        const bool software = qq::drawnInSoftware(s.window);
+        QSignalSpy steps(s.playScene()->property("physicsWorld").value<QObject *>(), SIGNAL(frameDone(float)));
+        const auto play = [&](int ms) {
+            if (!software) {
+                s.run(ms);
+                return true;
+            }
+            double done = 0;
+            QElapsedTimer guard;
+            guard.start();
+            while (done < ms && guard.elapsed() < 30000 + 30 * ms) {
+                s.window->update();
+                QTest::qWait(4);
+                for (const QList<QVariant> &step : std::as_const(steps))
+                    done += step.at(0).toDouble();
+                steps.clear();
+            }
+            return done >= ms;
+        };
+
         // The crate falls in play; the scene's crate stays where it was put.
-        s.run(2500);
+        QVERIFY(play(2500));
         QObject *falling = s.played(QStringLiteral("Crate"));
         QVERIFY(falling);
         const float y = falling->property("physics").value<QObject *>()->property("scenePosition").value<QVector3D>().y();
@@ -539,9 +570,9 @@ private slots:
         QCOMPARE(s.window->property("follow").value<QObject *>(), player);
         const float startZ = player->property("feet").value<QVector3D>().z();
         QTest::keyPress(s.window, Qt::Key_W);
-        s.run(700);
+        QVERIFY(play(700));
         QTest::keyRelease(s.window, Qt::Key_W);
-        s.run(100);
+        QVERIFY(play(100));
         const float walked = startZ - player->property("feet").value<QVector3D>().z();
         QVERIFY2(walked > 1.5f, qPrintable(QStringLiteral("walked %1").arg(walked)));
         QObject *world = s.window->findChild<QObject *>(QStringLiteral("world"));
@@ -553,7 +584,7 @@ private slots:
         const double pitch = player->property("pitch").toDouble();
         const QPointF from = s.onScreen("world", player->property("lookAt").value<QVector3D>());
         s.drag(from, from + QPointF(160, 40));
-        s.run(200);
+        QVERIFY(play(200));
         const double turned = heading - player->property("heading").toDouble();
         QVERIFY2(turned > 32 && turned < 48, qPrintable(QStringLiteral("turned %1").arg(turned)));
         const double tilted = player->property("pitch").toDouble() - pitch;
@@ -840,6 +871,166 @@ private slots:
         QCOMPARE(second.value<QObject *>()->property("colour").value<QColor>(), QColor(QStringLiteral("#ff6a00")));
     }
 
+    void groupNamesInTheSelectorArePlainText()
+    {
+        Studio s;
+        QVERIFY(s.open());
+        const QString name = QStringLiteral("<b>Inert group");
+        auto *group = s.call("add", QStringLiteral("Group"), QVariantMap{{QStringLiteral("name"), name}}).value<QObject *>();
+        QVERIFY(group);
+        auto *shape = s.entity(QStringLiteral("Plinth"));
+        QVERIFY(shape);
+        QVERIFY(s.window->setProperty("selection", QVariant::fromValue(shape)));
+        s.settle(2);
+        auto *choice = s.window->findChild<QQuickItem *>(QStringLiteral("groupChoice"));
+        QVERIFY(choice);
+        QTRY_COMPARE(choice->property("count").toInt(), 2);
+        auto *popup = choice->property("popup").value<QObject *>();
+        QVERIFY(popup);
+        QVERIFY(QMetaObject::invokeMethod(popup, "open"));
+        QTRY_VERIFY(popup->property("visible").toBool());
+        auto *content = popup->property("contentItem").value<QQuickItem *>();
+        QVERIFY(content);
+        QQuickItem *label = nullptr;
+        // An inert opening tag only; no image, network URL or outside logic.
+        QTRY_VERIFY(([&] {
+            QList<QQuickItem *> pending{content};
+            while (!pending.isEmpty()) {
+                auto *item = pending.takeLast();
+                pending.append(item->childItems());
+                if (item->property("textFormat").isValid() && item->property("text").toString() == name) {
+                    label = item;
+                    return true;
+                }
+            }
+            return false;
+        })());
+        QCOMPARE(label->property("textFormat").toInt(), int(Qt::PlainText));
+        auto *delegate = label;
+        while (delegate && delegate->metaObject()->indexOfSignal("clicked()") < 0)
+            delegate = delegate->parentItem();
+        QVERIFY(delegate);
+        // Exercise the ComboBox's own delegate activation connection as well as its literal label.
+        QVERIFY(QMetaObject::invokeMethod(delegate, "clicked"));
+        QTRY_COMPARE(shape->parent(), group);
+        QTRY_COMPARE(choice->property("currentIndex").toInt(), 1);
+    }
+
+    void inspectorEditorsChangeOnlyTheirSelectedFields()
+    {
+        Studio s;
+        QVERIFY(s.open());
+        auto *inspector = s.window->findChild<QQuickItem *>(QStringLiteral("inspector"));
+        QVERIFY(inspector);
+        auto descendants = [](QQuickItem *root) {
+            QList<QQuickItem *> result{root};
+            for (qsizetype i = 0; i < result.size(); ++i)
+                result.append(result[i]->childItems());
+            return result;
+        };
+        auto editor = [&](const char *field, const char *signal, const QString &axis = {}) -> QQuickItem * {
+            for (auto *row : descendants(inspector)) {
+                if (row->property("field").toString() != QLatin1String(field))
+                    continue;
+                auto *loaded = qobject_cast<QQuickItem *>(row->property("item").value<QObject *>());
+                if (!loaded)
+                    continue;
+                for (auto *control : descendants(loaded)) {
+                    if (control->metaObject()->indexOfSignal(signal) >= 0
+                        && (axis.isEmpty() || control->property("placeholderText").toString() == axis))
+                        return control;
+                }
+            }
+            return nullptr;
+        };
+        auto *shape = s.call("add", QStringLiteral("Shape"), QVariantMap{{QStringLiteral("name"), QStringLiteral("Inspector")}})
+                          .value<QObject *>();
+        QVERIFY(shape);
+        s.settle(2);
+        auto *name = editor("name", "editingFinished()");
+        QVERIFY(name);
+        QVERIFY(name->setProperty("text", QStringLiteral("Edited")));
+        QVERIFY(QMetaObject::invokeMethod(name, "editingFinished"));
+        QCOMPARE(shape->property("name").toString(), QStringLiteral("Edited"));
+
+        const QVector3D before = shape->property("position").value<QVector3D>();
+        auto *x = editor("position", "editingFinished()", QStringLiteral("x"));
+        QVERIFY(x);
+        QVERIFY(x->setProperty("text", QStringLiteral("2.5")));
+        QVERIFY(QMetaObject::invokeMethod(x, "editingFinished"));
+        QCOMPARE(shape->property("position").value<QVector3D>(), QVector3D(2.5f, before.y(), before.z()));
+
+        auto *colour = editor("colour", "editingFinished()");
+        QVERIFY(colour);
+        QVERIFY(colour->setProperty("text", QStringLiteral("#abcdef")));
+        QVERIFY(QMetaObject::invokeMethod(colour, "editingFinished"));
+        QCOMPARE(shape->property("colour").value<QColor>(), QColor(QStringLiteral("#abcdef")));
+
+        auto *metalness = editor("metalness", "moved()");
+        QVERIFY(metalness);
+        QVERIFY(metalness->setProperty("value", 0.25));
+        QVERIFY(QMetaObject::invokeMethod(metalness, "moved"));
+        QCOMPARE(shape->property("metalness").toDouble(), 0.25);
+
+        auto *form = editor("form", "activated(int)");
+        QVERIFY(form);
+        QCOMPARE(form->property("count").toInt(), 5);
+        QVERIFY(QMetaObject::invokeMethod(form, "activated", Q_ARG(int, 1)));
+        QCOMPARE(shape->property("form").toString(), QStringLiteral("sphere"));
+
+        // Changing entity kinds recreates the loaders: no field or optional dictionary carries over.
+        QVERIFY(s.window->setProperty("selection", QVariant::fromValue(s.scene())));
+        s.settle(2);
+        auto *bloom = editor("bloom", "toggled()");
+        QVERIFY(bloom);
+        QVERIFY(bloom->property("checked").toBool());
+        QVERIFY(bloom->setProperty("checked", false));
+        QVERIFY(QMetaObject::invokeMethod(bloom, "toggled"));
+        QVERIFY(!s.scene()->property("bloom").toBool());
+        QCOMPARE(shape->property("metalness").toDouble(), 0.25);
+
+        QVERIFY(s.window->setProperty("selection", QVariant::fromValue(shape)));
+        s.settle(2);
+        metalness = editor("metalness", "moved()");
+        QVERIFY(metalness);
+        QCOMPARE(metalness->property("value").toDouble(), 0.25);
+        name = editor("name", "editingFinished()");
+        QVERIFY(name);
+        QCOMPARE(name->property("text").toString(), QStringLiteral("Edited"));
+    }
+
+    void inspectorFilenamesArePlainText()
+    {
+        Studio s;
+        QVERIFY(s.open());
+        QObject *behaviour = s.call("addBehaviour").value<QObject *>();
+        QVERIFY(behaviour);
+        QVERIFY(!behaviour->property("live").toBool());
+        const QByteArray folder = QUrl::fromLocalFile(s.project.path() + QStringLiteral("/logic/")).toEncoded();
+        const QUrl source = QUrl::fromEncoded(folder + QByteArray("%3Cb%3Ean-inert-source.qml"));
+        QVERIFY(behaviour->setProperty("source", source));
+        s.window->setProperty("selection", QVariant::fromValue(behaviour));
+        s.settle(2);
+        auto *inspector = s.window->findChild<QQuickItem *>(QStringLiteral("inspector"));
+        QVERIFY(inspector);
+        QQuickItem *label = nullptr;
+        // No image or logic is loaded: the stopped Behaviour supplies an inert encoded filename to the real inspector.
+        QTRY_VERIFY(([&] {
+            QList<QQuickItem *> pending{inspector};
+            while (!pending.isEmpty()) {
+                auto *item = pending.takeLast();
+                pending.append(item->childItems());
+                if (item->property("textFormat").isValid()
+                    && item->property("text").toString() == QStringLiteral("<b>an-inert-source.qml")) {
+                    label = item;
+                    return true;
+                }
+            }
+            return false;
+        })());
+        QCOMPARE(label->property("textFormat").toInt(), int(Qt::PlainText));
+    }
+
     void theProjectsFilesAreListedAndUsedByAClick()
     {
         Studio s;
@@ -892,6 +1083,42 @@ private slots:
         // The filter narrows the list by name.
         s.window->findChild<QObject *>(QStringLiteral("assetFilter"))->setProperty("text", QStringLiteral("chec"));
         QCOMPARE(panel->property("shown").toList().size(), 1);
+    }
+
+    void logicProblemsArePlainText()
+    {
+        Studio s;
+        QVERIFY(s.open());
+        QObject *behaviour = s.call("addBehaviour").value<QObject *>();
+        QVERIFY(behaviour);
+        s.window->setProperty("selection", QVariant::fromValue(behaviour));
+        s.settle(2);
+        s.click("editLogicButton");
+        s.settle(2);
+        QObject *editor = s.window->findChild<QObject *>(QStringLiteral("logicEditor"));
+        auto *list = s.window->findChild<QQuickItem *>(QStringLiteral("logicProblems"));
+        QVERIFY(editor && list);
+        QVERIFY(!editor->property("name").toString().isEmpty());
+        const QString description = QStringLiteral("<b>an inert supplied problem</b>");
+        const QVariantList problems{QVariantMap{{QStringLiteral("line"), 1}, {QStringLiteral("message"), description}}};
+        QQuickItem *label = nullptr;
+        // Supply an inert description to the real list, without executing logic or requesting an outside image.
+        // The normal quiet check may finish while the delegate is created; supply the row again if it clears it.
+        QTRY_VERIFY(([&] {
+            if (list->property("count").toInt() == 0)
+                editor->setProperty("problems", problems);
+            QList<QQuickItem *> pending{list};
+            while (!pending.isEmpty()) {
+                auto *item = pending.takeLast();
+                pending.append(item->childItems());
+                if (item->property("textFormat").isValid() && item->property("text").toString().contains(description)) {
+                    label = item;
+                    return true;
+                }
+            }
+            return false;
+        })());
+        QCOMPARE(label->property("textFormat").toInt(), int(Qt::PlainText));
     }
 
     void logicIsWrittenInTheStudioAndCheckedByLine()

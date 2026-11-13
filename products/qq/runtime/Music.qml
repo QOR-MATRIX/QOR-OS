@@ -5,6 +5,10 @@
 //
 // In a browser its two voices are WebVoices, as a Sound's are there.
 
+// Changed for QOR OS: both private voice factories keep their owning music context.
+
+pragma ComponentBehavior: Bound
+
 import QtQml
 import QtQuick
 import QtQuick3D

@@ -1,0 +1,64 @@
+# SPDX-License-Identifier: LicenseRef-QOR-OS-Proprietary
+# OS-loading theme, never firmware or bootloader code. Escape/text fallback
+# belongs to Plymouth itself; do not register a keyboard handler here.
+Window.SetBackgroundTopColor(@BACKGROUND_RED@, @BACKGROUND_GREEN@, @BACKGROUND_BLUE@);
+Window.SetBackgroundBottomColor(@BACKGROUND_RED@, @BACKGROUND_GREEN@, @BACKGROUND_BLUE@);
+
+size = Math.Min(160, Math.Max(72, Math.Min(Window.GetWidth(), Window.GetHeight()) * 0.12));
+logo = Image("qor-mark.png");
+has_logo = logo.GetWidth() > 0 && logo.GetHeight() > 0;
+mark = Sprite();
+if (has_logo) mark.SetImage(logo.Scale(size, size));
+mark.SetX(Window.GetWidth() / 2 - size / 2);
+mark.SetY(Window.GetHeight() / 2 - size / 2);
+mark.SetOpacity(0);
+label = Sprite();
+label.SetZ(10);
+elapsed_frames = 0;
+
+fun show_text(text) {
+    image = Image.Text(text, 0.95, 0.95, 0.96);
+    global.label.SetImage(image);
+    global.label.SetX(Math.Max(16, Window.GetWidth() / 2 - image.GetWidth() / 2));
+    global.label.SetY(Window.GetHeight() * 0.7);
+    global.label.SetOpacity(1);
+}
+
+fun refresh() {
+    global.elapsed_frames++;
+    # One 267 ms ease-out; no spinner, fake progress or minimum boot duration.
+    t = Math.Min(1, global.elapsed_frames / 8);
+    global.mark.SetOpacity(1 - (1 - t) * (1 - t) * (1 - t));
+    if (global.elapsed_frames >= 8) Plymouth.SetRefreshFunction(NULL);
+}
+Plymouth.SetRefreshRate(30);
+Plymouth.SetRefreshFunction(refresh);
+if (!has_logo) show_text("QOR OS");
+
+fun display_normal() {
+    if (global.has_logo) global.label.SetOpacity(0);
+    else show_text("QOR OS");
+    global.mark.SetOpacity(1);
+}
+fun display_message(message) {
+    # Error/status messages take precedence over branding; Image.Text is text.
+    global.mark.SetOpacity(0);
+    Plymouth.SetRefreshFunction(NULL);
+    show_text(message);
+}
+fun display_password(prompt, bullets) {
+    # Plymouth owns input. Only the supplied bullet count is displayed, never
+    # password bytes, and nothing in this theme writes a log or a file.
+    dots = "";
+    for (i = 0; i < Math.Min(bullets, 32); i++) dots += "*";
+    display_message(prompt + "\n" + dots);
+}
+fun display_question(prompt, entry_text) {
+    # Avoid duplicating an answer in the graphics layer. Escape exposes the
+    # ordinary text interface, including full diagnostics and question input.
+    display_message(prompt + "\nEsc: text mode");
+}
+Plymouth.SetDisplayNormalFunction(display_normal);
+Plymouth.SetDisplayMessageFunction(display_message);
+Plymouth.SetDisplayPasswordFunction(display_password);
+Plymouth.SetDisplayQuestionFunction(display_question);

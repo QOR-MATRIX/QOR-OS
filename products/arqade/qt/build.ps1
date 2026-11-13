@@ -1,3 +1,4 @@
+# Changed for QOR OS: run registered CTest suites with fresh evidence and reject empty or skipped runs.
 <#
 .SYNOPSIS
     Build ARQADE (products/arqade/qt) with the owner's Qt, MSVC 2022 and Ninja, and run its tests.
@@ -27,8 +28,11 @@ param(
 
 $ErrorActionPreference = 'Stop'
 $source = $PSScriptRoot
+$tests = Join-Path $source '..\..\..\tools\dev\products-tests.ps1'
+& $tests -Build $Build -InvalidateOnly
 $tools = Join-Path (Split-Path (Split-Path $Qt -Parent) -Parent) 'Tools'
 $cmake = Join-Path $tools 'CMake_64\bin\cmake.exe'
+$ctest = Join-Path $tools 'CMake_64\bin\ctest.exe'
 $ninja = Join-Path $tools 'Ninja\ninja.exe'
 $vswhere = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio\Installer\vswhere.exe'
 $vs = & $vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
@@ -51,15 +55,7 @@ if ($Run) {
 
 if ($Shots) { $env:ARQADE_SHOT = $Shots }
 
-$failed = 0
-foreach ($test in Get-ChildItem $Build -Filter 'tst_*.exe') {
-    $log = Join-Path $Build ($test.BaseName + '.txt')
-    & $test.FullName -o "$log,txt" | Out-Null
-    $code = $LASTEXITCODE
-    Get-Content $log | Where-Object { $_ -match '^(PASS|FAIL|SKIP|QWARN|Totals)|failure location' }
-    if ($code -ne 0) { $failed += 1 }
-}
-if ($failed) { throw "$failed test suite(s) failed." }
+& $tests -Build $Build -CTest $ctest
 Write-Host 'All ARQADE tests passed.'
 
 # An ARQADE that runs on its own: the executable with the Qt libraries, plugins (the TLS backend its server needs among

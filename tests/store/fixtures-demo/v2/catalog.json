@@ -1,0 +1,162 @@
+{
+  "format": 2,
+  "store": "QOR OS demonstration",
+  "sequence": 2,
+  "expires": "2099-12-31",
+  "developers": {
+    "org.example.demo": {
+      "name": "A demonstration, not a publisher",
+      "verified": false,
+      "key": "BCi6WT5lRL33riPQ6UvrwxuF2kHv7fKNTofNQRNEsbxQhpbjAVHr1l24Cfxmn+RN7O0QE69bACBFgJR0w3F3VvM="
+    }
+  },
+  "items": [
+    {
+      "id": "org.example.demo.pack.ember-climb-art",
+      "kind": "asset-pack",
+      "placements": [
+        {
+          "store": "creator",
+          "category": "2D art"
+        }
+      ],
+      "entitlement": {
+        "type": "free"
+      },
+      "platforms": [
+        "linux-x86_64",
+        "linux-arm64",
+        "windows-x86_64"
+      ],
+      "name": "Ember Climb's art",
+      "developer": "org.example.demo",
+      "version": "1.1.0",
+      "summary": "Pixel art for a small platformer.",
+      "description": "A demonstration of an asset pack: the hero and the tiles from Ember Climb.",
+      "whatsNew": "Adds the ember and the torch.",
+      "released": "2026-11-01",
+      "tags": [
+        "pixel art"
+      ],
+      "featured": false,
+      "executable": false,
+      "licence": {
+        "spdx": "Apache-2.0",
+        "file": "LICENSE.txt"
+      },
+      "provenance": {
+        "origin": "QOR-MATRIX/demiurge-chain",
+        "author": "Demiurge",
+        "source": "products/qq/samples/ember-climb in QOR OS",
+        "permission": "Apache-2.0, with its licence and notice kept in this package"
+      },
+      "engines": [
+        {
+          "id": "qq",
+          "min": "0.1.0",
+          "below": "1.0.0"
+        }
+      ],
+      "dependencies": [],
+      "previews": [
+        {
+          "file": "previews/hero.png",
+          "sha256": "4a2d9ad08ad17e307167d0a368f6202547187240f6de8954971b75e571e0d256"
+        }
+      ],
+      "package": {
+        "file": "packages/org.example.demo.pack.ember-climb-art-1.1.0.qorpkg",
+        "size": 15248,
+        "sha256": "9c91f488000c25eeda0733cbbe2cf8897b8e74e01a7a4b07c886a60f7f3a72e6",
+        "unpacked": 14424
+      }
+    },
+    {
+      "id": "org.example.demo.game.ember-climb",
+      "kind": "game",
+      "placements": [
+        {
+          "store": "player",
+          "category": "Platformers"
+        }
+      ],
+      "entitlement": {
+        "type": "free"
+      },
+      "platforms": [
+        "linux-x86_64",
+        "linux-arm64",
+        "windows-x86_64"
+      ],
+      "edition": {
+        "group": "org.example.demo.ember-climb",
+        "role": "game"
+      },
+      "name": "Ember Climb",
+      "developer": "org.example.demo",
+      "version": "1.0.0",
+      "summary": "Gather the embers and light the forge.",
+      "description": "A demonstration of a game: QQ's platformer sample, as a package.",
+      "whatsNew": "",
+      "released": "2026-11-01",
+      "tags": [
+        "platformer"
+      ],
+      "featured": false,
+      "executable": false,
+      "licence": {
+        "spdx": "Apache-2.0",
+        "file": "LICENSE.txt"
+      },
+      "provenance": {
+        "origin": "QOR-MATRIX/demiurge-chain",
+        "author": "Demiurge",
+        "source": "products/qq/samples/ember-climb in QOR OS",
+        "permission": "Apache-2.0, with its licence and notice kept in this package"
+      },
+      "engines": [
+        {
+          "id": "qq",
+          "min": "0.1.0",
+          "below": "1.0.0"
+        }
+      ],
+      "dependencies": [],
+      "previews": [
+        {
+          "file": "previews/hero.png",
+          "sha256": "4a2d9ad08ad17e307167d0a368f6202547187240f6de8954971b75e571e0d256"
+        }
+      ],
+      "package": {
+        "file": "packages/org.example.demo.game.ember-climb-1.0.0.qorpkg",
+        "size": 33579,
+        "sha256": "08d3160ff3fc80ed0b63b0cf92fd78f5f7853a1a5ed1d9fc839c4ef4379c6f97",
+        "unpacked": 32195
+      }
+    },
+    {
+      "id": "org.example.demo.project.ember-climb",
+      "kind": "project",
+      "placements": [
+        {
+          "store": "creator",
+          "category": "Projects"
+        }
+      ],
+      "entitlement": {
+        "type": "free"
+      },
+      "platforms": [
+        "linux-x86_64",
+        "linux-arm64",
+        "windows-x86_64"
+      ],
+      "executable": false,
+      "edition": {
+        "group": "org.example.demo.ember-climb",
+        "role": "editable-project"
+      }
+    }
+  ]
+}

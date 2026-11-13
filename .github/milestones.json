@@ -1,6 +1,7 @@
 [
   {
     "title": "Phase 0 · Clear the ground",
+    "state": "closed",
     "description": "One repository from QTOS's history; QQ, ARQADE and QOR Media carried with theirs; the QOR core at a pinned commit; one rulebook and decision log; shared CI runners. Exit: qor-os builds and tests in CI on Windows and Linux, the carried products included on Windows."
   },
   {
@@ -17,6 +18,6 @@
   },
   {
     "title": "Phase 4 · The ecosystem",
-    "description": "The public SDK, one catalogue for the Store and the Market, the Store's developer program, the premium shell features. Exit: an outside developer ships a QQ game to QOR OS using only the public SDK."
+    "description": "Developer tools for apps, assets and agents; QOR Launcher/DRC-369 integration through the upstream core; the public SDK; two stores on shared services and the developer program; premium shell features. Exit: an outside developer ships a QQ game using only the public SDK. Current scope and acceptance: https://github.com/QOR-MATRIX/qor-os/blob/main/docs/ROADMAP.md#phase-4--the-ecosystem"
   }
 ]

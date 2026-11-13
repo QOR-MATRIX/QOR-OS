@@ -46,8 +46,8 @@ runtime at `../../qq/runtime`, its games at `../games` and its fixtures at
 
 Since QOR-0015:
 
-- **They are not pulled**, and nothing of them goes upstream but ARQADE's
-  rules.
+- **They are not pulled.** Only the shared ARQADE rules, tests/pilots and recorded
+  runs listed above move back upstream; product application code stays here.
 - **Licence.** Their files from demiurge-chain stay Apache-2.0; they are
   listed in [`LICENSES/from-demiurge-chain.txt`](../LICENSES/from-demiurge-chain.txt),
   and one changed here says so near its top. Other work on them is QOR OS's,
@@ -58,6 +58,11 @@ Since QOR-0015:
 - **Their open items** from Demiurge's roadmap are in [ROADMAP.md](ROADMAP.md).
 
 ## State
+
+The carry dates and upstream merge results below are historical checkpoints,
+not a fresh upstream audit. The core pin is checked against the current
+[`core/CMakeLists.txt`](../core/CMakeLists.txt). Remote equality and open upstream
+work need their own current check; the dated checkpoints do not establish either.
 
 | Path | Upstream commit it was last split at |
 |------|---------------------------------------|
@@ -70,12 +75,28 @@ Since QOR-0015:
 | `e99c7ce62045da08701a2ad6f7769a1a1d87afe6` (27 October 2026, the merge of #107) | `desktop` | Everything below, plus the modules L13.2 moved in from the Windows launcher: QOR ID's and Social's clients, the chain client, the Library's index, the Mesh and Qontrol. The bridge's commands are unchanged |
 | `28d9e970fef3bcedb0d0cfbdcf71c74949fed5ec` (26 October 2026, the first pin) | none | Sparks and errors, the vault, profiles and their confirmations; bridge commands `core_version`, `token_info`, `parse_amount`, `format_sparks` |
 
-`tools/upstream/demiurge.sh status` prints the live values. Update the tables
-above whenever they change.
+`tools/upstream/demiurge.sh status` prints local subtree metadata and the current
+core pin. Its rules comparison uses the local upstream clone's **last fetched**
+`origin/main`; it neither fetches nor proves current remote equality. Update the
+recorded state when an authorised upstream change actually lands.
+
+On 13 November, Rust 1.98.1 on Windows and native ARM64 reports a future-compatibility
+warning in `proc-macro-error2` 2.0.1, reached through `subxt-macro` 0.51.0. The
+diagnostic concerns a private `proc_macro` re-export. A fresh upstream check at
+`74a1014464f85e610f929ebadf8c199c82673db7` still finds that locked dependency.
+The crate's latest published version remains 2.0.1 and its
+[source repository is archived](https://github.com/GnomedDev/proc-macro-error-2).
+A routine pin advance therefore does not clear the warning. The pin stays unchanged
+until a reviewed upstream repair passes the core and QOR OS checks; no warning
+suppression or dependency substitution was adopted. Receipts:
+`build/development-2026-11-13/session-02/dependency-review.json`.
 
 ## Pulling from upstream
 
-From a clean working tree, in Git Bash or WSL:
+For an owner-authorised upstream update, from a clean working tree in Git Bash
+or WSL. `pull` fetches upstream and creates merge/copy commits; it is not a
+read-only check. Preserve existing work rather than stashing or discarding it
+merely to make this command run.
 
 ```bash
 tools/upstream/demiurge.sh pull            # the fixtures and the look, from demiurge-chain main
@@ -86,8 +107,8 @@ pwsh tools/dev/products.ps1                # build and test the products against
 The script keeps a clone of demiurge-chain in `../_upstream/demiurge-chain`
 (set `QOR_UPSTREAM_DIR` to change it). It splits the fixtures' upstream
 history there (`git subtree split`) and merges it here (`git subtree pull`),
-in one merge commit. Then it copies `docs/design/tokens.json` at the same
-commit, and says if ARQADE's rules differ from upstream's. Splitting is
+in a merge commit. It then copies `docs/design/tokens.json` at the same
+commit, commits that file if changed, and says if ARQADE's rules differ from upstream's. Splitting is
 deterministic, so every pull adds only what is new.
 
 ## Changing the products
@@ -136,11 +157,16 @@ the rules is made in both repositories at once:
 ## Moving the core's pin
 
 1. Pick a commit on demiurge-chain's `main` (never a branch commit).
-2. Build and test against it from a checkout of that commit:
+2. Build and test against it from a dedicated checkout at that commit. Do not
+   switch another worker's upstream checkout. On the owner's Windows machine,
+   protect any running `windows-release` shell and use `ci-windows` under the
+   existing heavy-job coordination:
 
-   ```bash
-   git -C X:/Repoz/_upstream/demiurge-chain checkout <full hash>
-   cmake --preset windows-release -DQOR_CORE_SOURCE_DIR=X:/Repoz/_upstream/demiurge-chain
+   ```powershell
+   . .\tools\dev\Enter-QorShell.ps1
+   cmake --preset ci-windows -DQOR_CORE_SOURCE_DIR="X:/path/to/reviewed-checkout"
+   cmake --build --preset ci-windows
+   ctest --preset ci-windows -R tst_qorcore
    ```
 
 3. Change `QOR_CORE_COMMIT` (and `QOR_CORE_FEATURES`, if the crate's features
@@ -148,7 +174,12 @@ the rules is made in both repositories at once:
    above in one commit, named "Pin the QOR core at demiurge-chain
    `<short hash>`", saying what changed in the core. Both are written on every
    configure, so every build folder, CI's included, follows the move.
-4. CI must pass, including `tst_qorcore`.
+4. Clear the local source override when validating the final pin:
+   `cmake --preset ci-windows -DQOR_CORE_SOURCE_DIR=`. Otherwise that cache still
+   selects the checkout instead of testing the pinned fetch. Run the required
+   build, test, hardening and lint gates for the final revision. CI acceptance,
+   including `tst_qorcore`, remains required; while Qt jobs are paused, record
+   local evidence and the unmet CI gate explicitly ([CI.md](CI.md#what-ci-trusts)).
 
 ### Moves so far
 
@@ -176,7 +207,9 @@ the rules is made in both repositories at once:
 
 ### Open upstream
 
-Nothing. ADR-126, demiurge-chain's side of the cut-over (below), is on its
+At the 29 October cut-over, no item remained for that transition. This is not a
+current inventory of upstream pull requests. ADR-126, demiurge-chain's side of
+the cut-over (below), is on its
 `main`: the owner merged
 [demiurge-chain #113](https://github.com/QOR-MATRIX/demiurge-chain/pull/113)
 on 29 October 2026, as `8b4344e`. In the products' paths it added only a note

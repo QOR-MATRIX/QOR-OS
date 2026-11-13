@@ -487,7 +487,7 @@ Item {
                 anchors.rightMargin: 10
                 anchors.verticalCenter: parent.verticalCenter
                 spacing: 2
-                opacity: win.focused || frameHover.hovered ? 1 : 0.55
+                opacity: win.focused || win.pointerOver ? 1 : 0.55
 
                 IconButton {
                     objectName: "minimize"
@@ -527,6 +527,17 @@ Item {
         radius: Tokens.radius.window
     }
 
+    // On the window itself, under its content. An item that has a HoverHandler and
+    // holds the pointer is where Qt 6.12 stops looking at that item's siblings, so one
+    // above the content kept every hover from it, and a Wayland client heard no motion
+    // until a button was down.
+    HoverHandler { id: frameHover }
+    // Over a Wayland client's surface, which takes the hover itself and keeps it from
+    // frameHover: Prism's surface item says (Compositor.qml).
+    property bool contentPointerOver: false
+    // The pointer is over the window, frame or content.
+    readonly property bool pointerOver: frameHover.hovered || contentPointerOver
+
     // Watches the pointer over the whole window without taking it from the
     // content: activates the window on any press, and follows the pointer
     // during a client-requested move. Only handlers that leave a mouse press
@@ -536,7 +547,6 @@ Item {
     Item {
         anchors.fill: parent
         z: 10
-        HoverHandler { id: frameHover }
         PointHandler {
             id: pointerWatch
             acceptedButtons: Qt.AllButtons

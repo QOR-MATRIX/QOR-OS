@@ -3,6 +3,11 @@
 // stopped by walls and falls off edges; the camera turns with a drag, the arrow keys or the right stick.
 //
 // `position` is where its feet are.
+// Changed for QOR OS: the body material's id is distinct from Model.skin.
+
+// Changed for QOR OS: the private character controller binds to its owning player.
+
+pragma ComponentBehavior: Bound
 
 import QtQuick
 import QtQuick3D
@@ -117,7 +122,7 @@ Node {
         position: Qt.vector3d(0, player.physics ? -player.halfHeight : 0, 0)
 
         PrincipledMaterial {
-            id: skin
+            id: bodyMaterial
             baseColor: player.colour
             metalness: 0.15
             roughness: 0.35
@@ -126,7 +131,7 @@ Node {
             source: "#Cylinder"
             position: Qt.vector3d(0, 0.9, 0)
             scale: Qt.vector3d(0.006, 0.012, 0.006)
-            materials: skin
+            materials: bodyMaterial
             pickable: true
             castsShadows: true
         }
@@ -134,7 +139,7 @@ Node {
             source: "#Sphere"
             position: Qt.vector3d(0, 0.3, 0)
             scale: Qt.vector3d(0.006, 0.006, 0.006)
-            materials: skin
+            materials: bodyMaterial
             pickable: true
             castsShadows: true
         }
@@ -142,7 +147,7 @@ Node {
             source: "#Sphere"
             position: Qt.vector3d(0, 1.5, 0)
             scale: Qt.vector3d(0.006, 0.006, 0.006)
-            materials: skin
+            materials: bodyMaterial
             pickable: true
             castsShadows: true
         }

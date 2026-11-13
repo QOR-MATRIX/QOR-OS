@@ -1,0 +1,10 @@
+{
+  "description": "Meant to fail: an item's text is not what this expects, and the failure must say how long the text is and never what it says, since a field may hold a password. The test passes only on that failure.",
+  "steps": [
+    { "wait": 800 },
+    { "call": "launch", "args": ["store", { "page": "music" }] },
+    { "waitFor": { "window": "Store", "timeout": 10000 } },
+    { "wait": 1500 },
+    { "expect": { "item": "storeComingTitle", "path": "text", "equals": "Something else entirely" } }
+  ]
+}

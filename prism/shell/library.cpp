@@ -1,6 +1,10 @@
 // SPDX-License-Identifier: LicenseRef-QOR-OS-Proprietary
 #include "library.h"
 
+#include "catalog.h"
+#include "storeengine.h"
+#include "storefronts.h"
+
 #include <QtConcurrent/QtConcurrentRun>
 #include <QtCore/QCoreApplication>
 #include <QtCore/QDir>
@@ -27,6 +31,8 @@ constexpr int MediaDepth = 3;
 constexpr int MediaPerFolder = 400;
 constexpr int RecentCount = 12;
 constexpr int HistoryCount = 200;
+constexpr qint64 LargestManifest = 32 * 1024 * 1024;
+constexpr int LongestTitle = 80;
 
 const QStringList VideoSuffixes { u"mp4"_s, u"mkv"_s, u"webm"_s, u"mov"_s, u"m4v"_s, u"avi"_s };
 const QStringList AudioSuffixes { u"mp3"_s, u"flac"_s, u"ogg"_s, u"opus"_s, u"wav"_s, u"m4a"_s, u"aac"_s };
@@ -70,12 +76,55 @@ QVariantMap gameItem(const QDir &folder, const QString &scene, bool mine)
              { u"kind"_s, u"game"_s },
              { u"source"_s, mine ? u"mine"_s : u"qq"_s },
              { u"title"_s, name },
-             { u"subtitle"_s, mine ? QCoreApplication::translate("Library", "Made by you in QQ")
+             // Played from here it is the project's files as they stand, not a game built from them.
+             { u"subtitle"_s, mine ? QCoreApplication::translate("Library", "Your QQ project, as it is now")
                                    : QCoreApplication::translate("Library", "A QQ game") },
              { u"glyph"_s, mine ? u"layers"_s : u"play"_s },
              { u"hue"_s, hueOf(name) },
              { u"path"_s, scene },
              { u"modified"_s, QFileInfo(scene).lastModified().toMSecsSinceEpoch() } };
+}
+
+// A game QQ Studio built (products/qq/studio/gamebuild.h), by what it says of itself in game.json: its title, the scene
+// it starts in and how many times it has been built, and nothing else is taken from there. Any folder here could hold
+// such a file, so it is a stranger's: anything wrong with it, a link or a junction anywhere it matters among that, and
+// the folder is a QQ game like any other, known by its scenes. The Player's walls are what hold a game in.
+QVariantMap builtGameItem(const QDir &folder)
+{
+    const QFileInfo manifest(folder.filePath(u"game.json"_s));
+    const QFileInfo place(folder.path());
+    if (place.isSymLink() || place.isJunction() || manifest.isSymLink() || !manifest.isFile()
+        || manifest.size() > LargestManifest)
+        return {};
+    QFile file(manifest.filePath());
+    if (!file.open(QIODevice::ReadOnly))
+        return {};
+    const QJsonObject game = QJsonDocument::fromJson(file.read(LargestManifest)).object();
+    if (game.value(u"format"_s).toInt() != 1 || game.value(u"kind"_s).toString() != u"game"_s
+        || game.value(u"engine"_s).toObject().value(u"id"_s).toString() != u"qq"_s)
+        return {};
+    const QString title = game.value(u"title"_s).toString().simplified();
+    const int build = game.value(u"build"_s).toInt();
+    if (title.isEmpty() || title.size() > LongestTitle || build < 1)
+        return {};
+    // A plain file directly in scenes/, as a build makes it: nothing that climbs, and nothing that leads out.
+    const QString relative = game.value(u"scene"_s).toString();
+    const QStringList parts = relative.split(u'/');
+    if (parts.size() != 2 || parts.first() != u"scenes"_s || !parts.last().endsWith(u".qml"_s)
+        || parts.last().contains(u'\\'))
+        return {};
+    const QFileInfo scene(folder.filePath(relative));
+    const QFileInfo scenes(folder.filePath(u"scenes"_s));
+    if (scene.isSymLink() || !scene.isFile() || scene.canonicalPath() != scenes.canonicalFilePath()
+        || scenes.isSymLink() || scenes.isJunction())
+        return {};
+    QVariantMap item = gameItem(folder, scene.filePath(), false);
+    item.insert(u"source"_s, u"built"_s);
+    item.insert(u"title"_s, title);
+    item.insert(u"subtitle"_s, QCoreApplication::translate("Library", "A game built in QQ · build %1").arg(build));
+    item.insert(u"hue"_s, hueOf(title));
+    item.insert(u"build"_s, build);
+    return item;
 }
 
 // The projects QQ Studio made here, or a person said they trust (QQ's SceneIO keeps the list). A folder in Documents is
@@ -99,7 +148,20 @@ void findGames(const QString &root, int depth, bool mine, const QSet<QString> &o
     if (!dir.exists() || depth <= 0)
         return;
     for (const QString &name : dir.entryList(QDir::Dirs | QDir::NoDotAndDotDot, QDir::Name)) {
+        // A game being built, or being replaced: hidden by its name on every system, whatever else a system calls
+        // hidden.
+        if (name.startsWith(u'.'))
+            continue;
         const QDir folder(dir.filePath(name));
+        const QVariantMap built = mine ? QVariantMap() : builtGameItem(folder);
+        if (!built.isEmpty()) {
+            const QString canonical = QFileInfo(built.value(u"path"_s).toString()).canonicalFilePath();
+            if (!seen.contains(canonical)) {
+                seen.insert(canonical);
+                into.append(built);
+            }
+            continue;
+        }
         const QString scene = sceneOf(folder);
         if (!scene.isEmpty()) {
             const QString canonical = QFileInfo(scene).canonicalFilePath();
@@ -176,6 +238,12 @@ void findMedia(const QString &root, QVariantList &into, QSet<QString> &seen)
 Library::Library(QObject *parent) : QObject(parent)
 {
     loadHistory();
+    // The Store's games are its engine's record, so the Library changes as that does. Null but in a build that has it.
+    if (store::StoreEngine *engine = store::Storefronts::engine()) {
+        for (const auto signal : { &store::StoreEngine::installedChanged, &store::StoreEngine::catalogChanged,
+                                   &store::StoreEngine::creatorFeaturesChanged })
+            connect(engine, signal, this, &Library::changed);
+    }
     connect(&m_watcher, &QFutureWatcher<Found>::finished, this, [this] {
         m_found = m_watcher.result();
         m_read = QDateTime::currentDateTimeUtc();
@@ -288,7 +356,71 @@ QVariantList Library::games() const
     if (m_arqade)
         for (const QVariant &game : arqadeGames())
             games.append(withUse(game.toMap()));
+    for (const QVariant &game : storeGames())
+        games.append(withUse(game.toMap()));
     return games + theirs;
+}
+
+QVariantList Library::storeGames() const
+{
+    QVariantList games;
+    const store::StoreEngine *engine = store::Storefronts::engine();
+    if (!engine)
+        return games;
+    for (const store::StoreEngine::Installed &installed : engine->installed()) {
+        if (installed.kind != u"game"_s)
+            continue;
+        // Only what a person may see now. What the catalogue no longer lists, or only the Creator Store does with
+        // creator features off, stays installed, and is the Store's to show.
+        const store::CatalogItem *listed = engine->catalog().item(installed.id);
+        if (!listed
+            || !(listed->isPlacedIn(store::View::Player)
+                 || (engine->creatorFeatures() && listed->isPlacedIn(store::View::Creator))))
+            continue;
+        const QString title = installed.name.simplified().left(LongestTitle);
+        games.append(QVariantMap {
+            { u"id"_s, QString(u"store:"_s + installed.id) },
+            { u"kind"_s, u"game"_s },
+            { u"source"_s, u"store"_s },
+            { u"title"_s, title.isEmpty() ? installed.id : title },
+            { u"subtitle"_s, QCoreApplication::translate("Library", "From the Store · %1").arg(installed.version) },
+            { u"glyph"_s, u"shopping-bag"_s },
+            { u"hue"_s, hueOf(installed.id) },
+            { u"storeId"_s, installed.id },
+            { u"path"_s, QString() },
+            { u"modified"_s, qint64(0) },
+        });
+    }
+    return games;
+}
+
+QVariantMap Library::playable(const QString &id) const
+{
+    const auto refused = [](const QString &message) {
+        return QVariantMap { { u"ok"_s, false }, { u"path"_s, QString() }, { u"message"_s, message } };
+    };
+    const store::StoreEngine *engine = store::Storefronts::engine();
+    QVariantMap listed;
+    for (const QVariant &game : storeGames())
+        if (game.toMap().value(u"id"_s) == id)
+            listed = game.toMap();
+    if (!engine || listed.isEmpty())
+        return refused(QCoreApplication::translate("Library", "That game is not in the Library."));
+    const QString storeId = listed.value(u"storeId"_s).toString();
+    const QString title = listed.value(u"title"_s).toString();
+    // Whole, every file as its developer signed it and nothing beside them, each time it is played: anything running
+    // as this person could have written there since it was installed.
+    if (!engine->isIntact(storeId))
+        return refused(QCoreApplication::translate("Library", "%1 is not as its developer signed it, so it will not "
+                                                              "play. Remove it in the Store and get it again.")
+                           .arg(title));
+    // The scene its own game.json names, held to what a QQ Studio build writes. Nothing is guessed from its files.
+    const QVariantMap built = builtGameItem(QDir(engine->installDirectory(storeId)));
+    if (built.isEmpty())
+        return refused(
+            QCoreApplication::translate("Library", "%1 does not say which scene it starts in, so it will not play.")
+                .arg(title));
+    return { { u"ok"_s, true }, { u"path"_s, built.value(u"path"_s) }, { u"message"_s, QString() } };
 }
 
 QVariantList Library::media() const

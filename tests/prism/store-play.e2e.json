@@ -1,0 +1,45 @@
+{
+  "description": "A demonstration build's game, from the Player Store to playing (QOR-0021): Prism shows the Store, Ember Climb installs, and it is in the Library from the Store; played from there, it is checked whole and the QQ Player starts on the scene its own game.json names, in the folder the Store installed it in. Run by ctest as prism_store_play, through tools/dev/prism-products.py, with stand-ins for the products, in a demonstration build only.",
+  "steps": [
+    { "wait": 800 },
+    { "expect": { "path": "storefronts.available", "equals": true } },
+    { "call": "launch", "args": ["store", { "page": "games" }] },
+    { "waitFor": { "window": "Store", "timeout": 10000 } },
+    { "wait": 1500 },
+    { "expect": { "path": "storefronts.ready", "equals": true } },
+    { "expect": { "path": "storefronts.installed", "equals": "" } },
+
+    { "log": "Before it is installed, the Library has nothing from the Store" },
+    { "expect": { "path": "library.games.length", "equals": 10 } },
+
+    { "log": "Ember Climb installs from the Player Store" },
+    { "click": { "item": "storeListing:org.example.demo.game.ember-climb" } },
+    { "wait": 900 },
+    { "click": { "item": "storeAction" } },
+    { "wait": 1500 },
+    { "expect": { "path": "storefronts.installed", "equals": "org.example.demo.game.ember-climb@1.0.0" } },
+
+    { "log": "It is in the Library, from the Store, by the name its developer signed" },
+    { "expect": { "path": "library.games.length", "equals": 11 } },
+    { "expect": { "path": "library.games.10", "equals": "store:org.example.demo.game.ember-climb" } },
+    { "expect": { "path": "library.gameSources.10", "equals": "store" } },
+    { "expect": { "path": "library.gameTitles.10", "equals": "Ember Climb" } },
+    { "close": "Store" },
+    { "waitFor": { "gone": "Store", "timeout": 4000 } },
+
+    { "log": "Played from the Library, the QQ Player starts on the scene game.json names" },
+    { "call": "playLibraryItem", "args": ["store:org.example.demo.game.ember-climb"] },
+    { "waitFor": { "window": { "title": "ember-climb.qml — Test QQ Player" }, "timeout": 20000 } },
+    { "wait": 800 },
+    { "expect": { "path": "products.qq-player.running", "equals": true } },
+    { "expect": { "window": { "title": "ember-climb.qml — Test QQ Player" }, "path": "appId", "equals": "qq-player" } },
+    { "expect": { "path": "library.recent", "equals": "store:org.example.demo.game.ember-climb" } },
+    { "close": { "appId": "qq-player" } },
+    { "waitFor": { "gone": { "appId": "qq-player" }, "timeout": 10000 } },
+
+    { "log": "What the Library does not hold plays nothing" },
+    { "call": "playLibraryItem", "args": ["store:org.example.demo.pack.ember-climb-art"] },
+    { "wait": 1200 },
+    { "expect": { "path": "products.qq-player.running", "equals": false } }
+  ]
+}

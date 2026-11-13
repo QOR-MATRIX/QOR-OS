@@ -11,6 +11,7 @@ import QOR.Kit
 // move between displays (WindowLayer.moveToDisplay).
 FocusScope {
     id: display
+    visible: width > 0 && height > 0
 
     required property Desktop primary
     readonly property alias windowLayer: windows
@@ -73,6 +74,19 @@ FocusScope {
         text: qsTr("Display %1").arg(windows.displayIndex + 1)
         color: Theme.textSecondary
         font: Theme.headline
+    }
+
+    StartupSplash {
+        id: startup
+        objectName: "startupSplash"
+        anchors.fill: parent
+        ready: display.primary.startupReady
+    }
+    Shortcut {
+        sequence: "Escape"
+        context: Qt.WindowShortcut
+        enabled: startup.active
+        onActivated: startup.dismiss()
     }
 
     Component.onCompleted: {

@@ -1,3 +1,4 @@
+// Changed for QOR OS: failed measurement writes fail the run without widening the file-only kernel wall.
 // The QQ Player: plays one QQ scene as a game (DIRECTION P3.2), natively and, built with Qt for WebAssembly, in a browser.
 //
 //   qq-player [scene.qml] [--capture <frame.png>] [--measure <result.json>]
@@ -26,7 +27,12 @@
 // would be all of it.
 //
 // Changed for QOR OS: on Linux the process's creation is read from /proc, so the start is measured there too; the wall
-// (sandbox.h), the refusal of too wide a package, and the watchdog for logic that never returns (QOR-0018).
+// (sandbox.h), the refusal of too wide a package, and the watchdog for logic that never returns (QOR-0018). The report
+// also says what drew the frames, and how long before the end of the measured time the last one came. Qt's disk cache is off:
+// it would map a compiled unit lying beside a game's file straight in as code, past every check on source, and past the
+// wall's interceptor, since that is no URL. The report says so.
+
+// Changed for QOR OS: report startup failures before a frame, preserving a failed report write’s exit status.
 
 #include <QCommandLineParser>
 #include <QDateTime>
@@ -42,6 +48,7 @@
 #include <QTimer>
 #include <QUrl>
 #include <QtQml/qqmlextensionplugin.h>
+#include <rhi/qrhi.h>
 
 #include "confinement.h"
 #include "gpu.h"
@@ -110,6 +117,7 @@ struct Measure {
     double mainMs = 0;        // process start to main()
     double firstFrameMs = -1;  // process start to the first frame proper
     int frames = 0;
+    qint64 lastFrameMs = 0;    // into the measured time, the last frame
     QElapsedTimer sustained;
 };
 
@@ -119,6 +127,10 @@ int main(int argc, char *argv[])
 {
     Measure measure;
     measure.mainMs = sinceStart();
+
+    // Before any engine exists: read once, as the first one starts.
+    qputenv("QML_DISABLE_DISK_CACHE", "1");
+    qunsetenv("QML_FORCE_DISK_CACHE");
 
     QCommandLineParser parser;
     parser.setApplicationDescription(QStringLiteral("QQ Player: plays a QQ scene as a game"));
@@ -276,65 +288,101 @@ int main(int argc, char *argv[])
         }
     }
 
-    auto report = [&] {
-        const double seconds = measure.sustained.elapsed() / 1000.0;
+    const bool once = !captureFile.isEmpty() || !measureFile.isEmpty();
+    bool finishing = false;
+    auto finish = [&](int code) {
+        if (finishing)
+            return;
+        finishing = true;
+        QCoreApplication::exit(code);
+    };
+    auto report = [&](int code) {
+        if (finishing)
+            return;
+        const qint64 elapsed = measure.sustained.isValid() ? measure.sustained.elapsed() : 0;
+        const double seconds = elapsed / 1000.0;
         // Logic that does not build leaves a game that plays and is not its creator's, as a missing model does.
         QVariant logicErrors;
         if (auto *playing = window->property("playing").value<QObject *>())
             QMetaObject::invokeMethod(playing, "logicErrors", Q_RETURN_ARG(QVariant, logicErrors));
+        const QRhi *rhi = window->rhi();
         const QJsonObject result{{QStringLiteral("scene"), scene.toString()},
                                  {QStringLiteral("logicErrors"), QJsonArray::fromStringList(logicErrors.toStringList())},
                                  {QStringLiteral("mainMs"), qRound(measure.mainMs)},
                                  {QStringLiteral("firstFrameMs"), qRound(measure.firstFrameMs)},
                                  {QStringLiteral("fps"), seconds > 0 ? qRound(measure.frames / seconds * 10) / 10.0 : 0},
+                                 // An average says nothing of a Player that drew a little and stopped: this does.
+                                 {QStringLiteral("lastFrameAgoMs"), elapsed - measure.lastFrameMs},
+                                 {QStringLiteral("renderer"), rhi ? QString::fromUtf8(rhi->driverInfo().deviceName) : QString()},
                                  {QStringLiteral("problem"), window->property("problem").toString()},
+                                 // As Qt's own engine has it, not as the environment was set.
+                                 {QStringLiteral("qmlDiskCache"), qq::Confinement::readsCompiledUnits(&engine)},
                                  {QStringLiteral("unloaded"),
                                   QJsonArray::fromStringList(window->property("unloaded").toStringList())}};
         const QByteArray line = QJsonDocument(result).toJson(QJsonDocument::Compact);
         qInfo("QQ-MEASURE %s", line.constData());
         if (!measureFile.isEmpty()) {
             QFile out(measureFile);
-            if (out.open(QIODevice::WriteOnly))
-                out.write(line + '\n');
-            QCoreApplication::exit(0);
+            const QByteArray payload = line + '\n';
+            // The kernel wall grants this exact file; it does not grant sibling temporary files or renames.
+            const bool written = out.open(QIODevice::WriteOnly) && out.write(payload) == payload.size() && out.flush();
+            if (out.isOpen())
+                out.close();
+            if (!written || out.error() != QFileDevice::NoError) {
+                qWarning("The measurement report could not be written.");
+                finish(1);
+                return;
+            }
         }
+        // A capture-only run finishes when its image is saved, not when the console report is printed.
+        if (code != 0 || !measureFile.isEmpty())
+            finish(code);
     };
 
-    const bool once = !captureFile.isEmpty() || !measureFile.isEmpty();
+    auto stopForProblem = [&] {
+        if (finishing)
+            return true;
+        if (!once || measure.firstFrameMs >= 0 || window->property("problem").toString().isEmpty())
+            return false;
+        report(3);
+        return true;
+    };
     QObject::connect(window, &QQuickWindow::frameSwapped, window, [&] {
         if (measure.firstFrameMs < 0) {
             // A scene that cannot play is said on the window; asked for one result, the player says so and stops.
-            if (once && !window->property("problem").toString().isEmpty()) {
-                report();
-                QCoreApplication::exit(3);
+            if (stopForProblem())
                 return;
-            }
             if (!window->property("settled").toBool())
                 return;
             measure.firstFrameMs = sinceStart();
             measure.sustained.start();
             if (!captureFile.isEmpty()) {
                 // The first frame proper, then a few more so what is saved is what a player sees.
-                QTimer::singleShot(250, window, [window, captureFile] {
-                    QCoreApplication::exit(window->grabWindow().save(captureFile) ? 0 : 1);
+                QTimer::singleShot(250, window, [&, window, captureFile] {
+                    if (!finishing)
+                        finish(window->grabWindow().save(captureFile) ? 0 : 1);
                 });
             }
-            QTimer::singleShot(3000, window, report);
+            QTimer::singleShot(3000, window, [&] { report(0); });
             return;
         }
         ++measure.frames;
+        measure.lastFrameMs = measure.sustained.elapsed();
     });
 
     // Measuring, frames are asked for continuously, so what is counted is what the machine can draw, not only what
     // changed. (In play the game's own animation keeps them coming.)
     if (!captureFile.isEmpty() || !measureFile.isEmpty()) {
         auto *pump = new QTimer(window);
-        QObject::connect(pump, &QTimer::timeout, window, [window] { window->update(); });
+        QObject::connect(pump, &QTimer::timeout, window, [&, window] {
+            if (!stopForProblem())
+                window->update();
+        });
         pump->start(4);
     }
     QTimer::singleShot(30000, window, [&] {
-        if (measure.firstFrameMs < 0 && (!captureFile.isEmpty() || !measureFile.isEmpty()))
-            QCoreApplication::exit(2);
+        if (!finishing && measure.firstFrameMs < 0 && (!captureFile.isEmpty() || !measureFile.isEmpty()))
+            finish(2);
     });
 
     return QGuiApplication::exec();

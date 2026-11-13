@@ -1,0 +1,22 @@
+{
+    "SPDX-License-Identifier": "LicenseRef-QOR-OS-Proprietary",
+    "background": "#0b0e14",
+    "inputs": {
+        "kit/QorMark.qml": "c8eb8c0e462b551a38e781f0f2a80f1ee4abfc9c7d42ffe537d9ebe9743cd0f8",
+        "kit/Surface.qml": "b212eb0c2392847bbb91fb146765a014d82187f8f9014752445ea26c4a18e026",
+        "kit/Tokens.qml": "1a9c9a167eac444dccaf97e43232f096aef04624854726d4417a43937117a03b",
+        "kit/shaders/surface.frag": "d74dd3adefe09fb9e72ed2ec0b700e5f4845aad3e3c87af9275ff335147350cf",
+        "kit/src/oklchmath.cpp": "47e0ab96db6d4027220e9f9eae096d860c4c44eac071bb7801936e615f89d407",
+        "kit/tokens/lumen.tokens.json": "9717240bbbd228b457320064892304dd78f3c6b5fbc8596dd824a32dc4ec3818",
+        "tools/branding/Mark.qml": "573de1957000237885f37bed552782339750a5c40a99c857c2c1daab57cd7017"
+    },
+    "logo": {
+        "file": "qor-mark.png",
+        "height": 1024,
+        "sha256": "9115a8fba279ace49f96f0e37d849e3c4b6f014225c260c0a2c77e5fe930b7a9",
+        "width": 1024
+    },
+    "qtVersion": "6.12.0",
+    "schema": 1,
+    "source": "kit/QorMark.qml"
+}

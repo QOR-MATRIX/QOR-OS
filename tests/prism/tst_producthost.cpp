@@ -7,6 +7,8 @@
 
 #include "producthost.h"
 #include "productside.h"
+#include "storeengine.h"
+#include "storefronts.h"
 
 #include <QtCore/QCoreApplication>
 #include <QtCore/QElapsedTimer>
@@ -17,11 +19,16 @@
 #include <QtCore/QLoggingCategory>
 #include <QtCore/QMutex>
 #include <QtCore/QTemporaryDir>
+#include <QtNetwork/QLocalServer>
 #include <QtNetwork/QLocalSocket>
 #include <QtTest/QSignalSpy>
 #include <QtTest/QTest>
 
 #include <memory>
+
+#if defined(Q_OS_LINUX)
+#include <unistd.h>
+#endif
 
 using namespace Qt::StringLiterals;
 using qor::HostSession;
@@ -682,6 +689,128 @@ private slots:
         QCOMPARE(host->productOf(pid), QString());
         QCOMPARE(host->product(u"test-started"_s).value(u"running"_s).toBool(), false);
     }
+
+    // QQ Studio's asset library hears where the Store's format 2 engine keeps what it installed, and only where that
+    // engine exists; nothing else hears it, and nothing of Prism's own environment is passed on in its place.
+    void only_the_studio_hears_where_the_packs_are_and_only_with_the_engine()
+    {
+        using qor::store::StoreEngine;
+        using qor::store::Storefronts;
+        const auto environmentOf = [this](qsizetype run) {
+            return entriesOf(m_log, u"started"_s).value(run).toObject().value(u"environment"_s).toObject();
+        };
+        QFile::remove(m_log);
+        qputenv("QOR_TEST_PRODUCT_PROGRAM", QOR_TEST_PRODUCT);
+        qputenv("QOR_TEST_PRODUCT_LOG", m_log.toUtf8());
+        qputenv("QOR_TEST_PRODUCT_MODE", "plain");
+        qputenv("QOR_ASSET_PACKS", "/planted/in/prisms/own/environment");
+        ProductRecord studio = startedRecord();
+        studio.id = u"test-studio"_s;
+        studio.readsAssetPacks = true;
+        ProductHost host(QList<ProductRecord> { studio, startedRecord() });
+        host.setDisplay(u"wayland-test"_s);
+        QSignalSpy exited(&host, &ProductHost::exited);
+        const auto runOnce = [&](const QString &id, int run) {
+            QVERIFY(host.launch(id, u"/projects/one"_s));
+            QTRY_COMPARE_WITH_TIMEOUT(entriesOf(m_log, u"started"_s).size(), run + 1, 10000);
+            host.stop(id);
+            QTRY_COMPARE_WITH_TIMEOUT(exited.size(), run + 1, 10000);
+        };
+
+        // An ordinary build: no second engine, so no library.
+        Storefronts::useEngine(nullptr, {});
+        runOnce(u"test-studio"_s, 0);
+        QVERIFY(environmentOf(0).value(u"QOR_ASSET_PACKS"_s).isNull());
+
+        // With the engine there, the Studio is told its folder, and another product is not.
+        QTemporaryDir store;
+        StoreEngine engine(store.path(), QByteArray("a key nothing here is checked with"));
+        Storefronts::useEngine(&engine, {});
+        runOnce(u"test-studio"_s, 1);
+        QCOMPARE(environmentOf(1).value(u"QOR_ASSET_PACKS"_s).toString(), engine.dataDir());
+        runOnce(u"test-started"_s, 2);
+        QVERIFY(environmentOf(2).value(u"QOR_ASSET_PACKS"_s).isNull());
+        Storefronts::useEngine(nullptr, {});
+        qunsetenv("QOR_ASSET_PACKS");
+    }
+
+#if defined(Q_OS_LINUX)
+    // Where no PipeWire daemon runs, as under WSL, a product is told to use
+    // PulseAudio, since Qt Multimedia's PipeWire backend crashes there; where
+    // one does, or something chose a backend already, it is left alone.
+    void the_audio_backend_is_pulseaudio_only_where_pipewire_is_not_running_data()
+    {
+        QTest::addColumn<bool>("daemon");
+        QTest::addColumn<QByteArray>("chosen");
+        QTest::addColumn<QString>("given");
+        QTest::newRow("no PipeWire daemon, nothing chosen") << false << QByteArray() << u"pulseaudio"_s;
+        QTest::newRow("a PipeWire daemon") << true << QByteArray() << QString();
+        QTest::newRow("no daemon, but a backend chosen") << false << QByteArray("alsa") << u"alsa"_s;
+    }
+
+    void the_audio_backend_is_pulseaudio_only_where_pipewire_is_not_running()
+    {
+        QFETCH(bool, daemon);
+        QFETCH(QByteArray, chosen);
+        QFETCH(QString, given);
+        QTemporaryDir runtime;
+        QLocalServer pipewire;
+        if (daemon)
+            QVERIFY(pipewire.listen(runtime.filePath(u"pipewire-0"_s)));
+        else
+            // A file of that name that is not a socket is no daemon either.
+            QVERIFY(QFile(runtime.filePath(u"pipewire-0"_s)).open(QIODevice::WriteOnly));
+        const QByteArray runtimeBefore = qgetenv("XDG_RUNTIME_DIR");
+        const bool hadRuntime = qEnvironmentVariableIsSet("XDG_RUNTIME_DIR");
+        const QByteArray backendBefore = qgetenv("QT_AUDIO_BACKEND");
+        const bool hadBackend = qEnvironmentVariableIsSet("QT_AUDIO_BACKEND");
+        qputenv("XDG_RUNTIME_DIR", runtime.path().toUtf8());
+        if (chosen.isEmpty())
+            qunsetenv("QT_AUDIO_BACKEND");
+        else
+            qputenv("QT_AUDIO_BACKEND", chosen);
+
+        auto host = this->host("plain");
+        QSignalSpy exited(host.get(), &ProductHost::exited);
+        QVERIFY(host->launch(u"test-started"_s, u"/games/orb-run.qml"_s));
+        QTRY_COMPARE_WITH_TIMEOUT(entriesOf(m_log, u"started"_s).size(), 1, 10000);
+        const QJsonValue backend = entriesOf(m_log, u"started"_s)
+                                       .value(0)
+                                       .toObject()
+                                       .value(u"environment"_s)
+                                       .toObject()
+                                       .value(u"QT_AUDIO_BACKEND"_s);
+        host->stop(u"test-started"_s);
+        QTRY_COMPARE_WITH_TIMEOUT(exited.size(), 1, 10000);
+
+        if (hadRuntime)
+            qputenv("XDG_RUNTIME_DIR", runtimeBefore);
+        else
+            qunsetenv("XDG_RUNTIME_DIR");
+        if (hadBackend)
+            qputenv("QT_AUDIO_BACKEND", backendBefore);
+        else
+            qunsetenv("QT_AUDIO_BACKEND");
+        if (given.isEmpty())
+            QVERIFY2(backend.isNull(), qPrintable(backend.toString()));
+        else
+            QCOMPARE(backend.toString(), given);
+    }
+#endif
+
+#if defined(Q_OS_LINUX)
+    // An empty XDG_RUNTIME_DIR is an unset one, as the shell's :- has it: the socket looked for is the user's own.
+    void an_empty_runtime_folder_is_an_unset_one()
+    {
+        QProcessEnvironment environment;
+        environment.insert(u"XDG_RUNTIME_DIR"_s, QString());
+        QCOMPARE(qor::pipewireSocketFor(environment), u"/run/user/%1/pipewire-0"_s.arg(::getuid()));
+        QProcessEnvironment unset;
+        QCOMPARE(qor::pipewireSocketFor(unset), u"/run/user/%1/pipewire-0"_s.arg(::getuid()));
+        environment.insert(u"XDG_RUNTIME_DIR"_s, u"/run/elsewhere"_s);
+        QCOMPARE(qor::pipewireSocketFor(environment), u"/run/elsewhere/pipewire-0"_s);
+    }
+#endif
 
     void a_product_is_launched_or_placed_by_its_record()
     {

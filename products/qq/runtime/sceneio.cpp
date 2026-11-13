@@ -1,5 +1,8 @@
 // Changed for QOR OS: places are compared where they really are; the Studio's guard, what it reads and whether a project
-// is trusted; a glTF's files are looked at decoded (QOR-0018).
+// is trusted; a glTF's files are looked at decoded (QOR-0018). Logic is written to the file it was read from, and over no
+// other; nothing is saved through a link that leads away; prefabs are code like any other; and what does not build is found.
+// Changed for QOR OS: a loaded scene must be a 3D object, as playing and discarding it already require.
+
 #include <QDesktopServices>
 #include <QStandardPaths>
 #include "sceneio.h"
@@ -281,12 +284,22 @@ bool SceneIO::projectTrusted(const QUrl &folder)
     if (trustedList().contains(Confinement::realPath(folder.toLocalFile())))
         return true;
     const QDir root(folder.toLocalFile());
-    for (const char *held : {"scenes", "logic"}) {
+    for (const char *held : {"scenes", "logic", "prefabs"}) {
         if (!QDir(root.filePath(QLatin1String(held))).isEmpty(QDir::AllEntries | QDir::NoDotAndDotDot))
             return false;
     }
     trustProject(folder);
     return true;
+}
+
+bool SceneIO::onTrustedList(const QUrl &folder)
+{
+    return folder.isLocalFile() && trustedList().contains(Confinement::realPath(folder.toLocalFile()));
+}
+
+bool SceneIO::realFolderOnTrustedList(const QString &realFolder)
+{
+    return !realFolder.isEmpty() && trustedList().contains(realFolder);
 }
 
 bool SceneIO::openInOwnEditor(const QUrl &file)
@@ -308,6 +321,20 @@ bool SceneIO::outside(const QUrl &url) const
     return !Confinement::within(Confinement::realPath(url.toLocalFile()), m_package);
 }
 
+namespace {
+
+/// A link in a saved file's place that leads nowhere, or out of the project: writing whole would go through it, to wherever it
+/// says. With no project to measure by, only the first.
+bool leadsAway(const QString &path, const QString &project)
+{
+    const QFileInfo info(path);
+    if (!info.isSymLink())
+        return false;
+    return !info.exists() || (!project.isEmpty() && !Confinement::within(Confinement::realPath(path), project));
+}
+
+}  // namespace
+
 QString SceneIO::save(QObject *scene, const QUrl &file) const
 {
     if (m_confined)
@@ -317,6 +344,8 @@ QString SceneIO::save(QObject *scene, const QUrl &file) const
     if (!file.isLocalFile())
         return QStringLiteral("A scene is saved to a file on this computer.");
     const QString path = file.toLocalFile();
+    if (leadsAway(path, m_project))
+        return QStringLiteral("%1 is a link that leads nowhere or out of this project, so nothing is saved through it. Remove it, then save.").arg(file.fileName());
     if (!QDir().mkpath(QFileInfo(path).absolutePath()))
         return QStringLiteral("The folder %1 could not be made.").arg(QFileInfo(path).absolutePath());
     QSaveFile out(path);
@@ -377,7 +406,7 @@ QObject *SceneIO::loadText(const QString &text, const QUrl &file, QObject *paren
     // Owned by its parent, or by whoever asked for it: never collected out from under the Studio.
     QQmlEngine::setObjectOwnership(scene, QQmlEngine::CppOwnership);
     component.completeCreate();
-    if (scene->property("kind").toString() != QStringLiteral("Scene")) {
+    if (!qobject_cast<QQuick3DObject *>(scene) || scene->property("kind").toString() != QStringLiteral("Scene")) {
         delete scene;
         fail(QStringLiteral("That file is not a QQ scene: its root is not a Scene."));
         return nullptr;
@@ -532,12 +561,42 @@ QUrl SceneIO::writeLogic(const QUrl &project, const QString &name, const QString
         fail(QStringLiteral("Logic is written into a project folder."));
         return {};
     }
-    QString safe = name.trimmed().toLower();
-    safe.replace(QRegularExpression(QStringLiteral("[^a-z0-9-]+")), QStringLiteral("-"));
-    safe.remove(QRegularExpression(QStringLiteral("^-+|-+$")));
-    if (safe.isEmpty())
-        safe = QStringLiteral("logic");
-    const QString path = QDir(project.toLocalFile()).filePath(QStringLiteral("logic/%1.qml").arg(safe));
+    const QDir root(project.toLocalFile());
+    const QString realRoot = Confinement::realPath(project.toLocalFile());
+    QString path;
+    // The file of that name, as it is named, if it is there: what is open in the editor goes back to its own file, whatever its
+    // case or folder. No name is a way out of logic/.
+    const QString exact = QDir::cleanPath(QStringLiteral("logic/%1.qml").arg(name));
+    if (!name.contains(QLatin1Char('\\')) && !name.contains(QLatin1Char(':')) && !QDir::isAbsolutePath(name)
+        && exact.startsWith(QStringLiteral("logic/"))) {
+        const QFileInfo there(root.filePath(exact));
+        if (there.isFile() && !there.isSymLink() && Confinement::within(Confinement::realPath(there.filePath()), realRoot))
+            path = there.filePath();
+    }
+    // Otherwise a new one, by the name a new file gets. Another file already of that name is another's work, and is not written
+    // over: only the name itself, written as a new file's is, means that one.
+    if (path.isEmpty()) {
+        QString safe = name.trimmed().toLower();
+        safe.replace(QRegularExpression(QStringLiteral("[^a-z0-9-]+")), QStringLiteral("-"));
+        safe.remove(QRegularExpression(QStringLiteral("^-+|-+$")));
+        if (safe.isEmpty())
+            safe = QStringLiteral("logic");
+        path = root.filePath(QStringLiteral("logic/%1.qml").arg(safe));
+        const QFileInfo there(path);
+        if (safe != name && (there.exists() || there.isSymLink())) {
+            fail(QStringLiteral("logic/%1.qml is there already, and is not the file this was written for: nothing was written. "
+                                "Keep your text, and save it under another name, or open that file first.").arg(safe));
+            return {};
+        }
+        if (there.isSymLink()) {
+            fail(QStringLiteral("logic/%1.qml is a link, so nothing is saved through it. Remove it, then save.").arg(safe));
+            return {};
+        }
+    }
+    if (!Confinement::within(Confinement::realPath(path), realRoot)) {
+        fail(QStringLiteral("Logic is written into the project's logic folder, and that leads out of the project."));
+        return {};
+    }
     QDir().mkpath(QFileInfo(path).absolutePath());
     QSaveFile out(path);
     if (!out.open(QIODevice::WriteOnly)) {
@@ -1133,6 +1192,48 @@ QVariantList SceneIO::checkLogic(const QString &text, const QUrl &file)
                                 {QStringLiteral("message"), e.description()}};
     }
     return problems;
+}
+
+QVariantMap SceneIO::brokenCode(const QUrl &project)
+{
+    if (!project.isLocalFile() || outside(project))
+        return {};
+    const QDir root(project.toLocalFile());
+    QStringList files;
+    for (const char *held : {"scenes", "logic", "prefabs"}) {
+        QDirIterator it(root.filePath(QLatin1String(held)), {QStringLiteral("*.qml")}, QDir::Files, QDirIterator::Subdirectories);
+        while (it.hasNext()) {
+            const QFileInfo file(it.next());
+            const QString relative = root.relativeFilePath(file.filePath());
+            // What a game would not carry is no part of whether it builds.
+            if (!file.isSymLink() && !relative.startsWith(QLatin1Char('.')) && !relative.contains(QStringLiteral("/.")))
+                files << relative;
+            // Counted before anything is read: this runs on the window's thread, and a project could hold any number.
+            if (files.size() > mostCodeChecked)
+                return {{QStringLiteral("file"), QString()}, {QStringLiteral("line"), 0},
+                        {QStringLiteral("message"), QStringLiteral("This project has more than %1 QML files, more than are checked before a build.")
+                                                        .arg(mostCodeChecked)}};
+        }
+    }
+    files.sort();
+    for (const QString &relative : std::as_const(files)) {
+        QFile f(root.filePath(relative));
+        if (!f.open(QIODevice::ReadOnly))
+            continue;
+        // Not that it does not build: that it was not looked at, so "file" is empty and the message names it.
+        if (f.size() > largestCodeChecked)
+            return {{QStringLiteral("file"), QString()}, {QStringLiteral("line"), 0},
+                    {QStringLiteral("message"), QStringLiteral("%1 is more than %2 MB, more than is checked before a build.")
+                                                    .arg(relative).arg(largestCodeChecked / (1024 * 1024))}};
+        const QVariantList problems = checkLogic(QString::fromUtf8(f.read(largestCodeChecked)), QUrl::fromLocalFile(f.fileName()));
+        if (!problems.isEmpty()) {
+            const QVariantMap first = problems.first().toMap();
+            return {{QStringLiteral("file"), relative},
+                    {QStringLiteral("line"), first.value(QStringLiteral("line"))},
+                    {QStringLiteral("message"), first.value(QStringLiteral("message"))}};
+        }
+    }
+    return {};
 }
 
 QVariantMap SceneIO::importQqJson(const QUrl &file)

@@ -9,7 +9,12 @@
 //
 // Changed for QOR OS: imports QQ, whose Look the panel's colours and faces come from. Without it, Look was undefined:
 // the key's problem and the steps were not coloured, and the tool steps were not in the mono face.
-// Changed for QOR OS: whether the agent's logic may run, and its answers are text, never markup (QOR-0018).
+// Changed for QOR OS: whether the agent's logic may run; answers, status and key problems are text, never markup (QOR-0018).
+
+// Changed for QOR OS: step delegates keep their panel context and read roles from their own row.
+// Changed for QOR OS: body step fonts name the startup application's typed singleton.
+
+pragma ComponentBehavior: Bound
 
 import QtQuick
 import QtQuick.Controls
@@ -45,6 +50,7 @@ ColumnLayout {
 
     Label {
         objectName: "agentStatus"
+        textFormat: Text.PlainText
         Layout.fillWidth: true
         wrapMode: Text.Wrap
         text: panel.designer.status !== "" ? panel.designer.status
@@ -96,6 +102,7 @@ ColumnLayout {
         }
         Label {
             id: keyProblem
+            textFormat: Text.PlainText
             visible: text !== ""
             color: Look.bad
             wrapMode: Text.Wrap
@@ -108,7 +115,7 @@ ColumnLayout {
             opacity: 0.55
             font.pixelSize: 12
             text: qsTr("The agent runs on your own Anthropic account: Anthropic bills it for what each run uses. Demiurge "
-                       + "does not pay for it and does not charge for it. The key is kept in Windows Credential Manager "
+                       + "does not pay for it and does not charge for it. The key is kept in your system keychain "
                        + "for your account only, and never written to a file or a log.")
         }
     }
@@ -159,6 +166,7 @@ ColumnLayout {
         onCountChanged: positionViewAtEnd()
 
         delegate: ColumnLayout {
+            id: stepRow
             required property var modelData
             width: steps.width
             spacing: 4
@@ -166,15 +174,15 @@ ColumnLayout {
                 Layout.fillWidth: true
                 wrapMode: Text.Wrap
                 textFormat: Text.PlainText
-                text: modelData.text
-                font.pixelSize: modelData.kind === "said" ? 13 : 12
-                font.family: modelData.kind === "tool" || modelData.kind === "frame" ? Look.mono : Qt.application.font.family
-                color: modelData.failed ? Look.bad : modelData.kind === "done" ? Look.ok : Look.inkBody
-                opacity: modelData.kind === "tool" ? 0.65 : 1
+                text: stepRow.modelData.text
+                font.pixelSize: stepRow.modelData.kind === "said" ? 13 : 12
+                font.family: stepRow.modelData.kind === "tool" || stepRow.modelData.kind === "frame" ? Look.mono : Application.font.family
+                color: stepRow.modelData.failed ? Look.bad : stepRow.modelData.kind === "done" ? Look.ok : Look.inkBody
+                opacity: stepRow.modelData.kind === "tool" ? 0.65 : 1
             }
             Image {
-                visible: modelData.image !== ""
-                source: modelData.image
+                visible: stepRow.modelData.image !== ""
+                source: stepRow.modelData.image
                 Layout.fillWidth: true
                 Layout.preferredHeight: visible ? width * sourceSize.height / Math.max(1, sourceSize.width) : 0
                 fillMode: Image.PreserveAspectFit

@@ -3,6 +3,13 @@
 *Prepared on 27 October 2026 by an assistant, from the research listed in each
 file, for the owner and their advisers. It is research, not legal advice.*
 
+The dated research and drafts below are preserved, not revalidated legal/vendor
+facts or authority to send correspondence, purchase or provision anything. Use
+the [roadmap's release gates](../ROADMAP.md#release-gates) for current status and
+the [Q Pi kit questions](../../image/README.md#commercial-qt-kit-and-dependency-acceptance)
+for the later ARM64 preparation. This audit did not inspect licence certificates,
+keys, accounts or live upstream services.
+
 [QOR-0008](../decisions/QOR-0008-before-a-public-release.md) decision 1 says
 there is no public image, SDK or download until the conditions it lists hold.
 [ROADMAP.md](../ROADMAP.md#release-gates) tracks them as six gates. On 27

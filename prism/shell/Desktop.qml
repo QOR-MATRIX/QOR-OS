@@ -21,6 +21,8 @@ import QOR.Store
 // windows samples `wallpaperBackdrop` (blurred wallpaper only).
 FocusScope {
     id: desktop
+    // The first platform expose can precede the output's initial layout.
+    visible: width > 0 && height > 0
 
     property var options: ({})
 
@@ -31,6 +33,9 @@ FocusScope {
     readonly property int spaceCount: 3
     readonly property bool overview: surface === "overview"
     property bool startupAppsOpened: false
+    property bool _startupFrameSeen: false
+    readonly property bool startupReady: _startupFrameSeen
+    readonly property bool startupComplete: startup.settled
 
     readonly property real railHeight: 34
     readonly property rect workArea: Qt.rect(10, railHeight + 18, width - 20, height - railHeight - 18 - 96)
@@ -306,6 +311,18 @@ FocusScope {
     readonly property alias windowLayer: windows
     // Set by Prism: a trusted xdg-activation token for a window it opens.
     property var activationToken: () => ""
+    // Set by Prism: the client's surface that has captured the pointer, or null, and how
+    // to make it let go (prism/compositor/pointercapture.h, QOR-0020).
+    property var pointerCapturedBy: null
+    property var releasePointer: () => {}
+    // A person is told the way out the first time a window takes the pointer.
+    property var pointerCaptureTold: null
+    onPointerCapturedByChanged: {
+        if (pointerCapturedBy !== null && pointerCapturedBy !== pointerCaptureTold) {
+            pointerCaptureTold = pointerCapturedBy;
+            toast.show("keyboard", qsTr("A window has the pointer. Super+Esc lets it go"));
+        }
+    }
 
     // ── Products (ARQADE, QOR Media, QQ Studio, the QQ Player) ─────────────
     // Prism hosts them as Wayland clients (ProductHost, QOR-0010). ARQADE and
@@ -394,6 +411,13 @@ FocusScope {
         let shown = false;
         if (item.source === "arqade") {
             shown = playInArqade(item.game);
+        } else if (item.source === "store") {
+            // Checked whole as it is played, and played from the scene it says it starts in, or refused in plain words.
+            const ready = Library.playable(item.id);
+            if (ready.ok)
+                shown = playQQGame(ready.path);
+            else
+                toast.show("shopping-bag", ready.message);
         } else if (item.kind === "game") {
             shown = playQQGame(item.path);
         } else {
@@ -404,6 +428,11 @@ FocusScope {
         if (shown)
             Library.used(item.id);
         return shown;
+    }
+
+    // Plays the Library's item of this id: a script's way to what a card does.
+    function playLibraryItem(id: string): bool {
+        return playItem(Library.item(id));
     }
 
     Binding {
@@ -962,6 +991,27 @@ FocusScope {
         unlockedBy: secret => desktop.tryUnlock(secret)
     }
 
+    StartupSplash {
+        id: startup
+        objectName: "startupSplash"
+        anchors.fill: parent
+        ready: desktop._startupFrameSeen
+    }
+    Connections {
+        target: desktop.Window.window
+        enabled: !desktop._startupFrameSeen
+        function onFrameSwapped() {
+            if (desktop.width > 0 && desktop.height > 0)
+                desktop._startupFrameSeen = true;
+        }
+    }
+    Shortcut {
+        sequence: "Escape"
+        context: Qt.WindowShortcut
+        enabled: startup.active
+        onActivated: startup.dismiss()
+    }
+
     // ── Controller interface surfaces (above the lock screen too) ──────────
     ControllerHints {
         objectName: "controllerHints"
@@ -1019,8 +1069,11 @@ FocusScope {
     }
 
     // ── Display simulation (applied by Prism's output pipeline on device) ───
+    // Filters, not something to point at: disabled, so that Prism does not count them as
+    // the shell lying over a window (pointercapture.cpp, coveredByShell).
     Rectangle {
         anchors.fill: parent
+        enabled: false
         color: "#ff8c3a"
         opacity: Services.display.nightLight ? 0.11 : 0
         visible: opacity > 0
@@ -1028,6 +1081,7 @@ FocusScope {
     }
     Rectangle {
         anchors.fill: parent
+        enabled: false
         color: "black"
         opacity: (1 - Services.display.brightness) * 0.72
         visible: opacity > 0.002
@@ -1110,6 +1164,19 @@ FocusScope {
         sequence: "Escape"
         enabled: desktop.surface !== "" || desktop.editingWidgets
         onActivated: desktop.editingWidgets ? desktop.editWidgets(false) : desktop.setSurface("")
+    }
+
+    // The way out of a captured pointer. Like every shortcut here, Qt's shortcut map takes
+    // it before any item, so no client ever hears it or can hold on to it. It only stands
+    // aside when nothing is captured. It works whatever else is held: a person sprinting
+    // or crouching holds Shift or Ctrl. Anything else that brings the shell up (these
+    // shortcuts, or Guide) ends a capture too, by covering the window.
+    Shortcut {
+        context: Qt.ApplicationShortcut
+        sequences: ["Meta+Escape", "Shift+Meta+Escape", "Ctrl+Meta+Escape", "Alt+Meta+Escape",
+            "Ctrl+Shift+Meta+Escape", "Alt+Shift+Meta+Escape", "Ctrl+Alt+Meta+Escape", "Ctrl+Alt+Shift+Meta+Escape"]
+        enabled: desktop.pointerCapturedBy !== null
+        onActivated: desktop.releasePointer()
     }
 
     // Take the active window to the display on the left or right.

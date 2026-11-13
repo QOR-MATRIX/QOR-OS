@@ -1,6 +1,6 @@
 # ADR-0002: Linux kernel underneath, Qt above "the Qt Line"
 
-- **Status:** Accepted; extended by [QOR-0004](../QOR-0004-the-base-image-is-fedora-atomic.md) on 2026-10-26 (the base is Fedora Atomic)
+- **Status:** Accepted; extended by [QOR-0004](../QOR-0004-the-base-image-is-fedora-atomic.md) on 2026-10-26 (the base is Fedora Atomic); limited Q Pi development-edition exception in [QOR-0025](../QOR-0025-q-pi-development-edition.md) on 2026-11-09
 - **Date:** 2026-10-23
 
 ## Context

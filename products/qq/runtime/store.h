@@ -14,6 +14,8 @@
 // from that copy, in memory. A store is the player's own, on their machine, where they can read and change it, so
 // nothing rewarded may rest on it (ADR-102 decision 5): a rewarded outcome is checked by replaying the run.
 
+// Changed for QOR OS: QML can describe an existing store, but cannot construct or choose one.
+
 #pragma once
 
 #include <QJSValue>
@@ -23,12 +25,15 @@
 #include <QTimer>
 #include <QUrl>
 #include <QVariant>
+#include <QtQml/qqmlregistration.h>
 
 namespace qq {
 
 class GameStore : public QObject
 {
     Q_OBJECT
+    QML_ELEMENT
+    QML_UNCREATABLE("Game stores are supplied by the runtime")
 
     /// Which game this is ("orb-run-1f0c…"), or empty for a replay's copy.
     Q_PROPERTY(QString game READ game CONSTANT)

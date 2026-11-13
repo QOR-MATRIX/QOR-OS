@@ -1,5 +1,8 @@
 # Controllers
 
+The QOR.Input module explicitly exports the Gamepads singleton with that name, including its button enums.
+A focused import test checks the public enum names with the virtual controller backend.
+
 QOR OS can be driven entirely with a game controller. Keyboard and mouse stay
 the default: when a controller connects, QOR OS asks whether to switch to the
 **controller interface** (or switches by itself, if you chose that), and it
@@ -17,6 +20,11 @@ Keyboard and mouse keep working throughout.
 | `qor-gamepads` | [`tools/gamepads/`](../tools/gamepads/) | Lists controllers and streams their state |
 
 ## Supported controllers
+
+This table describes implemented backend/driver coverage, not certification of
+every physical device and connection mode. The virtual-controller suites do not
+establish real Linux/Pi pairing, rumble or input acceptance; the roadmap keeps
+those hardware gates open.
 
 Every controller is presented in one standard layout (the one SDL, the Linux
 gamepad specification and the W3C Gamepad API share): South, East, West,

@@ -13,6 +13,13 @@
 // A filter narrows the list by name. The list is read again whenever the project changes (saving, a prefab kept).
 //
 // Under the list, what the game keeps from one play to the next (P3.16), and Forget, to play it as someone new would.
+//
+// Changed for QOR OS: reset(), so a filter typed in one project is not left on the next's files; and a file's name is
+// text, never markup (AGENTS.md).
+// Changed for QOR OS: file-list delegates stay bound to this panel and its list, with the actual Studio window type;
+// the layout owns each kind mark's size.
+
+pragma ComponentBehavior: Bound
 
 import QtQuick
 import QtQuick.Controls
@@ -24,14 +31,19 @@ ColumnLayout {
     id: panel
 
     /// The Studio's window: what using a file asks of it.
-    required property QtObject studio
+    required property Main studio
     /// The project as SceneIO.project() gives it.
     property var info: ({ scenes: [], logic: [], prefabs: [], assets: [] })
     /// The game's store (SceneIO.storeOf), or null for a scene in no folder.
-    property QtObject store: null
+    property GameStore store: null
 
     function sizeText(bytes) {
         return bytes < 1024 ? qsTr("%1 bytes").arg(bytes) : qsTr("%1 KB").arg((bytes / 1024).toFixed(1))
+    }
+
+    /// The project is being left: nothing typed for it stays.
+    function reset() {
+        filter.text = ""
     }
 
     spacing: 4
@@ -112,8 +124,8 @@ ColumnLayout {
                 }
                 Rectangle {
                     visible: row.modelData.kind !== "picture"
-                    width: 9
-                    height: 9
+                    Layout.preferredWidth: 9
+                    Layout.preferredHeight: 9
                     radius: row.modelData.kind === "logic" ? 1 : 5
                     color: panel.marks[row.modelData.kind] ?? Look.inkMuted
                     Layout.leftMargin: 5
@@ -121,6 +133,7 @@ ColumnLayout {
                 }
                 Label {
                     text: row.modelData.name
+                    textFormat: Text.PlainText
                     font.pixelSize: 12
                     elide: Text.ElideMiddle
                     Layout.fillWidth: true
@@ -140,6 +153,7 @@ ColumnLayout {
             font.pixelSize: 11
             opacity: 0.7
             elide: Text.ElideRight
+            textFormat: Text.PlainText
             text: !panel.store ? ""
                   : panel.store.keys.length === 0 ? qsTr("Nothing kept between plays")
                   : qsTr("Kept between plays: %1 (%2)").arg(panel.store.keys.join(", ")).arg(panel.sizeText(panel.store.size))

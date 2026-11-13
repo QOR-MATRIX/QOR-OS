@@ -44,9 +44,11 @@ foreach ($name in $scripts.Keys) {
     if ($Product -notcontains $name) { continue }
     for ($attempt = 1; $attempt -le $Attempts; $attempt++) {
         Write-Host "== $name$(if ($attempt -gt 1) { " (attempt $attempt of $Attempts)" })" -ForegroundColor Cyan
-        # Each script throws when its build or a suite fails; carry on so one run reports every product.
+        # A script can throw or return a failing native exit code. Carry on so one run reports every product.
         try {
+            $global:LASTEXITCODE = 0
             & (Join-Path $repo $scripts[$name]) -Qt $Qt -Build (Join-Path $BuildRoot $name)
+            if ($LASTEXITCODE -ne 0) { throw "$name build/test script exited with $LASTEXITCODE." }
             if ($attempt -gt 1) { $retried += $name }
             break
         }

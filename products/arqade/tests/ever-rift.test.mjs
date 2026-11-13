@@ -375,3 +375,28 @@ test('the rules keep to arithmetic every machine computes alike: a square root, 
   assert.doesNotMatch(source, /\*\*/);
   assert.doesNotMatch(source, /\b(Date|performance)\b/);
 });
+
+// Where tst_games' pilot paced for ever when it chose by eye: choosing the enemy to walk to when calm, choosing it when
+// fighting, and judging an item in reach. Each seed stands, by the deciding given, with that one choice by eye again.
+test("tst_games' pilot paces nowhere: it goes down the stairs and falls, wherever it once went back and forth", () => {
+  const source = readFileSync(new URL('../qt/tests/ever-rift-pilot.js', import.meta.url), 'utf8');
+  for (const [seed, every] of [[517742837, 1], [2027808452, 1], [1468474525, 8]]) {
+    const choose = (0, eval)(source), g = started(seed);
+    const drive = (calm, until) => {
+      for (let tick = 0; tick < 60 * 300 && g.phase === 'playing' && !until(); tick++) {
+        if (tick % every === 0) {
+          const p = choose(g, calm);
+          hold(g, p.way);
+          if (p.attack !== g.held.attack) (p.attack ? everRift.press : everRift.release)(g, 'attack');
+          for (const a of ['whirl', 'dash', 'potion'])
+            if (p[a]) { everRift.press(g, a); everRift.release(g, a); }
+        }
+        everRift.step(g);
+      }
+    };
+    drive(false, () => g.floor > 1);
+    assert.equal(g.floor, 2, `seed ${seed}: stood on the first floor at ${Math.round(g.x)}, ${Math.round(g.y)}`);
+    drive(true, () => false);
+    assert.equal(g.phase, 'over', `seed ${seed}: stood on the second floor at ${Math.round(g.x)}, ${Math.round(g.y)}`);
+  }
+});

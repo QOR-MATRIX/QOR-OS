@@ -29,6 +29,24 @@ option(QOR_WARNINGS_AS_ERRORS "Treat compiler warnings as errors" OFF)
 # (SECURITY.md). A device's image is built without it, and without qor-shell and
 # the tests, which need it: Prism then has the system's own services or none.
 option(QOR_BUILD_SIMULATOR "Build the simulated services (never in anything installed on a device)" ON)
+option(QOR_BUILD_VM_INSTALLER "Build the guarded private VM installer (never a release-readiness claim)" OFF)
+if(QOR_BUILD_VM_INSTALLER AND (QOR_BUILD_SIMULATOR OR WIN32))
+    message(FATAL_ERROR "The private VM installer requires a Linux device build without simulated services")
+endif()
+# The two storefronts, on a catalogue signed with a throwaway key (docs/STORE.md). A choice of a build, never a release:
+# tst_storefronts fails if a CI or release preset leaves it to a build folder's cache instead of turning it off, a device's
+# image cannot have it, nothing built with it installs, and tools/ci/check_hardening.py fails a build folder that has it.
+option(QOR_STORE_DEMONSTRATION "Compile in the Store's demonstration and its throwaway key (never in a release)" OFF)
+if(QOR_STORE_DEMONSTRATION AND NOT QOR_BUILD_SIMULATOR)
+    message(FATAL_ERROR "QOR_STORE_DEMONSTRATION is for development: a device's image is built without the simulator, "
+                        "and never holds the demonstration's key.")
+endif()
+if(QOR_STORE_DEMONSTRATION)
+    # Before any other install rule, so that nothing of such a build is installed: a release is what is installed.
+    install(CODE "message(FATAL_ERROR \"This build folder has QOR_STORE_DEMONSTRATION on: it holds the Store's throwaway key, \"
+                  \"and nothing built with it is installed. Configure the folder again with a preset that is not a \"
+                  \"demonstration, which turns it off.\")")
+endif()
 # The QOR core is Rust, built by cargo (core/CMakeLists.txt, QOR-0003): on by
 # default wherever cargo is installed.
 find_program(QOR_CARGO cargo HINTS "$ENV{CARGO_HOME}/bin" "$ENV{HOME}/.cargo/bin" "$ENV{USERPROFILE}/.cargo/bin")
@@ -88,6 +106,7 @@ set(QT_QML_GENERATE_QMLLS_INI ON CACHE BOOL "Write .qmlls.ini files for qmlls in
 
 include(QorCompilerSettings)
 include(QorHardening)
+include(CheckBootBranding)
 
 add_subdirectory(kit)
 add_subdirectory(audio)
@@ -98,6 +117,7 @@ if(QOR_BUILD_SIMULATOR)
     add_subdirectory(sim)
 endif()
 add_subdirectory(apps)
+add_subdirectory(setup)
 add_subdirectory(prism)
 
 if(QOR_BUILD_CORE)
@@ -105,6 +125,7 @@ if(QOR_BUILD_CORE)
 endif()
 
 if(QOR_BUILD_TOOLS)
+    add_subdirectory(tools/branding)
     add_subdirectory(tools/qorctl)
     add_subdirectory(tools/gamepads)
 endif()

@@ -738,6 +738,8 @@ McpServer::Result StudioTools::behaviourWrite(const QJsonObject &args)
         return problem(tr("Logic lives in the project, and the creator has not chosen one."));
     if (!m_studio->property("projectTrusted").toBool())
         return problem(tr("The creator has not said they trust this project, so nothing of it is built."));
+    if (const QObject *build = m_studio->findChild<QObject *>(QStringLiteral("gameBuild")); build && build->property("busy").toBool())
+        return problem(tr("A game of this project is being built: wait for that, then write it."));
     const QString file = args.value(QStringLiteral("file")).toString();
     const QString code = args.value(QStringLiteral("code")).toString();
     if (file.trimmed().isEmpty() || code.trimmed().isEmpty())

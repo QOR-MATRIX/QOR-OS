@@ -1,0 +1,164 @@
+{
+  "schema": 1,
+  "kind": "planning-input-not-builder-config",
+  "name": "Q Pi",
+  "decision": "QOR-0025",
+  "status": "blocked-before-build",
+  "reviewed_source_commit": "3a5ddc35f3ec59dcb1cf17a7a07cb79e273d2572",
+  "source_note": "Review baseline only; later acceptance requires a clean committed revision containing the preparation changes.",
+  "target": {
+    "board": "Raspberry Pi 5",
+    "abi": "aarch64-linux-gnu",
+    "ram_gib": 8,
+    "nominal_storage_gb": 128,
+    "boot_media_candidate": "microSD",
+    "initial_kernel_family": "2712",
+    "initial_page_size": 16384
+  },
+  "base_candidate": {
+    "name": "Raspberry Pi OS 64-bit desktop (basic software), Debian Trixie",
+    "upstream_page": "https://www.raspberrypi.com/software/operating-systems/",
+    "advertised_release": "2026-10-06",
+    "advertised_sha256": "976766570bee2aaf3047dd78649cfe82abb8fe9687b7f15030cd533ba4e9f7a9",
+    "metadata_observed_date": "2026-11-09",
+    "artifact_url": null,
+    "artifact_downloaded": false,
+    "artifact_hash_verified": false,
+    "note": "Advertised metadata only; not a locally verified image pin or build input. Direct metadata fetch returned HTTP 403."
+  },
+  "builder_candidate": {
+    "name": "rpi-image-gen",
+    "source": "https://github.com/raspberrypi/rpi-image-gen",
+    "commit": "fb44a4cde4ac54847ef1966957149e2c2b716fdf",
+    "commit_observation": "Read-only remote HEAD rechecked 2026-11-10; detached source checkout at this exact commit is clean. No generator or package installer executed.",
+    "dependency_manifest": "https://github.com/raspberrypi/rpi-image-gen/blob/fb44a4cde4ac54847ef1966957149e2c2b716fdf/depends",
+    "source_checkout_verified": true,
+    "supported_native_hosts": "Debian Bookworm/Trixie ARM64",
+    "private_sysroot_verified": false,
+    "namespace_permissions_verified": false,
+    "qualified": false,
+    "source_review": "README, depends, dependency installer, bdebstrap/genimage content-pinned recipes, Pi 5 / 2712 kernel and image-rpios layout inspected locally; runtime remains unqualified."
+  },
+  "qt": {
+    "version_family": "6.12",
+    "license": "commercial; entitlement and private packaging scope must be confirmed",
+    "linux_arm64_kit_verified": false,
+    "gnu_abi_and_transitive_16k_alignment_verified": false
+  },
+  "desktop": {
+    "login": "maintained base local login; autologin disabled",
+    "session": "maintained Pi desktop; native QOR applications as clients",
+    "simulator_allowed": false,
+    "full_prism_authentication_available": false,
+    "qor_applications_verified": false
+  },
+  "development_tools_candidate": [
+    "git",
+    "python3",
+    "cmake",
+    "ninja",
+    "pkg-config",
+    "gcc",
+    "g++",
+    "gdb"
+  ],
+  "payload_notes": [
+    "QQ Player is an initial candidate, not an ARM64 build result; Quick 3D remains required.",
+    "2D-only QQ Studio requires a later dependency refactor and tests.",
+    "The existing products.sh PDFium download is Linux x64; QOR Media needs a separate pinned ARM64 dependency.",
+    "No Qt SDK, credentials or provider keys in a reusable image without confirmed scope; no Qt installer run by this preparation."
+  ],
+  "provisioning": {
+    "plan": "image/README.md#q-pi-first-boot-and-bluetooth-bootstrap",
+    "applied": false,
+    "generic_image_ssh_enabled": false,
+    "reusable_credentials": false,
+    "bluetooth_bootstrap": "not required for headless first boot; pairing later only after approval",
+    "selected_preparation_route": "headless Wi-Fi and key-only SSH; optional local USB/HDMI recovery",
+    "interface": "cloudinit-rpi; actual custom image integration required",
+    "imager_reference": {
+      "version": "2.0.12",
+      "commit": "84b03d96cd4c390ebe475a4b5db5735e5535e9a6"
+    },
+    "normal_local_login_required": true,
+    "console_autologin": false,
+    "desktop_autologin": false,
+    "real_credentials_created": false,
+    "real_ssh_enabled": false,
+    "authenticated_assistant_access_verified": false,
+    "host_identity_route": "native per-device generation; completed firstboot and stable reboot; public-only receipt physically returned to Windows before pinning and separately approved access marker",
+    "headless_hook_integrated": false,
+    "access_marker_and_expiry_integrated": false,
+    "graceful_shutdown_verified": false,
+    "windows_client_observed": "C:/Windows/System32/OpenSSH/ssh.exe; OpenSSH_for_Windows_9.5p2",
+    "windows_client_evidence": "offline -G and synthetic public fingerprint only; no network connection",
+    "public_receipt_helper": "tools/image/pi_headless.py",
+    "scope_note": "These unqualified provisioning fields describe the eventual Q Pi image; the separately authorised stock-builder SSH connection is recorded under stock_builder_observation."
+  },
+  "scratch_budget_bytes": null,
+  "eventual_media_authorisation": {
+    "kind": "owner-scope-update-not-write-receipt",
+    "date": "2026-11-10",
+    "target": "plugged-in Samsung EVO nominal 128GB microSD",
+    "last_observed_capacity_bytes": 128177930240,
+    "eventual_q_pi_image_authorised": true,
+    "old_kali_and_data_erasure_authorised": true,
+    "stock_bootstrap_image_authorised": false,
+    "credentials_or_security_access_changes_authorised": false,
+    "action_time_identity_reverification_required": true,
+    "capacity_and_usb_reader_device_identity_required": true,
+    "must_not_be_system_or_boot_disk": true,
+    "image_provenance_checksum_pi5_arm64_size_readiness_required": true,
+    "action_time_irreversible_erasure_confirmation_required": true,
+    "completed_write_verification_required": true,
+    "current_device_identity_verified_for_write": false,
+    "image_ready": false,
+    "write_performed": false,
+    "procedure": "image/README.md#authorised-q-pi-target-and-action-time-write-gates"
+  },
+  "outputs": {
+    "image": null,
+    "sha256": null,
+    "sbom": null,
+    "build_receipt": null,
+    "physical_pi_report": null
+  },
+  "native_application_build": {
+    "source": "products/qq",
+    "presets": [
+      "q-pi-release",
+      "q-pi-asan"
+    ],
+    "harness": "tools/dev/products.sh --product qq --preset <preset>",
+    "outputs_built": false,
+    "native_arm64_builder_selected": true,
+    "note": "Stock Pi builder and native resource/coordinator tests observed; CMake and entitled compatible commercial Qt kit still missing. No ARM64 QOR application compiled or tested."
+  },
+  "stock_builder_observation": {
+    "date": "2026-11-11",
+    "kind": "temporary-stock-builder-not-q-pi-image",
+    "evidence": "build/q-pi-native-2026-11-11/session-01/",
+    "board_metadata": "Raspberry Pi 5 Model B Rev 1.1",
+    "architecture": "aarch64",
+    "os": "Debian 13 Trixie",
+    "kernel": "6.18.50+rpt-rpi-2712",
+    "page_size": 16384,
+    "bootstrap_probe_passed": true,
+    "builder_qualified": false,
+    "coordinator_resource_tests": {
+      "passed": 80,
+      "failed": 0,
+      "skipped": 0,
+      "actual_native_execution": true
+    },
+    "production_lock_check_passed": true,
+    "ssh_access": "owner-authorised dedicated restricted key; fresh batch-mode strict-checking connections observed",
+    "host_identity_trust": "owner-approved first use; not independently verified",
+    "credentials_embedded_in_image": false,
+    "cmake_installed": false,
+    "commercial_qt_kit_installed": false,
+    "power_cooling_login_policy_verified": false,
+    "application_image_peak_scratch_budget_measured": false,
+    "cmake_package_proposal": "four new pinned packages; 12375896 download bytes; 48841728 installed bytes; not approved or installed"
+  }
+}

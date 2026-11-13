@@ -8,6 +8,10 @@
 // colours tests/fixtures/make_2d.py paints.
 //
 // Changed for QOR OS: a controller comes from QOR OS's controller service, QOR.Input; here, only its virtual ones.
+// Changed for QOR OS: drawn in software alone, what is measured over the game's time is waited for on its clocks (Stage).
+// Changed for QOR OS: physics/controller checks use those clocks too; a failed controller case still unplugs its virtual pad.
+// Changed for QOR OS: imported models cover window startup and empty, failed and repeated loads.
+// Changed for QOR OS: group motion uses the physics and frame clocks in software and reports failed waits.
 
 #include <QDir>
 #include <QElapsedTimer>
@@ -22,7 +26,9 @@
 #include <QQmlEngine>
 #include <QQuickItem>
 #include <QQuickWindow>
+#include <QRegularExpression>
 #include <QSaveFile>
+#include <QScopeGuard>
 #include <QSet>
 #include <QSignalSpy>
 #include <QStandardPaths>
@@ -41,6 +47,7 @@
 #include <numbers>
 
 #include "confinement.h"
+#include "drawnin.h"
 #include "gamepadmanager.h"
 #include "input.h"
 #include "mixer.h"
@@ -61,13 +68,28 @@ QString fixture(const QString &name)
 }
 
 /// A window with a world in it, and a scene playing in the world.
+///
+/// On a GPU, a check of how far something went waits on the wall's clock, so it checks too that the world keeps up with
+/// real time. Drawn in software it cannot: a game has three clocks, which agree when frames come at 30 a second or faster.
+/// A body moves by the physics world's, which steps at most 1/30 s a frame. The Player's turn and its fall and jump speeds go
+/// by the frame clock (Player.qml), at most 1/20 s a frame. Logic goes by the scene's ticks (Scene.advance), at most 8/60 s a
+/// frame. A frame in software can take a fifth of a second, and a second of the physics world's time then takes six on the
+/// wall. So there alone (`software`) such a check waits on the clock its thing goes by, and shows what the game does over
+/// its own time. It no longer shows that the world keeps up (docs/CI.md#what-linux-runs).
 struct Stage {
     QQmlEngine engine;
     std::unique_ptr<QQuickWindow> window;
     QObject *world = nullptr;
     QObject *holder = nullptr;
     QObject *scene = nullptr;
+    QObject *clocks = nullptr;
     qq::SceneIO *io = nullptr;
+    /// Whether Mesa's software renderer draws this window, known once frames have come.
+    bool software = false;
+    /// Set before open(): in software alone, the scene's ticks paid from the physics world's time, so that logic and bodies
+    /// keep one time however slowly frames come, as they do at 30 frames a second or more. For a case that checks what logic's
+    /// timers did to bodies, with the world running: a paused world has no steps, so no ticks.
+    bool stepInSoftware = false;
 
     bool open(const QString &sceneText, bool play = true, const QUrl &file = {})
     {
@@ -87,6 +109,30 @@ struct Stage {
                     Node { objectName: "holder" }
                 }
                 TextInput { objectName: "typing"; width: 200; height: 24 }
+
+                // In software alone: the clocks a case waits on, in milliseconds. In step, the scene's ticks are paid from the
+                // physics world's time (see stepInSoftware).
+                QtObject {
+                    id: clocks
+                    objectName: "clocks"
+                    property bool counting: false
+                    property QtObject scene: null
+                    property bool inStep: false
+                    property real physics: 0
+                    property real frames: 0
+                }
+                FrameAnimation {
+                    running: clocks.counting
+                    onTriggered: clocks.frames += Math.min(frameTime, 0.05) * 1000
+                }
+                Connections {
+                    target: clocks.counting && clocks.scene ? clocks.scene.physicsWorld : null
+                    function onFrameDone(timestep) {
+                        clocks.physics += timestep
+                        if (clocks.inStep)
+                            clocks.scene.advance(timestep / 1000)
+                    }
+                }
             }
         )", QUrl(QStringLiteral("qrc:/tst_play/stage.qml")));
         window.reset(qobject_cast<QQuickWindow *>(component.create()));
@@ -96,6 +142,7 @@ struct Stage {
         }
         world = window->findChild<QObject *>(QStringLiteral("world"));
         holder = world->findChild<QObject *>(QStringLiteral("holder"));
+        clocks = window->findChild<QObject *>(QStringLiteral("clocks"));
         if (!QTest::qWaitForWindowExposed(window.get()))
             return false;
         // Frames flowing before anything is timed: the first ones wait on shaders being compiled.
@@ -111,12 +158,19 @@ struct Stage {
                 QTest::qWait(10);
             }
         }
+        software = qq::drawnInSoftware(window.get());
+        clocks->setProperty("counting", software);
         world->setProperty("hearing", play);
         scene = io->loadText(sceneText, file.isEmpty() ? QUrl::fromLocalFile(fixture(QStringLiteral("scenes/play.qml"))) : file,
                              holder);
         if (!scene) {
             qWarning() << io->lastError();
             return false;
+        }
+        clocks->setProperty("scene", QVariant::fromValue(scene));
+        if (software && stepInSoftware) {
+            scene->setProperty("autoAdvance", false);
+            clocks->setProperty("inStep", true);
         }
         if (play)
             scene->setProperty("playing", true);
@@ -184,6 +238,73 @@ struct Stage {
             steps.clear();
         }
         return done;
+    }
+
+    double physicsClock() const { return clocks->property("physics").toDouble(); }
+    double frameClock() const { return clocks->property("frames").toDouble(); }
+
+    // In software, what follows waits on a game's clock. A wall-clock limit far beyond any game's time here (thirty seconds for
+    // each second of it) stops a game that has hung.
+
+    /// Let `ms` of what moves bodies pass, `along` called as it goes. On a GPU, that is the wall's time. False if the game hung.
+    bool play(int ms, const std::function<void()> &along = {})
+    {
+        QElapsedTimer t;
+        t.start();
+        if (!software) {
+            while (t.elapsed() < ms) {
+                if (along)
+                    along();
+                window->update();
+                QTest::qWait(8);
+            }
+            return true;
+        }
+        const double until = physicsClock() + ms;
+        while (t.elapsed() < 30000 + 30 * ms && physicsClock() < until) {
+            if (along)
+                along();
+            window->update();
+            QTest::qWait(4);
+        }
+        return physicsClock() >= until;
+    }
+
+    /// Let frames pass until `done`, for at most `ms` of what moves bodies. On a GPU, that is the wall's time.
+    bool playUntil(const std::function<bool()> &done, int ms)
+    {
+        if (!software)
+            return runUntil(done, ms);
+        const double until = physicsClock() + ms;
+        QElapsedTimer guard;
+        guard.start();
+        while (guard.elapsed() < 30000 + 30 * ms && physicsClock() < until) {
+            if (done())
+                return true;
+            window->update();
+            QTest::qWait(4);
+        }
+        return done();
+    }
+
+    /// Let `ms` of what the Player's turn goes by pass. On a GPU, that is the wall's time. False if the game hung.
+    bool playFrames(int ms)
+    {
+        if (!software) {
+            run(ms);
+            return true;
+        }
+        const double until = frameClock() + ms;
+        return runUntil([&] { return frameClock() >= until; }, 30000 + 30 * ms);
+    }
+
+    /// After playFrames(), what is left of `ms` of what moves bodies since the physics world's clock read `since`. On a GPU
+    /// the two are the wall's time, and nothing is left.
+    bool playOn(double since, int ms)
+    {
+        if (!software)
+            return true;
+        return runUntil([&] { return physicsClock() >= since + ms; }, 30000 + 30 * ms);
     }
 
     /// Where an entity's body is in play (its physics node), or the entity itself.
@@ -349,9 +470,9 @@ private slots:
         QObject *crate = s.entity(QStringLiteral("Crate"));
         QVERIFY(crate->property("physics").value<QObject *>());
         // Falling (the first world in a process takes a moment to start)...
-        QVERIFY2(s.runUntil([&s] { return s.where(QStringLiteral("Crate")).y() < 2.6f; }, 5000), "the crate did not fall");
+        QVERIFY2(s.playUntil([&s] { return s.where(QStringLiteral("Crate")).y() < 2.6f; }, 5000), "the crate did not fall");
         // ...and at rest.
-        s.run(2500);
+        QVERIFY(s.play(2500));
         const QVector3D rest = s.where(QStringLiteral("Crate"));
         QVERIFY2(qAbs(rest.y() - 0.5f) < 0.05f, qPrintable(QStringLiteral("at rest at y %1").arg(rest.y())));
         QVERIFY(qAbs(rest.x() - 2) < 0.05f);
@@ -370,7 +491,7 @@ private slots:
             "    Shape { name: \"Drop\"; form: \"sphere\"; position: Qt.vector3d(3, 3, 0); scale: Qt.vector3d(0.5, 0.5, 0.5); "
             "body: \"dynamic\"; bounce: 0 }\n"))));
         QVERIFY(!s.entity(QStringLiteral("Mist"))->property("physics").value<QObject *>());
-        s.run(2500);
+        QVERIFY(s.play(2500));
         // On the plinth's top (0.5), a ball of radius 0.25.
         const float ball = s.where(QStringLiteral("Ball")).y();
         QVERIFY2(qAbs(ball - 0.75f) < 0.05f, qPrintable(QStringLiteral("ball at %1").arg(ball)));
@@ -388,7 +509,7 @@ private slots:
             "    Shape { name: \"Peak\"; form: \"cone\"; position: Qt.vector3d(2, 3, 0); body: \"dynamic\"; bounce: 0 }\n"
             "    Shape { name: \"Spire\"; form: \"cone\"; position: Qt.vector3d(0, 3, -2); scale: Qt.vector3d(1, 3, 1); "
             "body: \"dynamic\"; bounce: 0 }\n"))));
-        s.run(3000);
+        QVERIFY(s.play(3000));
         // Standing on their flat ends: the pillar's middle a metre up, the cone's base (where a cone is) on the ground.
         const float pillar = s.where(QStringLiteral("Pillar")).y();
         const float peak = s.where(QStringLiteral("Peak")).y();
@@ -428,16 +549,16 @@ private slots:
         QVERIFY(s.open(sceneText(QStringLiteral("    Player { name: \"Hero\"; position: Qt.vector3d(0, 0, 0) }\n"))));
         QObject *hero = s.entity(QStringLiteral("Hero"));
         QCOMPARE(s.scene->property("player").value<QObject *>(), hero);
-        s.run(400);  // settle on the ground
+        QVERIFY(s.play(400));  // settle on the ground
         auto feet = [hero] { return hero->property("feet").value<QVector3D>(); };
         QVERIFY2(qAbs(feet().y()) < 0.15f, qPrintable(QStringLiteral("standing at %1").arg(feet().y())));
 
         // W, for a second: forward is -z, at 4.5 m a second.
         QVector3D from = feet();
         QTest::keyPress(s.window.get(), Qt::Key_W);
-        s.run(1000);
+        QVERIFY(s.play(1000));
         QTest::keyRelease(s.window.get(), Qt::Key_W);
-        s.run(200);
+        QVERIFY(s.play(200));
         const float walked = from.z() - feet().z();
         QVERIFY2(walked > 3.0f && walked < 5.5f, qPrintable(QStringLiteral("walked %1").arg(walked)));
         QVERIFY(qAbs(feet().x() - from.x()) < 0.2f);
@@ -446,17 +567,17 @@ private slots:
         from = feet();
         QTest::keyPress(s.window.get(), Qt::Key_Shift);
         QTest::keyPress(s.window.get(), Qt::Key_W, Qt::ShiftModifier);
-        s.run(1000);
+        QVERIFY(s.play(1000));
         QTest::keyRelease(s.window.get(), Qt::Key_W, Qt::ShiftModifier);
         QTest::keyRelease(s.window.get(), Qt::Key_Shift);
-        s.run(200);
+        QVERIFY(s.play(200));
         const float ran = from.z() - feet().z();
         QVERIFY2(ran > walked * 1.4f, qPrintable(QStringLiteral("ran %1, walked %2").arg(ran).arg(walked)));
 
         // Right arrow: turns right, which is a falling heading.
         const double heading = hero->property("heading").toDouble();
         QTest::keyPress(s.window.get(), Qt::Key_Right);
-        s.run(500);
+        QVERIFY(s.playFrames(500));
         QTest::keyRelease(s.window.get(), Qt::Key_Right);
         QVERIFY2(hero->property("heading").toDouble() < heading - 40,
                  qPrintable(QStringLiteral("heading %1").arg(hero->property("heading").toDouble())));
@@ -464,16 +585,10 @@ private slots:
         // Space: up more than half a metre, and down again.
         float highest = feet().y();
         QTest::keyPress(s.window.get(), Qt::Key_Space);
-        QElapsedTimer t;
-        t.start();
-        while (t.elapsed() < 600) {
-            highest = qMax(highest, feet().y());
-            s.window->update();
-            QTest::qWait(8);
-        }
+        QVERIFY(s.play(600, [&] { highest = qMax(highest, feet().y()); }));
         QTest::keyRelease(s.window.get(), Qt::Key_Space);
         QVERIFY2(highest > 0.6f, qPrintable(QStringLiteral("jumped to %1").arg(highest)));
-        s.run(1200);
+        QVERIFY(s.play(1200));
         QVERIFY2(qAbs(feet().y()) < 0.15f, qPrintable(QStringLiteral("landed at %1").arg(feet().y())));
 
         // The camera is behind, above and looking at the player.
@@ -492,7 +607,7 @@ private slots:
         QObject *hero = s.entity(QStringLiteral("Hero"));
         qq::Input *input = s.input();
         input->setReadsHardware(false);  // this case is the pad
-        s.run(600);
+        QVERIFY(s.play(600));
         auto feet = [hero] { return hero->property("feet").value<QVector3D>(); };
         auto across = [](QVector3D v) { return QVector2D(v.x(), v.z()).length(); };
 
@@ -501,23 +616,23 @@ private slots:
         input->gamepadState(QVector2D(0.12f, 0.15f), QVector2D(0.1f, 0), false, false);
         QCOMPARE(input->move(), QVector2D(0, 0));
         QCOMPARE(input->gamepad(), true);
-        s.run(500);
+        QVERIFY(s.play(500));
         QVERIFY2(across(feet() - from) < 0.02f, qPrintable(QStringLiteral("drifted %1").arg(across(feet() - from))));
 
         // Full forward on the left stick, half right on the right.
         const double heading = hero->property("heading").toDouble();
         input->gamepadState(QVector2D(0, 1), QVector2D(0.6f, 0), false, false);
-        s.run(800);
+        const double pushed = s.physicsClock();
+        QVERIFY(s.playFrames(800));
+        const double turned = hero->property("heading").toDouble();
+        QVERIFY(s.playOn(pushed, 800));
         QVERIFY2((feet() - from).length() > 2.0f, qPrintable(QStringLiteral("moved %1").arg((feet() - from).length())));
-        QVERIFY(hero->property("heading").toDouble() < heading - 20);
+        QVERIFY(turned < heading - 20);
 
         // A: jump.
         input->gamepadState({}, {}, true, false);
         float highest = feet().y();
-        for (int i = 0; i < 50; ++i) {
-            highest = qMax(highest, feet().y());
-            s.run(10);
-        }
+        QVERIFY(s.play(500, [&] { highest = qMax(highest, feet().y()); }));
         QVERIFY2(highest > 0.5f, qPrintable(QStringLiteral("jumped to %1").arg(highest)));
 
         // Unplugged: nothing held.
@@ -539,6 +654,7 @@ private slots:
         QVERIFY(QTest::qWaitForWindowActive(s.window.get()));
         auto *pads = qor::input::GamepadManager::instance();
         const QString pad = pads->addVirtual(qor::input::Family::PlayStation, QStringLiteral("DualSense"));
+        auto unplug = qScopeGuard([pads, pad] { pads->removeVirtual(pad); });
         QCOMPARE(input->gamepad(), true);
 
         // Forward on the left stick (QOR.Input's y runs down), and Cross, the south button: walking, and a jump.
@@ -549,7 +665,7 @@ private slots:
         QCOMPARE(input->move(), QVector2D(0, 1));
         QCOMPARE(input->jump(), true);
         const QVector3D from = hero->property("feet").value<QVector3D>();
-        s.run(800);
+        QVERIFY(s.play(800));
         const QVector3D to = hero->property("feet").value<QVector3D>();
         QVERIFY2(QVector2D(to.x() - from.x(), to.z() - from.z()).length() > 0.5f,
                  qPrintable(QStringLiteral("walked %1").arg(QVector2D(to.x() - from.x(), to.z() - from.z()).length())));
@@ -617,6 +733,7 @@ private slots:
 
         // Unplugged: nothing held, and no pad.
         pads->removeVirtual(pad);
+        unplug.dismiss();
         QCOMPARE(input->gamepad(), false);
         QCOMPARE(input->held(QStringLiteral("fire")), false);
         QCOMPARE(input->move(), QVector2D(0, 0));
@@ -847,7 +964,7 @@ private slots:
                            "    Trigger { name: \"Orb\"; form: \"sphere\"; position: Qt.vector3d(0, 1, -2.5) }\n"
                            "    Behaviour { name: \"Pickup\"; source: \"../logic/pickup.qml\"; target: \"Orb\" }\n")),
                        true, QUrl::fromLocalFile(QDir(project.path()).filePath(QStringLiteral("scenes/play.qml")))));
-        s.run(400);  // standing
+        QVERIFY(s.play(400));  // standing
         QObject *pickup = s.entity(QStringLiteral("Pickup"));
         auto who = [pickup] {
             QObject *logic = pickup->property("logic").value<QObject *>();
@@ -855,7 +972,7 @@ private slots:
         };
         QCOMPARE(who(), QString());
         QTest::keyPress(s.window.get(), Qt::Key_W);
-        const bool heard = s.runUntil([&] { return !who().isEmpty(); }, 3000);
+        const bool heard = s.playUntil([&] { return !who().isEmpty(); }, 3000);
         QTest::keyRelease(s.window.get(), Qt::Key_W);
         QVERIFY2(heard, "the orb did not hear the player");
         QCOMPARE(who(), QStringLiteral("Player:Hero"));
@@ -928,13 +1045,16 @@ private slots:
                   "        after(1.5, () => removed = remove(entity(\"Drop1\")))\n"
                   "    }\n}\n");
         Stage s;
+        // In software, logic's clock runs up to four times ahead of the physics world's. There alone it is held to it, so what
+        // logic's timers made has had a second of that time to fall when logic's clock says so.
+        s.stepInSoftware = true;
         QVERIFY(s.open(sceneText(QStringLiteral("    Behaviour { name: \"Rain\"; source: \"../logic/rain.qml\" }\n")),
                        true, QUrl::fromLocalFile(QDir(project.path()).filePath(QStringLiteral("scenes/play.qml")))));
         QObject *rain = s.entity(QStringLiteral("Rain"));
         auto logic = [rain] { return rain->property("logic").value<QObject *>(); };
         auto elapsed = [&] { return logic() ? logic()->property("elapsed").toDouble() : 0.0; };
 
-        QVERIFY(s.runUntil([&] { return elapsed() >= 1.2; }, 8000));
+        QVERIFY(s.runUntil([&] { return elapsed() >= 1.2; }, s.software ? 60000 : 8000));
         QCOMPARE(logic()->property("made").toInt(), 3);
         QCOMPARE(logic()->property("once").toInt(), 1);
         QCOMPARE(logic()->property("refused").toBool(), true);
@@ -952,7 +1072,7 @@ private slots:
 
         // Removed with its body.
         QVERIFY(s.runUntil([&] { return logic()->property("removed").toBool() && !s.entity(QStringLiteral("Drop1")); },
-                           4000));
+                           s.software ? 30000 : 4000));
         QTRY_VERIFY(body.isNull());
         QVERIFY(s.entity(QStringLiteral("Drop0")) && s.entity(QStringLiteral("Drop2")));
     }
@@ -982,16 +1102,16 @@ private slots:
                        true, QUrl::fromLocalFile(QDir(project.path()).filePath(QStringLiteral("scenes/play.qml")))));
         QObject *kick = s.entity(QStringLiteral("Kick"));
         auto logic = [kick] { return kick->property("logic").value<QObject *>(); };
-        QVERIFY(s.runUntil([&] { return logic() && logic()->property("kicked").toBool(); }, 5000));
+        QVERIFY(s.playUntil([&] { return logic() && logic()->property("kicked").toBool(); }, 5000));
         QCOMPARE(logic()->property("refused").toBool(), true);  // a kinematic body is led, not pushed
-        s.run(1500);
+        QVERIFY(s.play(1500));
         QVERIFY2(s.where(QStringLiteral("Ball")).x() > -1.5f,
                  qPrintable(QStringLiteral("ball at x %1").arg(s.where(QStringLiteral("Ball")).x())));
 
         // The lift rose a metre, its body with it, and carried its rider up.
-        QVERIFY(s.runUntil(
+        QVERIFY(s.playUntil(
             [&] { return s.entity(QStringLiteral("Lift"))->property("position").value<QVector3D>().y() >= 1.249f; }, 6000));
-        s.run(500);
+        QVERIFY(s.play(500));
         QVERIFY2(qAbs(s.where(QStringLiteral("Lift")).y() - 1.25f) < 0.02f,
                  qPrintable(QStringLiteral("lift's body at %1").arg(s.where(QStringLiteral("Lift")).y())));
         QVERIFY2(s.where(QStringLiteral("Rider")).y() > 1.6f,
@@ -1022,21 +1142,41 @@ private slots:
                        true, QUrl::fromLocalFile(QDir(project.path()).filePath(QStringLiteral("scenes/play.qml")))));
         // On the deck, and staying there (not only passing on its way down): its top at 0.5 + 0.1, the crate's middle a
         // quarter above.
-        QVERIFY2(s.runUntil([&] { return qAbs(s.where(QStringLiteral("Crate")).y() - 0.85f) < 0.05f; }, 5000),
-                 qPrintable(QString::number(s.where(QStringLiteral("Crate")).y())));
-        s.run(600);
+        const double landingPhysics = s.physicsClock();
+        const double landingFrames = s.frameClock();
+        QElapsedTimer landingWall;
+        landingWall.start();
+        QVERIFY2(s.playUntil([&] { return qAbs(s.where(QStringLiteral("Crate")).y() - 0.85f) < 0.05f; }, 5000),
+                 qPrintable(QStringLiteral("crate=%1, physics=%2 ms, frames=%3 ms, wall=%4 ms")
+                                .arg(s.where(QStringLiteral("Crate")).y())
+                                .arg(s.physicsClock() - landingPhysics)
+                                .arg(s.frameClock() - landingFrames)
+                                .arg(landingWall.elapsed())));
+        QVERIFY(s.play(600));
         QVERIFY2(qAbs(s.where(QStringLiteral("Crate")).y() - 0.85f) < 0.05f,
                  qPrintable(QString::number(s.where(QStringLiteral("Crate")).y())));
         QCOMPARE(s.where(QStringLiteral("Deck")), QVector3D(3, 0.5f, 0));
         QObject *sensor = s.entity(QStringLiteral("Sensor"));
-        QVERIFY(s.runUntil([&] { return sensor->property("inside").toInt() >= 1; }, 2000));
+        QVERIFY(s.playUntil([&] { return sensor->property("inside").toInt() >= 1; }, 2000));
         // Raised a unit by logic.
         QObject *raise = s.entity(QStringLiteral("Raise"))->property("logic").value<QObject *>();
         QVERIFY(raise);
         raise->setProperty("go", true);
-        QVERIFY(s.runUntil([&] { return s.entity(QStringLiteral("Lift"))->property("position").value<QVector3D>().y() >= 1.499f; },
-                           4000));
-        s.run(500);
+        const double raisingPhysics = s.physicsClock();
+        const double raisingFrames = s.frameClock();
+        QElapsedTimer raisingWall;
+        raisingWall.start();
+        const auto raised = [&] { return s.entity(QStringLiteral("Lift"))->property("position").value<QVector3D>().y() >= 1.499f; };
+        // Behaviour's onFrame uses its own clamped frame clock; software can draw less than 1.25 seconds in four wall seconds.
+        // Keep the existing GPU wait and give software the same four seconds on that frame clock.
+        const bool raisedInTime = s.software ? (s.playFrames(4000) && raised()) : s.runUntil(raised, 4000);
+        QVERIFY2(raisedInTime,
+                 qPrintable(QStringLiteral("lift=%1, physics=%2 ms, frames=%3 ms, wall=%4 ms")
+                                .arg(s.entity(QStringLiteral("Lift"))->property("position").value<QVector3D>().y())
+                                .arg(s.physicsClock() - raisingPhysics)
+                                .arg(s.frameClock() - raisingFrames)
+                                .arg(raisingWall.elapsed())));
+        QVERIFY(s.play(500));
         QVERIFY2(qAbs(s.where(QStringLiteral("Crate")).y() - 1.85f) < 0.08f,
                  qPrintable(QString::number(s.where(QStringLiteral("Crate")).y())));
         QVERIFY(qAbs(s.where(QStringLiteral("Deck")).y() - 1.5f) < 1e-4f);
@@ -1204,9 +1344,9 @@ private slots:
         QVERIFY(s.runUntil([&] { return track(1 - current()).isEmpty(); }, 4000));
 
         // Walk straight ahead into the first orb: gathered, taken away with its glow, and another placed.
-        s.run(400);
+        QVERIFY(s.play(400));
         QTest::keyPress(s.window.get(), Qt::Key_W);
-        const bool gathered = s.runUntil([&] { return score() >= 1; }, 6000);
+        const bool gathered = s.playUntil([&] { return score() >= 1; }, 6000);
         QTest::keyRelease(s.window.get(), Qt::Key_W);
         QVERIFY2(gathered, "the player walked through the first orb without gathering it");
         QCOMPARE(s.entity(QStringLiteral("Score"))->property("text").toString(), QStringLiteral("ORBS 1"));
@@ -1241,7 +1381,7 @@ private slots:
         // The boulder is rolled at the player, with a rumble from where it was.
         const QVector3D boulder = s.where(QStringLiteral("Boulder"));
         bool rumbled = false;
-        QVERIFY(s.runUntil([&] {
+        QVERIFY(s.playUntil([&] {
             rumbled = rumbled || sounding(QStringLiteral("rumble.wav"));
             return rumbled && (s.where(QStringLiteral("Boulder")) - boulder).length() > 1.0f;
         }, 6000));
@@ -1786,6 +1926,102 @@ private slots:
 
     // ── animation (P3.12, ADR-105) ──
 
+    void aGameWindowStartsWithAnImportedModel()
+    {
+        QTest::failOnWarning(QRegularExpression(
+            QStringLiteral(".*Prop\\.qml.*Unable to assign \\[undefined\\] to QVector3D")));
+        QTemporaryDir project;
+        QVERIFY(project.isValid());
+        QVERIFY(QFile::copy(fixture(QStringLiteral("orb.gltf")), QDir(project.path()).filePath(QStringLiteral("orb.gltf"))));
+        QFile file(QDir(project.path()).filePath(QStringLiteral("first.qml")));
+        QVERIFY(file.open(QIODevice::WriteOnly));
+        const QByteArray scene = sceneText(QStringLiteral("    Prop { name: \"First model\"; source: \"orb.gltf\" }\n")).toUtf8();
+        QCOMPARE(file.write(scene), scene.size());
+        file.close();
+
+        QQmlEngine engine;
+        QQmlComponent component(&engine);
+        component.setData(R"(
+            import QtQuick
+            import QQ
+            Window {
+                id: host
+                property url sceneFile
+                width: 320; height: 240; visible: true
+                Game { objectName: "game"; anchors.fill: parent; file: host.sceneFile; hearing: false }
+            }
+        )", QUrl(QStringLiteral("qrc:/tst_play/first-model.qml")));
+        std::unique_ptr<QQuickWindow> window(qobject_cast<QQuickWindow *>(component.createWithInitialProperties(
+            {{QStringLiteral("sceneFile"), QUrl::fromLocalFile(file.fileName())}})));
+        QVERIFY2(window, qPrintable(component.errorString()));
+        QObject *game = window->findChild<QObject *>(QStringLiteral("game"));
+        QVERIFY(game);
+        const auto release = qScopeGuard([game] { QMetaObject::invokeMethod(game, "release"); });
+        QVERIFY(QTest::qWaitForWindowExposed(window.get()));
+        [[maybe_unused]] const bool software = qq::drawnInSoftware(window.get());
+        QTRY_VERIFY_WITH_TIMEOUT(game->property("settled").toBool(), 5000);
+        QCOMPARE(game->property("problem").toString(), QString());
+        auto *io = engine.singletonInstance<qq::SceneIO *>("QQ", "SceneIO");
+        QVERIFY(io);
+        QObject *model = nullptr;
+        for (const QVariant &e : io->entities(game->property("scene").value<QObject *>())) {
+            if (e.value<QObject *>()->property("name").toString() == QStringLiteral("First model"))
+                model = e.value<QObject *>();
+        }
+        QVERIFY(model);
+        QCOMPARE(model->property("status").toInt(), 1);
+    }
+
+    void aModelsPickBoxSurvivesEmptyAndFailedLoads()
+    {
+        QTest::failOnWarning(QRegularExpression(
+            QStringLiteral(".*Prop\\.qml.*Unable to assign \\[undefined\\] to QVector3D")));
+        Stage s;
+        QVERIFY(s.open(sceneText(QStringLiteral("    Prop { name: \"Changing model\" }\n")), false));
+        auto *model = qobject_cast<QQuick3DObject *>(s.entity(QStringLiteral("Changing model")));
+        QVERIFY(model);
+        QObject *box = nullptr;
+        for (QQuick3DObject *child : model->childItems()) {
+            if (child->property("pickable").toBool()) {
+                QVERIFY(!box);
+                box = child;
+            }
+        }
+        QVERIFY(box);
+        QCOMPARE(model->property("status").toInt(), 0);
+        QVERIFY(!box->property("visible").toBool());
+
+        const QUrl source = QUrl::fromLocalFile(fixture(QStringLiteral("orb.gltf")));
+        auto loaded = [model, box] {
+            return model->property("status").toInt() == 1 && box->property("visible").toBool()
+                && box->property("scale").value<QVector3D>().lengthSquared() > 0;
+        };
+        auto finite = [](const QVector3D &v) { return std::isfinite(v.x()) && std::isfinite(v.y()) && std::isfinite(v.z()); };
+        QVERIFY(model->setProperty("source", source));
+        QVERIFY(s.runUntil(loaded, 5000));
+        const QVector3D position = box->property("position").value<QVector3D>();
+        const QVector3D scale = box->property("scale").value<QVector3D>();
+        QVERIFY(finite(position) && finite(scale));
+
+        QVERIFY(model->setProperty("source", QUrl()));
+        QVERIFY(s.runUntil([model] { return model->property("status").toInt() == 0; }, 5000));
+        QVERIFY(!box->property("visible").toBool());
+
+        QTemporaryDir missing;
+        QVERIFY(missing.isValid());
+        const QString absent = QDir(missing.path()).filePath(QStringLiteral("missing.gltf"));
+        QVERIFY(!QFile::exists(absent));
+        QVERIFY(model->setProperty("source", QUrl::fromLocalFile(absent)));
+        QVERIFY(s.runUntil([model] { return model->property("status").toInt() == 2; }, 5000));
+        QVERIFY(!box->property("visible").toBool());
+        QVERIFY(!model->property("errorString").toString().isEmpty());
+
+        QVERIFY(model->setProperty("source", source));
+        QVERIFY(s.runUntil(loaded, 5000));
+        QCOMPARE(box->property("position").value<QVector3D>(), position);
+        QCOMPARE(box->property("scale").value<QVector3D>(), scale);
+    }
+
     void aModelPlaysItsGltfClipsOnTheGamesClock()
     {
         // tests/fixtures/rig.gltf (make_rig.py): a bar skinned to Root and Tip, which "bend" turns 90 degrees at 1 s and
@@ -2059,8 +2295,16 @@ private slots:
         QCOMPARE(voices->property("active").toList().size(), 0);
     }
 
+    void aScenesMusicFadesFromOneTrackToTheNext_data()
+    {
+        QTest::addColumn<bool>("web");
+        QTest::newRow("ambient") << false;
+        QTest::newRow("web") << true;
+    }
+
     void aScenesMusicFadesFromOneTrackToTheNext()
     {
+        QFETCH(bool, web);
         QTemporaryDir project;
         const QDir root(project.path());
         root.mkpath(QStringLiteral("assets"));
@@ -2068,7 +2312,8 @@ private slots:
             QVERIFY(QFile::copy(fixture(QStringLiteral("chime.wav")), root.filePath(QLatin1String(name))));
         Stage s;
         QVERIFY(s.open(sceneText(QStringLiteral(
-                           "    Music { name: \"Music\"; source: \"../assets/first.wav\"; volume: 0.8; fade: 10 }\n")),
+                           "    Music { name: \"Music\"; source: \"../assets/first.wav\"; volume: 0.8; fade: 10; web: %1 }\n")
+                               .arg(web ? QStringLiteral("true") : QStringLiteral("false"))),
                        true, QUrl::fromLocalFile(root.filePath(QStringLiteral("scenes/play.qml")))));
         QObject *music = s.entity(QStringLiteral("Music"));
         auto voice = [music](int index) {
@@ -2083,7 +2328,7 @@ private slots:
         QVERIFY(!voice(1));
         QCOMPARE(track(0), QStringLiteral("first.wav"));
         QVERIFY(qAbs(level(0) - 0.8) < 1e-6);  // a voice's volume is a float
-        QCOMPARE(voice(0)->property("loops").toInt(), -1);  // for ever
+        QCOMPARE(voice(0)->property("loops").toInt(), web ? -2 : -1);  // each backend's forever value
         // In the music group: its level is heard.
         auto *mixer = s.engine.singletonInstance<qq::Mixer *>("QQ", "Mixer");
         mixer->setLevel(QStringLiteral("music"), 0.5);
@@ -2131,6 +2376,19 @@ private slots:
         QObject *heardRight = right->property("playing").value<QObject *>();
         QObject *heardLeft = left->property("playing").value<QObject *>();
         QVERIFY(QString::fromLatin1(heardRight->metaObject()->className()).contains(QStringLiteral("WebVoice")));
+        // Both projections supply a Camera, and existing voices follow the active one when the view changes.
+        QObject *perspectiveEye = s.world->property("activeCamera").value<QObject *>();
+        QVERIFY(perspectiveEye);
+        QCOMPARE(heardRight->property("eye").value<QObject *>(), perspectiveEye);
+        QCOMPARE(heardLeft->property("eye").value<QObject *>(), perspectiveEye);
+        s.world->setProperty("flat", true);
+        QObject *flatEye = s.world->property("activeCamera").value<QObject *>();
+        QVERIFY(flatEye && flatEye != perspectiveEye);
+        QTRY_COMPARE(heardRight->property("eye").value<QObject *>(), flatEye);
+        QTRY_COMPARE(heardLeft->property("eye").value<QObject *>(), flatEye);
+        s.world->setProperty("flat", false);
+        QTRY_COMPARE(heardRight->property("eye").value<QObject *>(), perspectiveEye);
+        QTRY_COMPARE(heardLeft->property("eye").value<QObject *>(), perspectiveEye);
         // The eye at (0, 1, 6) looking down -z: (4, 1, 0) is to its right, 4/sqrt(52) of the way round.
         const double side = 4 / std::sqrt(52.0);
         QVERIFY2(qAbs(heardRight->property("pan").toDouble() - side) < 1e-3, qPrintable(heardRight->property("pan").toString()));
@@ -2152,6 +2410,7 @@ private slots:
                                   Q_ARG(QVariant, QVariant(options)));
         QObject *oneShot = shot.value<QObject *>();
         QVERIFY(oneShot);
+        QCOMPARE(oneShot->property("eye").value<QObject *>(), perspectiveEye);
         s.run(50);
         QVERIFY2(oneShot->property("pan").toDouble() < -0.99, qPrintable(oneShot->property("pan").toString()));
     }
@@ -2789,15 +3048,38 @@ private slots:
                  qPrintable(QStringLiteral("look at %1, %2").arg(carried.x()).arg(carried.y())));
     }
 
+    void aDynamicBodyInA2DSceneStaysOnThePlane_data()
+    {
+        QTest::addColumn<QString>("floor");
+        QTest::addColumn<QString>("crateText");
+        QTest::newRow("shapes")
+            << QStringLiteral("Shape { name: \"Floor\"; position: Qt.vector3d(0, -0.5, 0); scale: Qt.vector3d(20, 1, 4) }")
+            << QStringLiteral("Shape { name: \"Crate\"; position: Qt.vector3d(0, 3, 0); eulerRotation: Qt.vector3d(0, 0, 30); "
+                              "body: \"dynamic\" }");
+        for (const char *body : {"static", "kinematic"})
+            QTest::newRow(body)
+                << QStringLiteral("Sprite { name: \"Floor\"; source: \"../assets/sheet.png\"; columns: 4; rows: 2; "
+                                  "position: Qt.vector3d(0, -0.5, 0); scale: Qt.vector3d(40, 2, 1); body: \"%1\" }")
+                       .arg(QLatin1String(body))
+                << QStringLiteral("Sprite { name: \"Crate\"; source: \"../assets/sheet.png\"; columns: 4; rows: 2; "
+                                  "position: Qt.vector3d(0, 3, 0); eulerRotation: Qt.vector3d(0, 0, 30); "
+                                  "scale: Qt.vector3d(2, 2, 1); body: \"dynamic\" }");
+    }
+
     void aDynamicBodyInA2DSceneStaysOnThePlane()
     {
+        QFETCH(QString, floor);
+        QFETCH(QString, crateText);
+        FlatProject project;
         Stage s;
-        QVERIFY(s.open(flatText(QStringLiteral(
-            "    Shape { name: \"Floor\"; position: Qt.vector3d(0, -0.5, 0); scale: Qt.vector3d(20, 1, 4) }\n"
-            "    Shape { name: \"Crate\"; position: Qt.vector3d(0, 3, 0); eulerRotation: Qt.vector3d(0, 0, 30); "
-            "body: \"dynamic\" }\n"))));
+        QVERIFY(s.open(flatText(floor + QLatin1Char('\n') + crateText + QLatin1Char('\n')), true, project.scene()));
         s.flat(16, 12, QVector3D(0, 1, 0));
         QObject *crate = s.entity(QStringLiteral("Crate"));
+        QObject *floorEntity = s.entity(QStringLiteral("Floor"));
+        QSignalSpy floorContact(floorEntity, SIGNAL(contact(QObject *, QVector3D, QVector3D)));
+        QSignalSpy crateContact(crate, SIGNAL(contact(QObject *, QVector3D, QVector3D)));
+        QVERIFY(floorContact.isValid());
+        QVERIFY(crateContact.isValid());
         QVERIFY(s.runUntil([&s] { return s.where(QStringLiteral("Crate")).y() < 2.5f; }, 5000));
         // Pushed into the depth and spun about every axis: it moves only on the plane and turns only about the depth axis.
         QVERIFY(QMetaObject::invokeMethod(crate, "push", Q_ARG(QVariant, QVariant::fromValue(QVector3D(2, 0, 8)))));
@@ -2805,6 +3087,10 @@ private slots:
         const QVector3D at = s.where(QStringLiteral("Crate"));
         QVERIFY2(qAbs(at.z()) < 0.01f, qPrintable(QStringLiteral("moved to z %1").arg(at.z())));
         QVERIFY(at.x() > 0.2f);
+        // The frame-sized collider lands on the floor, and both body factories report the contact.
+        QVERIFY2(at.y() > 0.35f && at.y() < 1.0f, qPrintable(QStringLiteral("landed at y %1").arg(at.y())));
+        QVERIFY(!floorContact.isEmpty());
+        QVERIFY(!crateContact.isEmpty());
         const QVector3D turned = crate->property("physics").value<QObject *>()->property("eulerRotation").value<QVector3D>();
         QVERIFY2(qAbs(turned.x()) < 0.5f && qAbs(turned.y()) < 0.5f,
                  qPrintable(QStringLiteral("turned %1, %2, %3").arg(turned.x()).arg(turned.y()).arg(turned.z())));

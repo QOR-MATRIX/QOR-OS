@@ -5,7 +5,7 @@
 // Hosts the QOR.Shell desktop inside a Qt Wayland Compositor scene. Run it
 // nested for development:
 //
-//   prism --unlocked            # inside an existing Wayland/X11 session or WSLg
+//   prism --unlocked            # inside an existing Wayland/X11 session or WSLg (a build with the simulator)
 //   WAYLAND_DISPLAY=wayland-1 weston-terminal   # launch a client into Prism
 //
 // Prism prints the socket name it listens on (the first free wayland-N, or
@@ -15,18 +15,21 @@
 // docs/decisions/QOR-0005-every-display-at-its-own-refresh.md.
 
 #include "backend.h"
+#include "commandline.h"
 #include "kit.h"
 #include "producthost.h"
 #include "refusednetwork.h"
 #include "serviceendpoint.h"
 #include "services.h"
+#include "sessionwelcome.h"
+#ifdef QOR_HAS_SIMULATOR
 #include "shellbenchmark.h"
 #include "shellscript.h"
-#ifdef QOR_HAS_SIMULATOR
 #include "simservices.h"
 #endif
 
 #include <QtCore/QCommandLineParser>
+#include <QtCore/QFileInfo>
 #include <QtCore/QTemporaryDir>
 #include <QtCore/QTimer>
 #include <QtGui/QGuiApplication>
@@ -37,7 +40,9 @@
 #include <QtQuickControls2/QQuickStyle>
 
 #include <algorithm>
+#include <cstdio>
 #include <memory>
+#include <string_view>
 
 using namespace Qt::StringLiterals;
 
@@ -49,6 +54,10 @@ Q_IMPORT_QML_PLUGIN(QOR_ShellPlugin)
 
 int main(int argc, char *argv[])
 {
+    // Image inspection must not initialise graphics, audio, services or user state.
+    if (argc == 2 && std::string_view(argv[1]) == "--build-capabilities")
+        return std::fputs(qor::prism::buildCapabilities(), stdout) < 0 ? 1 : 0;
+
     // The compositor's own window must not try to connect to itself.
     if (qEnvironmentVariableIsEmpty("QT_QPA_PLATFORM") && !qEnvironmentVariableIsEmpty("WAYLAND_DISPLAY"))
         qputenv("QT_QPA_PLATFORM", "wayland");
@@ -65,36 +74,9 @@ int main(int argc, char *argv[])
     parser.setApplicationDescription(u"Prism, the QOR OS Wayland compositor."_s);
     parser.addHelpOption();
     parser.addVersionOption();
-#ifdef QOR_HAS_SIMULATOR
-    const QCommandLineOption services(u"services"_s, u"embedded (simulated, default) or external."_s, u"mode"_s,
-                                      u"embedded"_s);
-#else
-    // A device: the system's own daemons, and no simulator built in to choose (SECURITY.md).
-    const QCommandLineOption services(u"services"_s, u"external: the only choice in this build."_s, u"mode"_s,
-                                      u"external"_s);
-#endif
-    const QCommandLineOption unlocked(u"unlocked"_s, u"Start on the desktop instead of the lock screen."_s);
-    const QCommandLineOption socket(u"socket"_s, u"Wayland socket name for clients (default: first free wayland-N)."_s,
-                                    u"name"_s);
-    const QCommandLineOption size(u"size"_s, u"Output window size, e.g. 1600x1000."_s, u"WxH"_s);
-    const QCommandLineOption spreadClients(u"spread-clients"_s,
-                                           u"Open each new client on the output with the fewest windows."_s);
-    const QCommandLineOption outputs(
-        u"outputs"_s, u"Nested: drive this many outputs, side by side, each a window of --size."_s, u"n"_s, u"1"_s);
-    const QCommandLineOption surface(
-        u"surface"_s, u"Shell surface to show: home, library, beam, control-center, overview."_s, u"name"_s);
-    const QCommandLineOption screenshot(u"screenshot"_s, u"Save a screenshot of the output to this path and exit."_s,
-                                        u"file"_s);
-    const QCommandLineOption delay(u"delay"_s, u"Milliseconds to wait before the screenshot."_s, u"ms"_s, u"5000"_s);
-    const QCommandLineOption benchmark(
-        u"benchmark"_s,
-        u"Run the shell tour for N seconds, report per-output frame pacing and input latency as JSON, exit."_s,
-        u"seconds"_s);
-    const QCommandLineOption benchmarkOut(u"benchmark-out"_s, u"Write the benchmark JSON to this file."_s, u"file"_s);
-    const QCommandLineOption script(u"script"_s, u"Run a JSON UI script against the shell, then exit."_s, u"file"_s);
-    parser.addOptions({ services, unlocked, socket, size, outputs, spreadClients, surface, screenshot, delay, benchmark,
-                        benchmarkOut, script });
+    qor::prism::addOptions(parser);
     parser.process(app);
+    const qor::prism::CommandLine line = qor::prism::read(parser);
 
     qor::Kit::initialize();
     QQuickStyle::setStyle(u"Lumen"_s);
@@ -102,8 +84,7 @@ int main(int argc, char *argv[])
     // Automated runs install from the Store into a folder of their own, gone
     // with the run.
     std::unique_ptr<QTemporaryDir> automationStore;
-    if ((parser.isSet(screenshot) || parser.isSet(benchmark) || parser.isSet(script))
-        && qEnvironmentVariableIsEmpty("QOR_STORE_DIR")) {
+    if (line.automated() && qEnvironmentVariableIsEmpty("QOR_STORE_DIR")) {
         automationStore = std::make_unique<QTemporaryDir>();
         qputenv("QOR_STORE_DIR", automationStore->path().toUtf8());
     }
@@ -111,12 +92,12 @@ int main(int argc, char *argv[])
     QUrl servicesUrl = qor::services::defaultEndpoint();
 #ifdef QOR_HAS_SIMULATOR
     std::unique_ptr<qor::sim::SimServices> simulator;
-    if (parser.value(services) != u"external"_s) {
+    if (line.services != u"external"_s) {
         simulator = std::make_unique<qor::sim::SimServices>();
         qor::sim::SimOptions simOptions;
         // Automated runs never make sound, keep no preferences, and get a
         // private endpoint so they never meet a session someone is using.
-        const bool automated = parser.isSet(screenshot) || parser.isSet(benchmark) || parser.isSet(script);
+        const bool automated = line.automated();
         simOptions.silent = automated;
         if (automated && qEnvironmentVariableIsEmpty("QOR_GAMEPADS"))
             qputenv("QOR_GAMEPADS", "virtual"); // controllers on the desk never join in
@@ -133,7 +114,7 @@ int main(int argc, char *argv[])
     }
     const bool simulated = simulator != nullptr;
 #else
-    if (parser.value(services) != u"external"_s) {
+    if (line.services != u"external"_s) {
         qCritical("This build of Prism has no simulator: the services are the system's (--services external).");
         return 1;
     }
@@ -148,12 +129,12 @@ int main(int argc, char *argv[])
     QVariantMap options;
     // Only a simulated session has an unlock with nothing behind it (Desktop.tryUnlock).
     options.insert(u"simulated"_s, simulated);
-    const int benchmarkSeconds = parser.value(benchmark).toInt();
-    options.insert(u"unlocked"_s, parser.isSet(unlocked) || benchmarkSeconds > 0);
-    options.insert(u"surface"_s, parser.value(surface));
+    // Only a build with the simulator has a way to start unlocked (commandline.h): Desktop.unlock() asks nothing.
+    options.insert(u"unlocked"_s, line.unlocked || line.benchmarkSeconds > 0);
+    options.insert(u"surface"_s, line.surface);
     int width = 1600;
     int height = 1000;
-    if (const QStringList parts = parser.value(size).split(u'x'); parts.size() == 2) {
+    if (const QStringList parts = line.size.split(u'x'); parts.size() == 2) {
         width = parts[0].toInt();
         height = parts[1].toInt();
     }
@@ -176,16 +157,29 @@ int main(int argc, char *argv[])
                   screenSize.width(), screenSize.height(), screens.at(i)->refreshRate());
         }
     } else {
-        const int count = std::clamp(parser.value(outputs).toInt(), 1, 4);
+        const int count = std::clamp(line.outputs, 1, 4);
         for (int i = 0; i < count; ++i)
             outputList.append(QVariantMap { { u"width"_s, width }, { u"height"_s, height } });
     }
     options.insert(u"outputs"_s, outputList);
-    options.insert(u"spreadClients"_s, parser.isSet(spreadClients));
-    engine.setInitialProperties({ { u"options"_s, options }, { u"socketName"_s, parser.value(socket).toUtf8() } });
+    options.insert(u"spreadClients"_s, line.spreadClients);
+    engine.setInitialProperties({ { u"options"_s, options }, { u"socketName"_s, line.socket.toUtf8() } });
     engine.loadFromModule("QOR.Prism", "Compositor");
     if (engine.rootObjects().isEmpty())
         return 2;
+
+    // First-run welcome is an ordinary, unprivileged client after an actual
+    // device unlock. Simulation and live media never start it automatically.
+    if (!simulated && !QFileInfo::exists(u"/usr/lib/qor-os/live-session"_s)) {
+        QObject *desktop = engine.rootObjects().first()->findChild<QObject *>(u"desktop"_s);
+        auto *appearance = engine.singletonInstance<QObject *>("QOR.Kit", "Theme");
+        auto *welcome = new qor::SessionWelcome(desktop, QCoreApplication::applicationDirPath() + u"/qor-setup"_s,
+                                                appearance, &app);
+        QObject::connect(welcome, &qor::SessionWelcome::launchAttempted, &app, [](bool started) {
+            if (!started)
+                qWarning("The first-run welcome could not start; it remains pending for the next session.");
+        });
+    }
 
     const QByteArray socketName = engine.rootObjects().constFirst()->property("socketName").toByteArray();
     qInfo("Prism is running. Start clients with WAYLAND_DISPLAY=%s", socketName.constData());
@@ -204,14 +198,16 @@ int main(int argc, char *argv[])
         return main(a) && !main(b);
     });
 
-    if (benchmarkSeconds > 0)
-        qor::runShellBenchmark(outputWindows, { u"prism"_s, benchmarkSeconds, parser.value(benchmarkOut) });
+#ifdef QOR_HAS_SIMULATOR
+    // Tests and a developer's runs: a device's Prism has none of these (commandline.h).
+    if (line.benchmarkSeconds > 0)
+        qor::runShellBenchmark(outputWindows, { u"prism"_s, line.benchmarkSeconds, line.benchmarkOut });
 
-    if (parser.isSet(script))
-        qor::runShellScript(outputWindows.value(0), parser.value(script));
+    if (!line.script.isEmpty())
+        qor::runShellScript(outputWindows.value(0), line.script);
 
-    if (parser.isSet(screenshot)) {
-        QTimer::singleShot(parser.value(delay).toInt(), &app, [path = parser.value(screenshot), outputWindows] {
+    if (!line.screenshot.isEmpty()) {
+        QTimer::singleShot(line.delayMs, &app, [path = line.screenshot, outputWindows] {
             const bool saved = !outputWindows.isEmpty() && outputWindows.first()->grabWindow().save(path);
             if (saved)
                 qInfo("Saved %s", qPrintable(path));
@@ -220,5 +216,6 @@ int main(int argc, char *argv[])
             QCoreApplication::exit(saved ? 0 : 3);
         });
     }
+#endif
     return app.exec();
 }

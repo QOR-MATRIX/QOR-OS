@@ -39,6 +39,9 @@ public:
     void setItem(QQuickItem *item);
     void setWindow(QQuickWindow *window);
 
+    // Continuous benchmarks must keep stalls that an interactive probe treats as idle. Off by default.
+    void setCaptureIdleGaps(bool capture);
+
     double frameMs() const { return m_frameMs; }
     double fps() const { return m_frameMs > 0 ? 1000.0 / m_frameMs : 0; }
     bool isIdle() const { return m_idle; }
@@ -68,10 +71,12 @@ private:
     mutable QMutex m_mutex;
     QElapsedTimer m_clock;
     qint64 m_lastFrameNs = -1;
-    QList<double> m_intervals; // ms, guarded by m_mutex
+    bool m_captureIdleGaps = false; // guarded by m_mutex
+    QList<double> m_intervals;      // ms, guarded by m_mutex
 
     double m_frameMs = 0;
     bool m_idle = true;
+    bool m_publishScheduled = false; // active timer or one queued GUI start; guarded by m_mutex
 };
 
 } // namespace qor

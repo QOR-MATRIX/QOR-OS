@@ -1,0 +1,9 @@
+# SPDX-License-Identifier: LicenseRef-QOR-OS-Proprietary
+NAME="QOR OS"
+PRETTY_NAME="QOR OS Development"
+ID=qor-os
+ID_LIKE=fedora
+VERSION_ID="0.1.0"
+VARIANT="Development"
+VARIANT_ID=bootc
+LOGO=qor-os

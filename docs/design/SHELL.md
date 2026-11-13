@@ -7,9 +7,22 @@ visual language is in [LUMEN.md](LUMEN.md).
 
 ## Surfaces
 
+### Startup (`StartupSplash.qml` in QOR.Kit)
+
+Before the first swapped frame, Desktop and additional display desktops show the
+approved QorMark rendering on Lumen's dark background. The first frame releases a
+280 ms cosmetic fade using the existing snappy motion token; it never waits for
+services or inserts a minimum logo duration. Reduced motion releases immediately.
+Escape dismisses it, and a 1.5-second watchdog releases it if readiness never arrives.
+It does not replace the lock screen or alter authentication. A display created after
+readiness skips the intro. Controller hints and display-adjustment overlays stay above it.
+Zero-size output surfaces stay hidden until initial layout supplies their dimensions.
+Missing/disabled image drawing has a plain QOR OS text fallback. Firmware/boot-menu
+branding and the planned OS splash are described separately in [the image guide](../../image/README.md).
+
 ### Lock screen (`LockScreen.qml`)
 
-- Shown at start (unless `--unlocked`) and on lock. Drawn above all windows,
+- Shown at start (unless `--unlocked`, which only a build with the simulator has) and on lock. Drawn above all windows,
   so clients can never cover it.
 - Shows the date (`title3`), a curve-rendered `hero` clock that updates every
   second while visible, the latest three notifications on glass, the user
@@ -19,6 +32,11 @@ visual language is in [LUMEN.md](LUMEN.md).
   windows fade in from 96.5% scale, the Rail drops in from above and the
   Shelf rises from below.
 - Simulation: any password unlocks (labelled on screen).
+
+This is not device authentication. The non-simulator Prism capability report
+still reports authentication unavailable; the full device layer refuses it.
+Q Pi's planned maintained-base login is separate, with autologin disabled
+([image guide](../../image/README.md#q-pi-development-edition)).
 
 ### Rail (`Rail.qml`)
 
@@ -184,7 +202,8 @@ desktop's frosted glass.
 - **Home** has three rows: **Continue** (what was played or opened last, a
   film or song with how far it got), **Games**, and the newest **Media**.
 - **The Library** shows everything, chosen by **Everything**, **Games**,
-  **ARQADE**, **Made by you** or **Media**.
+  **ARQADE**, **Made by you** or **Media**. **Made by you** is the person's projects
+  as they stand; a game they built from one is among the **Games**, as any game is.
 - Every card's art is drawn from its hue (Kit's `Artwork`) until it has its
   own, with its glyph.
 - **Moving:** the d-pad or the arrow keys go from card to card, along a row or
@@ -200,6 +219,14 @@ The Library (`qor::Library`) finds what it shows until the QOR core's index
 
 - **QOR OS's QQ games:** folders that have scenes in `QOR_GAMES`, else in
   `share/qor-os/games` beside Prism and in the data folder.
+  - **A game built in QQ Studio** is such a folder in the data folder's
+    `qor-os/games`, with a `game.json` (`products/qq/studio/gamebuild.h`). Its
+    title, its first scene and how many times it was built are taken from there,
+    read as a stranger's file: not through a link or a junction, not past 32 MB,
+    and only a plain scene directly in its `scenes/`. Anything wrong with it and
+    the folder is listed as any folder of scenes is. A folder whose name starts
+    with a dot is a build under way, or an old copy being replaced, and is not
+    listed. What it plays is the copy, never the project it was built from.
 - **The person's own:** such folders in Documents, two deep, that QQ Studio made or
   they trusted (`qor-os/own-projects.json` in their data folder). A folder that is
   merely there, a download unpacked, is not listed as theirs.
@@ -287,6 +314,99 @@ Where swipes come from:
 - **Bare metal**: Qt's libinput backend reports no gestures. Prism's KMS
   backend will read them from libinput (Phase 3).
 
+### Capturing the pointer
+
+A first-person game takes the mouse: the pointer stops, and the game hears only
+how it moves (`zwp_pointer_constraints_v1`, `zwp_relative_pointer_manager_v1`,
+[QOR-0020](../decisions/QOR-0020-unreal-engine-on-qor-os.md); the code is
+`prism/compositor/pointercapture.h`). What a client sends is hostile, so Prism
+decides everything here.
+
+**Who may.** Only the active window, with no shell surface open, while it has the
+keyboard, Prism has the host's focus, and the pointer is on the very surface that asks:
+the protocol promises a client that the surface it locks already has the pointer's
+focus. A lock or confinement may be on one of the window's subsurfaces, since a game may
+draw in them. Gamescope gives its planes no input region, so the pointer's focus is on
+the surface it locks.
+
+**After a person's action on it.** That means a mouse button pressed on the surface,
+or a key other than a modifier reaching it, in the last five seconds. Those are what
+Qt Wayland Compositor delivers to a client from the output window's input, and no
+client has a way to send input. Moving over it, the wheel, a held key's repeats, a lock
+key or Compose, and a key pressed with <kbd>Super</kbd> held are not actions, nor is a
+touch: it reaches the client as `wl_touch`, which no capture holds. So a window that opens
+under the pointer captures nothing by itself, and a lock that asks long after the last
+action waits for the next. An action is forgotten when the window stops being the one that
+may capture, when the keyboard leaves it, and when Prism loses the host's focus.
+
+**The way out.** <kbd>Super</kbd>+<kbd>Esc</kbd> lets go, whatever else is held (Shift to
+sprint, Ctrl to crouch), and the first time a window takes the pointer a toast says so.
+It is an application shortcut like all of the shell's: Qt's shortcut map takes it before
+any item, so no client hears it or can hold on to it. It stands aside while nothing is
+captured. Nested, a host may keep <kbd>Super</kbd>+<kbd>Esc</kbd> for itself (mutter binds
+it): there the dependable way out is leaving Prism's window for another of the host's,
+which ends any capture.
+
+**What ends a capture.** The way out; another window, or a window of Prism's, becoming
+active; the lock screen; any shell surface (Beam, Overview, Home, Control Center,
+editing widgets) or a system gesture. Their keys work all the while, and Guide does where
+a controller drives the shell: with the controller interface on, or with a product in
+front that takes the controller. Then Prism losing the host's focus; the pointer's focus
+going elsewhere; and the client giving up its object, surface or `wl_pointer`, or going
+away. A notification, a toast, the volume or a controller's prompt coming up over the
+window does not end it. Whatever its lifetime, a capture never comes back by itself. A
+`persistent` one starts again only on a mouse button pressed on its surface, never on a
+key, as in mutter: pressing the way out twice, or any key after it, leaves the person
+out. A `oneshot` one never starts again.
+
+**While captured.** Nothing of the shell hears a pointer the person cannot see: the
+output windows' pointer events stop at a filter. Buttons and the wheel go straight to
+the client, and a click over the Shelf is the game's. A locked client hears no
+`wl_pointer` motion, enter or leave; a confined one sees the pointer stop at its region's
+edge. Keys, shortcuts and controllers are untouched, and so are touch and a tablet's pen,
+which pass the filter. Nested, the host's pointer leaving Prism's window is not heard
+while held; if the capture ends with it outside, the client is told then that the pointer
+has gone.
+
+**Who hears the pointer.** With a shell surface open (Home, Beam, Overview, Control
+Center, the media popover), the widgets being edited, or the screen locked, no client
+hears the pointer at all, from the moment it opens or locks: a client learns nothing of
+what a person points at in the trusted shell. Nor does a client hear it over anything of
+the shell's that lies over its window, captured or not: a notification, a toast, the
+volume, a controller's prompt, the Rail. There it has had a leave, as if the pointer had
+gone. A button pressed on the client keeps the pointer the client's until it is let go, as
+on any Wayland compositor. The screen's own filters, night light and brightness, are not
+something to point at, and hide nothing.
+
+**Who hears motion.** The client whose window has the keyboard, with the pointer on that
+window and nothing of the shell's over it there, needing no lock. Without a capture, a
+motion that crosses the window's edge, or onto the shell over it, is not heard, since it
+would say how far off the pointer went. With one, every motion is heard wherever the
+pointer goes: that is what relative motion is for.
+
+**Limits a client meets.** `already_constrained` as the protocol says. An unknown lifetime,
+or more than 32 objects of these protocols kept at once, ends that client. A region of
+more than 1024 rectangles counts as empty, as does one that meets the surface's input
+region in more. Of a window's subsurfaces, 256 are looked through, all told, to see whether
+a surface is the window's; one past them is not, so a client that makes thousands only
+costs itself.
+
+**Nothing runs when it is unused.** With no object of either protocol alive the output
+windows have no filter, and there is no timer either way. Moving a mouse under a lock
+draws nothing.
+
+**Nested, and what waits for real hardware.** Prism's KMS backend (Phase 3) is not built,
+so motion comes through a seam it will fill (`PointerMotionSource`), and today's source
+works it out from the output window's positions. Nested, then:
+
+- **The host's pointer is not held.** It goes on moving under a lock, and at the edge of the
+  host's screen or of Prism's window the motion stops. A click reaches the game wherever the
+  host's pointer is, but while it is outside Prism's window the host has it.
+- **There is one kind of delta.** The host has already applied its acceleration, so
+  `dx_unaccel` is `dx`. Their difference, and unclipped motion, need libinput.
+- **The cursor position hint is kept, and not used.** A Wayland host lets no client warp.
+- **Timestamps are the event's**, whole milliseconds in a field of microseconds.
+
 ## Keyboard reference
 
 | Shortcut | Action |
@@ -303,6 +423,7 @@ Where swipes come from:
 | <kbd>Ctrl</kbd>+<kbd>,</kbd> | Settings |
 | <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>L</kbd> | Lock |
 | <kbd>Esc</kbd> | Close Beam, Control Center, Overview or popovers |
+| <kbd>Super</kbd>+<kbd>Esc</kbd> | Let go of a pointer a window has captured (Prism) |
 | <kbd>F11</kbd> | Toggle full screen (simulator window) |
 
 Shortcuts avoid the Windows key in simulation because the host OS owns it.

@@ -7,14 +7,26 @@
 // tests/fixtures/make_2d.py writes (a Tiled map, its tileset and a sheet of sprite frames, P3.10).
 //
 // Changed for QOR OS: the look takes the colours a host passes as the runtime starts (QOR_THEME_COLORS).
+// Changed for QOR OS: the Player's materials and TileMap's geometry keep their bindings when Qt has properties of the same name.
+// Changed for QOR OS: game-supplied screen text is literal and remains bound to its own screen part.
+// Changed for QOR OS: screen drawings made through ScreenPart keep per-instance edits and follow the overlay's scale.
+// Changed for QOR OS: panels, bars and project images keep their own drawing values too.
+// Changed for QOR OS: the Player shows supplied startup problems and filenames literally.
+// Changed for QOR OS: Player labels follow edits to their different scene and follower objects.
+// Changed for QOR OS: groups and prefabs retain their structural parent-state bindings.
 
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
+#include <QFont>
+#include <QImage>
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QMetaProperty>
+#include <QQmlComponent>
 #include <QQmlEngine>
+#include <QQmlListReference>
 #include <QRegularExpression>
 #include <QStandardPaths>
 #include <QTemporaryDir>
@@ -22,6 +34,8 @@
 #include <QVector3D>
 #include <QtQml/qqmlextensionplugin.h>
 #include <QtQuick3D/qquick3dobject.h>
+
+#include <memory>
 
 #include "confinement.h"
 #include "kinematics.h"
@@ -102,6 +116,217 @@ private slots:
         QCOMPARE(qq::formatNumber(-0.00001), QStringLiteral("0"));
         QCOMPARE(qq::formatNumber(double(1.15f)), QStringLiteral("1.15"));
         QCOMPARE(qq::formatNumber(-2.5), QStringLiteral("-2.5"));
+    }
+
+    void thePlayersBodyKeepsItsColourOnEveryPart()
+    {
+        std::unique_ptr<QObject> scene(io->loadText(QStringLiteral(
+            "import QQ\nScene { Player { name: \"Hero\"; colour: \"#3684da\" } }\n"), QUrl(), nullptr));
+        QVERIFY2(scene, qPrintable(io->lastError()));
+        QObject *player = entityNamed(scene.get(), QStringLiteral("Hero"));
+        QVERIFY(player);
+        QList<QObject *> coloured;
+        int models = 0;
+        for (QObject *child : player->findChildren<QObject *>()) {
+            QQmlListReference materials(child, "materials");
+            if (!materials.isValid())
+                continue;
+            ++models;
+            QCOMPARE(materials.count(), 1);
+            QObject *material = materials.at(0);
+            QVERIFY(material);
+            if (material->property("baseColor").value<QColor>() == QColor(QStringLiteral("#3684da")))
+                coloured.append(material);
+        }
+        QCOMPARE(models, 4);
+        QCOMPARE(coloured.size(), 3);
+        QVERIFY(player->setProperty("colour", QColor(QStringLiteral("#c14953"))));
+        for (QObject *material : coloured)
+            QCOMPARE(material->property("baseColor").value<QColor>(), QColor(QStringLiteral("#c14953")));
+    }
+
+    void aTileMapsGeometryFollowsItsMapAndScale()
+    {
+        const QUrl file = QUrl::fromLocalFile(fixture(QStringLiteral("bindings.qml")));
+        std::unique_ptr<QObject> scene(io->loadText(QStringLiteral(
+            "import QQ\nScene { pixelsPerUnit: 16; TileMap { name: \"Level\"; source: \"level.tmj\" } }\n"), file, nullptr));
+        QVERIFY2(scene, qPrintable(io->lastError()));
+        QObject *level = entityNamed(scene.get(), QStringLiteral("Level"));
+        QVERIFY(level);
+        auto *geometry = level->findChild<qq::TileGeometry *>();
+        QVERIFY(geometry);
+        QCOMPARE(level->property("error").toString(), QString());
+        QCOMPARE(geometry->tiles(), 16);
+        QCOMPARE(level->property("count").toInt(), 16);
+        QCOMPARE(geometry->map(), io->readTiledMap(QUrl::fromLocalFile(fixture(QStringLiteral("level.tmj")))));
+        QCOMPARE(geometry->pixelsPerUnit(), 16.0);
+        QVERIFY(scene->setProperty("pixelsPerUnit", 32.0));
+        QCOMPARE(geometry->pixelsPerUnit(), 32.0);
+        QVERIFY(level->setProperty("layer", QStringLiteral("decor")));
+        QCOMPARE(geometry->tiles(), 1);
+        QCOMPARE(level->property("count").toInt(), 1);
+    }
+
+    void screenLabelsShowGameTextLiterally_data()
+    {
+        QTest::addColumn<QString>("kind");
+        QTest::newRow("text") << QStringLiteral("ScreenText");
+        QTest::newRow("button") << QStringLiteral("ScreenButton");
+    }
+
+    void screenLabelsShowGameTextLiterally()
+    {
+        QFETCH(QString, kind);
+        // Use ScreenPart.draw(), which creates the drawing from a different component's function, on an isolated overlay.
+        QQmlComponent host(engine);
+        host.setData("import QtQuick\nimport QtQuick3D\nNode { property QtObject qqView: QtObject { "
+                     "property Item overlay: Item { width: 1280; height: 720 } } }\n", QUrl());
+        std::unique_ptr<QObject> placed(host.create());
+        QVERIFY2(placed, qPrintable(host.errorString()));
+        std::unique_ptr<QObject> scene(io->loadText(QStringLiteral(
+            "import QQ\nScene { %1 { name: \"First\"; text: \"<b>First</b>\" } "
+            "%1 { name: \"Second\"; text: \"<i>Second</i>\" } }\n").arg(kind), QUrl(), placed.get()));
+        QVERIFY2(scene, qPrintable(io->lastError()));
+        QObject *first = entityNamed(scene.get(), QStringLiteral("First"));
+        QObject *second = entityNamed(scene.get(), QStringLiteral("Second"));
+        QVERIFY(first);
+        QVERIFY(second);
+        QObject *firstVisual = first->property("content").value<QObject *>();
+        QObject *secondVisual = second->property("content").value<QObject *>();
+        QVERIFY(firstVisual);
+        QVERIFY(secondVisual);
+        const auto textIn = [](QObject *visual) -> QObject * {
+            if (visual->metaObject()->indexOfProperty("textFormat") >= 0)
+                return visual;
+            for (QObject *child : visual->findChildren<QObject *>()) {
+                if (child->metaObject()->indexOfProperty("textFormat") >= 0)
+                    return child;
+            }
+            return nullptr;
+        };
+        QObject *firstLabel = textIn(firstVisual);
+        QObject *secondLabel = textIn(secondVisual);
+        QVERIFY(firstLabel);
+        QVERIFY(secondLabel);
+        const QMetaProperty format = firstLabel->metaObject()->property(firstLabel->metaObject()->indexOfProperty("textFormat"));
+        const int plain = format.enumerator().keyToValue("PlainText");
+        QVERIFY(plain >= 0);
+        QCOMPARE(firstLabel->property("textFormat").toInt(), plain);
+        QCOMPARE(secondLabel->property("textFormat").toInt(), plain);
+        const auto shown = [&kind](const QString &text) { return kind == QStringLiteral("ScreenButton") ? text.toUpper() : text; };
+        QCOMPARE(firstLabel->property("text").toString(), shown(QStringLiteral("<b>First</b>")));
+        QCOMPARE(secondLabel->property("text").toString(), shown(QStringLiteral("<i>Second</i>")));
+        QVERIFY(first->setProperty("text", QStringLiteral("<b>Changed</b>")));
+        QCOMPARE(firstLabel->property("text").toString(), shown(QStringLiteral("<b>Changed</b>")));
+        QCOMPARE(secondLabel->property("text").toString(), shown(QStringLiteral("<i>Second</i>")));
+        const int firstSize = firstLabel->property("font").value<QFont>().pixelSize();
+        const int secondSize = secondLabel->property("font").value<QFont>().pixelSize();
+        QVERIFY(firstSize > 0);
+        QVERIFY(secondSize > 0);
+        QObject *layer = first->property("layer").value<QObject *>();
+        QVERIFY(layer);
+        QVERIFY(layer->setProperty("height", 1440));
+        QCOMPARE(firstLabel->property("font").value<QFont>().pixelSize(), firstSize * 2);
+        QCOMPARE(secondLabel->property("font").value<QFont>().pixelSize(), secondSize * 2);
+        if (kind == QStringLiteral("ScreenText")) {
+            QVERIFY(first->setProperty("size", 40));
+            QCOMPARE(firstLabel->property("font").value<QFont>().pixelSize(), 80);
+            QCOMPARE(secondLabel->property("font").value<QFont>().pixelSize(), secondSize * 2);
+        } else {
+            QVERIFY(first->setProperty("width", 230));
+            QCOMPARE(firstVisual->property("width").toDouble(), 460.0);
+            QVERIFY(secondVisual->property("width").toDouble() != 460.0);
+        }
+    }
+
+    void screenShapesFollowTheirOwnPart_data()
+    {
+        QTest::addColumn<QString>("kind");
+        QTest::newRow("panel") << QStringLiteral("ScreenPanel");
+        QTest::newRow("bar") << QStringLiteral("ScreenBar");
+        QTest::newRow("image") << QStringLiteral("ScreenImage");
+    }
+
+    void screenShapesFollowTheirOwnPart()
+    {
+        QFETCH(QString, kind);
+        QTemporaryDir project;
+        QVERIFY(project.isValid());
+        if (kind == QStringLiteral("ScreenImage")) {
+            QImage picture(4, 4, QImage::Format_RGB32);
+            picture.fill(Qt::blue);
+            QVERIFY(picture.save(QDir(project.path()).filePath(QStringLiteral("probe.png"))));
+        }
+        QQmlComponent host(engine);
+        host.setData("import QtQuick\nimport QtQuick3D\nNode { property QtObject qqView: QtObject { "
+                     "property Item overlay: Item { width: 1280; height: 720 } } }\n", QUrl());
+        std::unique_ptr<QObject> placed(host.create());
+        QVERIFY2(placed, qPrintable(host.errorString()));
+        const QString source = kind == QStringLiteral("ScreenImage") ? QStringLiteral("source: \"probe.png\";") : QString();
+        std::unique_ptr<QObject> scene(io->loadText(QStringLiteral(
+            "import QQ\nScene { %1 { name: \"First\"; width: 120; height: 60; %2 } "
+            "%1 { name: \"Second\"; width: 80; height: 40; %2 } }\n").arg(kind, source),
+            QUrl::fromLocalFile(QDir(project.path()).filePath(QStringLiteral("scene.qml"))), placed.get()));
+        QVERIFY2(scene, qPrintable(io->lastError()));
+        QObject *first = entityNamed(scene.get(), QStringLiteral("First"));
+        QObject *second = entityNamed(scene.get(), QStringLiteral("Second"));
+        QVERIFY(first);
+        QVERIFY(second);
+        QObject *firstVisual = first->property("content").value<QObject *>();
+        QObject *secondVisual = second->property("content").value<QObject *>();
+        QVERIFY(firstVisual);
+        QVERIFY(secondVisual);
+        QCOMPARE(firstVisual->property("width").toDouble(), 120.0);
+        QCOMPARE(secondVisual->property("width").toDouble(), 80.0);
+        QVERIFY(first->setProperty("width", 100));
+        QCOMPARE(firstVisual->property("width").toDouble(), 100.0);
+        QCOMPARE(secondVisual->property("width").toDouble(), 80.0);
+        QObject *layer = first->property("layer").value<QObject *>();
+        QVERIFY(layer);
+        QVERIFY(layer->setProperty("height", 1440));
+        QCOMPARE(firstVisual->property("width").toDouble(), 200.0);
+        QCOMPARE(secondVisual->property("width").toDouble(), 160.0);
+        QCOMPARE(firstVisual->property("height").toDouble(), 120.0);
+        QCOMPARE(secondVisual->property("height").toDouble(), 80.0);
+
+        if (kind == QStringLiteral("ScreenPanel")) {
+            QVERIFY(first->setProperty("width", 0));
+            QCOMPARE(firstVisual->property("width").toDouble(), 1280.0);
+            QCOMPARE(firstVisual->property("height").toDouble(), 1440.0);
+            QCOMPARE(secondVisual->property("width").toDouble(), 160.0);
+            QVERIFY(first->setProperty("shade", 0.25));
+            QVERIFY(qAbs(firstVisual->property("color").value<QColor>().alphaF() - 0.25) < 0.001);
+            QVERIFY(qAbs(secondVisual->property("color").value<QColor>().alphaF() - 0.6) < 0.001);
+        } else if (kind == QStringLiteral("ScreenBar")) {
+            QObject *fill = firstVisual->findChild<QObject *>(QStringLiteral("fill"));
+            QObject *otherFill = secondVisual->findChild<QObject *>(QStringLiteral("fill"));
+            QVERIFY(fill);
+            QVERIFY(otherFill);
+            QVERIFY(first->setProperty("value", 0.25));
+            QTRY_COMPARE(fill->property("width").toDouble(), 49.0);
+            QTRY_COMPARE(otherFill->property("width").toDouble(), 156.0);
+        } else {
+            QTRY_VERIFY(first->property("ready").toBool());
+            QTRY_VERIFY(second->property("ready").toBool());
+            QCOMPARE(firstVisual->property("source").toUrl(), QUrl::fromLocalFile(QDir(project.path()).filePath(QStringLiteral("probe.png"))));
+            QVERIFY(first->setProperty("crisp", true));
+            QCOMPARE(firstVisual->property("smooth").toBool(), false);
+            QCOMPARE(firstVisual->property("mipmap").toBool(), false);
+            QCOMPARE(secondVisual->property("smooth").toBool(), true);
+            QCOMPARE(secondVisual->property("mipmap").toBool(), true);
+            QFile broken(QDir(project.path()).filePath(QStringLiteral("broken.png")));
+            QVERIFY(broken.open(QIODevice::WriteOnly));
+            const QByteArray malformed("not a PNG");
+            QCOMPARE(broken.write(malformed), qint64(malformed.size()));
+            broken.close();
+            QVERIFY(first->setProperty("source", QUrl::fromLocalFile(broken.fileName())));
+            const QMetaProperty status = firstVisual->metaObject()->property(firstVisual->metaObject()->indexOfProperty("status"));
+            const int error = status.enumerator().keyToValue("Error");
+            QVERIFY(error >= 0);
+            QTRY_COMPARE(firstVisual->property("status").toInt(), error);
+            QCOMPARE(first->property("ready").toBool(), false);
+            QCOMPARE(second->property("ready").toBool(), true);
+        }
     }
 
     void aSceneFileIsReadAndWrittenBackByteForByte()
@@ -696,6 +921,76 @@ private slots:
 
     // ── groups and prefabs (P3.15) ──
 
+    void groupsAndPrefabsKeepTheirNearestParentsState_data()
+    {
+        QTest::addColumn<QString>("kind");
+        QTest::newRow("group") << QStringLiteral("Group");
+        QTest::newRow("prefab") << QStringLiteral("Prefab");
+    }
+
+    void groupsAndPrefabsKeepTheirNearestParentsState()
+    {
+        QFETCH(QString, kind);
+        QQmlComponent component(engine);
+        component.setData(QStringLiteral("import QtQuick3D\nimport QQ\nNode {\n"
+                          "    property var playing: true\n    property var replaying: true\n    property var paused: true\n"
+                          "    property real _owed: 0.5\n    property string view: \"2d\"\n    property real pixelsPerUnit: 24\n"
+                          "    %1 { objectName: \"outer\"; Group { objectName: \"inner\" } }\n"
+                          "    Node { objectName: \"ordinary\" }\n}\n").arg(kind).toUtf8(),
+                          QUrl(QStringLiteral("qrc:/parent-state.qml")));
+        std::unique_ptr<QObject> object(component.create());
+        QVERIFY2(object, qPrintable(component.errorString()));
+        auto *root = qobject_cast<QQuick3DObject *>(object.get());
+        auto *outer = object->findChild<QQuick3DObject *>(QStringLiteral("outer"));
+        auto *inner = object->findChild<QQuick3DObject *>(QStringLiteral("inner"));
+        auto *ordinary = object->findChild<QQuick3DObject *>(QStringLiteral("ordinary"));
+        QVERIFY(root && outer && inner && ordinary);
+        const auto restore = qScopeGuard([&] { outer->setParentItem(root); outer->setParent(root); });
+        const auto state = [](QObject *node) {
+            QVariantMap values;
+            for (const char *field : {"playing", "replaying", "paused", "_owed", "view", "pixelsPerUnit", "live"})
+                values.insert(QLatin1String(field), node->property(field));
+            return values;
+        };
+        QVariantMap expected{{QStringLiteral("playing"), true}, {QStringLiteral("replaying"), true},
+                             {QStringLiteral("paused"), true}, {QStringLiteral("_owed"), 0.5},
+                             {QStringLiteral("view"), QStringLiteral("2d")}, {QStringLiteral("pixelsPerUnit"), 24.0},
+                             {QStringLiteral("live"), true}};
+        QCOMPARE(state(outer), expected);
+        QCOMPARE(state(inner), expected);
+        // State flags require the boolean true, rather than a truthy value from a structural parent.
+        QVERIFY(object->setProperty("playing", QStringLiteral("true")));
+        QVERIFY(object->setProperty("replaying", 1));
+        QVERIFY(object->setProperty("paused", QStringLiteral("false")));
+        for (const char *field : {"playing", "replaying", "paused", "live"})
+            expected.insert(QLatin1String(field), false);
+        QTRY_COMPARE(state(outer), expected);
+        QTRY_COMPARE(state(inner), expected);
+        QVERIFY(object->setProperty("playing", true));
+        QVERIFY(object->setProperty("_owed", 1.25));
+        QVERIFY(object->setProperty("view", QStringLiteral("3d")));
+        QVERIFY(object->setProperty("pixelsPerUnit", 48.0));
+        expected[QStringLiteral("playing")] = expected[QStringLiteral("live")] = true;
+        expected[QStringLiteral("_owed")] = 1.25;
+        expected[QStringLiteral("view")] = QStringLiteral("3d");
+        expected[QStringLiteral("pixelsPerUnit")] = 48.0;
+        QTRY_COMPARE(state(outer), expected);
+        QTRY_COMPARE(state(inner), expected);
+        const QVariantMap fallback{{QStringLiteral("playing"), false}, {QStringLiteral("replaying"), false},
+                                   {QStringLiteral("paused"), false}, {QStringLiteral("_owed"), 0.0},
+                                   {QStringLiteral("view"), QStringLiteral("3d")}, {QStringLiteral("pixelsPerUnit"), 16.0},
+                                   {QStringLiteral("live"), false}};
+        outer->setParentItem(ordinary);
+        QTRY_COMPARE(state(outer), fallback);
+        QTRY_COMPARE(state(inner), fallback);
+        outer->setParentItem(nullptr);
+        QTRY_COMPARE(state(outer), fallback);
+        QTRY_COMPARE(state(inner), fallback);
+        outer->setParentItem(root);
+        QTRY_COMPARE(state(outer), expected);
+        QTRY_COMPARE(state(inner), expected);
+    }
+
     void groupsNestEntitiesAndTheFileKeepsThem()
     {
         QTemporaryDir dir;
@@ -900,6 +1195,169 @@ private slots:
     }
 
     // ── saving (P3.16, ADR-105) ──
+
+    void aStoreHasATypedQmlContractButCannotBeConstructedFromQml()
+    {
+        // A replay's copy stays in memory: this contract check needs no player's files.
+        qq::GameStore store(QVariantMap{{QStringLiteral("best"), 7}}, nullptr);
+        QQmlEngine::setObjectOwnership(&store, QQmlEngine::CppOwnership);
+        QQmlComponent view(engine);
+        view.setData("import QtQml\nimport QQ\nQtObject {\n"
+                     "    required property GameStore saved\n"
+                     "    readonly property int count: saved ? saved.keys.length : 0\n"
+                     "    readonly property int bytes: saved ? saved.size : 0\n"
+                     "    readonly property string problem: saved ? saved.problem : \"\"\n"
+                     "    function forget() { saved.clear() }\n}\n", QUrl(QStringLiteral("qrc:/store-contract.qml")));
+        QVERIFY2(view.isReady(), qPrintable(view.errorString()));
+        std::unique_ptr<QObject> object(view.createWithInitialProperties(
+            {{QStringLiteral("saved"), QVariant::fromValue(static_cast<QObject *>(&store))}}));
+        QVERIFY2(object, qPrintable(view.errorString()));
+        QCOMPARE(object->property("count").toInt(), 1);
+        QVERIFY(object->property("bytes").toInt() > 0);
+        QCOMPARE(object->property("problem").toString(), QString());
+        QVERIFY(!store.setValue(QStringLiteral("bad"), QJSValue(QJSValue::UndefinedValue)));
+        QVERIFY(!store.problem().isEmpty());
+        QTRY_COMPARE(object->property("problem").toString(), store.problem());
+        QVERIFY(QMetaObject::invokeMethod(object.get(), "forget"));
+        QVERIFY(store.keys().isEmpty());
+        QTRY_COMPARE(object->property("count").toInt(), 0);
+
+        // The type describes an instance supplied by the runtime; a game cannot choose its own store.
+        QQmlComponent direct(engine);
+        direct.setData("import QQ\nGameStore {}\n", QUrl(QStringLiteral("qrc:/chosen-store.qml")));
+        QCOMPARE(direct.status(), QQmlComponent::Error);
+        QVERIFY2(direct.errorString().contains(QStringLiteral("supplied by the runtime")), qPrintable(direct.errorString()));
+    }
+
+    void aSceneRecorderAcceptsRunsAndRefusesUnrelatedObjects()
+    {
+        std::unique_ptr<QObject> scene(io->loadText(QStringLiteral("import QQ\nScene {}\n"), QUrl(), nullptr));
+        QVERIFY2(scene, qPrintable(io->lastError()));
+        QVERIFY(!scene->property("recorder").value<QObject *>());
+        qq::RunRecord record;
+        QVERIFY(scene->setProperty("recorder", QVariant::fromValue(static_cast<QObject *>(&record))));
+        QCOMPARE(scene->property("recorder").value<QObject *>(), static_cast<QObject *>(&record));
+        QObject unrelated;
+        QVERIFY(!scene->setProperty("recorder", QVariant::fromValue(&unrelated)));
+        QCOMPARE(scene->property("recorder").value<QObject *>(), static_cast<QObject *>(&record));
+        // Existing callers clear through an invalid QVariant rather than a typed pointer.
+        QVERIFY(scene->setProperty("recorder", QVariant()));
+        QVERIFY(!scene->property("recorder").value<QObject *>());
+    }
+
+    void playerLabelsFollowTheirSceneAndFollower()
+    {
+        QTemporaryDir project;
+        QVERIFY(project.isValid());
+        QFile source(project.filePath(QStringLiteral("labels.qml")));
+        QVERIFY(source.open(QIODevice::WriteOnly));
+        const QByteArray text("import QQ\nScene { name: \"First\"; view: \"2d\"; Player2D { style: \"top-down\" } }\n");
+        QCOMPARE(source.write(text), qint64(text.size()));
+        source.close();
+        QQmlComponent component(engine, QUrl::fromLocalFile(QDir(QStringLiteral(QQ_FIXTURES)).filePath(QStringLiteral("../../player/Main.qml"))));
+        std::unique_ptr<QObject> window(component.createWithInitialProperties({
+            {QStringLiteral("scene"), QUrl::fromLocalFile(source.fileName())}, {QStringLiteral("visible"), false}}));
+        QVERIFY2(window, qPrintable(component.errorString()));
+        QObject *game = window->findChild<QObject *>(QStringLiteral("game"));
+        QVERIFY(game);
+        QTRY_COMPARE(window->property("title").toString(), QStringLiteral("First — QQ Player"));
+        QObject *scene = game->property("scene").value<QObject *>();
+        QObject *follower = game->property("follow").value<QObject *>();
+        QVERIFY(scene);
+        QVERIFY(follower);
+        QObject *hint = nullptr;
+        for (QObject *child : window->findChildren<QObject *>()) {
+            if (child->metaObject()->indexOfProperty("text") >= 0
+                && child->property("text").toString().startsWith(QStringLiteral("WASD or the left stick"))) {
+                hint = child;
+                break;
+            }
+        }
+        QVERIFY(hint);
+        QVERIFY(scene->setProperty("name", QStringLiteral("Renamed <b>scene</b>")));
+        QTRY_COMPARE(window->property("title").toString(), QStringLiteral("Renamed <b>scene</b> — QQ Player"));
+        QVERIFY(follower->setProperty("style", QStringLiteral("platform")));
+        QTRY_VERIFY(hint->property("text").toString().startsWith(QStringLiteral("A and D or the left stick")));
+        QVERIFY(follower->setProperty("style", QStringLiteral("top-down")));
+        QTRY_VERIFY(hint->property("text").toString().startsWith(QStringLiteral("WASD or the left stick")));
+        QVERIFY(scene->setProperty("player", QVariant::fromValue<QObject *>(nullptr)));
+        QTRY_COMPARE(hint->property("text").toString(), QString());
+        QVERIFY(scene->setProperty("view", QStringLiteral("3d")));
+        QTRY_VERIFY(hint->property("text").toString().startsWith(QStringLiteral("Drag to turn")));
+        QVERIFY(QMetaObject::invokeMethod(window.get(), "release"));
+        QTRY_COMPARE(window->property("title").toString(), QStringLiteral("QQ — QQ Player"));
+    }
+
+    void playerStartupErrorsShowFilenamesAsPlainText()
+    {
+        QTemporaryDir project;
+        QVERIFY(project.isValid());
+        const auto missing = [&](const QString &name) {
+            return QUrl::fromLocalFile(QDir(project.path()).filePath(name));
+        };
+        QQmlComponent component(engine, QUrl::fromLocalFile(QDir(QStringLiteral(QQ_FIXTURES)).filePath(QStringLiteral("../../player/Main.qml"))));
+        std::unique_ptr<QObject> window(component.createWithInitialProperties({
+            {QStringLiteral("scene"), missing(QStringLiteral("<b>First.qml"))},
+            {QStringLiteral("visible"), false}}));
+        QVERIFY2(window, qPrintable(component.errorString()));
+        QObject *game = window->findChild<QObject *>(QStringLiteral("game"));
+        QVERIFY(game);
+        QTRY_VERIFY(window->property("problem").toString().contains(QStringLiteral("First.qml")));
+        QObject *label = nullptr;
+        for (QObject *child : window->findChildren<QObject *>()) {
+            if (child->metaObject()->indexOfProperty("textFormat") >= 0
+                && child->property("text").toString().startsWith(QStringLiteral("This game could not start: "))) {
+                label = child;
+                break;
+            }
+        }
+        QVERIFY(label);
+        QCOMPARE(label->property("textFormat").toInt(), int(Qt::PlainText));
+        QCOMPARE(label->property("text").toString(), QStringLiteral("This game could not start: ") + window->property("problem").toString());
+        QVERIFY(game->setProperty("problem", QStringLiteral("<b>External game problem</b>")));
+        QTRY_VERIFY(label->property("text").toString().contains(QStringLiteral("<b>External game problem</b>")));
+        QCOMPARE(label->property("textFormat").toInt(), int(Qt::PlainText));
+        QVERIFY(game->setProperty("file", missing(QStringLiteral("<i>Second.qml"))));
+        QTRY_VERIFY(label->property("text").toString().contains(QStringLiteral("Second.qml")));
+        QCOMPARE(label->property("textFormat").toInt(), int(Qt::PlainText));
+        QVERIFY(QMetaObject::invokeMethod(window.get(), "release"));
+    }
+
+    void aGameReportsSceneStartupFailuresAndCanRetry_data()
+    {
+        QTest::addColumn<QByteArray>("text");
+        QTest::newRow("object") << QByteArray("import QtQml\nQtObject { objectName: \"rejectedScene\"; property string kind: \"Scene\" }\n");
+        QTest::newRow("node") << QByteArray("import QtQuick3D\nNode { objectName: \"rejectedScene\"; property string kind: \"Scene\" }\n");
+    }
+
+    void aGameReportsSceneStartupFailuresAndCanRetry()
+    {
+        QFETCH(QByteArray, text);
+        QTemporaryDir project;
+        auto write = [&](const QString &name, const QByteArray &contents) {
+            QFile file(QDir(project.path()).filePath(name));
+            return file.open(QIODevice::WriteOnly) && file.write(contents) == contents.size();
+        };
+        QVERIFY(write(QStringLiteral("bad.qml"), text));
+        QVERIFY(write(QStringLiteral("good.qml"), "import QQ\nScene { name: \"recovered\" }\n"));
+        QQmlComponent component(engine);
+        component.setData("import QQ\nGame { hearing: false }\n", QUrl(QStringLiteral("qrc:/game-errors.qml")));
+        std::unique_ptr<QObject> game(component.create());
+        QVERIFY2(game, qPrintable(component.errorString()));
+        QVERIFY(game->setProperty("file", QUrl::fromLocalFile(QDir(project.path()).filePath(QStringLiteral("bad.qml")))));
+        QTRY_VERIFY2(!game->property("problem").toString().isEmpty(), "a scene that could not start needs a reported problem");
+        QVERIFY(!game->property("scene").value<QObject *>());
+        QVERIFY(!game->property("settled").toBool());
+        QTRY_VERIFY(!game->findChild<QObject *>(QStringLiteral("rejectedScene")));
+
+        // A failed attempt neither leaves a scene behind nor prevents a valid file from starting.
+        QVERIFY(game->setProperty("file", QUrl::fromLocalFile(QDir(project.path()).filePath(QStringLiteral("good.qml")))));
+        QTRY_VERIFY(game->property("scene").value<QObject *>());
+        QCOMPARE(game->property("scene").value<QObject *>()->property("name").toString(), QStringLiteral("recovered"));
+        QCOMPARE(game->property("problem").toString(), QString());
+        QVERIFY(game->property("settled").toBool());
+        QVERIFY(QMetaObject::invokeMethod(game.get(), "release"));
+    }
 
     void aStoreKeepsWhatJsonKeepsAndRefusesTheRest()
     {

@@ -1,13 +1,24 @@
 # QQ Studio, the native editor (ADR-083 decision 2). Its own process, started by the launcher; it never holds a key.
 #
 # The Studio's QML is a library (module "QQ.Studio") so tests can load the real window; the executable is main.cpp.
+#
+# Changed for QOR OS: ProjectWorkspace, what is kept of each project a person works in; AssetLibrary and LibraryPanel.qml,
+# the asset library.
 
 qt_add_library(qqstudio STATIC
     # The Studio's side of the QOR host protocol: publishing asks the launcher that started it (ADR-088).
     launcherlink.h launcherlink.cpp
     # The logic editor's colours (P3.15).
     logichighlighter.h logichighlighter.cpp
+    # What the Studio remembers of each project, outside the project.
+    projectworkspace.h projectworkspace.cpp
+    # Changed for QOR OS: making a game of a project, which the Library plays.
+    gamebuild.h gamebuild.cpp
+    # Changed for QOR OS: the asset library, packs the Store installed copied into a project with a lock file.
+    assetlibrary.h assetlibrary.cpp
 )
+
+target_compile_definitions(qqstudio PRIVATE QQ_ENGINE_VERSION="${PROJECT_VERSION}")
 
 qt_add_qml_module(qqstudio
     URI QQ.Studio
@@ -22,6 +33,7 @@ qt_add_qml_module(qqstudio
         LogicEditor.qml
         StatsOverlay.qml
         StudioButton.qml
+        LibraryPanel.qml
 )
 
 # The Studio's reading and numeric faces (Look's body and mono, ADR-108), copied here from docs/design/fonts/ by

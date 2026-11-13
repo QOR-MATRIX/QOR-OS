@@ -8,6 +8,257 @@ QOR OS has two kinds of build:
 - **The products**: QQ, ARQADE and QOR Media, each built by its own script,
   as it was upstream ([§6](#6-the-products-qq-arqade-qor-media)).
 
+Normal shell builds check the approved startup rendering against its original logo
+sources. The optional `qor_boot_payload` target stages the image's branding files
+inside this checkout's `build/`; it does not build a bootable image, install a theme
+on the host or regenerate an initramfs. Commands and remaining boot evidence are in
+[image/README.md](../image/README.md#branding-the-startup-stages).
+
+`qor-setup`, `tst_setup` and `qor_setup_qmllint` build and check the private first-run
+app. Simulator builds expose development captures; device builds omit those options.
+`qor-setup --build-capabilities` reports that distinction without graphics or user-state
+access. `qor_image_payload` stages 25 checked image-data files under `build/image-payload`;
+it refuses different existing content. Use a fresh output folder for changed inputs.
+The data-only Containerfile can verify packaging with existing Docker; the device recipe
+needs a separately approved existing device base and runtime. Neither is an installer ISO.
+Exact commands and missing prerequisites are in [image/README.md](../image/README.md).
+
+The private disposable-VM work is separate from that data target and the full
+device recipe. `tools/image/build_vm_probe.py` builds an explicitly incomplete
+UEFI live-display ISO from an exact local tooling image and a host-built runtime;
+`tools/image/vmguard.py` and `vmrun.py` constrain its disposable raw disk and
+private firmware variables. The opt-in Linux-only `QOR_BUILD_VM_INSTALLER`
+requires `QOR_BUILD_SIMULATOR=OFF`; it is development work, not a readiness flag.
+The earlier clean `feed626` image and its same-revision runtime pass actual stock
+installation, media-free welcome and persistence through two installed reboots.
+The host launcher is recorded separately by checksum; its QEMU main-loop I/O
+pool is limited to four workers within the unchanged 64-task container bound.
+Normal review/Cancel preserves the entire 16-GiB disk hash, and a separate
+corrupt-payload image is refused without changing its test disk. Retry stays disabled.
+SELinux pairs the existing `install_exec_t` executable label with the service's
+`install_t` process domain. The packed executable label and unit are checked;
+normal installation succeeds with enforcement enabled. The five actual VM phases
+exit 0 across preserved resource interruptions, without resetting the installed disk.
+That persistence sequence uses the restricted guest agent. Fresh actual UI reboot
+tests on feed626 and 5b7d321 failed after successful installation. A diagnostic found
+bootc's storage bind mount still active after exit 0; removing that confirmed mount
+makes the unchanged strict guard and real reboot button succeed. The local backend
+now runs bootc in a private mount namespace (a process-local filesystem view) and
+requires the strict guard again before reporting completion. The separate collector
+correction distinguishes unconfigured loop nodes from backed storage. The fresh clean
+`66df3f7` image and same-revision compiler now pass the normal route on a new 8-GiB
+disk: stock installation, actual UI reboot, media-free welcome completion and one
+installed reboot retaining that record. All three native VM phases exit 0 with three
+distinct boot IDs, without manual cleanup or debug overrides. The final verifier
+accepts `build/vm-ui-reboot-2026-11-08/isolated-ui-proof/accepted-isolated-ui-proof.json`;
+the earlier `feed626` proof and both failed UI attempts remain separate and unchanged.
+The installation candidate requires a clean source revision and a fresh runtime
+from that same revision. Every referenced offline OCI (content-addressed container
+image) blob is checked on read-only media before stock bootc can write the assigned
+disk. Virtual-port readiness starts the services; existing disk and RPC guards remain.
+The limited welcome uses a locked local test account and supplies neither QOR ID
+authentication nor the full desktop. Diagnostic overrides establish only their
+explicitly recorded scope.
+The full device-layer check additionally probes both `qor-setup --build-capabilities`
+and `prism --build-capabilities`; a file named `prism` is insufficient. Prism's query
+runs before graphics, audio, services or user state are initialised and reports its
+compiled simulator mode and authentication availability. Current device builds
+report `development:false, authentication:false`: the real authentication backend
+and service daemons remain unfinished, so the full device layer is refused. The
+structural test's future authenticated contract is an inert fixture, not a working
+sign-in or device-session result. Missing probes, unknown fields and numeric values
+in place of capability booleans are also refused.
+Run the Windows lab memory preflight before its runtime/image pipeline:
+`python tools/image/vm_resources.py`. Image phases and VM launch also check
+the 3-GiB available-RAM budget and refuse to start below it. This is a read-only
+resource check, with no process stopping, host setting change or retry loop.
+See the [VM lab boundaries](../image/README.md#private-disposable-vm-lab),
+including the accepted private evidence and remaining device/release gates. Do not install a
+Qt kit in the VM or run an image/partitioning command against workstation disks.
+
+### Q Pi preparation
+
+Start with the canonical [Pi 5 bootstrap procedure](../image/README.md#pi-5-builder-bootstrap-before-q-pi):
+stock Raspberry Pi OS 64-bit Desktop Trixie establishes a possible native builder;
+it is not the eventual Q Pi image. The current first-boot preparation is headless
+Wi-Fi and key-only SSH, using the versioned Trixie `cloudinit-rpi` interface and
+per-device provisioning; USB/HDMI is optional recovery. A unique account and normal
+login with both autologin modes off remain required. Generic remote access stays
+disabled; real provisioning/access needs separate action-time approval. The owner
+authorises the eventual qualified Q Pi image
+on the identified Samsung EVO 128-GB card, including its old Kali/data erasure;
+the [action-time write gates](../image/README.md#authorised-q-pi-target-and-action-time-write-gates)
+retain fresh capacity/USB identity and non-system/non-boot checks, image validation,
+irreversible-erasure confirmation and completed-write verification. Stock bootstrap,
+credentials and security/access changes remain separately gated. No write is ready.
+
+`python3 -B tools/image/pi_preflight.py --bootstrap-only` observes bounded Pi 5
+model/Trixie metadata, native ARM64/64-bit userspace, actual 16-KiB pages and the
+existing 3-GiB RAM guard without Qt, Git or package-manager execution. Exit 0
+is scoped to those observations; `builder_qualified` remains false. The guide
+contains the read-only package-delta simulation, Qt entitlement/module questions,
+single-card recovery boundaries and measured budget requirements. The current
+Windows heavy wrapper remains unchanged. The repository's
+[native coordinator](../image/README.md#native-linux-heavy-job-coordination)
+adds a permanent per-account OS lock, incomplete-run marker and guarded RAM
+admission. The 11 November resource/coordinator pass and subsequent unresolved
+hostname diagnostic are historical; authorised key-based access was restored
+on 12 November without weakening strict host checking. Initial trust remains
+owner-approved first use, not independently verified identity.
+
+The Pi now has CMake 3.31.6, the owner's Qt 6.12.0 Linux ARM64 kit and 18 reviewed
+distro development packages; the latter changed no existing package versions
+and removed none. `tests/pi/` built and passed both native parser configurations
+(23 Qt Test results each, four hardened programs). Native resource/tooling checks
+also recorded 196 passes and two wrong-host skips. These are distinct scopes.
+
+The current-source Prism snapshot built serially with warnings as errors, hardening
+and the native 16-KiB gate. A test-only correction explicitly activates a second
+client through the Shelf path instead of assuming it may steal focus. Corrected
+Release passes all seven selected headless suites without skips; 11 programs
+pass hardening/layout checks and Release QML lint has zero warnings. Native
+ASan/UBSan also passes the same seven suites without skips or sanitizer diagnostics;
+all 11 sanitizer programs pass hardening/layout checks and their instrumentation
+is verified. The existing preset disables leak checking. Both configurations
+exclude the QOR core. Evidence, exact source overlay and initial failures:
+`build/q-pi-connect-2026-11-12/session-01/`.
+
+On 13 November the pinned core and Corrosion fetches configured through
+`ci-linux` in a separate native cache with the existing Pi kit/page gate.
+Rust 1.98.1 built the core's `desktop` features serially with its Cargo.lock
+unchanged. `tst_qorcore` passes nine Qt Test results without failures/skips;
+the executable passes hardening and ARM64/16-KiB checks. Tests use private
+HOME/XDG/TMP paths and disconnected buses/audio. The `proc-macro-error2` 2.0.1
+future-compatibility warning remains, and only the core bridge target was built.
+Full native OS/product and warning-free acceptance remain open. Qt helpers
+exited naturally and the original coordinator returned cleanly. Receipts:
+`build/development-2026-11-13/session-01/native-core-20261113/`.
+
+The later 13 November continuation built the complete core-enabled development
+configuration in that cache. After correcting missing `linux-arm64` metadata in
+the signed demonstration fixtures, all 27 non-GPU suites pass without failures
+or skips. Hardening passes 42 programs; 44 linked executables/libraries pass the
+ARM64/16-KiB layout check; QML lint has zero warnings. The generated Corrosion
+linker-library probe's relocatable object is not a product executable; the first
+artifact-selection harness mistakenly selected it, and that failed receipt is
+retained. QQ's complete scene-data and Player sandbox suites also pass (56 and
+three Qt Test results, including setup/cleanup). These results retain the Rust
+dependency warning and do not close full product, graphics or image gates.
+Commands, source overlay and original failures:
+`build/development-2026-11-13/session-02/`.
+
+The installed kit's bounded ELF checks and these software-only runs do not certify
+all dependencies, commercial redistribution terms, real graphics/audio/input or
+a measured application/image scratch budget. Enterprise entitlement is reported
+by the owner; Trixie is not Qt's listed Pi reference OS. Ubuntu 24.04 remains an
+unadopted reference alternative. The original Windows/WSL guard remains unchanged.
+
+The Pi 5 ARM64 development edition is scoped by
+[QOR-0025](decisions/QOR-0025-q-pi-development-edition.md). QQ now has native ARM64
+`q-pi-release` and `q-pi-asan` configure/build/test presets in
+`products/qq/CMakePresets.json`. They build Studio, Player and their tests, keep
+hardening and warnings as errors, and link for the 2712 kernel's 16-KiB pages.
+The presets reject x86-64 hosts before compiler or Qt-tool execution. The native
+Release preset compiled Studio, Player and tests on 12 November without warnings;
+16 programs passed hardening/layout checks and six selected non-rendering cases
+passed. Full QQ, sanitizer-product and graphics acceptance remain open. Follow the
+[native application procedure](../image/README.md#native-qor-application-build)
+before using them; they neither install tools nor compose an image.
+
+On the native host the presets also run the bounded, read-only
+`pi_preflight.py --qt-only --qt-target <kit>` check before normal Qt package
+discovery. This requires regular root config/version entry points, matching
+literal Qt6/Core 6.12 versions, Linux desktop target metadata and Qt Core's
+ARM64/16-KiB shared-library layout. Conflicting normal, cached or environment
+package hints are refused; `Qt6_DIR` names the checked root config directory.
+It does not execute
+the kit's CMake toolchain or prove entitlement, other modules or binary
+compatibility. An explicitly supplied CMake toolchain runs before CMake's
+top-level includes and is outside this early gate's scope.
+
+The [explicit payload audit](../image/README.md#static-target-payload-audit)
+checks selected apps and dependencies using their supplied SHA-256 manifest,
+without executing them or searching the host's libraries. It now validates GNU
+version-label chains/hashes and requires exact agreement with each unique
+dependency candidate, conservatively including weak requirements. It does not
+resolve per-symbol bindings or relocations. Under the existing coordinator and
+fresh memory admission, run focused portable regressions with
+`python -B -m unittest discover -s tests/tools -p test_pi_elf.py -v` and
+`python -B -m unittest discover -s tests/tools -p test_pi_payload.py -v`.
+See [OWNER](../OWNER.md) for this increment's execution status. Passing a
+synthetic inventory or label audit is not native ARM64, complete dependency ABI
+or hardware evidence.
+
+`tools/image/pi_preflight.py` remains a read-only preparation
+probe, not an image builder. Its target-library check never executes ARM64 code.
+Run its portable hostile-input tests with
+`python -B -m unittest discover -s tests/tools -p test_pi_preflight.py -v`.
+Follow [image/README.md](../image/README.md#q-pi-development-edition) for exact
+probe commands, physical backing-volume requirements, Qt target qualification and
+Bluetooth/bootstrap plans. A Windows/Android ARM64 Qt kit is not a Linux target
+kit. Tool installation and namespace/privilege changes require their own identified
+actions and approval; this preparation performs neither.
+
+The probe optionally accepts `--scratch-root <existing-directory>` and
+`--scratch-budget <measured-budget.json>` together. Its budget schema and capacity
+limits are documented in the image guide. Omitting them leaves scratch space
+unqualified. A passing capacity snapshot is not a measured builder requirement
+or permission to begin an image build. QOR's shared memory guard permits higher
+requirements, but a caller cannot lower its 3-GiB minimum.
+
+Check Windows headroom with WSL already resident before admitting a WSL heavy
+job. A cold-host snapshot does not budget WSL startup. A 10 November read-only
+startup observation fell from 3,577 MiB to 1,419 MiB available without a compiler;
+the separate monitored metadata attempt was stopped at 1,189 MiB. No QOR build
+worker was available to reclaim. Do not reduce the floor or manage unrelated
+services: free host memory outside this workflow or use another qualified builder.
+
+The 12 November Prism continuation measured process private resident memory and
+WSL cache use before reclamation. Clean guest page-cache reclamation admitted a
+build, but subsequent host pressure stopped it at 2,956 MiB. A stricter temporary
+`MemoryHigh=268435456` threshold on only the next owned scope, retaining its
+1-GiB hard limit and the original Windows lock/3,072-MiB floor, still stopped at
+3,060 MiB. Idle Search/Widgets working sets were then trimmed after process
+identity, visibility and CPU checks. ChatGPT, the call, editors and active work
+were excluded. These bounded actions are recorded in
+`build/prism-boundary-2026-11-12/session-02/`; they are not automatic build steps
+or an instruction to repeat cache trimming. MemoryHigh constrains the owned job,
+not all WSL memory; a transient cold-host margin does not permit another build.
+The subsequent `session-03/` held a lightweight guest observer resident throughout
+a 30-second post-reclamation admission check. Even this admitted continuation
+fell from about 3,519 MiB at submission to a 3,008-MiB guard stop while compiling.
+Budget working headroom beyond the floor and preserve the incremental cache;
+passing an idle admission observation does not guarantee a complete build.
+
+The owner's separately authorised service/resource review is recorded in
+`build/prism-resource-2026-11-12/session-01/`. Google Play Games Services was the
+only confirmed stop candidate (about 26 MiB); the non-elevated session could not
+open it for stopping, so no service/application stopped. Clean guest-cache
+reclamation produced 3,860–4,067 MiB during an observer-resident 30-second check,
+but the actual validation scope hit 2,869 MiB before admission and was stopped.
+No compiler/test ran. Keep a lightweight observer alive through the transition
+to the actual worker and qualify that worker before submitting a job; do not
+treat the earlier idle measurement as permission. The 203-MiB measured deficit
+only reaches admission, without compiler margin. This is a bounded maintenance
+receipt, not a new automatic service-management or cache-reclamation build step.
+
+On native Linux, the same probe uses the kernel's `MemAvailable` estimate and
+visible cgroup v2 memory limits, including ancestor limits. Controller metadata
+determines where memory counters exist; the stock Pi advertises no memory
+controller and therefore uses host available memory. Missing advertised counters,
+malformed/changing topology and hidden/nonstandard roots remain blockers. WSL
+memory is not a Windows host-memory observation; the Windows guard is still
+required there. The probe changes no limit and reclaims no memory.
+
+`tools/image/pi_headless.py` validates bounded public host-identity receipts and
+prepares strict Windows SSH argument arrays without connecting or reading private
+keys. `publish_receipt()` is a fixture-tested library helper, not an installed
+first-boot hook. Follow the [headless design](../image/README.md#q-pi-first-boot-and-bluetooth-bootstrap)
+for physical host-key pinning, scoped authentication and interruption recovery.
+Run its focused tests with `python -B -m unittest discover -s tests/tools -p test_pi_headless.py -v`.
+Actual Q Pi image integration and its first-boot Wi-Fi/SSH/access flow remain
+unverified; the stock builder's separately authorised SSH access is now observed.
+
 ## 1. Prerequisites
 
 ### Windows (primary development platform)
@@ -179,8 +430,39 @@ set up ([CONTROLLERS.md](CONTROLLERS.md)). On this laptop GNOME runs Prism on
 the Intel GPU; `QOR_PLAY_GPU=discrete tools/dev/setup-fedora.sh play` runs it
 on the RTX through switcheroo-control.
 
-Booted into Fedora, the laptop's Windows CI runners are offline, so CI waits
-until Windows is running again ([CI.md](CI.md)).
+Booting the laptop into Fedora makes its Windows environment unavailable.
+Independently, Qt CI jobs remain paused until runner isolation is accepted;
+returning to Windows does not authorise restarting runners ([CI.md](CI.md)).
+
+#### What to check there
+
+This is the optional reference-laptop route, separate from Q Pi's builder and
+headless plan. It assumes the SSD and stick described above; no current physical
+setup or media action is established by these instructions. The internal drive is neither repartitioned nor erased, and
+erasing the two external drives is the owner's act. Each result goes in the
+[roadmap's table](ROADMAP.md#alongside-the-phases--engines) as passed, failed or
+blocked, with the commit. A suite passing in WSL settles none of this.
+
+1. **Record the configuration:** the commit, `uname -r`, `nvidia-smi`, Mesa's
+   version, the display path, and `tools/dev/setup-fedora.sh check`.
+2. **The product suites on real hardware:** `tools/dev/products.sh --qt
+   ~/Qt/6.12.0/gcc_64 --build-root ~/qor-build/products --attempts 1`. Note the
+   QQ Player's frame rate against its floor of 20, and the Player's wall working
+   with a real graphics card, which has only been tested in software.
+3. **QQ Studio in Prism** (`tools/dev/setup-fedora.sh play`, on the Intel GPU, then
+   with `QOR_PLAY_GPU=discrete`): it opens, and its menus, dialogs, focus, clipboard,
+   scaling and fullscreen work.
+4. **The first journey:** with two small projects, import an authorised asset, edit,
+   save, build, run the packaged game from the Library, switch, restart and reopen.
+   Unsaved work survives, and nothing crosses between them. Editor play and the
+   packaged game are separate results.
+5. **Sound:** Orb Run is heard, through the laptop and through a headset plugged in
+   while it plays.
+6. **A DualSense:** by USB and by Bluetooth, listed by `qor-gamepads`, playing
+   Orb Run, with Guide bringing Overview.
+7. **Pointer capture:** a first-person view holds the mouse, Prism's way out still
+   works, and losing focus or locking the screen lets go.
+8. **Displays,** if another is attached: each at its own rate, and hot-plug.
 
 ## 2. Configure and build
 
@@ -190,20 +472,23 @@ Ninja:
 
 ```powershell
 . .\tools\dev\Enter-QorShell.ps1          # dot-source once per terminal
-cmake --preset windows-release
-cmake --build --preset windows-release
-ctest --preset windows-release
+cmake --preset ci-windows
+cmake --build --preset ci-windows
+ctest --preset ci-windows
 ```
 
-Or in one step: `.\tools\dev\build.ps1 [-Preset windows-debug] [-Test] [-Target all_qmllint] [-Fresh]`.
+Or in one step: `.\tools\dev\build.ps1 -Preset ci-windows [-Test] [-Target all_qmllint]`.
+Use the existing QOR heavy-job lock and resource preflight. Never rebuild/relink
+a running `windows-release` shell; the helper's default still names that preset,
+so select `ci-windows` explicitly on the owner's workstation.
 
 | Preset | Generator | Build type | Use |
 |--------|-----------|------------|-----|
-| `windows-release` | Ninja | RelWithDebInfo | Day-to-day work, benchmarks, screenshots |
+| `windows-release` | Ninja | RelWithDebInfo | Existing shell/benchmark folder; protected while its shell runs |
 | `windows-debug` | Ninja | Debug | Debugging (Qt debug DLLs) |
 | `windows-vs` | Visual Studio 17 2022 | multi-config | Works without a developer shell |
 | `linux-release`, `linux-debug` | Ninja | | Linux |
-| `ci-windows`, `ci-linux` | Ninja | RelWithDebInfo | CI. Both treat warnings as errors and require the QOR core |
+| `ci-windows`, `ci-linux` | Ninja | RelWithDebInfo | CI settings; `ci-windows` also isolates local work from the running release shell. Both require warnings as errors and the QOR core |
 
 Build options (`-D<option>=ON|OFF`):
 
@@ -218,6 +503,7 @@ Build options (`-D<option>=ON|OFF`):
 | `QOR_BUILD_CORE` | ON where `cargo` is found | The QOR core and `tst_qorcore` ([UPSTREAM.md](UPSTREAM.md)) |
 | `QOR_BUILD_SIMULATOR` | ON | The simulated services, `qor-simd`, `qor-shell` and the tests. **OFF for a device's image**: Prism then has no simulator built in, and no unlock with nothing behind it |
 | `QOR_HARDENING` | ON | Exploit mitigations on every program ([QOR-0018](decisions/QOR-0018-the-security-and-quality-bar.md)). Off only to compare |
+| `QOR_STORE_DEMONSTRATION` | OFF | The Store's two storefronts on a catalogue signed with a throwaway key, for development (the `linux-demonstration` and `windows-demonstration` presets; [STORE.md](STORE.md#the-demonstration-build)). **Never in a release**: every other preset sets it off, it is refused without the simulator, nothing built with it installs, and `tools/ci/check_hardening.py` fails a folder that has it |
 | `QOR_SANITIZE` | empty | Sanitizers for the suites, e.g. `address,undefined` (the `linux-asan` preset). The products take it from the environment |
 | `QOR_CORE_SOURCE_DIR` | empty | A local demiurge-chain checkout to build the core from instead: to change the core and QOR OS together, or to try a commit before the pin moves to it |
 
@@ -243,10 +529,28 @@ modules in `build/<preset>/qml/`, plugins in `build/<preset>/plugins/`.
   tasks are in `.vscode/`.
 - **Visual Studio**: use the `windows-vs` preset, or open the folder (CMake presets are supported).
 
+The Windows presets supply `cmakeExecutable` for IDEs:
+`C:/Qt/Tools/CMake_64/bin/cmake.exe`, the existing Qt-bundled CMake (3.30.5 on
+the reviewed workstation). CMake Tools can therefore resolve it when VS Code
+was launched normally without the developer shell's PATH. This is an
+[IDE-only preset field](https://cmake.org/cmake/help/v3.30/manual/cmake-presets.7.html#configure-preset),
+not a command-line executable locator. CLI commands still require the developer
+shell above or the executable's full path. A different local Qt tools location
+belongs in a derived `CMakeUserPresets.json` preset; Linux presets use their
+own CMake and do not inherit this Windows path.
+
+Choose `ci-windows` for guarded workstation validation. The three build/lint
+tasks now use that separate folder, protecting a running `windows-release`
+shell. Automatic configure on open/edit and build before debugging are disabled
+in this workspace: first check QOR workers, the shared lock and memory guard,
+then explicitly configure/build. Selecting an executable or parsing presets is
+not a successful compiler, product or Prism test. No machine-wide PATH,
+security setting, installation or WSL resource limit is changed by this setup.
+
 ## 3. Run
 
 ```powershell
-.\tools\dev\run.ps1 [-Preset windows-release] -- <qor-shell options>
+.\tools\dev\run.ps1 -Preset ci-windows -- <qor-shell options>
 ```
 
 `qor-shell` options:
@@ -272,6 +576,13 @@ modules in `build/<preset>/qml/`, plugins in `build/<preset>/plugins/`.
 | `--benchmark <seconds> [--benchmark-out file]` | Scripted animation tour, prints frame-pacing JSON, exits |
 | `--script <file>` | Drive the shell with a JSON script and exit ([DEVELOPMENT.md](DEVELOPMENT.md)) |
 
+For both `qor-shell` and `prism`, benchmark report output is part of the command's result. A failed requested-file
+open, incomplete write, flush/close failure or stdout write/flush failure returns exit 1 with a generic diagnostic.
+Successful reports keep their JSON schema and replace an existing report. Automation must check the native exit
+status and require its own fresh, regular report file; an older file does not establish a successful run. These writes
+are not an atomic replacement or a power-loss durability guarantee. `tst_framecapture` covers directory failure,
+Linux virtual-full-sink file/stdout failure and complete stale-file replacement through actual subprocesses.
+
 `--screenshot`, `--benchmark` and `--script` render audio silently (the
 engine's null output; see [AUDIO.md](AUDIO.md)), see only virtual game
 controllers (`QOR_GAMEPADS=virtual`; see [CONTROLLERS.md](CONTROLLERS.md)),
@@ -279,6 +590,8 @@ leave the touchpad alone (`QOR_TOUCHPAD=off`; see
 [SHELL.md](design/SHELL.md#gestures)), and install from the Store into a
 temporary folder (`QOR_STORE_DIR`; see [STORE.md](STORE.md)).
 `QOR_STORE_URL` points the Store at another signed catalogue.
+`QOR_STORE_DEMONSTRATION_URL` names the demonstration's catalogues, and is read only by a build
+with `QOR_STORE_DEMONSTRATION` ([STORE.md](STORE.md#the-demonstration-build)).
 
 Persistent preferences (appearance, accent, motion, transparency, living
 wallpaper, audio and the audio-reactive interface) are stored with `QSettings`
@@ -287,9 +600,9 @@ under `QOR-MATRIX/QTOS Shell` and Notes under the `notes` category.
 ### Separate service process
 
 ```powershell
-.\build\windows-release\qor-simd.exe --ephemeral            # terminal 1
-.\tools\dev\run.ps1 -- --services external --unlocked       # terminal 2
-.\build\windows-release\qorctl.exe watch                    # terminal 3
+.\build\ci-windows\qor-simd.exe --ephemeral                 # terminal 1
+.\tools\dev\run.ps1 -Preset ci-windows -- --services external --unlocked # terminal 2
+.\build\ci-windows\qorctl.exe watch                         # terminal 3
 ```
 
 ### Prism, the Wayland compositor (Linux)
@@ -338,19 +651,68 @@ development; on device, GPU buffer sharing is part of Phase 3.
 
 ## 4. Tests and lint
 
+On 13 November the current local tree configured/built with `ci-windows`, passed
+all 22 suites selected by `ctest --preset ci-windows -LE gpu --parallel 1`, passed
+hardening for 33 programs and reported zero QML lint warnings. The test harness
+used temporary profile/settings folders, offscreen software rendering, silent
+audio and virtual controllers. Rust's pinned `proc-macro-error2` 2.0.1
+future-compatibility warning remains: a successful build exit is not a
+warning-free result. Full GPU/product, native Linux OS and isolated-CI acceptance
+remain separate. Exact commands and receipts:
+`build/development-2026-11-13/session-01/`.
+
 ```powershell
-ctest --preset windows-release                       # all suites
-ctest --preset windows-release -LE gpu               # skip GPU-dependent suites
-cmake --build --preset windows-release --target all_qmllint
+ctest --preset ci-windows                           # all suites in this build
+ctest --preset ci-windows -LE gpu                    # excludes GPU-dependent suites
+cmake --build --preset ci-windows --target all_qmllint
 python tools\tokens\generate_tokens.py --check
 python tools\ci\check_headers.py
 .\.venv\Scripts\pre-commit run --all-files
 ```
 
+The repository's `.qmllint.ini` sets `MaxWarnings=0`, so a native `all_qmllint` command fails on warnings as well as errors.
+It changes no diagnostic category or severity. Run it for a product's own build folder too:
+`cmake --build <product-build-folder> --target all_qmllint --parallel 1`. A failing lint command is separate from passing
+runtime tests; the existing warning backlog must be resolved before the zero-warning requirement passes.
+
+The existing Qt 6.12 SpatialAudio metadata has a separate, reproduced dependency omission: its `qmldir` names
+QtQuick and QtMultimedia but omits QtQuick3D, whose `QQuick3DNode` base is used by its types. This minimal input
+reports two native Windows warnings with the installed kit:
+
+```qml
+import QtQuick3D
+import QtQuick3D.SpatialAudio
+Node { AudioListener {} }
+```
+
+`SpatialSound` reproduces the same omission. Byte-identical diagnostic copies retain it; adding only
+`depends QtQuick3D` in a temporary metadata copy clears these examples. An unknown-property control still fails.
+Using the actual QQ Runtime response file isolates exactly six `World.qml`/`Sound.qml`/`Voices.qml` findings,
+with zero added; both whole-module diagnostic commands still fail. The installed SDK files and generated response
+file retain their hashes. This is diagnosis, without a correction installed or connected to normal lint:
+whole QQ failed at 142 console/167 structured warnings at that checkpoint, before later source cleanup.
+The command records and controls are in
+`build/autonomous-2026-11-04/spatial-runtime-diagnostic-verified.json`; this clears no runtime or hardware gate.
+
+The selected collector check also runs in the existing Windows kit without showing a window or using a graphics
+card. Use `ci-windows`, leaving a running `windows-release` shell alone:
+
+```powershell
+cmake --build --preset ci-windows --target tst_framecapture --parallel 1
+ctest --preset ci-windows --test-dir build/ci-windows -T Test -R "^tst_framecapture$" --no-tests=error --parallel 1 --verbose --output-on-failure --timeout 120
+```
+
+The explicit folder is needed for this recorded CTest dashboard invocation; the first preset-only dashboard command
+selected the source folder and exited 8 with no tests. Its failed record is retained. The corrected test-only run
+passes nine cases/seven functions with zero failures/skips; source hashes, compiler commands and the fresh program
+are verified. Directory failure and complete report replacement run on Windows; the two `/dev/full` cases are
+Linux-only and do not count as Windows passes or skips. This synthetic hidden software check, plus a 21-program
+header hardening audit, proves neither hardware timing nor a full Windows or OS build.
+
 ## 5. Install and deploy
 
 ```powershell
-cmake --install build\windows-release --prefix dist\qor-os
+cmake --install build\ci-windows --prefix dist\qor-os
 ```
 
 The install step runs Qt's deployment script (`qt_generate_deploy_qml_app_script`,
@@ -368,7 +730,7 @@ and `services/` so the deployment scan finds their imports (for example
 QQ, ARQADE and QOR Media came from demiurge-chain at the paths they had
 there, and are developed here ([UPSTREAM.md](UPSTREAM.md)). Each keeps its own CMake project and
 `build.ps1`, which configures with MSVC 2022 and Ninja, builds, and runs every
-suite. `tools/dev/products.ps1` runs them all:
+registered CTest suite. `tools/dev/products.ps1` runs them all:
 
 ```powershell
 .\tools\dev\products.ps1                          # build\products\{qq,arqade,media}
@@ -387,6 +749,13 @@ they run: a window that loses the keyboard to another application fails a
 test. `products.ps1` tries a failing product once more. The look tests read
 `docs/design/tokens.json`.
 
+The Windows scripts use `tools/dev/products-tests.ps1`: old CTest records are invalidated before configuring/building and
+before testing, and cleanup failure stops the run. CTest must run at least one suite and leave complete matching log/XML
+evidence. Empty runs, failed suites and whole suites skipped by CTest cannot pass. `products-report.py` prints individual
+case counts and skipped/failed cases; a skipped case is kept separate from the passing count. Python is required, as for
+the repository's other checks. Suites run one at a time even with an inherited CTEST_PARALLEL_LEVEL. The scripts' explicit
+`-Run` modes and QQ's `-Web` workflow retain their existing behavior.
+
 ### On Linux
 
 demiurge-chain built the products on Windows only. QOR OS builds them on Linux
@@ -394,6 +763,9 @@ with its own script, outside the products: `tools/dev/products.sh` configures
 each with CMake and Ninja against the `gcc_64` kit, builds it, and runs the
 suites it registers with CTest. A product whose suites fail has its failed
 suites run once more.
+
+First attempts and retries explicitly use CTest's `--parallel 1`, so an inherited `CTEST_PARALLEL_LEVEL` cannot overlap
+suite windows or input. Regression checks exercise both paths with real CTest and stand-in programs, without opening Qt.
 
 ```bash
 tools/dev/products.sh                                 # build/products-linux/{qq,arqade,media}
@@ -443,14 +815,41 @@ tools/dev/products.sh --gpu                           # under WSL, on the GPU, w
   user manager runs (`systemd=true` in `/etc/wsl.conf`), the run is also
   held to half the processors and three quarters of WSL's memory, so the PC
   stays usable. It needs unprivileged user namespaces, which WSL's kernel
-  allows. In software, QQ's walk and the QQ Player's floor of 20 frames a
-  second fail. `--gpu` draws on the GPU through Direct3D 12 as before, and
-  can freeze the PC.
+  allows. In software the QQ Player's floor of 20 frames a second fails, and
+  a pass says nothing of a real GPU, sound or controller
+  ([CI.md](CI.md#what-linux-runs)). `--gpu` draws on the GPU through
+  Direct3D 12 as before, and can freeze the PC.
 - **Sound:** with `--display session` and no PipeWire daemon (WSLg), it sets
   `QT_AUDIO_BACKEND=pulseaudio`, as the shell's audio engine does.
 - **Programs:** on Linux QQ's programs sit in their target folders
   (`studio/qq-studio`, `player/qq-player`, `agent/qq-mcp`, `tests/tst_*`);
   ARQADE's and QOR Media's sit in the build folder.
+- **The first journey** (`first_journey`, `tools/dev/first-journey.py`) is the
+  one place QQ and Prism meet: a project built by the real `qq-studio --build`,
+  found in real Prism's Library and played by the real Player. Its Prism steps
+  need a build of Prism with its stand-ins for the products, named by
+  `QOR_PRISM_BUILD`; without it the run skips them and the test is reported
+  as skipped (exit 77), which is not a pass. To run all of it:
+
+  ```bash
+  cmake --preset linux-asan
+  cmake --build build/linux-asan --target prism prism-test-qq-player \
+      prism-test-qq-studio prism-test-arqade prism-test-media
+  QOR_PRISM_BUILD=$PWD/build/linux-asan tools/dev/products.sh --product qq \
+      --tests '^first_journey$'
+  ```
+
+  Prism must be a simulator-enabled Linux build with those stand-ins: a device build correctly refuses
+  `--script` and `--unlocked`. In software, Prism launches a recording stand-in; the real Player then plays
+  the recorded arguments on the test display. This checks the Library/build contract, not a real Player
+  window inside Prism or native hardware readiness.
+
+  Each child must exit successfully. Studio must emit exactly one `QQ-BUILD` JSON object; a success-looking
+  result never overrides a failed process. Each Player call requires an unoccupied report path before
+  launch, then a fresh regular file containing a UTF-8 JSON object. Existing reports are refused without
+  deleting or replacing them. Playback also requires a finite, nonnegative first-frame measurement;
+  a missing marker, boolean, string or invalid number does not show that a frame appeared. Malformed/ambiguous
+  results fail; missing Prism stages still return 77, which remains skipped rather than passed.
 
 The samples are QQ scenes you can open in QQ Studio, for example
 `products/qq/samples/orb-run`. Running them inside Prism, with Prism placing

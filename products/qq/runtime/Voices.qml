@@ -5,6 +5,10 @@
 //
 // In a browser each is a WebVoice, its volume following the distance from the eye and its side the eye's: panned.
 
+// Changed for QOR OS: voice factories bind to their owner and follow the viewport’s actual camera types.
+
+pragma ComponentBehavior: Bound
+
 import QtQml
 import QtQuick
 import QtQuick3D
@@ -79,8 +83,8 @@ QtObject {
             property var at: null
             property real reach: 25
             // Heard through the eye, as natively: louder nearer, and on the side of the eye it is on.
-            readonly property QtObject eye: voices.scene && SceneIO.viewOf(voices.scene)
-                                            ? SceneIO.viewOf(voices.scene).activeCamera : null
+            readonly property View3D view: voices.scene ? SceneIO.viewOf(voices.scene) as View3D : null
+            readonly property Camera eye: view ? view.camera : null
             readonly property real distance: eye && at !== null ? eye.scenePosition.minus(at).length() : 0
             volume: own * voices._gain(group) * (at === null ? 1 : distance > reach ? 0 : 1 / Math.max(1, distance))
             pan: eye && at !== null && distance > 0.01

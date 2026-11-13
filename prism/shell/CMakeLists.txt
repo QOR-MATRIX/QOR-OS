@@ -5,6 +5,7 @@
 set_source_files_properties(search.js PROPERTIES QT_QML_SKIP_QMLDIR_ENTRY TRUE)
 
 qt_add_library(qor_shell STATIC)
+add_dependencies(qor_shell qor_boot_branding_check)
 
 qt_add_qml_module(qor_shell
     URI QOR.Shell

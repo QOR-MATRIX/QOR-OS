@@ -7,6 +7,8 @@
 // the player), not an empty window.
 
 // Changed for QOR OS: the kernel's wall around a game (QOR-0018).
+// Changed for QOR OS: a measured Player was still drawing as its time ended, and was drawn by what products.sh expected.
+// Changed for QOR OS: measurement output failures and incomplete scenes fail; ordinary play stays open after reporting.
 #include <QDir>
 #include <QFile>
 #include <QImage>
@@ -31,23 +33,43 @@ QString fixture(const QString &name)
 }
 
 /// Run the player with `arguments`; its exit code, or -1 if it did not finish.
-int runPlayer(const QStringList &arguments)
+int runPlayer(const QStringList &arguments, QByteArray *diagnostics = nullptr)
 {
     QProcess player;
     player.setProgram(QStringLiteral(QQ_PLAYER));
     player.setArguments(arguments);
     player.start();
-    if (!player.waitForFinished(60000)) {
+    const bool finished = player.waitForFinished(60000);
+    if (!finished) {
         player.kill();
-        return -1;
+        player.waitForFinished();
     }
-    return player.exitStatus() == QProcess::NormalExit ? player.exitCode() : -1;
+    if (diagnostics)
+        *diagnostics = player.readAllStandardOutput() + player.readAllStandardError();
+    return finished && player.exitStatus() == QProcess::NormalExit ? player.exitCode() : -1;
 }
 
 QJsonObject readJson(const QString &path)
 {
     QFile f(path);
     return f.open(QIODevice::ReadOnly) ? QJsonDocument::fromJson(f.readAll()).object() : QJsonObject();
+}
+
+/// The most a Player that is still drawing can go without a frame at the end of its measured time, on any machine. An
+/// average frame rate cannot say this: a Player that draws four frames and stops reads 1.3 over its three seconds.
+constexpr double kStillDrawingWithinMs = 1000;
+
+/// What products.sh expected against what the Player says drew it: a run's checks are not what they say otherwise.
+bool rendererAsExpected(const QJsonObject &measured)
+{
+    const QString renderer = measured.value(QStringLiteral("renderer")).toString();
+    const QByteArray expected = qgetenv("QOR_EXPECTED_RENDERER");
+    const bool software = renderer.contains(QStringLiteral("llvmpipe"));
+    if (expected == "software")
+        return software;
+    if (expected == "gpu")
+        return !renderer.isEmpty() && !software;
+    return true;
 }
 
 }  // namespace
@@ -85,6 +107,83 @@ private slots:
         f.write(playgroundBefore);
     }
 
+    void anOrdinaryPlayerStaysOpenAfterItsMeasurement()
+    {
+        QProcess player;
+        player.setProgram(QStringLiteral(QQ_PLAYER));
+        player.setArguments({fixture(QStringLiteral("scenes/sample.qml"))});
+        player.setProcessChannelMode(QProcess::MergedChannels);
+        const auto close = qScopeGuard([&] {
+            if (player.state() != QProcess::NotRunning) {
+                player.kill();
+                player.waitForFinished();
+            }
+        });
+        player.start();
+        QVERIFY(player.waitForStarted());
+        QByteArray said;
+        QTRY_VERIFY_WITH_TIMEOUT((said += player.readAll()).contains("QQ-MEASURE "), 60000);
+        // Printing the usual startup report is not a request to close an ordinary game.
+        QVERIFY2(!player.waitForFinished(750), said.constData());
+        QCOMPARE(player.state(), QProcess::Running);
+    }
+
+    void aMeasurementThatCannotBeWrittenIsAnError()
+    {
+        QTemporaryDir out;
+        QVERIFY(out.isValid());
+        const QString destination = out.filePath(QStringLiteral("report-directory"));
+        QVERIFY(QDir().mkpath(destination));
+        const QString kept = QDir(destination).filePath(QStringLiteral("keep.txt"));
+        {
+            QFile sentinel(kept);
+            QVERIFY(sentinel.open(QIODevice::WriteOnly));
+            QCOMPARE(sentinel.write(QByteArrayLiteral("kept")), qint64(4));
+        }
+        QProcess player;
+        player.setProgram(QStringLiteral(QQ_PLAYER));
+        player.setArguments({fixture(QStringLiteral("scenes/sample.qml")), QStringLiteral("--measure"), destination});
+        player.setProcessChannelMode(QProcess::MergedChannels);
+        player.start();
+        const bool finished = player.waitForFinished(60000);
+        const QByteArray said = player.readAll();
+        if (!finished) {
+            player.kill();
+            player.waitForFinished();
+        }
+        QVERIFY2(finished, said.constData());
+        QCOMPARE(player.exitStatus(), QProcess::NormalExit);
+        // Reaching the measurement stage rules out an unrelated startup failure.
+        QVERIFY2(said.contains("QQ-MEASURE "), said.constData());
+        QCOMPARE(player.exitCode(), 1);
+        QVERIFY(QDir(destination).exists());
+        QFile sentinel(kept);
+        QVERIFY(sentinel.open(QIODevice::ReadOnly));
+        QCOMPARE(sentinel.readAll(), QByteArrayLiteral("kept"));
+    }
+
+    void aMeasurementReplacesAnEarlierReport()
+    {
+        QTemporaryDir out;
+        QVERIFY(out.isValid());
+        const QString result = out.filePath(QStringLiteral("measure.json"));
+        {
+            QFile earlier(result);
+            QVERIFY(earlier.open(QIODevice::WriteOnly));
+            const QByteArray stale = QByteArrayLiteral("{\"stale\":true}\n");
+            QCOMPARE(earlier.write(stale), qint64(stale.size()));
+        }
+        QCOMPARE(runPlayer({fixture(QStringLiteral("scenes/sample.qml")), QStringLiteral("--measure"), result}), 0);
+        const QJsonObject measured = readJson(result);
+        QVERIFY(!measured.isEmpty());
+        QVERIFY(!measured.contains(QStringLiteral("stale")));
+        QVERIFY(measured.value(QStringLiteral("scene")).toString().endsWith(QStringLiteral("sample.qml")));
+        QCOMPARE(measured.value(QStringLiteral("problem")).toString(), QString());
+        QCOMPARE(measured.value(QStringLiteral("unloaded")).toArray(), QJsonArray());
+        QCOMPARE(measured.value(QStringLiteral("logicErrors")).toArray(), QJsonArray());
+        QVERIFY2(rendererAsExpected(measured), qPrintable(measured.value(QStringLiteral("renderer")).toString()));
+    }
+
     void thePlaygroundPlaysAndItsStartIsMeasured()
     {
         QTemporaryDir out;
@@ -104,6 +203,10 @@ private slots:
         // Counted from the process's creation: more than nothing, and well inside the time a person would wait.
         const double first = m.value(QStringLiteral("firstFrameMs")).toDouble();
         QVERIFY2(first > m.value(QStringLiteral("mainMs")).toDouble() && first < 10000, qPrintable(QString::number(first)));
+        QVERIFY2(rendererAsExpected(m), qPrintable(m.value(QStringLiteral("renderer")).toString()));
+        // Still drawing as its measured time ends, on any machine: neither part of the floor below nor eased with it.
+        QVERIFY2(m.contains(QStringLiteral("lastFrameAgoMs")) && m.value(QStringLiteral("lastFrameAgoMs")).toDouble() < kStillDrawingWithinMs,
+                 qPrintable(QStringLiteral("its last frame was %1 ms before the end").arg(m.value(QStringLiteral("lastFrameAgoMs")).toDouble())));
         QVERIFY2(m.value(QStringLiteral("fps")).toDouble() >= 20, qPrintable(QString::number(m.value(QStringLiteral("fps")).toDouble())));
     }
 
@@ -168,7 +271,9 @@ private slots:
     {
         QTemporaryDir out;
         const QString frame = QDir(out.path()).filePath(QStringLiteral("first.png"));
-        QCOMPARE(runPlayer({QStringLiteral("--capture"), frame}), 0);
+        QByteArray diagnostics;
+        const int code = runPlayer({QStringLiteral("--capture"), frame}, &diagnostics);
+        QVERIFY2(code == 0, qPrintable(QStringLiteral("Player exit %1: %2").arg(code).arg(QString::fromUtf8(diagnostics))));
         const QImage image(frame);
         QVERIFY(!image.isNull());
         image.save(QDir(QCoreApplication::applicationDirPath()).filePath(QStringLiteral("player-first-frame.png")));
@@ -211,6 +316,9 @@ private slots:
         const QJsonObject m = readJson(result);
         QCOMPARE(m.value(QStringLiteral("problem")).toString(), QString());
         QVERIFY(m.value(QStringLiteral("firstFrameMs")).toDouble() > 0);
+        QVERIFY2(rendererAsExpected(m), qPrintable(m.value(QStringLiteral("renderer")).toString()));
+        QVERIFY2(m.contains(QStringLiteral("lastFrameAgoMs")) && m.value(QStringLiteral("lastFrameAgoMs")).toDouble() < kStillDrawingWithinMs,
+                 qPrintable(QStringLiteral("its last frame was %1 ms before the end").arg(m.value(QStringLiteral("lastFrameAgoMs")).toDouble())));
         QVERIFY2(m.value(QStringLiteral("fps")).toDouble() >= 20, qPrintable(QString::number(m.value(QStringLiteral("fps")).toDouble())));
 
         const QString frame = QDir(out.path()).filePath(QStringLiteral("first.png"));
@@ -314,6 +422,52 @@ private slots:
         // The second start's run, played again: it found 1, as its record says, and the store still says 2.
         QCOMPARE(runPlayer({scene.fileName(), QStringLiteral("--replay"), root.filePath(QStringLiteral("run1.json"))}), 0);
         QCOMPARE(readJson(kept).value(QStringLiteral("plays")).toInt(), 2);
+    }
+
+    void anIncompleteSceneIsReportedAsAStartupError_data()
+    {
+        QTest::addColumn<QByteArray>("text");
+        QTest::addColumn<bool>("writable");
+        QTest::newRow("object") << QByteArray("import QtQml\nQtObject { property string kind: \"Scene\" }\n") << true;
+        QTest::newRow("node") << QByteArray("import QtQuick3D\nNode { property string kind: \"Scene\" }\n") << true;
+        QTest::newRow("node-output-failure") << QByteArray("import QtQuick3D\nNode { property string kind: \"Scene\" }\n") << false;
+    }
+
+    void anIncompleteSceneIsReportedAsAStartupError()
+    {
+        QFETCH(QByteArray, text);
+        QFETCH(bool, writable);
+        QTemporaryDir out;
+        QVERIFY(out.isValid());
+        QFile source(out.filePath(QStringLiteral("incomplete.qml")));
+        QVERIFY(source.open(QIODevice::WriteOnly));
+        QCOMPARE(source.write(text), qint64(text.size()));
+        source.close();
+        const QString result = out.filePath(writable ? QStringLiteral("startup.json") : QStringLiteral("report-directory"));
+        QVERIFY(!QFile::exists(result));
+        const QString kept = QDir(result).filePath(QStringLiteral("keep.txt"));
+        if (!writable) {
+            QVERIFY(QDir().mkpath(result));
+            QFile sentinel(kept);
+            QVERIFY(sentinel.open(QIODevice::WriteOnly));
+            QCOMPARE(sentinel.write("kept"), qint64(4));
+        }
+        QByteArray diagnostics;
+        const int code = runPlayer({source.fileName(), QStringLiteral("--measure"), result}, &diagnostics);
+        QVERIFY2(code == (writable ? 3 : 1), qPrintable(QStringLiteral("Player exit %1: %2").arg(code).arg(QString::fromUtf8(diagnostics))));
+        if (!writable) {
+            QFile sentinel(kept);
+            QVERIFY(sentinel.open(QIODevice::ReadOnly));
+            QCOMPARE(sentinel.readAll(), QByteArrayLiteral("kept"));
+            return;
+        }
+        const QJsonObject measured = readJson(result);
+        QVERIFY(!measured.isEmpty());
+        QVERIFY(!measured.value(QStringLiteral("problem")).toString().isEmpty());
+        QVERIFY(measured.value(QStringLiteral("scene")).toString().endsWith(QStringLiteral("incomplete.qml")));
+        QVERIFY(measured.value(QStringLiteral("firstFrameMs")).toDouble() < 0);
+        QCOMPARE(measured.value(QStringLiteral("fps")).toDouble(), 0.0);
+        QCOMPARE(measured.value(QStringLiteral("lastFrameAgoMs")).toDouble(), 0.0);
     }
 
     void aSceneThatIsNotThereIsSaidNotHidden()

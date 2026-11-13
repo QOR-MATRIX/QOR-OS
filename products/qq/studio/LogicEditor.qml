@@ -3,6 +3,13 @@
 // the file is (SceneIO.checkLogic), and what does not build is listed by line, a click going to that line. Saving
 // (its button, or Ctrl+S while it has the keys) writes the file whole, and a scene that is playing picks it up at once,
 // as it picks up any save of its logic.
+//
+// Changed for QOR OS: reset(), which leaves nothing of a file behind when it closes or its project is left; Close asks
+// about unsaved text first; a file's name is text, never markup (AGENTS.md); saving goes back to the file that is open, and
+// says if that cannot be, and waits while a game is being built; restore(), for a recovery copy.
+// Changed for QOR OS: use the actual Studio window and bound delegates; supplied problems are plain text.
+
+pragma ComponentBehavior: Bound
 
 import QtQuick
 import QtQuick.Controls
@@ -15,7 +22,7 @@ Pane {
     id: editor
 
     /// The Studio's window: its project.
-    required property QtObject studio
+    required property Main studio
     /// The file open, by name (logic/<name>.qml), or "".
     property string name: ""
     readonly property url file: name === "" ? "" : String(studio.project) + "/logic/" + name + ".qml"
@@ -49,25 +56,50 @@ Pane {
         return true
     }
 
+    /// Put a recovery copy back: logic/<name>.qml open, with this text in it, unsaved against what is in the file now.
+    function restore(logicName, text) {
+        const onDisk = SceneIO.readText(String(studio.project) + "/logic/" + logicName + ".qml")
+        name = logicName
+        saved = onDisk ?? ""
+        code.text = text
+        code.cursorPosition = 0
+        check()
+    }
+
     /// Write the text to its file, whole: true if written.
     function save() {
-        if (name === "")
+        if (name === "" || studio.refusedWhileBuilding(qsTr("save")))
             return false
         const written = SceneIO.writeLogic(studio.project, name, code.text)
         if (String(written) === "") {
             studio.say(SceneIO.lastError, true)
             return false
         }
+        // Its file had gone, so it has the name a new one gets, and that is the file open now.
+        const folder = String(studio.project) + "/logic/"
+        if (String(written).startsWith(folder))
+            name = decodeURIComponent(String(written).slice(folder.length)).replace(/\.qml$/, "")
         saved = code.text
         check()
         studio.say(problems.length === 0 ? qsTr("Saved logic/%1.qml.").arg(name)
                                          : qsTr("Saved logic/%1.qml; it does not build yet (line %2).")
                                                .arg(name).arg(problems[0].line), problems.length > 0)
+        studio.keepRecovery()
         return true
     }
 
     function check() {
         problems = name === "" ? [] : SceneIO.checkLogic(code.text, file)
+    }
+
+    /// Nothing open and nothing left of what was: its text, its problems and the editor's own undo.
+    function reset() {
+        name = ""
+        saved = ""
+        problems = []
+        code.text = ""
+        // A check on its way would only find nothing, and setting the text just asked for one.
+        quiet.stop()
     }
 
     /// Put the cursor at the start of line `n` (from 1).
@@ -98,6 +130,7 @@ Pane {
             spacing: 10
             Label {
                 text: "logic/" + editor.name + ".qml"
+                textFormat: Text.PlainText
                 font.pixelSize: 13
                 font.weight: Font.DemiBold
             }
@@ -123,11 +156,12 @@ Pane {
                 onClicked: editor.save()
             }
             StudioButton {
+                objectName: "logicClose"
                 text: qsTr("Close")
-                onClicked: {
-                    editor.name = ""
+                onClicked: editor.studio.settleThen({ logic: true }, () => {
+                    editor.reset()
                     editor.closed()
-                }
+                })
             }
         }
 
@@ -182,12 +216,22 @@ Pane {
             clip: true
             model: editor.problems
             delegate: ItemDelegate {
+                id: problemRow
                 required property var modelData
                 width: ListView.view.width
                 height: 24
                 font.pixelSize: 12
                 text: qsTr("Line %1: %2").arg(modelData.line).arg(modelData.message)
                 Material.foreground: Look.bad
+                contentItem: Label {
+                    text: problemRow.text
+                    textFormat: Text.PlainText
+                    font: problemRow.font
+                    color: problemRow.Material.foreground
+                    horizontalAlignment: problemRow.mirrored ? Text.AlignRight : Text.AlignLeft
+                    verticalAlignment: Text.AlignVCenter
+                    elide: Text.ElideRight
+                }
                 onClicked: editor.goTo(modelData.line)
             }
         }

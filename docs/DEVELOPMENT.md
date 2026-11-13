@@ -8,16 +8,42 @@ before changing them.
 
 ## 1. Daily loop
 
+On the owner's Windows machine, use `ci-windows` for changes while the
+`windows-release` shell may be running. Never kill or relink that shell.
+Configure explicitly when needed; automatic IDE configure/build remains disabled.
+The commands below are the normal workflow once the resource/worker checks below pass.
+
 ```powershell
 . .\tools\dev\Enter-QorShell.ps1
-cmake --build --preset windows-release            # incremental build (QML is compiled too)
-.\tools\dev\run.ps1 -- --unlocked --open files    # run
-ctest --preset windows-release                    # test
-cmake --build --preset windows-release --target all_qmllint
+cmake --preset ci-windows
+cmake --build --preset ci-windows                  # incremental build (QML is compiled too)
+.\tools\dev\run.ps1 -Preset ci-windows -- --unlocked --open files
+ctest --preset ci-windows
+cmake --build --preset ci-windows --target all_qmllint
+python tools/ci/check_hardening.py build/ci-windows
 ```
 
 For visual work, `tools\screenshots\capture.ps1 -Scenes desktop,beam -OutDir $env:TEMP\shots`
 produces deterministic frames you can compare before and after a change.
+
+Before a local heavy job, inspect QOR's worktrees and active QOR build/test workers. Identify their current project-local
+build wrapper and check its actual operating-system lock; a leftover holder note does not mean the lock is held. Reuse that
+QOR lock and keep heavy jobs serial. Preserve active workers and unfinished changes. Local implementation follows QOR's
+worker and lock state. Image/Q Pi work also uses the unchanged 3-GiB guard in
+`tools/image/vm_resources.py` and a measured scratch budget. Never manage unrelated
+services to obtain headroom. The original Windows/WSL coordinator remains in
+place. `tools/dev/heavy.py` supplies the separate
+[native Linux coordinator](../image/README.md#native-linux-heavy-job-coordination):
+one designated account/namespace, permanent OS lock, guarded RAM admission and
+an incomplete-run marker that requires reviewed recovery. It does not wrap raw
+builds automatically. On 11 November the native Pi ran all 80 focused resource/
+coordinator cases and its production lock check successfully. Access was restored
+on 12 November, followed by native parser, Prism and selected QQ checks. On
+13 November the existing restricted SSH route, permanent lock inode and reviewed
+source snapshot were reverified before continuing. See the image guide for the
+exact scopes. Recheck that host's workers and resources before each job;
+dependency closure and measured build-budget qualification remain separate.
+Windows/WSL resources are not inferred from the Pi.
 
 ## 2. C++ conventions
 
@@ -36,7 +62,9 @@ produces deterministic frames you can compare before and after a change.
   (`requirements-dev.txt`, pre-commit, CI). Do not hand-format.
 - Warnings: `/W4` (MSVC) or `-Wall -Wextra -Wpedantic …`. Third-party headers are
   external. `ci-windows` builds with warnings as errors.
-- Every file starts with `// SPDX-License-Identifier: LicenseRef-QOR-OS-Proprietary`.
+- New QOR OS C++ files start with `// SPDX-License-Identifier: LicenseRef-QOR-OS-Proprietary`.
+  Carried Apache-2.0 product files retain their notices and receive the required
+  `Changed for QOR OS:` comment; do not replace their licence headers.
 
 ## 3. QML conventions
 
@@ -71,7 +99,16 @@ produces deterministic frames you can compare before and after a change.
   `TapHandler` on the item it belongs to, or on a parent, is fine: parents are
   offered events after their children. `shell_e2e` and `prism_e2e` catch
   regressions.
-- `all_qmllint` must stay at zero warnings.
+- `all_qmllint` must stay at zero warnings. The root `.qmllint.ini` uses Qt's `MaxWarnings=0` setting to make warnings fail
+  the native command, including generated commands using `--bare`; it does not alter categories or suppress findings.
+  See [Qt's qmllint settings](https://doc.qt.io/qt-6/qtqml-tooling-qmllint.html#settings).
+- A QML module exposing C++ types declares the QML modules owning their C++ base types in `qt_add_qml_module(DEPENDENCIES ...)`.
+  QQ declares `QtQuick3D` for SoftDot and TileGeometry. This supplies type information without adding auto-imports;
+  see [Qt's module-dependency guidance](https://doc.qt.io/qt-6/qt-add-qml-module.html#declaring-module-dependencies).
+- ScreenText and ScreenButton bind their nested drawing Components to their owning screen part with
+  `pragma ComponentBehavior: Bound`. Their outer ids then have known types and remain tied to the same instance when
+  ScreenPart creates the visual on an overlay. Do not apply this to delegates using implicit model context properties;
+  Qt requires explicit properties there. See [Qt's component-context rules](https://doc.qt.io/qt-6/qtqml-documents-structure.html#componentbehavior).
 
 ## 4. Performance rules
 
@@ -93,7 +130,7 @@ produces deterministic frames you can compare before and after a change.
 1. Edit `kit/tokens/lumen.tokens.json`.
 2. `python tools/tokens/generate_tokens.py` regenerates `kit/Tokens.qml`,
    `platform/common/lumentokens.h` and `docs/design/tokens.md`.
-3. `python -m unittest discover -s tests/tools` checks the contrast
+3. `python -m unittest discover -s tests/tools -p test_generate_tokens.py` checks the contrast
    guarantees (text on accent at every preset hue, and the high-contrast
    targets).
 4. Rebuild, run the golden-image tests (below), and update the references if
@@ -143,8 +180,9 @@ If a platform must render a case differently on purpose, run the test with
 `tests/golden/references/<os>/`, which takes precedence on that OS.
 
 When a case fails, `build/<preset>/tests/golden-out/` holds `<case>-actual.png`
-and `<case>-diff.png`, with visible differences in red. CI uploads them as the
-`golden-diff-windows` artifact. To accept an intended change:
+and `<case>-diff.png`, with visible differences in red. The Windows workflow is
+configured to upload `golden-diff-windows` when its job runs; Qt jobs remain paused
+pending runner isolation ([CI.md](CI.md#what-ci-trusts)). To accept an intended change:
 
 1. Inspect the diff images.
 2. Run `update_golden`.
@@ -165,7 +203,9 @@ step failed, with the reason on stderr). Input enters through
 therefore takes the same path as a person's: shell handlers, controls, and
 under Prism on to Wayland clients. The runner is
 `prism/shell/shellscript.cpp`; scripts use logical coordinates at any display
-scale.
+scale. Both need a build with the simulator: a device's Prism has no
+`--script`, nor `--unlocked`, `--screenshot`, `--delay`, `--benchmark` or `--benchmark-out`, and refuses each as an
+unknown option ([SECURITY.md](../SECURITY.md)).
 
 ```json
 { "steps": [
@@ -183,16 +223,21 @@ scale.
 | `{"wait": ms}` | Pause |
 | `{"waitFor": {"windows": n \| "window": spec \| "gone": spec \| "popups": n, "timeout": ms}}` | Wait for a condition; fail on timeout |
 | `{"click": target}`, `{"doubleClick": target}`, `{"rightClick": target}`, `{"move": target}` | Pointer input |
+| `{"press": target}`, `{"release": target}` | A left button held across other steps |
 | `{"drag": {"from": target, "to": target \| "by": [dx, dy], "steps": n}}` | Press, move in steps, release |
 | `{"scroll": {"at": target, "notches": n}}` | Mouse wheel; positive `n` scrolls down |
 | `{"gesture": {"fingers": 3, "by": [dx, dy], "steps": n, "ms": 16, "at": target}}` | A touchpad swipe, as Qt's native gestures. In parts: `{"begin": {"fingers": 3, "at": target}}`, `{"move": [dx, dy], "steps": n, "ms": 16}`, `{"end": true, "after": ms}` (`after` holds the fingers still before they lift) |
 | `{"touch": {"fingers": n, "from": target, "by": [dx, dy], "steps": n, "ms": 16, "spread": 60}}` | A touchscreen drag: the fingers land one by one in a row, move together and lift together |
 | `{"key": "Escape"}`, `{"key": "Ctrl+Alt+Right"}` | Key press and release. Modifier keys go down first and up last, as on a keyboard, which Prism needs. Wayland clients receive evdev scan codes |
+| `{"keyRepeat": "a"}` | What a key held down sends after its first press |
+| `{"hostFocus": false}` | Nested, what going to another of the host's windows sends; `true` to come back |
+| `{"hostPointer": "left"}` | Nested, the host's pointer leaving Prism's window; `[x, y]` for it coming back in there |
+| `{"follow": folder}` | Steps handed over one at a time, for a test that decides what comes next from what a client saw: `N.json` in the folder, counting from 0, each answered by `N.done` once it has run, until one says `{"stop": true}` |
 | `{"gamepad": {"connect": family \| "tap" \| "press" \| "release": button \| "stick": [x, y], "ms": n \| "disconnect": true}}` | A virtual game controller ([CONTROLLERS.md](CONTROLLERS.md)) |
 | `{"call": "setSurface", "args": [...]}` | Call a `Desktop` method (`launch`, `setSurface`, `switchSpace`, ...) |
 | `{"restore": spec}` | What clicking the window's app on the Shelf does |
 | `{"close": spec}` | Ask a window to close (`xdg_toplevel.close` for clients) |
-| `{"expect": {"path": ..., "equals": value}}` | Assert on the state below; `"window": spec` scopes the path to a window; in an array a path step is an index or `length` (`windows.length` counts closing windows too); `"near": [..] \| number \| "statePath"` with `"scale"` and `"tolerance"` compares rectangles and numbers; `"contains": "text"` checks a string holds another |
+| `{"expect": {"path": ..., "equals": value}}` | Assert on the state below; `"window": spec` scopes the path to a window; in an array a path step is an index or `length` (`windows.length` counts closing windows too); `"near": [..] \| number \| "statePath"` with `"scale"` and `"tolerance"` compares rectangles and numbers; `"contains": "text"` checks a string holds another. `"item": "<objectName>"` scopes the path to what an item shows (`visible`, `enabled`, `text`, `textFormat`), wherever it is scrolled; `"equals": "absent"` passes if nothing has that name, as it does for `"window"` |
 | `{"state": file}`, `{"screenshot": file}` | Write the state as JSON or grab the window (paths relative to the script); `"display": n` grabs another display under Prism |
 | `{"log": text}` | Print a progress line |
 
@@ -207,7 +252,8 @@ While a script runs, only its own input and the controller interface's
 reach the window (`qor::input::InjectedInput`). Real pointer and key input
 is dropped: a person's mouse crossing the window, or a host compositor's
 pointer over a nested Prism, would otherwise cancel scripted drags or fire
-shortcuts. Running tests on a machine in use is safe.
+shortcuts. This isolates input events; it does not establish resource, credential,
+display or runner isolation. Use the guarded hidden harness where documented.
 
 A **target** is `[x, y]` in window coordinates, or
 `{"window": spec, "part": "frame|titlebar|content|close|maximize|minimize", "at": [x, y]}`,
@@ -293,10 +339,12 @@ ctest --preset linux-asan -LE gpu
 QOR_SANITIZE=address,undefined tools/dev/products.sh --product qq --tests tst_lockdown --build-root ~/qor-build/products-asan
 ```
 
-- `tools/ci/check_hardening.py <build folder>` reads back each program's mitigations.
+- `tools/ci/check_hardening.py <build folder>` reads back each program's mitigations, and fails a folder that is the Store's
+  demonstration, by its cache or by the key in what it built ([STORE.md](STORE.md#the-demonstration-build)).
 - `tools/ci/check_secrets.py [--staged]` looks for a secret's shape, and says where, never what. A made-up value in a test
   goes in `tools/ci/secrets-allowed.txt` with its reason.
 - `prism_untrusted` (`tests/prism/untrusted.e2e.json`) runs Prism with clients that lie about themselves.
+- `tst_pointercapture` runs Prism with raw Wayland clients that try to take the pointer.
 - `tst_lockdown` plays games that try to get out, and `tst_player` shows the kernel's wall holding them.
 - **To add a CI action or a download**, pin it by commit or SHA-256. Anything that downloads a tool to run it goes in the
   Security workflow, on a hosted runner, never on the workstation.
@@ -321,7 +369,7 @@ export QOR_GAMES=$PWD/products/qq/samples   # the QQ games Home and the Library 
 ARQADE and QQ Studio are then in Beam. Home and the Library (Guide, or Beam's
 Home and Library) offer every game and the person's media: QQ games from
 `QOR_GAMES`, else `share/qor-os/games` beside Prism and in the data folder;
-the person's own QQ projects in Documents; ARQADE's seven; and video, music and
+the person's own QQ projects in Documents; the ARQADE entries in `Library::arqadeGames()`; and video, music and
 pictures. A game plays in the QQ Player (`Desktop.playQQGame(scene)`) or in
 ARQADE (`Desktop.playInArqade(game)`), and QOR Media opens the files
 (`Desktop.openInMedia(path, kind)`), where they stopped when the Library
@@ -330,8 +378,12 @@ knows.
 ### Add an icon
 
 Add the Lucide name to `kit/icons/icons.txt`, then run
-`python tools/icons/import_lucide.py <lucide-static package dir>` (download
-with `npm pack lucide-static`). CMake picks the list up automatically.
+`python tools/icons/import_lucide.py <lucide-static package dir>` against the
+reviewed exact package version. The carried icons currently record 1.61.0 in
+`THIRD_PARTY_NOTICES.md`; retain the package's source/hash/licence evidence when
+updating it. The importer reads a local package and does not verify its provenance;
+an unversioned `npm pack lucide-static` is not a reproducible input. CMake picks
+the icon list up automatically.
 
 ### Add a Kit component
 
@@ -387,6 +439,10 @@ as it was. A change to ARQADE's rules is also made upstream, with its fixture
 
 ### Pull ARQADE's fixtures and the one look from upstream
 
+`status` compares against the local upstream clone's last fetched `origin/main`;
+it does not fetch. `pull` fetches and creates commits, so use it only for an
+owner-authorised upstream update from a clean tree, preserving existing work.
+
 ```bash
 tools/upstream/demiurge.sh status          # last upstream commits, whether ARQADE's rules match, the core's pin
 tools/upstream/demiurge.sh pull            # merge demiurge-chain main's fixtures and copy its tokens.json
@@ -437,12 +493,16 @@ and mark any record it supersedes or amends.
 | `tools/icons/import_lucide.py` | Reproducible icon import |
 | `tools/ci/check_headers.py` | SPDX header check |
 | `tools/ci/install_qt.py` | Unattended commercial Qt install for CI |
-| `tools/github/bootstrap.py` | Apply labels, milestones, repository settings and ruleset |
+| `tools/github/bootstrap.py` | Apply labels, milestones, repository settings and optional ruleset; `--actions-only` applies and reads back the reviewed Actions policy ([CI.md](CI.md#repository-settings-and-recovery)) |
+| `tools/github/check_actions_policy.py` | Offline check of reviewed action pins, token permissions, checkout credentials and privileged events |
 | `tools/dev/products.ps1` | Build and test QQ, ARQADE and QOR Media with their own scripts |
 | `tools/dev/products.sh` | Build and test QQ, ARQADE and QOR Media on Linux, on a display nobody sees and, under WSL, fenced from the GPU ([BUILDING.md](BUILDING.md#on-linux)) |
 | `tools/dev/products-display.qml` | That display: a compositor on Qt's offscreen platform, for the products' suites |
 | `tools/dev/secret-service.py` | That run's keyring: an in-memory Secret Service on the run's own session bus ([QOR-0011](decisions/QOR-0011-the-creators-provider-key-in-the-secret-service.md)) |
 | `tools/dev/prism-products.py` | Prism hosting stand-ins for ARQADE, QOR Media, QQ Studio and the QQ Player, offscreen and in software (`prism_products`) |
 | `tools/upstream/demiurge.sh` | Pull ARQADE's fixtures and the one look from demiurge-chain, check ARQADE's rules match it, write patches for upstream |
-| `tools/ci/runners.ps1` | Move the workstation's two CI runners to the organisation or a repository, and start them |
+| `tools/ci/runners.ps1` | Historical runner registration/start helper; do not run while the isolation pause is in force ([CI.md](CI.md#what-ci-trusts)) |
+| `tools/image/pi_preflight.py` | Read-only bootstrap, Qt-kit and image-input rejection gates; a pass is not native build acceptance |
+| `tools/image/pi_payload.py` | Bounded static target inventory/hash/ELF audit; no target execution or complete loader/ABI proof |
+| `tools/image/pi_headless.py` | Public receipt validation and offline Windows SSH plans; no provisioned hook or authenticated access |
 | `qorctl` | Drive services from the command line ([SERVICES.md](SERVICES.md#qorctl)) |

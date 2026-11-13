@@ -16,7 +16,8 @@ name: Build
 # Runner selection: repository variables QOR_WINDOWS_RUNNER / QOR_LINUX_RUNNER
 # take a JSON runner label, e.g. '["self-hosted","windows","qt"]'.
 # Set QOR_RUN_GPU_TESTS=true on a runner with a desktop session to also run
-# the GPU-labelled suites. See docs/CI.md.
+# the GPU-labelled suites, and QOR_RUN_LINUX_PRODUCTS=true to run the products
+# on Linux, in software. See docs/CI.md.
 
 on:
   push:
@@ -126,6 +127,7 @@ jobs:
         with:
           # Self-hosted runners keep the build tree for incremental builds.
           clean: ${{ vars.QOR_WINDOWS_QT_DIR == '' }}
+          persist-credentials: false
 
       - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7
         if: vars.QOR_WINDOWS_QT_DIR == ''
@@ -220,11 +222,13 @@ jobs:
           $run = $true
           if ($env:EVENT -in 'push', 'pull_request' -and $env:BEFORE -and $env:BEFORE -notmatch '^0+$' -and -not $env:GITHUB_REF.StartsWith('refs/tags/')) {
             git fetch --quiet --no-tags --depth=1 origin $env:BEFORE
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
             $changed = git diff --name-only $env:BEFORE HEAD
-            $run = [bool]($changed | Where-Object { $_ -match '^(products/|tools/qor-media/|docs/design/tokens\.json$|cmake/QorHardening\.cmake$|tools/dev/(products\.(ps1|sh)|products-display\.qml|secret-service\.py)$|tools/ci/(check_hardening|with_display)\.py$|\.github/(workflows/build\.yml|qt-packages\.json)$)' })
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+            $run = [bool]($changed | Where-Object { $_ -match '^(products/|tools/qor-media/|\.qmllint\.ini$|docs/design/tokens\.json$|cmake/QorHardening\.cmake$|tools/dev/(products\.(ps1|sh)|products-display\.qml|products-tests\.ps1|products-report\.py|secret-service\.py)$|tools/ci/(check_hardening|with_display)\.py$|\.github/(workflows/build\.yml|qt-packages\.json)$)' })
           }
           "run=$($run.ToString().ToLower())" >> $env:GITHUB_OUTPUT
-          "Carried products: $(if ($run) { 'built and tested' } else { 'unchanged, skipped' })" >> $env:GITHUB_STEP_SUMMARY
+          "Carried products requested: $(if ($run) { 'yes' } else { 'no (unchanged)' })" >> $env:GITHUB_STEP_SUMMARY
 
       # Each product's own script builds and tests it, exactly as upstream
       # (docs/UPSTREAM.md); a product that fails is tried once more.
@@ -237,6 +241,15 @@ jobs:
       - name: Exploit mitigations (the products)
         if: steps.products.outputs.run == 'true'
         run: python tools/ci/check_hardening.py build/ci-products
+
+      - name: qmllint (the products)
+        if: steps.products.outputs.run == 'true'
+        shell: pwsh
+        run: |
+          foreach ($product in 'qq', 'arqade', 'media') {
+            cmake --build "build/ci-products/$product" --target all_qmllint --parallel 1
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          }
 
       - name: Package
         if: github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/')
@@ -256,7 +269,8 @@ jobs:
     # A dependency update waits for a person: Dependabot's pull requests never run on the workstation (docs/CI.md).
     if: ${{ !cancelled() && needs.preflight.outputs.linux == 'true' && github.event.pull_request.user.login != 'dependabot[bot]' }}
     runs-on: ${{ fromJSON(vars.QOR_LINUX_RUNNER || '"ubuntu-24.04"') }}
-    timeout-minutes: 90
+    # With the products, whose step alone may take 180.
+    timeout-minutes: ${{ vars.QOR_RUN_LINUX_PRODUCTS == 'true' && 270 || 90 }}
     # What Release readiness needs to know: a job can pass with these steps skipped.
     outputs:
       gpu: ${{ steps.gpu-tests.outcome }}
@@ -275,8 +289,9 @@ jobs:
           done
           if command -v cmd.exe >/dev/null 2>&1; then reachable="$reachable Windows programs on the PATH;"; fi
           if [ -e /proc/sys/fs/binfmt_misc/WSLInterop ]; then reachable="$reachable Windows interop;"; fi
-          # Under WSL, wsl.conf does not close this: a process that opens AF_VSOCK reaches Windows' file server (measured 1 November
-          # 2026). Elsewhere it can open with nothing behind it; the job stops all the same, so it must run where AF_VSOCK is refused.
+          # Under WSL, wsl.conf does not close this: a process that opens AF_VSOCK reaches Windows' file server
+          # (isolated-linux-runner.sh). Elsewhere it can open with nothing behind it; the job stops all the same, so it must run
+          # where AF_VSOCK is refused.
           opened=0
           python3 -I -c 'import socket; socket.socket(socket.AF_VSOCK, socket.SOCK_STREAM)' 2>/dev/null || opened=$?
           if [ "$opened" -eq 0 ]; then reachable="$reachable AF_VSOCK, the way to Windows' file server;"; fi
@@ -293,6 +308,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           clean: ${{ vars.QOR_LINUX_QT_DIR == '' }}
+          persist-credentials: false
 
       - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7
         if: vars.QOR_LINUX_QT_DIR == ''
@@ -397,11 +413,12 @@ jobs:
       # how it is built) changed, on tags and on manual runs. Only where
       # QOR_RUN_LINUX_PRODUCTS says so: on 28 October their GPU suites under
       # WSL froze the PC the runner shares (docs/CI.md#the-carried-products).
+      # The script fences them from the GPU, so this needs no QOR_RUN_GPU_TESTS.
       # "Changed" means any file the products are built, hardened or checked with, the same list on both platforms;
       # tests/tools/test_build_workflow.py holds it to what their builds include and their steps run.
       - name: Did the carried products change?
         id: products
-        if: vars.QOR_RUN_GPU_TESTS == 'true' && vars.QOR_RUN_LINUX_PRODUCTS == 'true'
+        if: vars.QOR_RUN_LINUX_PRODUCTS == 'true'
         env:
           EVENT: ${{ github.event_name }}
           BEFORE: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
@@ -410,17 +427,37 @@ jobs:
           if { [ "$EVENT" = push ] || [ "$EVENT" = pull_request ]; } && [ -n "$BEFORE" ] \
               && ! echo "$BEFORE" | grep -qE '^0+$' && [ "${GITHUB_REF#refs/tags/}" = "$GITHUB_REF" ]; then
             git fetch --quiet --no-tags --depth=1 origin "$BEFORE"
-            git diff --name-only "$BEFORE" HEAD \
-              | grep -qE '^(products/|tools/qor-media/|docs/design/tokens\.json$|cmake/QorHardening\.cmake$|tools/dev/(products\.(ps1|sh)|products-display\.qml|secret-service\.py)$|tools/ci/(check_hardening|with_display)\.py$|\.github/(workflows/build\.yml|qt-packages\.json)$)' \
-              || run=false
+            changed=$(git diff --name-only "$BEFORE" HEAD)
+            if printf '%s\n' "$changed" \
+                | grep -E '^(products/|tools/qor-media/|\.qmllint\.ini$|docs/design/tokens\.json$|cmake/QorHardening\.cmake$|tools/dev/(products\.(ps1|sh)|products-display\.qml|products-tests\.ps1|products-report\.py|secret-service\.py)$|tools/ci/(check_hardening|with_display)\.py$|\.github/(workflows/build\.yml|qt-packages\.json)$)' > /dev/null; then
+              run=true
+            else
+              code=$?
+              [ "$code" -eq 1 ] || exit "$code"
+              run=false
+            fi
           fi
           echo "run=$run" >> "$GITHUB_OUTPUT"
-          echo "Carried products: $([ "$run" = true ] && echo 'built and tested' || echo 'unchanged, skipped')" >> "$GITHUB_STEP_SUMMARY"
+          echo "Carried products requested: $([ "$run" = true ] && echo 'yes' || echo 'no (unchanged)')" >> "$GITHUB_STEP_SUMMARY"
 
+      # Fenced from the GPU, in software, on a display of its own. Its log and the step's summary name each case failed or
+      # skipped, with why. A cold build, every suite, and a failed tst_games again (docs/CI.md#what-linux-runs).
       - name: Products (QQ, ARQADE, QOR Media)
         id: product-suites
         if: steps.products.outputs.run == 'true'
+        timeout-minutes: 180
         run: tools/dev/products.sh --qt "$QOR_QT_DIR" --build-root build/ci-products
+
+      - name: Exploit mitigations (the products)
+        if: steps.products.outputs.run == 'true'
+        run: python3 tools/ci/check_hardening.py build/ci-products
+
+      - name: qmllint (the products)
+        if: steps.products.outputs.run == 'true'
+        run: |
+          for product in qq arqade media; do
+            cmake --build "build/ci-products/$product" --target all_qmllint --parallel 1 || exit "$?"
+          done
 
   # A runner being allowed is not a build having passed. This reports each apart, and fails unless every required step ran and
   # passed, so a run that built nothing is never green. On a machine of GitHub's, whatever became of the jobs.

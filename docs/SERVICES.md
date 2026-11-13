@@ -3,8 +3,10 @@
 QOR OS system services are defined as **Qt Remote Objects contracts** in
 [`services/interfaces/`](../services/interfaces/). The shell, apps,
 `qorctl` and tests use *replicas* of these contracts. Simulated *sources*
-live in [`sim/`](../sim/); on a device, the `qor-*d` daemons implement the
-same contracts.
+live in [`sim/`](../sim/). The device `qor-*d` daemons named below are planned
+implementations of the same contracts; they are not built services in this tree.
+The full device layer remains blocked on real services and authentication
+([image/README.md](../image/README.md#intended-full-device-image)).
 
 Property modes used in the contracts:
 
@@ -121,6 +123,7 @@ outputs; see [AUDIO.md](AUDIO.md).
 | `controllerAutoSwitch` | bool | READWRITE | Switch when a controller connects, without asking |
 | `controllerCursorSpeed` | double | READWRITE | 0.0 to 1.0 |
 | `controllerVibration`, `controllerLightbar` | bool | READWRITE | Feedback; PlayStation light bars in the accent colour |
+| `creatorFeatures` | bool | READWRITE | The Creator Store, off by default. A preference: what protects is the Store's engine, which is handed it ([STORE.md](STORE.md)) |
 | `userName`, `hostName` | QString | source-only | |
 
 ### `SimControl` — `simcontrol.rep` (simulation only)
@@ -168,6 +171,14 @@ its decoder trusts what it is sent, so whoever reaches the socket can do what th
 shell can, and crash whatever hosts it. Nothing sandboxed is ever given it. The
 socket, and the named pipe that stands for it on Windows, admit only the person's
 own account (`QLocalServer::UserAccessOption`).
+
+On 5 November 2026 the full native Windows service suite passes 17 Qt cases/all 15 functions, zero failures/skips,
+in 4.77 seconds with the existing commercial Qt 6.12 kit. Its Windows test reads the actual private pipe's access-control
+list and requires every allowance to match this test process's user identifier, held in memory and never printed.
+The simulator is nonpersistent, with synthetic network/media/settings, null audio and virtual controllers; no ambient
+music-directory opt-in is present. Fresh records, 53 source hashes, actual compiler commands and the rebuilt executable
+are verified; hardening reads 21 existing program headers with none falling short. This validates the private pipe's
+Windows permissions and the service round trips, not an attack by another account, runner isolation or hardware.
 
 The embedded host (`qor-shell`) and `qor-simd` fall back to
 `…-<pid>` if the default is taken. Override with `--services-url` /

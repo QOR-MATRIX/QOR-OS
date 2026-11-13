@@ -1,0 +1,7 @@
+{
+  "description": "Real session path reaches a swapped frame and releases the finite startup overlay. Component tests cover readiness, watchdog, reduced motion and literal diagnostic text separately.",
+  "steps": [
+    { "wait": 750 },
+    { "expect": { "item": "startupSplash", "path": "visible", "equals": false } }
+  ]
+}

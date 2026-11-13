@@ -5,6 +5,10 @@
 // While editing it is drawn as a faint volume, so it can be seen and picked; in play it is not drawn. Logic hears it
 // through a Behaviour that targets it (`onEntered`, `onExited`), or through its own signals.
 
+// Changed for QOR OS: volume and collider factories bind to their owning trigger.
+
+pragma ComponentBehavior: Bound
+
 import QtQuick
 import QtQuick3D
 import QtQuick3D.Physics

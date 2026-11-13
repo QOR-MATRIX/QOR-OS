@@ -4,8 +4,11 @@
 import contextlib
 import importlib.util
 import io
+import os
 import pathlib
+import subprocess
 import sys
+import tempfile
 import unittest
 
 REPOSITORY = pathlib.Path(__file__).resolve().parents[2]
@@ -97,6 +100,44 @@ class ReleaseReadinessTest(unittest.TestCase):
                 self.assertTrue(ready(unchanged))
                 self.assertIn("not run: unchanged by this commit", text(unchanged))
                 self.assertFalse(ready({**unchanged, "IS_RELEASE": "true"}))
+
+    def test_an_allowed_product_skip_does_not_claim_release_readiness(self):
+        for sides in (("WINDOWS",), ("LINUX",), ("WINDOWS", "LINUX")):
+            env = dict(ALL_PASSED)
+            for side in sides:
+                env.update({f"{side}_PRODUCTS": "skipped", f"{side}_PRODUCTS_CHANGED": "false"})
+            with self.subTest(sides=sides):
+                # The existing non-release exemption still accepts the check; an unrun suite proves no release.
+                self.assertEqual(run_main(env), 0)
+                self.assertIn("**Non-release checks passed.**", text(env))
+                self.assertIn("**Not ready for a release.**", text(env))
+                self.assertNotIn("**Ready.**", text(env))
+
+    def test_the_command_and_summary_distinguish_an_allowed_skip_from_release_proof(self):
+        # Synthetic statuses, private output and an explicit child environment: no actual runner or account is queried.
+        env = {**ALL_PASSED, "WINDOWS_PRODUCTS": "skipped", "WINDOWS_PRODUCTS_CHANGED": "false"}
+        if os.name == "nt":
+            env["SystemRoot"] = os.environ["SystemRoot"]
+        with tempfile.TemporaryDirectory() as folder:
+            summary = pathlib.Path(folder) / "summary.md"
+            env["GITHUB_STEP_SUMMARY"] = str(summary)
+            command = [sys.executable, "-I", str(REPOSITORY / "tools" / "ci" / "release_readiness.py")]
+            for release, expected_status in (("false", 0), ("true", 1)):
+                with self.subTest(release=release):
+                    summary.write_text("", encoding="utf-8")
+                    done = subprocess.run(command, env={**env, "IS_RELEASE": release}, capture_output=True, text=True,
+                                          timeout=30, check=False)
+                    self.assertEqual(done.returncode, expected_status)
+                    saved = summary.read_text(encoding="utf-8")
+                    self.assertIn(saved, done.stdout)
+                    self.assertIn("**Not ready for a release.**", saved)
+                    self.assertNotIn("**Ready.**", saved)
+                    if release == "false":
+                        self.assertIn("**Non-release checks passed.**", saved)
+                        self.assertNotIn("::error", done.stdout)
+                    else:
+                        self.assertNotIn("Non-release checks passed", saved)
+                        self.assertIn("::error title=Not ready for a release::", done.stdout)
 
     def test_unchanged_products_stand_down_only_when_skipped(self):
         # An unchanged product's step that ran and failed, or was cancelled, is not excused by being unchanged.

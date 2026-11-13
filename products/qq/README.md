@@ -1,12 +1,14 @@
 # QQ, the QOR Engine
 
-<!-- Changed for QOR OS: on Linux the Studio keeps the provider's key in the Secret Service (QOR OS's QOR-0011); gamepads come from QOR OS's controller service, QOR.Input, in place of XInput. -->
+<!-- Changed for QOR OS: current project-document links; on Linux the Studio keeps the provider's key in the Secret Service (QOR OS's QOR-0011); gamepads come from QOR OS's controller service, QOR.Input, in place of XInput; each project's workspace in the Studio; the asset library; literal game-screen labels and their owning component context; literal Agent status/key problems; project-file list bindings and layout; literal logic problem descriptions; typed statistics overlay; bound inspector field loaders and literal source filenames; bound Agent step rows; literal group-selector names; bound ground/slab and texture context; checked Player measurement output. -->
 
-An engine for virtual worlds and experiences, built on **Qt 6** under the owner's commercial licence
-([ADR-083](../../docs/decisions/ADR-083-qq-on-qt.md)). The blueprint is [`docs/blueprints/qq.md`](../../docs/blueprints/qq.md);
-the roadmap items are DIRECTION P3.1 to P3.16.
+An engine for virtual worlds and experiences, built on **Qt 6.12** under the owner's commercial licence
+([the Qt rule](../../docs/decisions/qtos/QTOS-0004-commercial-qt-and-proprietary-repository.md)). QQ is developed in QOR OS
+([QOR-0015](../../docs/decisions/QOR-0015-the-products-are-developed-here.md)). Use the current
+[architecture](../../docs/ARCHITECTURE.md), [roadmap](../../docs/ROADMAP.md) and [verified checkpoint](../../OWNER.md)
+for its place in the project, remaining work and validation limits.
 
-**Status, 10 October 2026: P3.1 and P3.2 done.** QQ Studio edits a 3D world, keeps it in a Qontrol project, and plays
+QQ Studio edits a 3D world, keeps it in a Qontrol project, and plays
 it; the QQ Player plays a scene on its own, natively and in a browser.
 
 - **The world:** a procedural sky that also lights the scene, a sun with soft shadows, lamps, filmic tonemapping, bloom,
@@ -33,7 +35,8 @@ it; the QQ Player plays a scene on its own, natively and in a browser.
   platformer's hero or a top-down one, under the same input as everything else, carrying a Sprite as its look and
   saying what it is doing (`activity`) so logic plays the right frames; `respawn()` puts it back. Since P3.11 it moves
   by QQ's own kinematics, not PhysX. Shapes and sprites with bodies stay on the plane and turn only about its depth
-  axis.
+  axis. Sprite’s private collider and body factories bind to its owning instance; tests cover dynamic sprites landing on
+  static and kinematic sprite floors, contact reports, plane locks and crisp/animated pixels.
 - **Steps, seeds and replay (P3.11, built 19 October 2026; ADR-105 decision 6):** play moves in ticks of 1/60 s,
   whatever the frame rate. Each frame's time is paid in whole ticks, at most eight a frame. Each tick takes the player's
   hands and the buttons clicked, and then, unless the world is paused, steps.
@@ -58,6 +61,8 @@ it; the QQ Player plays a scene on its own, natively and in a browser.
     world where logic says or heard everywhere alike, and put away when it has played through.
   - **Music** (`Music`): a track heard everywhere from when play starts, and on through a pause, as a menu's would be.
     Logic changes it by setting `source`, and the old track fades out as the new one fades in, over `fade` seconds.
+    Both private voice factories bind to the owning Music. The crossfade check covers ambient and WebVoice creation,
+    gain, release and stop; passing it under private software tests does not demonstrate physical sound/browser playback.
   - **Volume groups** (`Mixer`): every sound is in one (`effects` unless named otherwise, `music` for music), and what
     is heard is its own volume times its group's level and the master level. Logic sets and reads them (`setVolume`,
     `volumeOf`), so a game's options screen turns the music down and leaves the effects alone. The Studio's Stop puts
@@ -65,6 +70,8 @@ it; the QQ Player plays a scene on its own, natively and in a browser.
   - **In a browser** every sound is QQ's own voice on the page's Web Audio, each file decoded once. A placed one is
     quieter with distance from the eye and panned to the side of it it is on. The page's first touch or key starts its
     audio, as browsers require.
+    The private sound factories bind to their owner and read the viewport’s `Camera`; tests check live perspective/orthographic
+    switching and one-shot camera identity. Native logic checks do not demonstrate physical sound or browser playback.
   - **A replay makes no sound.** There `play()` returns nothing, so what it returns must not decide an outcome.
 - **Materials (P3.14, built 19 October 2026; ADR-105):**
   - **Pictures on shapes** (`image`, `imageSize`): one copy every `imageSize` units on every face, whatever the shape's
@@ -106,7 +113,8 @@ it; the QQ Player plays a scene on its own, natively and in a browser.
   tools quiet until pointed at, all with the shared focus ring and still under reduced motion. A game's screen buttons
   answer the keyboard too (Tab, Enter, Space), and a replay presses them as it presses a click.
 - **The Studio:** the scene's entities in a list, the selected one's fields in an inspector (built from what each type
-  declares), click to select in the viewport, handles to move along an axis, turn about the vertical or scale evenly,
+  declares). Source filenames and field labels are shown as plain text; loaded editors keep their selected field when
+  entity kinds change. Click to select in the viewport, handles to move along an axis, turn about the vertical or scale evenly,
   orbit and zoom, add (cube, sphere, cylinder, cone, lamp, model, player, emitter, sound, behaviour, the screen kinds,
   actions, and in 2D a sprite, a tile map and a 2D player) and delete. A 2D scene is edited flat: a drag pans, the wheel
   zooms, and the handles move things on the plane and turn them about its depth axis.
@@ -132,12 +140,129 @@ it; the QQ Player plays a scene on its own, natively and in a browser.
   **The Studio's tools (P3.15, third part, built 20 October 2026):** the **project's files** under the scene list
   (`studio/ProjectPanel.qml`): its scenes, prefabs and logic, and the assets a scene can use by kind (models, pictures
   shown as themselves, sounds, skies, maps), with a filter; a click uses one as its kind says (a model added, a
-  picture put on the selection, a sky made the scene's, a prefab placed, a logic file opened). The **logic editor**
+  picture put on the selection, a sky made the scene's, a prefab placed, a logic file opened). Its delegates bind to their
+  own panel and list, the Studio reference has the actual window type, and the layout owns each kind mark's preferred size.
+  The **logic editor**
   under the world (`studio/LogicEditor.qml`): a logic file with its lines numbered and coloured, built as you pause
-  (`SceneIO.checkLogic`), what does not build listed by line, and saved with its button or Ctrl+S while it has the
+  (`SceneIO.checkLogic`), what does not build listed by line as plain text, and saved with its button or Ctrl+S while it has the
   keys, so a scene that is playing picks it up at once; a Behaviour's **Edit logic** opens its file there. **F3**
   (or Stats) shows what the world costs (`studio/StatsOverlay.qml`): frames a second and a frame's time, draw calls
-  and the graphics API, entities and bodies, and in play every body drawn as its collider.
+  and the graphics API, entities and bodies, and in play every body drawn as its collider. Its overlay reads the actual
+  World's Qt `RenderStats`; its labels are plain text and sampling stays twice a second while it is visible.
+  **Workspaces (QOR OS, 1 November 2026):** each project comes back as it was left, across a switch and across a restart:
+  its open scene, its open logic file, its panels, the camera and the window (`studio/projectworkspace.h`). What is kept is the
+  person's, never in the project's folder: `<AppDataLocation>/workspaces/<SHA-256 of the project's real path>.json`, read
+  back as a stranger's file would be. **Change…** and **Recent** both go through `switchProject()`: unsaved work is asked
+  about first (Save, Discard or Cancel, and Cancel leaves everything, a playing scene included, as it was); then nothing
+  of the old project stays, not undo, the selection, the logic editor, the agent's run or what it was allowed; then the
+  project goes past the same trust check as anything else that runs its files, and only then are they opened. New, another
+  scene or logic file, Close in the editor and closing the window ask about unsaved work too. `--project` always wins;
+  with nothing on the command line the Studio goes back to the last project; a capture keeps nothing. Launched by the
+  launcher, a Studio that the launcher closes exits without asking (ADR-046).
+  **Unsaved work survives a crash (QOR OS, 1 November 2026).** Once editing pauses for a second, what is unsaved (the scene's
+  text and name, the logic file's text) is copied to `<AppDataLocation>/workspaces/<SHA-256 of the project's real
+  path>.recovery-<session>.json`, beside the workspace and never in the project, written whole or not at all; only an edit starts
+  that pause, so an idle Studio has no timer running. Each Studio keeps its own copy, named by a session of its own and locked
+  while it runs, and keeps it whatever is still to be answered, so two Studios on one project never write over or remove each
+  other's. It goes once the work is saved or discarded, and a launcher's close keeps it as it stands. Arriving in the project,
+  past the trust check, the person is asked to **Restore** or **Discard** a copy that a Studio no longer running left, newest
+  first, and told if a file has changed or gone since the copy was made; Restore changes no file, and what comes back is in
+  this Studio's own copy before the old one goes. It is read back as a stranger's, as the workspace is, and a project's copy
+  reaches no other. A copy also records which folder it was made for (its device and inode on Linux and macOS, its volume and
+  128-bit file identifier on Windows), so another project put later where that one was is not offered it, even with the same
+  creation time. An unavailable folder identity, or an older Windows copy recording only a creation time, leaves the copy's
+  bytes alone and offers nothing for automatic restore; the older copy needs manual review. A project moved or renamed
+  has a new real path, so its copies are not found there; moved back, they are offered again. A scene in no project has none.
+- **Building a game (QOR OS, 1 November 2026):** **Build** brings in what the scene names from outside the project, saves what
+  is on the screen, and checks that the project's scenes, logic and prefabs build: at most 2,000 QML files of 16 MB each, since
+  the window waits for it, and past that it says so and builds nothing. Then it copies the project's `scenes/`,
+  `logic/`, `prefabs/` and `assets/` into a folder of the game's own, `<GenericDataLocation>/qor-os/games/<name>-<hash of the
+  project's real path>/`, with a `game.json` of what it holds and the digest of each file (`studio/gamebuild.h`). Play here runs the
+  project as it stands, and the Library plays this copy, which changes only when built again and plays with the project gone. What a
+  game cannot carry refuses the build, with the file and the reason: a link, a pipe, a name a system would read as more, a folder or
+  file it cannot read, compiled QML, more than 8 GB or 50,000 files, and anything a scene, logic file, glTF or OBJ model, OBJ
+  material library or Tiled map or tileset names that the game would not hold. That last is a scan of the text, which reads a
+  path in logic from the logic's own folder and from the scene's, as `play()` and `spawn()` do, so a string in logic that only
+  looks like a path can be taken for one, and the reason says so. It does not see a path a game puts together as it runs
+  (strings joined, or what a template's `${...}` holds), a tileset saved as `.json`, or what any other model format names: a
+  game that needs one of those finds it missing only when it plays. Dot-files and anything else in the project stay behind. A new build replaces the
+  old only once it is whole, one build of a game runs at a time, and a build that dies at any step loses no game; a power cut
+  can still leave files short behind a whole `game.json`, since only that is synced. While one runs, the Studio saves nothing
+  and stays in its project. A project just opened, showing a new scene nobody has touched, asks for the scene the game starts in.
+  `qq-studio --project <folder> --build <scenes/x.qml>` makes the same copy with no window and no display. It builds only a
+  project already on the person's trusted list, and refuses any other, since nobody is there to be asked; the build asks that of
+  the real folder it goes on to copy, so a link changed meanwhile changes nothing. It compiles nothing,
+  as its answer says (`"compiled": false`). It prints `QQ-BUILD` and its result as JSON on standard output and exits 0 built, 3
+  refused; on Windows the Studio is a windowed program, so a shell sees that only with its output piped or redirected.
+  Importing a file still records no permission for it. What comes from the asset library does, in `assets.lock.json` (below),
+  and the build puts it in `game.json`. A game is QML and JavaScript that QQ's runtime
+  runs behind the Player's walls, with Qt's disk cache off (the Studio uses only the cache compiled into it). No native program
+  is made, and none runs: a native library among the assets (an `.so`, say) is carried as a file like any other, and the Player
+  refuses a `qmldir` in a game, which is how QML would load one, and imports only Qt's and QQ's own modules. Each project folder
+  has one game: moved or renamed, it builds a second, and the first stays in the Library as it was.
+- **The asset library (QOR OS, 3 November 2026):** packs the Store installed, used in a project
+  ([QOR-0021](../../docs/decisions/QOR-0021-projects-engines-and-two-stores.md), decisions 5 and 6; `studio/assetlibrary.h`). The Store
+  installs and the Studio only reads. Prism names the Store's folder of installed items when it starts the Studio (`QOR_ASSET_PACKS`), and
+  only where the Store's format 2 engine exists, which is a demonstration build. `--asset-packs <folder>` does the same. With neither,
+  there is no library and the Studio is as it was. The **Library** panel under the project's files lists each pack: its name, version,
+  developer (said to be not checked here, which it is not), licence (its SPDX id) and where it came from, and on asking its files, a
+  picture by a thumbnail drawn from the bytes whose digest was just checked, as PNG, JPEG or WebP by its name and only up to 4096
+  pixels a side. **Use** copies the whole pack into
+  `assets/<pack id>/`, and a click on a file copies only that file. The pack's licence and notice go with it either way. This needs the
+  same trust as saving, as Update does, and happens neither while a build runs nor over a file already there that differs: that is asked first, and
+  **Leave them** changes nothing. It happens whole or not at all, and writes **`assets.lock.json`** at the project's root. That file
+  holds, for each pack, its id, name, version, developer, licence and provenance (the SHA-256 of the manifest the developer signed, that
+  signature, and where it came from when the Store's record says that came from the signed listing), and each file copied: its path in the project and in the pack, its
+  SHA-256 and the version it came from. It is the permission an import does not have. **Update** shows when the installed version is
+  newer than the lock's, and says what it would do before it does any of it. A copy the person changed (its digest differs from the
+  lock's) is never written over: that is looked at when the update is planned and again just before each file is set aside, and a copy
+  changed in between stops the update with nothing changed. It is kept and listed, and the new version is put beside it
+  (`tiles-1.1.0.png`, under a name neither the project nor the new version has) or not, as they choose. A beside copy is the person's
+  from then on: no later update replaces or removes it.
+  A copy they deleted is not brought back. Every other copy is replaced, a file the new version drops goes only if unchanged, and new
+  files come too if the whole pack was used. Cancel changes nothing. A pack the Store has removed leaves the project's copies and lock
+  as they are, and the library says it is no longer installed. A build carries the copies like any other asset, and its `game.json`
+  gains `uses`: each pack with its version, developer, licence, provenance and the copies the game carries.
+  **What is read as a stranger's.** The Store's folder: its `installed.json` and every pack's folder are size-capped, opened a name at a
+  time with no link followed, and only `asset-pack` kinds are taken. A pack counts only if its folder holds exactly what its manifest
+  lists, every file matching its digest, of a kind a pack may hold (pictures, skies, models, sounds, a model's buffers, plain text) and
+  starting as one, every model naming only files beside it in the pack. Names, developers and paths must be NFC with no control or
+  format characters (no right-to-left override, no zero-width joiner), and `items/` itself may not be a link. The Studio checks this
+  itself rather than trust the Store's check. On Linux a pack checked whole is listed again without being read again while none of its files has
+  changed on disk (device, inode, size, modification and change times); what is copied, or drawn as a thumbnail, is read and its digest
+  checked again first. It holds no developer's key, so it cannot check the signature: the lock keeps it, so that can be checked later. Each
+  project's `assets.lock.json` is read the same way on every open: too large, not JSON, of another format, or with a path that is not
+  plainly a file under `assets/<its pack>/`, that climbs or goes through a link, and none of it is used. Then the project opens, the
+  library says why, nothing it names is changed, and a build is refused until the lock is put right or removed. A project with no lock
+  is as before.
+  **Across a crash.** What is new is written beside the project first, in `.qq-assets-<tag>/`, a folder named with a dot that a build
+  leaves behind. A journal in the person's own store, never the project's, says what is to move, the SHA-256 of each file it places, and
+  which folder it is for (its device and inode on Linux and macOS, its volume and 128-bit file identifier on Windows). The new lock is checked as it would be
+  read before anything moves. Then the old files are set aside, the new ones are moved into place, and the lock is written, which is
+  the moment it happens; it carries the change's own tag, so no lock is mistaken for the one before it. The next time the project is
+  looked at, a change whose lock was written is finished and one whose lock was not is put back. Putting back moves a placed file back
+  only while it still holds what was placed, and a set-aside file only where nothing now is. A file the person edited since stays as it
+  is, and what was set aside and could not go back stays in the staging folder, and both are said. A journal for another folder now in
+  that place, or whose staging folder has gone (`git clean`, a restore), moves nothing and is dropped, and that is said. If the
+  project folder cannot be identified, its journal and staged files stay; bringing the original folder back permits recovery.
+  Older timestamp-only Windows journals also stay, including negative values for dates before 1970, for manual review rather
+  than automatic migration. While a journal remains,
+  another asset transaction is refused, so it cannot overwrite the unresolved record. New transactions require a readable folder
+  identity; Windows uses the volume and file ID from [the Windows API](https://learn.microsoft.com/en-us/windows/win32/api/winbase/ns-winbase-file_id_info),
+  refusing unavailable or all-zero identifiers. On Linux each
+  step is made durable before the next by one `syncfs` of the project's file system; elsewhere each file and folder is synced. One
+  change to a project's assets, or one build of it, runs at a time, by a lock in the person's own store: that keeps apart the Studios
+  sharing that store, and not another person, a Studio with another store, another computer on a shared folder, or any other program.
+  `qq-studio --project <folder> --asset-packs <folder> --use-pack <id> [--pack-file <path>]... [--replace]`, and `--update-pack <id>
+  [--beside]`, do the same with no window. They take only a project on the person's trusted list, print `QQ-ASSETS` and their result as
+  JSON on standard output, and exit 0 done or 3 refused. In the window Use and Update run on a thread of their own, so the window
+  goes on drawing, and while one runs nothing is saved or built and the project stays, each saying why. A delayed Replace or Update
+  answer checks trust and the current build/asset work again before writing; a fresh request after restoring trust works normally.
+  Listing the packs and planning
+  an update stay on the window's thread. Provenance fields may contain up to 8,192 characters each; the whole lock must still fit
+  its 8 MiB limit, or the change is refused before any project file moves. **Not yet:** a pack's own pages in the Studio (its description,
+  its previews). A moved project leaves a change cut short in
+  its old place's journal.
 - **The files:** a scene is `scenes/<name>.qml` in the project, in one canonical layout: read and written back it is
   the same bytes, and one changed value is one changed line in Projects. Models and sounds are copied into `assets/`
   and logic into `logic/`, so the project is whole on its own; a Tiled map brings its tileset and image, and one whose
@@ -162,7 +287,7 @@ entities, write logic, play, stop, hold the controls, wait, place the eye, captu
 reaches them through `qq-mcp` (below); what an agent changes shows in the Studio as unsaved, and only the creator saves
 and commits. **And the design loop**, in the Studio's **Agent** panel: describe a game, and Claude (Opus 5.5, ADR-085)
 writes a brief, builds it with the same tools, plays it, looks at captured frames, judges them and revises, every step
-shown as it happens; the creator then saves and commits it, or undoes the run. The provider's key is kept in Windows
+shown as it happens; supplied text stays literal and each row uses its own model data. The creator then saves and commits it, or undoes the run. The provider's key is kept in Windows
 Credential Manager (on Linux, the Secret Service) and never logged. **Generation is paid for by whoever uses it** (ADR-086): the key is the creator's
 own, Anthropic bills it directly, the panel says so before a key is given and shows each run's token use, and Demiurge
 holds no provider key and pays for no one's generation. Still to come in P3.3: its proof, a scene built from a
@@ -173,15 +298,102 @@ description with no human edit, made by whoever runs it with their own key.
 | Path | What it is |
 | --- | --- |
 | `runtime/` | The QML module `QQ`: `World` (the viewport, its sky, light, look and hearing), `Scene` (the root a file holds), `Game` (a world playing one scene file: what the Player shows), the entities `Sun`, `Lamp`, `Ground`, `Shape`, `Prop`, `Player`, `Emitter`, `Sound`, `Behaviour`, `Trigger` (a volume that hears what enters and leaves it, P3.7), the screen kinds `ScreenText`, `ScreenBar`, `ScreenButton`, `ScreenImage` and `ScreenPanel` (the game's interface, drawn over the world on the World's overlay, each in a named screen; built on `ScreenPart`, P3.8), `Music` (a scene's music, fading from track to track, P3.13), `Spotlight` (a cone of light, P3.14), `Group` and `Prefab` (entities kept together, and a group kept in a file of its own and placed as often as wanted, P3.15), `InputAction` (an action a player can take, with its keys, mouse buttons and pad buttons, P3.9), the 2D kinds `Sprite`, `TileMap` and `Player2D` (P3.10), and `Logic` (what a logic file is, with the gameplay API of P3.7: `onStarted`, `onContact`, `onEntered`, `onExited`, `ray`, `spawn`, `remove`, `after`, `every`, `cancel`; and for the interface, P3.8, `onClicked`, `showScreen`, `hideScreen`, `onlyScreen`, `pause` and `resume`; and for actions, P3.9, `onPressed`, `onReleased`, `held`, `rebind`, `bindingOf` and `pointing`; and for steps and runs, P3.11, `onStep`, `steps`, `random`, `randomInt`, `overlaps` and `outcome`; and for animation, P3.12, `tween` and `machine`; and for sound, P3.13, `play`, `setVolume` and `volumeOf`; and since P3.15 `spawn` places a prefab, or puts what it makes in a group, and `remove` takes a group or a prefab away whole; and for saving, P3.16, `saved`, `save` and `forget`; and for a game played inside another application, ADR-117, `askHost` and `onTold`, the host hearing `asked` and answering with `tell` on the `Game` or `Scene`, what it tells heard at the next tick and kept in the run). `Look` is the style of the Studio and of a game's screens, Demiurge's one look (ADR-108): every colour, face, size, corner and duration from `runtime/tokens.h`, which `docs/design/tokens.mjs` generates from `docs/design/tokens.json`; the faces Cinzel and Barlow Semi Condensed carried in `runtime/fonts/` (and Barlow and IBM Plex Mono in the Studio's own `studio/fonts/`), under the SIL Open Font License; and reduced motion as the launcher passes it on (`QOR_REDUCED_MOTION`) or the system says. In C++: `SceneIO` (canonical writing, loading, saving, playing a copy, adopting files, importing 2D scenes, and the editing operations the Studio uses and the agent will, P3.3), `Input` (keyboard, mouse and gamepad as intentions), `LogicFile` (builds a logic file and rebuilds it on each save), `tilemap` (Tiled's maps read, their solid tiles merged into colliders, and `TileGeometry`, a layer as one mesh), `kinematics` (QQ's own: boxes swept against boxes, P3.11), `run` (`Random`, seeded and the same everywhere; `RunRecord`, a run kept; `replayRun`, a run played again with no window), `clips` (a glTF model's animations, taken from Qt's own wall-clock playing and posed on the game's steps, P3.12), `Mixer` (the volume groups, and a sound file's length, P3.13), `GameStore` (a game's one store, kept between plays, P3.16), `shaders/surface.vert` and `surface.frag` (a Shape's pictured surface, P3.14), `SoftDot` (the particles' sprite, made in memory) `gpu` (draw with the faster of two GPUs), `Confinement` (what a game may reach in the Player, ADR-087) and `WebVoice` (a sound in a browser, on the page's Web Audio and panned, so a game never needs Qt Multimedia's QML) |
-| `studio/` | QQ Studio. `qq-studio [model.gltf] [--project <folder>] [--capture <frame.png>] [--launcher-channel <name>]`; `LauncherLink`, its side of the QOR host protocol (publishing through the launcher that started it, ADR-088); `History.qml` (undo and redo), `ProjectPanel.qml` (the project's files), `LogicEditor.qml` with `LogicHighlighter` (the logic editor) and `StatsOverlay.qml` (F3), P3.15 |
+| `studio/` | QQ Studio. `qq-studio [model.gltf] [--project <folder>] [--capture <frame.png>] [--launcher-channel <name>]`; `LauncherLink`, its side of the QOR host protocol (publishing through the launcher that started it, ADR-088); `History.qml` (undo and redo), `ProjectPanel.qml` (the project's files), `LogicEditor.qml` with `LogicHighlighter` (the logic editor) and `StatsOverlay.qml` (F3), P3.15; `ProjectWorkspace`, what is kept of each project, outside it; `AssetLibrary` with `LibraryPanel.qml`, the asset library (`--asset-packs <folder>`) |
 | `agent/` | The agent's side of the Studio (P3.3): `McpServer` (MCP's JSON-RPC, served on a local pipe only this user can open), `StudioTools` (the fourteen tools, working the Studio's own window functions, and `StudioLog`, what the Studio has said), `DesignLoop` (a description designed, built, played and judged by Claude through those tools; ADR-085), `keychain` (the provider's key in Windows Credential Manager, or the Secret Service on Linux) and `qq-mcp` (the program an MCP client starts, relaying its standard input and output to the running Studio) |
 | `player/` | The QQ Player. `qq-player [scene.qml] [--capture <frame.png>] [--measure <result.json>] [--seed <n>] [--record <run.json> [--ticks <n>]] [--replay <run.json>]` (a replay has no window and exits 0 when it reaches the outcome kept, 4 when it does not); its playground (a small game with everything P3.2 plays, which counts its visits in its store) bundled inside it, and its measurement lists any of the scene's logic that did not build; `measure-web.mjs`, which plays the browser build in a headless browser, measures it, and loads it again to find the playground's store kept |
-| `tests/` | `tst_world` (rendering, judged by pixels), `tst_scene` (scene files), `tst_studio` (the real Studio window, worked by clicks, drags and keys), `tst_play` (physics, the player, input, particles, sound, logic and gameplay in logic, 2D pixel for pixel, in real frames, and the Orb Run and Ember Climb samples played), `tst_player` (the real Player executable, its runs and its stores across starts), `tst_lockdown` (what a game's logic may reach in the Player, its one store among it, ADR-087), `tst_publish` (publishing through a stand-in launcher, P3.4), `tst_agent` (the tools over MCP, in the real Studio and through the real `qq-mcp`) |
+| `tests/` | `tst_world` (rendering, judged by pixels), `tst_scene` (scene files), `tst_studio` (the real Studio window, worked by clicks, drags and keys), `tst_play` (physics, the player, input, particles, sound, logic and gameplay in logic, 2D pixel for pixel, in real frames, and the Orb Run and Ember Climb samples played), `tst_player` (the real Player executable, its runs and its stores across starts), `tst_lockdown` (what a game's logic may reach in the Player, its one store among it, ADR-087), `tst_publish` (publishing through a stand-in launcher, P3.4), `tst_agent` (the tools over MCP, in the real Studio and through the real `qq-mcp`), `tst_workspace` (projects switched and reopened in the real Studio, with nothing mixed up, unsaved work through a crash and a launcher's close, and what is kept of them read back from the hostile side), `tst_gamebuild` (a project built into a game by the real Studio and the command line, from the hostile side too, a build stopped dead by a real process at each step, and what was built played by the real Player), `tst_assetlibrary` (the asset library from the hostile side, a change cut short at each step and the real `qq-studio` killed mid-update, the window, and the demonstration pack installed by the real StoreEngine where `QOR_PRISM_BUILD` names a build of Prism), and `first_journey` (`tools/dev/first-journey.py`: the build, Prism's Library and the Player, the real programs, run where `QOR_PRISM_BUILD` names a build of Prism) |
 | `tests/fixtures/` | `orb.gltf` (written by `make_orb.py`), `chime.wav` (written by `make_chime.py`), `logic/spin.qml`, `scenes/sample.qml` (every entity type, canonical), `first-light.qq.json` (the 2D preview's starter scene), and the 2D fixtures `make_2d.py` writes: `tiles.png`, `tiles.tsj`, `level.tmj` (a Tiled map with a mirrored tile and two layers) and `sheet.png` (eight frames), and `rig.gltf` (written by `make_rig.py`: a bar skinned to two joints that "bend" turns, and a box whose morph target "puff" doubles) |
 | `samples/` | Games made only from kinds and logic files, each proving a step of P3 and played by the suites (ADR-105): `orb-run/` for P3.7 to P3.9 and P3.12 to P3.16, and `ember-climb/`, a pixel-art platformer, for P3.10 and P3.11 ([`samples/README.md`](samples/README.md)) |
 | `build.ps1` | Builds with the owner's Qt, MSVC 2022 and Ninja and runs every test; `-Deploy` makes a self-contained Studio; `-Web` builds the Player for the browser and measures it |
 
+ScreenText and ScreenButton labels render game-supplied text literally. Markup is shown as characters rather than parsed as
+rich text; changing one screen part updates its own drawing. ScreenButton keeps its existing uppercase label formatting.
+All five screen kinds bind their drawing Components to their own screen part's context, including when ScreenPart creates
+them on the World's overlay. Text, sizing, fill, images and actions continue to refer to that instance; these drawings use
+no delegate model context. ScreenImage is ready only when its actual Image has finished loading; a malformed file is not ready.
+
+The Agent panel also shows supplied status, key-storage problems and messages literally. Markup in those strings stays
+text, including when the status changes during a run.
+
 ## Build, test, deploy
+
+Latest Inspector batch, 5 November: selected kind/name/fields use the same dynamic metadata lookup as the optional
+editor dictionaries, preserving the public target interface, guards, writes and undo keys. Three existing real Studio
+controls (five Qt cases) pass per Release/ASan build, zero failures/skips, with fresh records, source hashes, actual
+sanitizer compiler commands and app/test relinks; hardening passes 16/13. Four lint findings are removed, none added:
+149 console/174 structured warnings remain. All native commands still exit 255 and the wrapper exits 1.
+
+At `f99e007`, the complete journey is refreshed after Inspector: one CTest per product build passes, zero failures/skips,
+in 126.656/114.105 seconds with its 300-second limit unchanged. Fresh records, 26 sources and nine program identities
+are verified, including rebuilt current apps and sanitizer flags/libraries; hardening remains 16/13. Native lint stays
+at 149 console/174 structured findings with no additions/removals, and the combined wrapper exits 1. Prism is the
+ordinary simulator with a recording stand-in; real Player playback runs separately. An attempted Shape context change
+added two parent-view findings and was restored byte-for-byte; its runtime checks were not run.
+
+The preceding Shape batch, 5 November: private factories use their actual owner, preserving public interfaces and 2D axis locks.
+Full Scene (52 Qt cases) and six physics functions (10 cases) pass per Release/ASan build, zero failures/skips, with fresh
+records/source fingerprints and hardening 16/13. Group waits use existing software physics/frame clocks; GPU waits,
+tolerances and the Player's frame-rate floor remain. Earlier failures are retained. Native QQ lint removes 13 findings,
+none added: 153 console/178 structured warnings remain, and native commands/the wrapper still fail. The results below
+describe earlier checkpoints. The complete journey at `d111bdc` subsequently passes once per product build, zero failures/
+skips, in 112.977/112.875 seconds: two Studio builds, three real Player launches, Prism Library discovery/request and
+playback after temporary-project removal. Fresh records, 22 source fingerprints and nine program identities are verified.
+Prism is an uninstrumented simulator using a recording stand-in; actual Player playback runs separately.
+
+Asset/build/Store checkpoint at `39b0768`: unfiltered Release and ASan/UBSan each pass 91 asset-library,
+195 game-build and three real Store-to-Player Qt cases, zero failures/skips, all 44/48/1 ordinary functions. This includes
+the opt-in largest-pack measurement and real StoreEngine demonstration-pack install/import path. Fresh native records,
+18 source hashes and unchanged product inputs are verified; post-run hardening passes 16 Release/13 sanitizer programs.
+The StoreEngine helper is from its separately recorded earlier build, not a current compositor/hardware proof.
+
+These are hidden WSL software runs, two CPUs, one worker, a 1.75 GiB hard cap and leak checking off. Every completed suite
+stays below the documented 5,400-second software ceiling. The picked CTest command omitted the aggregate timeout flag;
+this limitation is recorded, and future local checks use the corrected display clone. Release first-list/planning
+observations are 246/386 ms; sanitizer observations are 807/1,003 ms. Both operations remain on the window thread;
+no latency budget or speed improvement is established. QQ lint stays at 166 console/191 structured warnings, none added,
+with native failures preserved. Whole-OS, Windows and native hardware readiness remain separate and unproved.
+
+At integrated runtime `89877cf`, the complete play suite passes unfiltered in Release and ASan/UBSan: 56 Qt cases per
+build, zero failures/skips, all 51 functions with 54 expanded rows plus setup/cleanup. Fresh native records/source hashes
+and hardening (16/12 programs) are verified. These are hidden WSL software checks with leak checking off; physical
+graphics, sound/controllers, browser playback and full OS readiness remain separate.
+
+A later saved-game store metadata batch declares the existing `GameStore` instance API as an uncreatable QML type.
+The project panel receives that concrete type; save algorithms, formats, paths, limits and permissions are unchanged.
+All 49 scene cases and three Studio save/Forget cases pass per Release/sanitizer build, zero failures/skips, including
+a memory-only typed-instance and direct-construction-refusal check. Fresh records and hardening 16/12 pass. The full
+56-case play runs above precede this batch.
+
+Player2D’s later bound-carrier batch passes five Qt cases per Release/sanitizer build with zero failures/skips: tiled
+collision/rendering, top-down movement/carried look and headless 2D trigger replay. Hardening passes 16/12 programs.
+
+Scene/Player/TileMap’s later bound-factory batch passes six gameplay and three Studio Qt cases per Release/sanitizer
+build, zero failures/skips: gravity, pause, pickup, tiled collision and collider-debug toggling. Fresh records/exact
+functions and hardening 16/12 pass.
+
+World’s later light-probe qualification passes four Qt pixel cases per Release/sanitizer build with zero failures/skips,
+covering HDR lighting/rotation/bloom and procedural lighting. Fresh records/source hashes and hardening 16/12 pass.
+QQ lint still fails at 166 console messages/191 structured warnings, with two removed and none added.
+
+Malformed scene startup now reports a problem, discards the rejected object and allows a valid file to be tried again.
+A scene root must be a 3D object, matching the existing play/discard contract; complete custom 3D scene interfaces remain
+supported. A measured startup failure exits 3, with exit 1 taking precedence when its report cannot be written. The first
+terminal result is retained. Ordinary play stays open after its console report; capture-only runs finish after saving.
+At `ad4aa3f`, all 51 Scene and 11 selected Player Qt cases pass per Release/ASan/UBSan build, zero failures/skips, including both rejected
+root kinds, retry, failed/stale output, ordinary play, capture and record/replay. Fresh records/source hashes and hardening
+16/12 are verified; sandbox, confinement and watchdog sources are unchanged. Final runs use two CPUs and a 1.75 GiB hard
+memory cap. Earlier tighter-cap sanitizer failures and observed paging are retained; their precise cause is not established.
+QQ lint remains 166 console messages/191 structured warnings, none added; its native failure propagates.
+
+The Player’s error label now shows filenames and supplied problems as plain text, with its live binding, font,
+wrapping and color preserved. The regression drives the actual Player QML through a real missing-file problem,
+inert supplied markup and a later filename change. All 52 Scene and five real Player startup Qt cases pass per
+Release/sanitizer build, zero failures/skips, with fresh records/source hashes and hardening 16/12. Production C++,
+Game and SceneIO are unchanged from `ad4aa3f`; lint remains 166 console/191 structured warnings, none added.
+
+`qq-player --measure <result.json>` returns exit code 1 if its report cannot be opened, fully written, flushed or closed.
+Automation must check the process status and use a fresh report path for each run. The Player retains its exact-file
+kernel permissions for the requested output.
 
 Needs Qt 6.12 (MSVC 2022 64-bit kit, with Qt Quick 3D, Quick 3D Physics, Spatial Audio and Multimedia) and Visual
 Studio Build Tools 2022 with the C++ workload. The browser build also needs Qt's WebAssembly kit (multithreaded), the
@@ -208,6 +420,89 @@ and a page gets the shared memory threads need only when it is cross-origin isol
 The tests open real windows and render on the GPU, so they need a desktop session. `QQ_SAVE_FRAMES=<folder>` keeps
 every frame `tst_world` judges.
 
+Native Windows asset data now has a separate, limited check: the existing commercial Qt 6.12/MSVC kit builds
+`tst_assetlibrary` and its Studio dependency in an isolated cache with warnings as errors and hardening enabled.
+The 35 selected file/JSON/image functions pass 78 Qt cases, zero failures/skips, including all selected link checks.
+Two pre-existing compiler warnings were corrected without changing option matching or provenance assertions.
+The tests use temporary projects and Qt's test-mode storage, an offscreen/software configuration, and
+`QT_D3D_ADAPTER_INDEX=0` to bypass QQ's static adapter enumeration. They do not open Studio/Player windows, load
+3D scenes, use audio hardware or establish the full Windows product gate. Exact selections, source/program hashes,
+fresh XML and the original failed builds are in `build/autonomous-2026-11-04/HANDOFF.md`.
+The shared data subset passes 69 cases/32 functions per Linux Release/ASan/UBSan build. Three Windows-only functions
+are not compiled there. The new missing-folder, cloned-timestamp and older-journal cases first failed on unchanged
+Windows production code; a fourth workspace-copy check also verifies that newer records restore only to their own folder.
+
+The workspace interface refresh at `229f930` is partial: the original Release selection reports 37 passes/1 failure,
+zero skips. The real Studio accepts a private agent-pipe connection but does not reply to initialization before the
+crash test can proceed; the same binaries fail in an isolated case. Six independent interface functions pass 37 Qt
+cases under ASan/UBSan, zero failures/skips, covering 30 hostile-copy rows, trust/restore, two Studios and folder
+replacement. The actual-program crash case is **not run under sanitizers** and the original failed selection remains
+failed. Private-pipe controls and a parent-debugger trace narrow the failure to a software-render wait without proving
+its cause. No production workaround or longer timeout was applied. Records and source/program/compiler hashes are
+in `build/autonomous-2026-11-04/workspace-recovery-ui-verified.json`.
+
+Gizmo's selected-object lookups now follow the same structural entity contract without changing the `QtObject`
+target or its visibility/field guards. Six existing picking/translation/scaling/flat-editing/snapping/group-prefab
+functions pass eight Qt cases per Release/ASan/UBSan build, zero failures/skips. Fresh native Windows and Linux lint
+both move from 149 console/174 structured warnings to 144/169: exactly five old Gizmo findings removed and none
+added. The remaining warning gates still fail, with the aggregate wrapper returning 1. Source/program/copied-QML
+hashes, actual sanitizer flags/libraries and hardening 16/13 are verified in
+`build/autonomous-2026-11-04/gizmo-entity-verified.json`; this does not clear the separate real Studio startup failure.
+
+Player window labels read the scene name and follower style through their structural object interface, with the same
+guards and fallback strings. Compatibility coverage checks live name/style edits, absent followers, the 3D hint and
+release fallback, alongside the existing literal-error/startup checks and actual Player launches. Six Scene/eight
+Player Qt cases pass per Release/ASan/UBSan build, zero failures/skips. Windows and Linux Player lint now pass with
+zero warnings; whole QQ still fails at 142 console/167 structured warnings, two old findings removed and none added.
+Fresh records and the exact scope, including the unrun full 2D frame-rate gate, are in
+`build/autonomous-2026-11-04/player-labels-verified.json`.
+
+The legacy Windows matcher now includes pre-1970 timestamps. Positive, zero, negative and missing identities have
+native preservation/review checks for both journals and workspace copies. The two negative rows first failed on the
+digits-only matcher; adding an optional minus sign makes all 78 native data cases pass, with zero failures/skips.
+Common Linux Release/ASan/UBSan still passes 69 cases per build; the Windows-only methods are not compiled there.
+The same test source was used red/green, and neither trust nor automatic recovery was loosened. No personal records
+were inspected. Exact proof is `build/autonomous-2026-11-04/legacy-negative-verified.json`.
+
+Scene's recorder property now names its documented `RunRecord` type. The regression rejects an unrelated object
+without replacing the previous recorder, accepts the real run through the existing QObject interface, and clears
+through an invalid QVariant. It first failed on the previous slot and passed unchanged after the type refinement.
+Fifteen Qt cases across nine functions pass per Release/ASan/UBSan build, zero failures/skips, including actual Player
+record/replay and its altered-run/malformed-input error exits. Game and Player public object interfaces stay unchanged.
+Windows and Linux lint remove eleven existing recorder findings and add none, leaving 140 console/156 structured
+warnings and aggregate exit 1. Source/program/copied-Scene hashes, actual sanitizer flags/libraries and hardening
+16/13 are checked in `build/autonomous-2026-11-04/recorder-type-verified.json`; no full product or hardware pass is claimed.
+
+The Scene store snapshot also names the existing `GameStore` returned by SceneIO, without changing the C++ interface
+or object ownership. Ten Qt cases/four functions pass per Release/ASan/UBSan build, zero failures/skips: the supplied
+store type, serialized runs, replay without writes, and two actual Player starts retaining saved state followed by
+replay. Native Windows/Linux lint remove one structured `contents` finding and add none, leaving 140 console/155
+structured warnings and aggregate exit 1. Fresh source/program/copied-QML records, actual sanitizer flags/libraries
+and hardening 16/13 are verified in `build/autonomous-2026-11-04/store-snapshot-verified.json`.
+
+Group/Prefab state reads keep their mixed parent contract through private structural readers. New compatibility
+rows pass unchanged before and after the cleanup: strict booleans, live values, nested propagation, absent fields,
+null parents and reparenting. Fourteen Qt cases/seven functions pass per Release/ASan/UBSan build, zero failures/skips,
+including group/prefab serialization, kinematics, gameplay and Studio editing. Seven native Windows node/data cases
+also pass; the initial pre-test flag-guard failure is retained, and accepting the observed `-WX` spelling changes no
+build setting. Native Windows/Linux lint remove eighteen old findings and add none, leaving 122 console/137 structured
+warnings and aggregate exit 1. Exact scope, source/copied-QML/program/fresh-object records, actual sanitizer flags and
+hardening 16/13 Linux/three native product headers are in `build/autonomous-2026-11-04/group-state-verified.json`.
+
+Agent body rows now qualify the startup font through the existing QtQuick `Application` singleton. Five inert panel
+cases pass per Release/ASan/UBSan/native Windows build, zero failures/skips, retaining startup body/mono choices,
+literal text and replacement rows. Additive startup coverage passes unchanged before/after; no old assertion is removed.
+An exploratory notification expectation failed in both forms; Qt's property is constant, so no live-update feature is
+claimed. That experiment was retained and the original tests restored before the startup-only additions. Native/Linux
+lint remove one old font finding and add none, leaving 121 console/136 structured warnings and aggregate exit 1.
+Source/copied-QML/program/object records, actual compiler flags and hardening 16/13 Linux/five native product headers
+are verified in `build/autonomous-2026-11-04/application-font-startup-verified.json`. No provider or keychain flow runs.
+
+At the authorised push checkpoint, recovery data is refreshed at 69 cases/32 functions per Release/ASan/UBSan build,
+zero failures/skips. The current real Studio crash case still fails before crash/restore at the initialization helper
+(2 passes/1 failure, CTest/wrapper 8); its sanitizer counterpart remains unrun. Passing data tests do not clear that
+interface failure. Exact fresh records use `build/autonomous-2026-11-04/authorized-push-*`.
+
 ## The Player, measured (10 October 2026)
 
 On the owner's laptop (RTX 4060 Laptop GPU), on mains power, playing the bundled playground at 1280 × 720, locked down
@@ -228,6 +523,10 @@ Chrome must be given the faster GPU (`measure-web.mjs` asks for it): on the lapt
 drew about 12 frames a second.
 
 ## The tests, and how they were proven
+
+The phase-by-phase case counts below preserve the product's earlier progression. For QOR OS's verified run scope,
+source revisions, failures and skips, use [OWNER.md](../../OWNER.md) and [CI.md](../../docs/CI.md). A historical count
+or planted-fault record is not a fresh passing suite.
 
 - **`tst_world`** (3 cases): a glTF model loads at runtime and is drawn lit in its own colour; bloom lights pixels past
   the glowing band; an unreadable model is an error, not a crash. Proven to fail by two planted faults (bloom ignored;
@@ -296,6 +595,9 @@ drew about 12 frames a second.
   the editor, a brace taken away said to be wrong by line, mended and saved with Ctrl+S (the file written, the scene
   not); and F3's frames, draw calls and bodies, every body drawn as its collider in play, and gone with F3 again.
 
+  **Since QOR OS:** literal logic-problem descriptions, inspector source filenames and group-selector popup names (with
+  actual delegate activation/reparenting), plus edits through loaded field controls and entity-kind switches; undo, groups/prefabs and 2D editing remain covered.
+
   Eight planted faults were each caught: quick edits of one field never merged, an edit after an undo keeping what
   could be redone, undo forgetting what was last saved, undo losing the selection, saving made a step to undo, a copy
   of a copy named after the copy, turning not snapped, and redo made ambiguous by naming a key the platform's redo
@@ -312,6 +614,7 @@ drew about 12 frames a second.
   - logic hears its target's body meet another entity, once as they meet;
   - a Trigger hears a falling body enter and leave, and lets it through;
   - a Trigger hears the player walk in;
+    its private volume and box/sphere collider factories bind to that Trigger, including when its group moves;
   - a ray meets the first entity in its way, passing through triggers and starting inside its own target;
   - logic makes three bodies, refuses an unknown kind, removes one with its body, and keeps timers on its own clock,
     `every` and `after` and a cancel;
@@ -426,12 +729,12 @@ drew about 12 frames a second.
   launcher nothing. **Proven to fail** by four planted faults: publishing without the commit (three cases);
   publishing without saving first; Publish greyed out on a folder that is not versioned (the owner's first run, 10
   October 2026); the whole notice not shown on hover (15 October 2026). The launcher's side, the channel's proofs and a run against a development node, is in the launcher's tests.
-- **`tst_player`** (6 cases, the real executable): the playground plays and its start is measured; its first frame is
+- **`tst_player`** (the real executable): the playground plays and its start is measured; its first frame is
   the game (hundreds of colours, not an empty window); a scene file from disk plays too, with every model loaded in it
   and in the playground; a 2D game (Ember Climb) plays, measured and captured; a run is kept with `--record`,
   `--seed` and `--ticks`, replayed with `--replay` to the same outcome (exit 0), not with another seed (exit 4), and
   refused when it is not a run or the game's logic does not build (exit 3); a scene that is not there is said, not
-  hidden. **Proven to fail** (10 October 2026) by putting
+  hidden. Later cases cover incomplete roots, retained report failures and ordinary play staying open after its report. **Proven to fail** (10 October 2026) by putting
   back `Prop`'s old loader line: both playing cases fail with `Orb: IO Error: File not found`.
 - **Proven to fail** (10 October 2026) by five planted faults, each caught by its own check: no gamepad dead zone (the
   gamepad case); a logic file not watched (the rebuild); Play on the scene itself, not a copy (`tst_scene` and
@@ -491,7 +794,8 @@ the web has no audio, so in a browser sound is QQ's own, on the page's Web Audio
   can still do, once trusted, is what a person's own code can do.
 - **What an agent writes** runs only once the creator allows it in the Agent panel.
 - **The Player's walls (QOR-0018).** QQ's own checks (`runtime/confinement.h`) everywhere, and on Linux the kernel's
-  (`player/sandbox.h`): Landlock for files and programs, seccomp for the network. Natively on Windows, Qt Quick's `Canvas`
+  (`player/sandbox.h`): Landlock for files and programs, seccomp for the network, by any route to a socket
+  (`tests/tst_playerwall.cpp`). Natively on Windows, Qt Quick's `Canvas`
   and `grabToImage` and Qt Multimedia's types get past the first, which is why a stranger's game plays only in a browser.
 - **2D, as built in P3.10:** a Tiled map is read one tile layer per TileMap, from its first tileset, which must be one
   image (a collection of images is refused, with the reason); object layers, tile animations, one-way platforms and
@@ -585,9 +889,10 @@ In Claude Desktop's `claude_desktop_config.json`, with the path written out:
 The Studio says in its notice line when an agent connects, and each change it makes. The client's model runs on the
 client's own account, as everything generative does here (ADR-086).
 
-## Not in CI yet
+## Local checks and paused CI
 
-GitHub Actions has no licensed Qt. ADR-083: until the owner adds Qt's installer and account to the repository's
-secrets, or a self-hosted runner, QQ is built and tested on the owner's machine and its runs are recorded in
-`HANDOFF.md`. The `qor_engine` suite in `docs/GATES.toml` is still the TypeScript preview's check until this replaces
-it (ADR-083 decision 6).
+QOR OS's Qt jobs and self-hosted runners remain paused pending actual isolation proof; see
+[CI.md](../../docs/CI.md#what-ci-trusts). Local results state their source revision, commands, environment,
+failures and skips. They do not establish native graphics, a complete operating-system build or release readiness.
+The first VM Create/Prove steps need the owner's separate go-ahead; a guest Qt kit also needs the documented
+licensing prerequisite. An online runner or a skipped job is no passing build.

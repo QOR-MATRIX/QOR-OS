@@ -12,13 +12,15 @@
       "binaryDir": "${sourceDir}/build/${presetName}",
       "installDir": "${sourceDir}/build/install/${presetName}",
       "cacheVariables": {
-        "CMAKE_EXPORT_COMPILE_COMMANDS": "ON"
+        "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
+        "QOR_STORE_DEMONSTRATION": "OFF"
       }
     },
     {
       "name": "windows-base",
       "hidden": true,
       "inherits": "base",
+      "cmakeExecutable": "C:/Qt/Tools/CMake_64/bin/cmake.exe",
       "generator": "Ninja",
       "condition": {
         "type": "equals",
@@ -57,6 +59,7 @@
     },
     {
       "name": "windows-vs",
+      "cmakeExecutable": "C:/Qt/Tools/CMake_64/bin/cmake.exe",
       "displayName": "Windows · Visual Studio 17 2022",
       "description": "Multi-config Visual Studio solution. Works without a developer shell.",
       "inherits": "base",
@@ -66,6 +69,16 @@
         "type": "equals",
         "lhs": "${hostSystemName}",
         "rhs": "Windows"
+      }
+    },
+    {
+      "name": "windows-demonstration",
+      "displayName": "Windows · The Store's demonstration",
+      "description": "The two storefronts on a catalogue signed with a throwaway key (docs/STORE.md). Never released.",
+      "inherits": "windows-base",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "RelWithDebInfo",
+        "QOR_STORE_DEMONSTRATION": "ON"
       }
     },
     {
@@ -93,6 +106,16 @@
       "inherits": "linux-base",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "RelWithDebInfo"
+      }
+    },
+    {
+      "name": "linux-demonstration",
+      "displayName": "Linux · The Store's demonstration",
+      "description": "The two storefronts on a catalogue signed with a throwaway key (docs/STORE.md). Never released.",
+      "inherits": "linux-base",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "RelWithDebInfo",
+        "QOR_STORE_DEMONSTRATION": "ON"
       }
     },
     {
@@ -149,6 +172,14 @@
     {
       "name": "linux-release",
       "configurePreset": "linux-release"
+    },
+    {
+      "name": "windows-demonstration",
+      "configurePreset": "windows-demonstration"
+    },
+    {
+      "name": "linux-demonstration",
+      "configurePreset": "linux-demonstration"
     },
     {
       "name": "ci-windows",
@@ -208,6 +239,16 @@
       "name": "linux-release",
       "inherits": "test-base",
       "configurePreset": "linux-release"
+    },
+    {
+      "name": "windows-demonstration",
+      "inherits": "test-base",
+      "configurePreset": "windows-demonstration"
+    },
+    {
+      "name": "linux-demonstration",
+      "inherits": "test-base",
+      "configurePreset": "linux-demonstration"
     },
     {
       "name": "ci-windows",

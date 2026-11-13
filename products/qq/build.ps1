@@ -1,3 +1,4 @@
+# Changed for QOR OS: test through CTest with fresh evidence, including suites in the tests subdirectory.
 <#
 .SYNOPSIS
     Build QQ (products/qq) with the owner's Qt, MSVC 2022 and Ninja, and run its tests.
@@ -31,8 +32,11 @@ param(
 
 $ErrorActionPreference = 'Stop'
 $source = $PSScriptRoot
+$tests = Join-Path $source '..\..\tools\dev\products-tests.ps1'
+if (-not $Web) { & $tests -Build $Build -InvalidateOnly }
 $tools = Join-Path (Split-Path (Split-Path $Qt -Parent) -Parent) 'Tools'
 $cmake = Join-Path $tools 'CMake_64\bin\cmake.exe'
+$ctest = Join-Path $tools 'CMake_64\bin\ctest.exe'
 $ninja = Join-Path $tools 'Ninja\ninja.exe'
 $vswhere = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio\Installer\vswhere.exe'
 $vs = & $vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
@@ -69,15 +73,7 @@ if ($Run) {
     exit $LASTEXITCODE
 }
 
-$failed = 0
-foreach ($test in Get-ChildItem $Build -Filter 'tst_*.exe') {
-    $log = Join-Path $Build ($test.BaseName + '.txt')
-    & $test.FullName -o "$log,txt" | Out-Null
-    $code = $LASTEXITCODE
-    Get-Content $log | Where-Object { $_ -match '^(PASS|FAIL|QWARN|QDEBUG|Totals)|failure location' }
-    if ($code -ne 0) { $failed += 1 }
-}
-if ($failed) { throw "$failed test suite(s) failed." }
+& $tests -Build $Build -CTest $ctest
 Write-Host 'All QQ tests passed.'
 
 # A QQ Studio that runs on its own: the executable with the Qt libraries, plugins and QML modules it uses beside it.

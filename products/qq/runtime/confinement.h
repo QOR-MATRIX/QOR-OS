@@ -60,6 +60,9 @@ public:
     /// What the Studio asks, for its engine, since it runs a project's own code: no module but from the import folders,
     /// no network, and nothing opened outside.
     static void guardStudio(QQmlEngine *engine);
+    /// Whether `engine` would read a compiled unit (.qmlc, .jsc) kept on disk in place of a file's source, as Qt itself decides
+    /// it from QML_DISK_CACHE, QML_FORCE_DISK_CACHE and QML_DISABLE_DISK_CACHE: what a program says of its cache, from Qt.
+    static bool readsCompiledUnits(QQmlEngine *engine);
 
     /// What has been refused so far, oldest first (each "kind: what"): for the log and the checks.
     static QStringList refusals();

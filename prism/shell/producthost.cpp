@@ -1,8 +1,12 @@
 // SPDX-License-Identifier: LicenseRef-QOR-OS-Proprietary
 #include "producthost.h"
 
+#include "storeengine.h"
+#include "storefronts.h"
+
 #include <QtCore/QCoreApplication>
 #include <QtCore/QDir>
+#include <QtCore/QFile>
 #include <QtCore/QFileInfo>
 #include <QtCore/QJsonDocument>
 #include <QtCore/QLoggingCategory>
@@ -22,6 +26,7 @@
 #include <csignal>
 #include <sys/prctl.h>
 #include <sys/socket.h>
+#include <sys/stat.h>
 #include <unistd.h>
 #elif defined(Q_OS_WIN)
 #include <QtCore/qt_windows.h>
@@ -457,6 +462,7 @@ QList<ProductRecord> ProductHost::defaultRecords()
     studio.name = u"QQ Studio"_s;
     studio.variable = u"QOR_QQ_STUDIO"_s;
     studio.fileArgument = u"--project"_s;
+    studio.readsAssetPacks = true;
     studio.glyph = u"layers"_s;
     studio.launchable = true;
     studio.keywords = u"qq engine editor scenes worlds games make create build 3d agent"_s;
@@ -665,6 +671,17 @@ void ProductHost::stop(const QString &id)
     endLater(it->process, it->session ? 5000 : 0);
 }
 
+QString pipewireSocketFor(const QProcessEnvironment &environment)
+{
+    // Empty is unset, as the shell's ${XDG_RUNTIME_DIR:-...} has it.
+    QString runtime = environment.value(u"XDG_RUNTIME_DIR"_s);
+#if defined(Q_OS_LINUX)
+    if (runtime.isEmpty())
+        runtime = u"/run/user/%1"_s.arg(::getuid());
+#endif
+    return runtime + u"/pipewire-0"_s;
+}
+
 bool ProductHost::start(const ProductRecord &record, const QString &file, const QString &activationToken)
 {
     if (m_runs.contains(record.id))
@@ -704,6 +721,26 @@ bool ProductHost::start(const ProductRecord &record, const QString &file, const 
         environment.insert(
             u"QOR_THEME_COLORS"_s,
             QString::fromUtf8(QJsonDocument(QJsonObject::fromVariantMap(m_theme)).toJson(QJsonDocument::Compact)));
+#if defined(Q_OS_LINUX)
+    // Qt Multimedia's PipeWire backend crashes where libpipewire is installed
+    // and no PipeWire daemon runs (WSL), and every QQ product reaches it
+    // through QtQuick3D.SpatialAudio's AudioEngine. PulseAudio serves there,
+    // as tools/dev/products.sh decides it: only when nothing has chosen a
+    // backend and there is no PipeWire socket.
+    if (environment.value(u"QT_AUDIO_BACKEND"_s).isEmpty()) {
+        struct stat seen {};
+        const QByteArray socket = QFile::encodeName(pipewireSocketFor(environment));
+        if (::stat(socket.constData(), &seen) != 0 || !S_ISSOCK(seen.st_mode))
+            environment.insert(u"QT_AUDIO_BACKEND"_s, u"pulseaudio"_s);
+    }
+#endif
+    // Where the Store's format 2 engine keeps what it installed, for QQ Studio's
+    // asset library, and only where that engine exists: a demonstration build.
+    environment.remove(u"QOR_ASSET_PACKS"_s);
+    if (record.readsAssetPacks) {
+        if (const store::StoreEngine *engine = store::Storefronts::engine())
+            environment.insert(u"QOR_ASSET_PACKS"_s, engine->dataDir());
+    }
     // A token Prism was started with was for its own window.
     environment.remove(u"XDG_ACTIVATION_TOKEN"_s);
     if (!activationToken.isEmpty())

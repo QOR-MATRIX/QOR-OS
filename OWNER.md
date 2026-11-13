@@ -1,62 +1,42 @@
 # Where QOR OS stands
 
-For Andrew, 1 November 2026. One page, rewritten every session (`AGENTS.md` §2).
+For Andrew, 13 November 2026. Main integrates the development checkpoint
+`515a7f6` and the current developer guidance, as requested by the owner.
 
-## What QOR OS is
+## Main and the developer entry point
 
-The operating system for players, game makers and creators: the Prism shell
-(*the compositor and desktop in one*) and Lumen design (*QOR OS's look*), with
-Demiurge's QQ engine, ARQADE and QOR Media, on Linux. Code:
-`QOR-MATRIX/qor-os` (private), here at `X:\Repoz\QOR-OS`.
+The older readiness change on main was reconciled with its tested successor.
+The resulting application and CI code matches the integration checkpoint; no
+build gate or runner-isolation requirement was relaxed. The repository homepage
+links current progress, the masterplan, the developer guide and security.
 
-## This session
+The developer guide identifies source and tools across apps, services, Prism,
+QQ, ARQADE, Media, assets and Q Pi. Model Context Protocol (MCP), the interface
+for agents to call tools, already connects external clients to QQ Studio over a
+local pipe. Scene mutation and logic execution retain their existing trust gates.
 
-1. **How Unreal Engine comes to QOR OS is decided** (record QOR-0020), and nothing
-   of it is built yet. Epic's own Linux builds, unchanged. Games run in gamescope
-   (*Valve's game compositor*) in the sandbox; the editor is each person's own
-   download from Epic; a plugin joins games to the Library and the look. The
-   licence forbids the rest: no editor from us, no engine shared between games.
-2. **Bellwick is built,** a working title: the platformer, eight levels, ARQADE's
-   seventh card. A search program finishes the whole game by the real rules.
-3. **Ever Rift and Darkveil now face the camera.**
-4. **A real bug, found by accident:** labels on Lumen's accent buttons, check
-   marks and radio dots had been black since the first version, not near-white,
-   and Prism never passed your colours to the products. Both fixed.
-5. **CI no longer fails because the screen went off.** CI (*the automatic build
-   and test run*) now keeps the display on while tests draw.
-6. **You merged demiurge-chain #117** (*a request to merge*).
+QOR Launcher and DRC-369 asset functionality belong upstream in demiurge-chain.
+Their current source at `74a1014` was inspected. QOR OS's pinned core bridge
+exposes only four version/amount commands; it does not yet expose those asset or
+agent-authorisation operations. The frozen upstream root SDK is not a supported
+integration route. No keys or signing authority are given to agents.
 
-## Checked
+## Evidence and remaining gates
 
-**CI passed at `3bf213a` and `c59286e`,** on both systems, before its jobs on this laptop were paused on 1 November (*until a
-runner is shown to be isolated*): since then nothing is built, and Build reads red by design. ARQADE passed first time on
-Windows, Bellwick's tests included. Windows' clipboard refused every program on
-this laptop for at least 1¾ hours; what held it is not known. For Unreal: Epic's
-5.8 documents, its licence of May 2023, and a running Prism. **Nobody here has read
-Epic's current licence:** its pages refuse automated reading. Nobody has run Unreal
-on QOR OS, or played or heard Bellwick, Ever Rift or Darkveil.
+The preserved implementation evidence includes 22 Windows software suites,
+33 exploit-hardened programs and zero interface-code warnings. Hosted Lint at
+`3ad8954` passed 691 tooling tests with 124 platform skips. The Pi's 27-suite OS
+check and seven additional QQ protocol cases are separate software evidence.
+Full products, sanitizers, creator/player journey and physical devices remain open.
+Rust's pinned dependency warning still prevents warning-free acceptance.
 
-## Needs you
+GitHub requires reviewed action repositories and full commit pins; job tokens
+are read-only. Registered Qt workers are offline and no isolation flag is set.
+Branch protection remains unavailable on this private repository's current plan.
+A main merge is not an image publication, isolated CI proof or release acceptance.
 
-1. **Epic's licence, before anyone downloads Unreal.** With counsel: read the
-   current text; choose who accepts it, since it does not transfer and the legal
-   entity is open; ask Epic about plugins, our Store, CGT, and AI. It limits using
-   an AI on engine code, so I keep away from the engine. Nothing is urgent: the
-   first stage needs no engine until its last step.
-2. **Name Bellwick.** Nothing of it goes public until then. Near it are *Bell
-   Kingdom* and *Curse Crackers*. A search is not trademark clearance.
-3. **Play Bellwick, Ever Rift and Darkveil.**
-4. **Move the Store's signing keys off this PC.** A CI job here could read them.
-5. **CI is paused.** Its runners are stopped until a replacement is shown to be
-   isolated (`docs/CI.md`); nothing runs on this laptop until then.
-6. **The Linux machine:** a USB-C SSD of 500 GB or more and a USB stick of 8 GB
-   or more, then BUILDING.md's steps. Epic recommends 32 GB of memory for its
-   editor, and this laptop has 16.
-7. **Legal, still open:** trademark advice, the legal entity, the Qt letter,
-   replacing the 5 October key.
-
-## Next
-
-Prism's pointer lock and relative motion, which gamescope needs before it will
-start: Unreal and Phase 3's Steam both wait on them. Then the racer, the pixel-art
-and arcade games, and Orb Run in Prism with a DualSense on the Linux machine.
+Next, begin offline developer-tool discovery on a new branch, with structured
+output for agents and tests that refuse unsafe metadata. The masterplan also
+tracks upstream read-only Launcher/DRC-369 bridge work, trusted approvals and
+reproducible app/asset onboarding. Native validation and isolation gates continue.
+Receipts: `build/development-2026-11-13/session-04/`; earlier evidence is intact.

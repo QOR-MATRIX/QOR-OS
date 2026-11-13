@@ -43,6 +43,16 @@
 
 ---
 
+The private **Q Pi development edition** has a scoped exception for its initial
+Pi-supported base login and desktop ([QOR-0025](docs/decisions/QOR-0025-q-pi-development-edition.md)).
+It is planned to run native QOR applications on that host desktop and ship no simulator.
+The full device architecture and its acceptance gates below remain the target.
+This is an intended architecture, not a feature-completion report: device
+authentication/services, KMS, direct scan-out and the full image remain subject
+to the roadmap's gates. Native ARM64 Prism and QQ builds have focused software
+test evidence; full application, hardware and bootable Q Pi image acceptance
+remain open in the [roadmap](docs/ROADMAP.md#q-pi-development-edition).
+
 ## 1. Principles
 
 | # | Principle | What it means in practice |
@@ -106,9 +116,12 @@ not purity for its own sake.
 ### Boot
 
 - UEFI Secure Boot → signed kernel → measured boot into TPM2 PCRs.
-- **Flicker-free boot:** firmware logo (BGRT) → early splash that reuses the BGRT logo → Prism takes over **without a
+- **Coherent boot:** the vendor-controlled firmware logo → QOR OS's early loading splash → Prism takes over **without a
   modeset** (same mode, same framebuffer contents) → greeter. The handoff should feel like a single continuous
   animation.
+  The firmware logo remains the manufacturer's. Session branding and a staged Plymouth
+  payload exist; the bootable image and this complete handoff still need Phase 3 proof
+  ([image](image/README.md#branding-the-startup-stages)).
 
 ### Updates
 
@@ -570,8 +583,11 @@ extensions).
 ## 14. Licensing *(decided: [QTOS-0004](docs/decisions/qtos/QTOS-0004-commercial-qt-and-proprietary-repository.md), [QOR-0002](docs/decisions/QOR-0002-one-repository-from-qtos-and-demiurge.md), [QOR-0008](docs/decisions/QOR-0008-before-a-public-release.md))*
 
 Several key Qt modules are **GPLv3 or commercial, not LGPL**, including Qt Wayland Compositor, Qt Application Manager,
-Qt Virtual Keyboard, Qt Quick 3D, Qt Quick 3D Physics and Qt Graphs. QOR-MATRIX holds a **Qt Enterprise** commercial
-license, so:
+Qt Virtual Keyboard, Qt Quick 3D, Qt Quick 3D Physics and Qt Graphs. The owner reports
+a **Qt Enterprise** commercial licence. The repository adopts the following policy;
+the licensee, exact target-kit entitlement and image/SDK distribution scope still
+need confirmation ([release questions](docs/release/QT.md),
+[Q Pi kit qualification](image/README.md#commercial-qt-kit-and-dependency-acceptance)):
 
 - QOR OS is developed on the **commercial Qt** kit, including commercial tooling such as `qmlsc`.
 - The repository is **private** and the code **proprietary** (`LICENSE`).
@@ -639,6 +655,7 @@ The detail, with every item, is [docs/ROADMAP.md](docs/ROADMAP.md).
 | Money | 1.0 moves no money; free items and test CGT | [QOR-0006](docs/decisions/QOR-0006-qor-os-1-0-moves-no-money.md) |
 | 1.0 scope | Shell, Home and Library, QQ, ARQADE, QOR Media, Social, the vault, Steam | [QOR-0007](docs/decisions/QOR-0007-what-1-0-ships.md) |
 | Unreal Engine | Epic's own Linux builds, unchanged, never carried by QOR OS; a plugin joins them to the ecosystem | [QOR-0020](docs/decisions/QOR-0020-unreal-engine-on-qor-os.md) |
+| Projects, engines, stores | A workspace for every project; engines through small adapters; two stores on shared services | [QOR-0021](docs/decisions/QOR-0021-projects-engines-and-two-stores.md) |
 | Public release | Release gates the owner holds | [QOR-0008](docs/decisions/QOR-0008-before-a-public-release.md) |
 | The name | QOR OS in prose; `qor-os`, `qor`, `QOR.*`, `QOR_*` and `dev.qorsync.*` where a space cannot go | [QOR-0009](docs/decisions/QOR-0009-the-name-is-qor-os.md) |
 | License posture | Commercial Qt Enterprise; private, proprietary repository | [QTOS-0004](docs/decisions/qtos/QTOS-0004-commercial-qt-and-proprietary-repository.md) |
@@ -652,7 +669,11 @@ The detail, with every item, is [docs/ROADMAP.md](docs/ROADMAP.md).
 
 ---
 
-## 19. First steps *(Phase 0)*
+## 19. First steps *(historical Phase 0 checkpoint)*
+
+These are the recorded October 2026 milestones, not the current CI or runner
+state. Current work and readiness belong to [ROADMAP.md](docs/ROADMAP.md) and
+[OWNER.md](OWNER.md); Qt CI jobs are paused pending isolation.
 
 1. ✅ Free the disk space the work needs.
 2. ✅ Create `qor-os` from QTOS's full history, and freeze QTOS.

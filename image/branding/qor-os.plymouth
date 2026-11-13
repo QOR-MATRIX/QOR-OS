@@ -1,0 +1,9 @@
+# SPDX-License-Identifier: LicenseRef-QOR-OS-Proprietary
+[Plymouth Theme]
+Name=QOR OS
+Description=The Lumen mark during OS loading
+ModuleName=script
+
+[script]
+ImageDir=/usr/share/plymouth/themes/qor-os
+ScriptFile=/usr/share/plymouth/themes/qor-os/qor-os.script

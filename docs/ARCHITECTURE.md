@@ -4,6 +4,23 @@ This document describes the code as it exists today and how it maps onto the
 device architecture in [`VISION.md`](../VISION.md). Decisions and their
 rationale are recorded in [`decisions/`](decisions/README.md).
 
+**Q Pi development edition.** [QOR-0025](decisions/QOR-0025-q-pi-development-edition.md)
+scopes a Pi 5 ARM64 exception: a maintained Raspberry Pi OS desktop and real base
+login host native QOR application processes. It supplies no Prism authentication,
+simulator or simulated device services. Existing embedded shell applications are
+not automatically standalone apps; QQ still imports Quick 3D even for 2D content.
+Native ARM64 application builds and selected software suites now pass; no Pi image
+or physical-device acceptance is established. The Fedora full-device recipe and its
+authentication guard are unchanged. See [the preparation and first-boot plan](../image/README.md#q-pi-development-edition).
+
+QQ's `q-pi-release` and `q-pi-asan` presets are native ARM64 build entry points,
+not build results. Their early host/Qt checks and the static payload audit reject
+known unsuitable inputs without proving entitlement, complete dependency ABI or
+hardware behavior. The public host-receipt helper prepares a headless trust path;
+its first-boot hook, stable-key reboot, shutdown and access gate are not integrated.
+See the [native build procedure](../image/README.md#native-qor-application-build)
+and [headless design](../image/README.md#q-pi-first-boot-and-bluetooth-bootstrap).
+
 ## 1. Layers
 
 ```text
@@ -18,22 +35,80 @@ rationale are recorded in [`decisions/`](decisions/README.md).
 ├───────────────────────────────────────────────────────────────────────┤
 │ Hosts          qor-shell (any desktop OS)  │  prism (Wayland, Linux) │
 ├───────────────────────────────────────────────────────────────────────┤
-│ Services       qor-sim / qor-simd (simulation)  │  qor-*d (device) │
+│ Services       qor_sim / qor-simd (simulation)  │  planned qor-*d │
 │                ── Qt Remote Objects contracts: services/interfaces ── │
 │ QOR core       qor::core (Rust, demiurge-chain at a pinned commit)    │
 │                ── C bridge: one JSON request, one JSON answer ──      │
 └───────────────────────────────────────────────────────────────────────┘
 ```
 
-The products are separate programs today. Phase 1 runs them as
-Wayland clients of Prism and moves their theming and controller input onto
-QOR.Kit and QOR.Input. The QOR core is linked into a test today. Phase 2
-makes it the vault service, a process of its own.
+The products are separate programs today. Prism hosts them as Wayland clients,
+passes Lumen colors to them, and QQ's runtime uses QOR.Input's controller backends.
+Native hardware acceptance remains open in [ROADMAP.md](ROADMAP.md). The QOR core
+is linked into a test today. Phase 2 makes it the vault service, a process of its own.
+
+**Startup identity.** The shared Desktop/DisplayDesktop path uses Kit's finite
+`StartupSplash` over the existing lock/session surfaces. It releases on the first
+swapped frame, skips replay on hotplug, respects reduced motion and has Escape and
+a bounded watchdog. It starts no service and changes no sign-in decision. The same
+reviewed QorMark rendering is checked before linking and staged for Plymouth through
+`qor_boot_payload`; the image/bootloader/KMS handoff remains unproven
+([image](../image/README.md#branding-the-startup-stages)).
+
+**First run and installation.** `setup/` builds the private `qor-setup` application
+(`QOR.Setup`, not a public SDK). It uses Kit/Lumen and the same official mark.
+Prism requests it once after an external device session unlocks, excluding simulation
+and a live-media marker. Closing leaves it pending; completion publishes a small
+per-user record without replacing unrecognised data. It creates no account and performs
+no installation. The real authentication services and full device installer
+are still missing. The welcome receives a launch snapshot of the session's motion/contrast
+preferences, defaults to no motion without a known hint, and changes no system preference.
+`qor_image_payload` packages the startup theme, first-run source,
+identity and inactive Calamares branding/settings. The explicit device Containerfile
+requires an existing approved device base; the data-only image cannot boot.
+[QOR-0023](decisions/QOR-0023-installation-uses-proven-backends.md) sets the backend
+and disk-review boundaries; [the capability map](../image/README.md#installation-capability-map)
+distinguishes code, configuration and missing runtime evidence.
+
+The separate private VM lab ([QOR-0024](decisions/QOR-0024-disposable-vm-installation-lab.md))
+uses a digest-pinned Fedora bootc base and restricted QEMU TCG. Its opt-in
+`qor-install` frontend delegates whole-disk operations to stock bootc, with no
+custom partitioner. Before writing, a sealed guest allowlist must match the new
+regular-file disk's UUID, serial, capacity and driver/PCI ancestry; host files
+are pinned and passed as descriptors. The offline OCI directory and receipt must also
+be on the read-only installation ISO, not a mutable live overlay. Display
+selection matches the sealed VM's VirtIO graphics slot rather than assuming
+`card0`. The default live ISO is a display probe; the opt-in installation profile
+adds the guarded offline backend. Port-ready events start its restricted agent and
+frontend. The installer pairs SELinux's existing `install_t` process domain with
+the executable's `install_exec_t` entrypoint label; no enforcement fallback or new
+policy permission is added. The earlier clean `feed626` image passes actual stock
+installation, media-free first run and persistence through two installed reboots.
+The host QEMU main-loop pool uses four I/O workers within its 64-task container
+limit; its source checksum is separate from the unchanged image/compiler identity.
+The evidence keeps resource interruptions, distinct guest boot IDs and the
+8 November UI reboot failures. An inventory correction excludes only inactive,
+zero-size kernel loop nodes without backing attributes. A separate diagnostic finds
+bootc's storage mount retained after successful exit. The backend now confines its
+mounts to the supervised process and requires the unchanged strict target guard
+before announcing completion. The clean `66df3f7` image and compiler now pass stock
+installation and the actual UI reboot on a fresh 8-GiB target without diagnostic
+cleanup. Two media-free installed boots prove the real welcome changes from pending
+to complete, then retains the same record before the next welcome. All three native
+VM phases exit 0 with three distinct boot IDs. The earlier `feed626` proof is unchanged.
+These VM checks do not establish device services,
+authentication, hardware, encrypted installation, rollback or CI isolation proof.
+The full device-layer guard requires headless build contracts from both welcome
+and Prism. Prism reports its compiled simulator mode before starting graphics,
+audio or service connections. It currently reports authentication unavailable,
+matching `Desktop.tryUnlock`'s refusal of non-simulated sessions. A simulator build,
+missing authentication or unknown contract prevents structural image acceptance;
+this contract check supplies no authentication backend or boot proof.
 
 **Simulation and device share all QML.** The shell and the apps never talk to
 a service implementation directly. They bind to Qt Remote Objects *replicas*.
-In simulation the *sources* are the classes in `sim/`; on a device they are the
-`qor-*d` daemons. The host program decides which sources it connects to.
+In simulation the *sources* are the classes in `sim/`; the planned device sources
+are the `qor-*d` daemons. The host program decides which sources it connects to.
 
 ## 2. Build targets
 
@@ -46,7 +121,10 @@ In simulation the *sources* are the classes in `sim/`; on a device they are the
 | `qor_audio` | static lib | — | `audio/` | The audio engine: real-time output, QOR Sessions synth, file decoding, EQ, limiter, analysis ([AUDIO.md](AUDIO.md)) |
 | `qor_services` | static lib + QML plugin | `QOR.Services` | `services/` | `Services` singleton (replicas), `Intents`, `Reactive`, QML type info for replicas |
 | `qor_sim` | static lib | — | `sim/` | Simulated sources (audio and media on `qor_audio`) + scenario loader + QtRO host |
-| `qor_apps` | static lib + QML plugin | `QOR.Apps` | `apps/` | `AppRegistry` and the six apps |
+| `qor_apps` | static lib + QML plugin | `QOR.Apps` | `apps/` | `AppRegistry` and seven embedded apps, including the Store |
+| `qor_store` | static lib + QML plugin | `QOR.Store` | `store/` | Catalogue, package validation, installation and storefront models |
+| `qor_setup` / `qor-setup` | static QML module / executable | `QOR.Setup` | `setup/` | Private first-run welcome; no account creation or installation |
+| `qor-install` | executable, opt-in | — | `setup/` | Guarded private VM installer; requires `QOR_BUILD_VM_INSTALLER`, no simulator and Linux |
 | `qor_shell` | static lib + QML plugin | `QOR.Shell` | `prism/shell/` | `Main`, `Desktop` and every shell surface |
 | `qor-shell` | executable | — | `prism/host/` | Simulation host: window, sim services, CLI, screenshot, benchmark, GPU preference |
 | `prism` | executable | `QOR.Prism` | `prism/compositor/` | Wayland compositor (Linux, needs Qt Wayland Compositor) |
@@ -60,24 +138,26 @@ In simulation the *sources* are the classes in `sim/`; on a device they are the
 | `tst_*` | tests | — | `tests/` | See [§9](#9-testing) |
 
 The products are not targets of this build. Each is its own CMake project,
-built by its own script (`tools/dev/products.ps1`), as it was upstream
+built through `tools/dev/products.ps1` on Windows or the isolated
+`tools/dev/products.sh` harness on Linux
 ([§11](#11-the-products)).
 
-All QML modules are static libraries linked into the executables and loaded
-with `Q_IMPORT_QML_PLUGIN`. Their QML is compiled ahead of time by the QML
-script compiler (`qmlsc`) and lands in a single import directory
+The root build's QML modules are static libraries linked into the executables
+with their plugins. Qt's CMake integration compiles their QML; the observed
+Windows commercial kit uses `qmlsc`. The import metadata lands in one directory
 (`build/<preset>/qml`) for `qmllint` and `qmlls`.
 
 ### Module dependency graph
 
 ```text
 QOR.Shell ──► QOR.Apps ──► QOR.Services
-     │              │              
+     │              ├──► QOR.Input
+     │              ├──► QOR.Store
      └──────────────┴──► QOR.Kit ◄── Lumen (QQC2 style)
 ```
 
-`QOR.Kit` depends on nothing from QTOS. Apps depend on Kit and Services,
-never on the Shell. The Shell depends on everything.
+`QOR.Kit` has no dependency on other QOR OS modules. Apps depend on Kit,
+Services, Input and Store, never on the Shell. The Shell hosts the apps.
 
 ## 3. Rendering model
 
@@ -243,6 +323,36 @@ own KMS backend is Phase 3
 ([QOR-0005](decisions/QOR-0005-every-display-at-its-own-refresh.md),
 [QTOS-0003](decisions/qtos/QTOS-0003-compositor-strategy.md)).
 
+The local warning-removal candidate uses `QWaylandCompositorExtension` directly
+for five custom managers, each returning its protocol interface, and checks
+`configureAcked(QObject*)` with `qobject_cast` before accessing private toplevel
+state. On 12 November, the focused Linux Release and ASan/UBSan builds and their
+existing raw-client/integration suites passed in hidden, GPU-fenced software.
+The raw-client suite includes unique global advertisement and manager
+bind/destroy/rebind, including cursor-shape v1/v2 and last-binding destruction.
+Root QML lint and hardening passed in both configurations at the `01ba206`
+checkpoint; the focused builds exclude the core library and do not establish
+hardware/full-OS acceptance. The later local increment moves the unchanged
+`WindowManagement` class into `prism/compositor/windowmanagement.{h,cpp}`, shared
+by Prism and `tst_windowmanagement`. That suite exercises null and unrelated
+objects directly and through the Qt invokable interface. The raw-client suite
+adds pending/older/latest acknowledgement and unchanged-geometry commit cases.
+The new test target now resolves Qt's Wayland imports in its own CMake directory.
+The Windows/WSL continuation stopped at the unchanged memory guard; its failed
+attempts remain in `build/prism-boundary-2026-11-12/`. Subsequent native ARM64
+Release and ASan/UBSan builds completed on 12 November. The acknowledgement
+fixture first exposed its own invalid focus-stealing assumption; it now asserts
+that policy and explicitly activates the second window through the normal Shelf
+path. Each configuration passes all seven selected suites without skips,
+including 43 pointer-capture and six window-management Qt Test results.
+All 11 programs in each configuration pass hardening and 16-KiB layout checks;
+Release QML lint has zero warnings. These focused builds exclude the core,
+use software rendering and product stand-ins, and do not check memory leaks.
+Their 50 preserved evidence files were hash-verified on 13 November, along with
+the unchanged source snapshot and test overlay. Native receipts:
+`build/q-pi-connect-2026-11-12/session-01/`.
+See [the current Phase 1 work](ROADMAP.md#phase-1--one-stack).
+
 ## 9. Testing
 
 | Suite | Framework | Covers |
@@ -253,6 +363,9 @@ own KMS backend is Phase 3
 | `tst_audio` | Qt Test | the audio engine: rendering, sessions, decoding, EQ, limiter, analysis |
 | `tst_input` | Qt Test | controller reports, CRCs, mappings, dead zones, the manager and the navigator |
 | `tst_store` | Qt Test | catalogue and package signatures, installation, tampering refused |
+| `tst_storefronts` | Qt Test | the two storefronts as pages have them: that only a demonstration build holds their key, no preset says otherwise, every query names its view, and what a catalogue hands over from the hostile side (hostile pictures, licences) |
+| `tst_storefronts_qml` | Qt Quick Test | the Store's real pages over a catalogue of markup: each store's list, search, featured row and counts hold nothing of the other's, plain text throughout, the switch in Settings |
+| `tst_store_format2` | Qt Test | catalogue format 2 and every package check from the hostile side: archive bombs, unsafe and colliding names, what a pack may hold, sequence and expiry, drafts, the two storefronts' views, creator features, dependencies |
 | `tst_qorcore` | Qt Test | the QOR core through its C bridge: version, units, exact amounts, refusals ([§10](#10-the-qor-core)) |
 | `tst_producthost` | Qt Test | Prism's side of the host protocol: the handshake, who may connect, the long poll, a real product process with its token on stdin only, nothing secret logged; products started with no channel, one run at a time ([§11](#hosted-by-prism)) |
 | `store_widgets_qmllint` | qmllint | the Store's widgets against the built modules |
@@ -261,11 +374,14 @@ own KMS backend is Phase 3
 | `tst_golden` | Qt Test (GPU) | every Kit component in every variant against reference images |
 | `shell_e2e` | scripted shell (GPU) | whole flows with synthetic input, controllers included |
 | `prism_e2e` | Python + real clients (GPU, Linux) | the compositor with real Wayland clients: windows, Spaces, displays |
+| `tst_pointercapture` | Qt Test + raw Wayland clients (Linux, offscreen, in software) | pointer lock, confinement and relative motion from the hostile side: who may, after what, what ends them, the way out, every protocol error, floods ([SHELL.md](design/SHELL.md#capturing-the-pointer)) |
 | `prism_products` | scripted Prism (Linux, offscreen, in software) | Prism starting stand-ins for ARQADE, QOR Media, QQ Studio and the QQ Player, laying out and naming their windows, passing the Motion setting |
 | `tools_generate_tokens` | Python unittest | color math, generated outputs current |
 
-`all_qmllint` must report zero warnings. CI excludes the `gpu` label on hosted
-runners. The products' suites are listed in [§11](#11-the-products).
+`all_qmllint` must report zero warnings. Build's baseline CTest steps exclude
+the `gpu` label; separate GPU steps require their workflow opt-in. Qt CI jobs
+remain paused pending isolation, so registered suites are not current CI passes
+([CI.md](CI.md#what-ci-trusts)). The products' suites are listed in [§11](#11-the-products).
 
 ## 10. The QOR core
 
@@ -300,28 +416,30 @@ paths they had there, and are developed here since
 [QOR-0015](decisions/QOR-0015-the-products-are-developed-here.md)
 ([UPSTREAM.md](UPSTREAM.md)). ARQADE's rules and recorded runs stay shared
 with demiurge-chain, where ARQADE's server judges runs by them. Each product
-is its own CMake project, built and tested by its own `build.ps1`, which
-`tools/dev/products.ps1` calls.
+is its own CMake project. `tools/dev/products.ps1` calls its Windows `build.ps1`;
+`tools/dev/products.sh` configures and tests it in the isolated Linux harness.
 
 | Product | Path | Targets | Suites |
 |---------|------|---------|--------|
-| **QQ** | `products/qq/` | `qqruntime` (QML module `QQ`), `qq-studio` (`QQ.Studio`), `qq-player` (`QQ.Player`), `qq-mcp`, `qqagent` | `tst_world`, `tst_scene`, `tst_studio`, `tst_play`, `tst_player`, `tst_agent`, `tst_lockdown`, `tst_publish` |
+| **QQ** | `products/qq/` | `qqruntime` (QML module `QQ`), `qq-studio` (`QQ.Studio`), `qq-player` (`QQ.Player`), `qq-mcp`, `qqagent` | `tst_world`, `tst_scene`, `tst_studio`, `tst_play`, `tst_player`, `tst_storegame`, `tst_agent`, `tst_lockdown`, `tst_publish`, `tst_workspace`, `tst_gamebuild`, `tst_assetlibrary`; Linux also `tst_playerwall` and, with Python, `first_journey` |
 | **ARQADE** | `products/arqade/qt/` (+ `games/`, `tests/fixtures/`) | `arqade` (QML module `ARQADE`), built on QQ's runtime from `../../qq/runtime` | `tst_arqadelink`, `tst_arqadeserver`, `tst_interface`, `tst_games` |
 | **QOR Media** | `tools/qor-media/` | `qor-media` (QML module `QOR.Media`), with PDFium | `tst_medialink`, `tst_files`, `tst_textfile`, `tst_playback`, `tst_look`, `tst_reader`, `tst_pdfpages`, `tst_pdfmarks`, `tst_pdfforms` |
 
-Their suites render on the GPU in real windows and drive them with input. The
+Their visual suites render real windows and drive them with synthetic input. The
+Linux harness provides a hidden display and private session/keyring; WSL is GPU-fenced
+by default. Software rendering is not native GPU evidence. The
 look tests read `docs/design/tokens.json`, Demiurge's one look. They build on
 Windows with their own scripts and on Linux with `tools/dev/products.sh`
 ([BUILDING.md](BUILDING.md#on-linux)). Prism hosts all of them
-([below](#hosted-by-prism)); Lumen theming and QOR.Input are the rest of
-Phase 1.
+([below](#hosted-by-prism)); Lumen color propagation and QQ's QOR.Input integration
+are already present. Remaining platform and hardware work is in the roadmap.
 
-What ties them to Windows today, and where Phase 1 changes it:
+Current platform seams:
 
 | Seam | Today | On QOR OS |
 |------|-------|-----------|
 | Placement | The launcher's `place` command parents the product's window into its own by native handle (`Dock`, `products/arqade/qt/src/dock.cpp`, `tools/qor-media/src/dock.cpp`), which Wayland cannot do | On Wayland the product's window stays a toplevel and Prism places it, speaking the launcher's side of the host protocol ([QOR-0010](decisions/QOR-0010-on-wayland-prism-places-the-products-windows.md), [below](#hosted-by-prism)); `Dock` stays for Windows |
-| Controllers | XInput, polled by QQ's `Input` (`products/qq/runtime/input.cpp`) | Since 30 October QOR.Input's backends (`qor_gamepads`) feed `Input`'s gamepad state, with the same button names, on every platform: DualShock 4 and DualSense on Windows too ([CONTROLLERS.md](CONTROLLERS.md#games)) |
+| Controllers | QOR.Input's XInput/HID backends feed QQ's `Input` (`products/qq/runtime/input.cpp`) on Windows | QOR.Input's Linux backend feeds the same gamepad state; real-controller acceptance remains separate ([CONTROLLERS.md](CONTROLLERS.md#games)) |
 | The agent's key | Windows Credential Manager (`products/qq/agent/keychain.cpp`) | The Secret Service, over Qt D-Bus, in the same file: the creator's own provider key, not a QOR key ([QOR-0011](decisions/QOR-0011-the-creators-provider-key-in-the-secret-service.md)). The image must ship a provider (Phase 3) |
 | GPU choice | DXGI's high-performance adapter (`products/qq/runtime/gpu.cpp`, ARQADE's `main.cpp`) | Mesa and Prism's own outputs; nothing to do in the products |
 

@@ -40,6 +40,13 @@ in that list is not current.
 ## 3. Scope and boundaries
 
 - **This repository** is QOR OS: everything that runs on the device.
+- **Host resource isolation:** QOR OS and Q Pi do not depend on unrelated
+  projects or manage their services. Use the existing QOR heavy-job lock and
+  `tools/image/vm_resources.py`; if resources are insufficient, stop the QOR
+  attempt and report the shortfall. Never pause, restart or inspect another
+  project's services as a QOR build prerequisite. Preserve QOR build and test
+  evidence under `build/`. Retired cross-project service wrappers and their
+  bookkeeping are removed; do not restore or rerun them.
 - **The products** are developed here since 29 October 2026
   ([QOR-0015](docs/decisions/QOR-0015-the-products-are-developed-here.md)):
   QQ (`products/qq/`), ARQADE's app and games (`products/arqade/qt/`,
@@ -69,6 +76,10 @@ in that list is not current.
   editor or its tools enters this repository, the image or the Store's own content. Until Epic or counsel says otherwise,
   nothing under an engine's folders, nor a log quoting it, goes into an AI assistant's context: its licence limits that.
   Nobody here downloads the engine until the owner has accepted that licence.
+- **Unity** is Unity's ([QOR-0021](docs/decisions/QOR-0021-projects-engines-and-two-stores.md)). Nothing of its editor enters this
+  repository, the image or the Store's own content. Its terms name AI agents, so no assistant operates its editor or opens anything
+  under its install folders. No code of ours touches its editor until that operation has a grant, in Unity's terms, its documentation or
+  its written answer, or a legal reading says none is needed. An owner's approval cannot override a third party's terms.
 - **QTOS** (`QOR-MATRIX/QTOS`) is frozen: its code at `37b621e`, plus a note saying so (`3ecdded`). Do no new work there.
 - **Demiurge's old documentation does not exist.** Its pre-realignment
   documents were deleted on 13 September 2026. Never read, restore, quote or
@@ -188,6 +199,9 @@ QTOS's practice, which QOR OS keeps:
 
 ## 8. Working agreements
 
+- Use maintained, proven frameworks and primary upstream documentation. Choose
+  foundations that meet QOR OS's architecture, licensing, security, accessibility
+  and measured performance requirements; keep new dependencies pinned and checked.
 - Commit and push only work the owner has asked for. Never publish an image,
   release, package or deployment without the owner's explicit word.
 - Commit messages say what changed and why, in plain words. Commits by an

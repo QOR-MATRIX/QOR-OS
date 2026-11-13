@@ -28,7 +28,7 @@ namespace qor::input {
 class Gamepads : public QObject
 {
     Q_OBJECT
-    QML_ELEMENT
+    QML_NAMED_ELEMENT(Gamepads)
     QML_SINGLETON
 
     Q_PROPERTY(int count READ count NOTIFY gamepadsChanged FINAL)
