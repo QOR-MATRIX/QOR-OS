@@ -96,9 +96,22 @@ suppression or dependency substitution was adopted. Receipts:
 This is the procedure for the open security task in [ROADMAP.md](ROADMAP.md),
 not a second roadmap. The 13 November audit of pin `6a4822d` found four
 vulnerability advisories and 13 warnings. The same affected versions remain in
-upstream `74a1014`; advancing to that commit is not a fix. Source-domain work in
-[upstream PR #118](https://github.com/QOR-MATRIX/demiurge-chain/pull/118) does not
-change those lock files. The core bridge must not grow around an unresolved audit.
+upstream `74a1014`; advancing to that commit is not a fix. The repair in
+[upstream PR #118](https://github.com/QOR-MATRIX/demiurge-chain/pull/118),
+`042941c`, now patches the core and host locks. Their local audits report zero
+vulnerability advisories, retaining 13/23 warnings; hosted compilation and tests
+are running. The QOR OS pin is unchanged. The core bridge must not grow around
+an unresolved audit or unvalidated dependency selection.
+
+The selected core update is rusqlite 0.41.1 with bundled libsqlite3-sys 0.39.1,
+quinn-proto 0.11.19 and quinn-udp 0.5.16. QOR ID's QUIC lock is patched too.
+Both services still fail on SQLx's optional SQLite lock dependency: stable
+SQLx 0.9.0 rejects the fixed libsqlite3-sys version, so that trial was removed.
+The chain's compatible QUIC, libz-sys 1.1.31 and Wasmtime 36.0.20 patches reduce
+its report from 53 to 44 vulnerability findings, with 36 warnings. Its SDK pin
+and runtime source are unchanged. No new exception was added. Service/chain
+findings and core maintenance warnings remain upstream work, not a reason to
+silently update this repository's pin.
 
 The official RustSec records identify these minimum patched versions; they are
 review inputs, not a tested dependency selection:

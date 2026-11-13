@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: LicenseRef-QOR-OS-Proprietary
 """tools/dev/products.sh's attempts, with stand-in suites run by the real CTest: its build stood in for, the script itself real."""
 
+import json
 import os
 import pathlib
 import shutil
@@ -44,6 +45,22 @@ SUITE = textwrap.dedent(
         print("FAIL!  : Stand::aCase() 'it' returned FALSE. ()")
     print("Totals: 1 passed, %d failed, 0 skipped, 0 blacklisted, 1ms" % fails, flush=True)
     sys.exit(1 if fails else 0)
+    """
+)
+
+QML = textwrap.dedent(
+    """\
+    #!/usr/bin/env python3
+    import json, os, pathlib, socket, stat, sys, time
+    runtime = pathlib.Path(os.environ["XDG_RUNTIME_DIR"])
+    address = runtime / sys.argv[-1]
+    channel = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+    channel.bind(str(address))
+    pathlib.Path(os.environ["STAND_IN"]).parent.joinpath("marks/display.json").write_text(json.dumps({
+        "runtime": str(runtime), "mode": stat.S_IMODE(runtime.stat().st_mode), "socket_bytes": len(os.fsencode(address))
+    }))
+    while True:
+        time.sleep(1)
     """
 )
 
@@ -103,9 +120,10 @@ class Attempts(unittest.TestCase):
         made = tempfile.TemporaryDirectory()
         self.addCleanup(made.cleanup)
         root = pathlib.Path(made.name)
-        for folder in ("kit/lib/cmake/Qt6", "shims", "stand-in", "marks"):
+        for folder in ("kit/lib/cmake/Qt6", "kit/qml/QtWayland/Compositor/XdgShell", "shims", "stand-in", "marks"):
             (root / folder).mkdir(parents=True)
         (root / "kit/lib/cmake/Qt6/Qt6Config.cmake").touch()
+        (root / "kit/qml/QtWayland/Compositor/XdgShell/qmldir").touch()
         self.old_record = root / "build/qq/Testing/prior/Test.xml"
         if old_record:
             self.old_record.parent.mkdir(parents=True)
@@ -126,18 +144,41 @@ class Attempts(unittest.TestCase):
             f'set_tests_properties({name} PROPERTIES SKIP_RETURN_CODE 77)\n' for name, how in suites)
         (root / "stand-in/CMakeLists.txt").write_text(
             f"cmake_minimum_required(VERSION 3.16)\nproject(standin NONE)\nenable_testing()\n{tests}", encoding="utf-8")
-        for name, text in (("cmake", CMAKE), ("ctest", CTEST)):
+        # No test starts the developer's real D-Bus/keyring. Other Python uses
+        # still run normally, including the fake compositor's real Unix socket.
+        python = '#!/bin/bash\nif [ "$1" = -c ]; then exit 1; fi\nexec "$REAL_PYTHON" "$@"\n'
+        for name, text in (("cmake", CMAKE), ("ctest", CTEST), ("qml", QML), ("python3", python)):
             (root / "shims" / name).write_text(text, encoding="utf-8")
             (root / "shims" / name).chmod(0o755)
         environ = dict(os.environ, PATH=f"{root}/shims:{os.environ['PATH']}", REAL_CMAKE=shutil.which("cmake"), REAL_CTEST=shutil.which("ctest"),
-                       STAND_IN=f"{root}/stand-in", **environment)
+                       STAND_IN=f"{root}/stand-in", REAL_PYTHON=sys.executable, **environment)
         done = subprocess.run(["bash", str(_SCRIPT), "--qt", str(root / "kit"), "--build-root", str(root / "build"), "--display", "session",
                                "--product", "qq", *arguments], env=environ, capture_output=True, text=True, timeout=120)
         ran = (root / "marks/ran").read_text(encoding="utf-8").splitlines() if (root / "marks/ran").exists() else []
         self.last_line = done.stdout.strip().splitlines()[-1] if done.stdout.strip() else ""
         self.configure_args = (root / "marks/configure.args").read_bytes().decode().split("\0") if (root / "marks/configure.args").exists() else []
         self.build_args = (root / "marks/build.args").read_bytes().decode().split("\0") if (root / "marks/build.args").exists() else []
+        receipt = root / "marks/display.json"
+        self.display = json.loads(receipt.read_text(encoding="utf-8")) if receipt.exists() else None
         return done.returncode, done.stdout + done.stderr, ran
+
+    def test_hidden_display_uses_a_private_short_runtime_and_cleans_it_up(self):
+        with tempfile.TemporaryDirectory() as outside:
+            inherited = pathlib.Path(outside) / ("desktop-runtime-" + "x" * 100)
+            inherited.mkdir()
+            sentinel = inherited / "keep"
+            sentinel.write_text("the desktop's runtime is not ours", encoding="utf-8")
+            code, said, ran = self.run_script([("tst_fine", "fine")], "--display", "offscreen", "--attempts", "1",
+                                              XDG_RUNTIME_DIR=str(inherited), TMPDIR=str(inherited))
+            self.assertEqual(code, 0, said)
+            self.assertEqual(len(ran), 1)
+            self.assertIsNotNone(self.display)
+            runtime = pathlib.Path(self.display["runtime"])
+            self.assertNotEqual(runtime, inherited)
+            self.assertEqual(self.display["mode"], 0o700)
+            self.assertLess(self.display["socket_bytes"], 108)
+            self.assertFalse(runtime.parent.exists(), "private display state survived cleanup")
+            self.assertTrue(sentinel.is_file(), "the inherited desktop runtime was changed")
 
     def test_native_preset_uses_the_same_cache_for_configuration_build_and_ctest(self):
         for preset in ("q-pi-release", "q-pi-asan"):

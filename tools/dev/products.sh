@@ -47,7 +47,7 @@
 # tools/dev/products-display.qml: a compositor on Qt's offscreen platform that
 # keeps each window at its own size and gives the newest the keyboard, as a
 # desktop's does. There is no X display, the sound goes nowhere, and the
-# session bus and its keyring are the run's own, so nothing reaches this
+# runtime directory, session bus and keyring are the run's own, so nothing reaches this
 # desktop's screen, speakers or keyring, and nothing on it can take a test
 # window's keyboard. It needs the kit's Qt Wayland Compositor, as Prism does,
 # and for the keyring dbus-daemon, python3-dbus and python3-gi.
@@ -271,15 +271,18 @@ start_keyring() {
     exit 1
 }
 start_display() {
-    export XDG_RUNTIME_DIR=${XDG_RUNTIME_DIR:-/run/user/$(id -u)}
     local socket=qor-products-$$ log=$BUILD_ROOT/display.log command
     if [ "$SHOW" = prism ]; then
         command=("$PRISM" --unlocked --socket "$socket" --size 1920x1080)
     else
         command=(qml "$REPO/tools/dev/products-display.qml" -- "$socket")
     fi
-    DISPLAY_HOME=$(mktemp -d)
+    # Unix socket paths are bounded (108 bytes on Linux). A caller's TMPDIR or
+    # desktop runtime directory may be long, shared, or contain live sockets.
+    DISPLAY_HOME=$(mktemp -d /tmp/qor-products.XXXXXXXX)
     trap stop_display EXIT
+    export XDG_RUNTIME_DIR=$DISPLAY_HOME/runtime
+    mkdir -m 700 "$XDG_RUNTIME_DIR"
     mkdir -p "$BUILD_ROOT"
     start_keyring
     unset DISPLAY

@@ -1,50 +1,44 @@
 # Where QOR OS stands
 
-For Andrew, 13 November 2026. Main is pushed at `3002419`, including integration
-`0c45307` and developer/domain work through `0cdae3d`. The next branch is
-`feat/core-audit-remediation`; it prepares the upstream repair procedure.
+For Andrew, 13 November 2026. Main remains `3002419`; current work is on
+`feat/core-audit-remediation`. Upstream repairs are pushed at `042941c` in
+Demiurge-chain draft PR #118. Neither the QOR OS core pin nor a release changed.
 
-## Developer access and domains
+## Repairs and developer access
 
-GitHub's homepage field is verified as QORSYNC.DEV. The README links progress,
-the masterplan, developer guidance and security. Five milestones were synchronized
-and read back. QOR-0026 records the public domain and approved service subdomains.
-Tracked-text checks refuse retired hosts, including encoded links, without
-printing matched content. Legacy contact references were removed without
-inventing replacement mailboxes.
+The Launcher test helper now uses Cargo's reported executable path. Patched
+core and Launcher dependencies report zero vulnerability advisories locally,
+with 13 and 23 maintenance warnings retained. Both services still fail on an
+SQLite dependency that even stable SQLx cannot update to the patched version.
+Compatible blockchain patches remove nine advisory findings; 44 remain, plus
+36 warnings. No audit exception was added.
 
-Offline developer discovery covers 14 areas using Python's standard library.
-`list`, `show` and `check` give agents structured source, prerequisite and action
-boundary information. They perform no network, execution, account or device action.
-The installable SDK, the software development kit, remains planned.
+At `042941c`, hosted chain format/lints and all 213 tests pass with WebAssembly
+built. QOR ID, Social and ARQADE build/test jobs pass. Launcher validation is
+still running; the service audits keep upstream's security job red. The pin
+stays at `6a4822d` until upstream and QOR integration are validated.
 
-Launcher and DRC-369 asset work remain upstream. The core bridge, the shell's
-command interface, has four version/amount commands only. Upstream domain source
-maintenance is in draft PR #118, with developer links and frozen destinations
-corrected. Vercel confirms the homepage domain assignments and
-Cloudflare nameservers, but project access fails. Service-domain migration,
-mail, installed settings and released clients are not yet accepted.
+Linux product tests now create a private short runtime directory and clean it
+up without touching the desktop's directory. Its new regression fails against
+the old script; all 18 harness fixtures pass on the native Pi with the fix.
 
-## Evidence and continuation
+GitHub's homepage remains QORSYNC.DEV; the README links progress, the masterplan,
+developer guidance and security. Offline discovery covers 14 contribution areas.
+The core bridge, the shell's command interface, still has four version/amount
+commands. Broader DRC-369 asset and agent capabilities remain gated upstream.
 
-Hosted Lint at `0cdae3d` passed 714 Python tests with 124 platform skips (838
-total) and all 63 ARQADE rule tests, plus the configured source checks.
-Fourteen discovery tests passed on Windows; the initial domain
-and GitHub-policy run passed 30 tests. The final expanded local validation was
-refused at 3,064 MiB available against the unchanged 3,072-MiB floor. Earlier
-incomplete local runs remain preserved. Git's normal commit hooks passed.
-Upstream's 33 homepage checks and Launcher registry check pass locally. Evidence
-is in `build/development-2026-11-13/session-04/`.
+## Q Pi and remaining acceptance
 
-The pinned-core dependency audit failed with four vulnerability advisories and
-13 warnings; upstream `74a1014` retains the affected versions. Remediate and test
-upstream before adding bridge capabilities or moving the pin. No advisory was
-ignored, and an inventory finding is not a demonstrated exploit.
-`docs/UPSTREAM.md` now gives the advisory-backed procedure, feature review and
-required tests. Dependency edits and native verification are still outstanding.
+Q Pi development is reopened. Its approved SSH route, secure remote access,
+works with strict host checks. Native trials verified private device/display
+and network namespaces, with at least 6,970 MiB available throughout rendering.
+Seven publishing protocol cases and the unversioned-folder window case pass;
+the second window case times out with both render loops. Neither run passes
+the complete suite. Evidence is in `build/development-2026-11-13/session-05/`.
 
-Qt CI, automated native builds, stays paused pending isolated workers. Native
-product/sanitizer journeys, hardware and release gates remain open; Q Pi stays
-on hold. Branch protection is unavailable on the private repository's current
-plan. No image, package or release was published. GitHub reports successful
-automatic Vercel preview checks; no production promotion was performed.
+Qt CI, automated native builds, remains paused pending isolated workers. Full
+native products/sanitizers, hardware, image and release acceptance remain open.
+GitHub private vulnerability reporting is enabled upstream; QOR OS's public
+report-routing policy is still open. Vercel confirms domain assignments but
+project access remains unresolved. No image, package, release or production
+deployment was published.

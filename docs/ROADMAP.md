@@ -707,6 +707,15 @@ vendor's claim. No firmware turns an output-only HDMI port into an input, so thi
   records the findings and their scope. Review feature/target reachability and
   compatible updates, run upstream tests and a clean audit, then review the QOR
   pin. Do not suppress findings or copy the core into this repository.
+  Repair commit `042941c` is pushed in upstream PR #118: local core/host audits
+  now report zero vulnerability advisories, retaining 13/23 warnings. Compatible
+  chain dependency patches remove nine findings (44 remain, plus 36 warnings).
+  QOR ID and Social each retain one SQLite advisory; stable SQLx also rejects the
+  fixed version. The Launcher test helper now uses Cargo's reported executable
+  path. Hosted build/test acceptance and the QOR OS pin review remain open.
+  At that repair commit, hosted chain format/lints and all 213 workspace tests
+  pass with WebAssembly built; QOR ID, Social and ARQADE build/test jobs pass.
+  Launcher validation is still running, and the two service audits still fail.
 - [x] The repository private, as its documents always said (1 November; it had been public since 27 October, while CI ran on
   the owner's machine)
 - On 13 November, GitHub Actions settings were tightened and read back: six reviewed
@@ -762,7 +771,10 @@ the owner's advisers.
 - [ ] Code-signing certificates and the Secure Boot key ([release/SIGNING.md](release/SIGNING.md))
 - [ ] An external security review of the QOR core and the vault service ([release/SECURITY-REVIEW.md](release/SECURITY-REVIEW.md))
 - [ ] QOR ID in a second region with offline login; the key exposed on 5 October 2026 replaced ([release/SIGN-IN.md](release/SIGN-IN.md))
-- [ ] A public way to report a security problem: this repository's form reaches only its members, and demiurge-chain's private vulnerability reporting is off
+- [ ] A public way to report a QOR OS security problem: this private repository's
+  form reaches only its members. Demiurge-chain's public private-reporting form
+  is enabled; its scope and routing for private QOR OS reports still need an
+  explicit published policy before this release gate closes.
 - [ ] Every required build and test run and passed on the commit released, as Build's Release readiness says
   (`tools/ci/release_readiness.py`). That includes the products' suites on a graphics card with nothing eased, on Windows and on
   a Linux machine, since what software eases ([CI.md](CI.md#what-linux-runs)) proves nothing of what it leaves out. Not yet: Build
@@ -877,6 +889,16 @@ evidence; no Q Pi image has been built or accepted.
   programs pass hardening/layout checks and six selected non-rendering cases
   pass. The full product and sanitizer suites remain required, so this item
   stays open.
+  On 13 November, trusted native test workers verified separate process, mount,
+  network and user namespaces, hidden hardware-device paths, loopback-only
+  networking and a private software display under the original heavy lock.
+  The minimum observed headroom was 6,970 MiB, above the unchanged 3,072-MiB
+  floor. Seven protocol cases and the unversioned-folder window case pass,
+  but the full publishing run times out at 180 seconds in the other window
+  case with both threaded and basic render loops. These are incomplete runs,
+  not a passing suite or isolated CI-worker acceptance. The basic-loop trial
+  was not adopted. The Linux harness's separate short-runtime regression fails
+  against the old script and all 18 fixture tests pass with the fix on ARM64.
 - [ ] Build and statically validate a regular-file image with a real maintained
   Pi login/desktop, native QOR apps and local development tools; no simulator.
 - [ ] After the [action-time write gates](../image/README.md#authorised-q-pi-target-and-action-time-write-gates), prove Pi boot, hardware graphics,
