@@ -12,7 +12,8 @@ their changes since, and pulls of what is still shared, are recorded here.
 - **Native QOR Media dependencies, 13 November.** The Linux product helper now
   selects pinned x64 or ARM64 PDFium archives and keeps their extracted caches
   separate. Unsupported architectures, checksum failures and incomplete
-  extraction refuse before Media configuration. The official ARM64 archive's
+  extraction refuse before Media configuration. Retrying extraction invalidates
+  any earlier completion marker before unpacking. The official ARM64 archive's
   digest and library's ARM64/16-KiB layout were checked without executing it.
   Native Media builds still require the kit's missing Qt PDF modules.
 

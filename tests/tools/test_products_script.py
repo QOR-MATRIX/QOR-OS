@@ -116,7 +116,7 @@ class Attempts(unittest.TestCase):
         self.assertEqual(len(ran), 4)
         self.assertIn("Failed once, and passed only on a later attempt", said)
 
-    def run_script(self, suites, *arguments, old_record=False, blocked_record=False, script=None, **environment):
+    def run_script(self, suites, *arguments, old_record=False, blocked_record=False, old_pdfium_marker=False, script=None, **environment):
         made = tempfile.TemporaryDirectory()
         self.addCleanup(made.cleanup)
         root = pathlib.Path(made.name)
@@ -124,6 +124,10 @@ class Attempts(unittest.TestCase):
             (root / folder).mkdir(parents=True)
         (root / "kit/lib/cmake/Qt6/Qt6Config.cmake").touch()
         (root / "kit/qml/QtWayland/Compositor/XdgShell/qmldir").touch()
+        if old_pdfium_marker:
+            cache = root / "cache/qor-media-pdfium/chromium-8111/linux-arm64"
+            cache.mkdir(parents=True)
+            (cache / ".archive-sha256").write_text("042de247138f96341534cccf24ed21c2550a7245b936bb4a60d2340120000f05\n")
         self.old_record = root / "build/qq/Testing/prior/Test.xml"
         if old_record:
             self.old_record.parent.mkdir(parents=True)
@@ -219,13 +223,16 @@ class Attempts(unittest.TestCase):
         self.assertEqual(ran, [])
 
     def test_media_refuses_partial_extraction_without_qualifying_the_cache(self):
-        code, said, ran = self.run_script([], "--product", "media", "--build-only", STAND_IN_MACHINE="aarch64", UNPACK_GOES="fails")
-        self.assertNotEqual(code, 0, said)
-        self.assertIn("archive could not be unpacked", said)
-        self.assertTrue(self.unpacked)
-        self.assertFalse(self.download_cache_qualified)
-        self.assertEqual(self.configure_args, [])
-        self.assertEqual(ran, [])
+        for old_marker in (False, True):
+            with self.subTest(previous_extraction_marker=old_marker):
+                code, said, ran = self.run_script([], "--product", "media", "--build-only", old_pdfium_marker=old_marker,
+                                                  STAND_IN_MACHINE="aarch64", UNPACK_GOES="fails")
+                self.assertNotEqual(code, 0, said)
+                self.assertIn("archive could not be unpacked", said)
+                self.assertTrue(self.unpacked)
+                self.assertFalse(self.download_cache_qualified)
+                self.assertEqual(self.configure_args, [])
+                self.assertEqual(ran, [])
 
     def test_missing_keyring_fixture_refuses_before_starting_test_services(self):
         with tempfile.TemporaryDirectory() as source:

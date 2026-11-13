@@ -916,7 +916,10 @@ evidence; no Q Pi image has been built or accepted.
   The QOR Media helper additionally selects a pinned native ARM64 PDFium package
   with a separate cache. Its digest and library layout pass static inspection;
   the Pi kit lacks Qt PDF/PDF Quick, so native Media compilation and runtime
-  acceptance remain open. The architecture/refusal regressions await hosted Lint.
+  acceptance remain open. Hosted Linux Lint at `c1902f2` passes all 23 harness
+  fixtures: 720 Python tests pass with 124 platform skips and all 63 ARQADE
+  tests pass. A further regression checks a stale extraction marker is removed
+  before retrying an incomplete package; its new run remains pending.
 - [ ] Build and statically validate a regular-file image with a real maintained
   Pi login/desktop, native QOR apps and local development tools; no simulator.
 - [ ] After the [action-time write gates](../image/README.md#authorised-q-pi-target-and-action-time-write-gates), prove Pi boot, hardware graphics,

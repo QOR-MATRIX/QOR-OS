@@ -189,6 +189,7 @@ pdfium() {
     if [ ! -f "$dir/PDFiumConfig.cmake" ] || [ "$(cat "$dir/.archive-sha256" 2>/dev/null)" != "$sha256" ]; then
         # A partial extraction must not be reused merely because its CMake
         # entry point was written before tar failed.
+        rm -f -- "$dir/.archive-sha256" || return 1
         tar -xzf "$archive" -C "$dir" || { echo "PDFium's archive could not be unpacked." >&2; return 1; }
         printf '%s\n' "$sha256" > "$dir/.archive-sha256" || return 1
     fi

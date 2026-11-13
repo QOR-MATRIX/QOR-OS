@@ -3,8 +3,8 @@
 For Andrew, 13 November 2026. Work continues on
 `feat/native-publishing-validation`. Main contains the Linux test-runtime fix.
 The missing fake-keyring check passes hosted Linux CI, automated checks:
-716 Python tests pass with 124 platform skips, including all 19 harness fixtures;
-all 63 ARQADE rule tests pass. The new Media dependency selection awaits its checks.
+720 Python tests pass with 124 platform skips, including all 23 harness fixtures;
+all 63 ARQADE rule tests pass. An additional stale-cache retry check is pending.
 
 ## Verified progress
 
@@ -16,8 +16,9 @@ The new missing-fixture regression is covered by the hosted run above.
 
 Q Pi's full QQ product procedure initially stopped before tests: its filtered
 snapshot lacked the tracked in-memory fake keyring. A private tools overlay now
-supplies it, and the broader software run is in progress under the original
-coordinator. It has not passed; hardware and image qualification remain open.
+supplies it. World rendering and scene suites pass; Studio is running under
+the original coordinator. The full procedure has not passed; hardware and image
+qualification remain open.
 
 Demiurge-chain draft PR #118 has further certificate/compression patches at
 `3d71009`. Its local audit reports 38 vulnerability findings and 26 maintenance
