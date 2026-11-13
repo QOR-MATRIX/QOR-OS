@@ -9,6 +9,13 @@ their changes since, and pulls of what is still shared, are recorded here.
 
 ## [Unreleased]
 
+- **Pinned core audit, 13 November.** The on-demand hosted dependency check
+  reports four vulnerability advisories and 13 warnings at core pin `6a4822d`.
+  The same affected versions remain in upstream `74a1014`. The security limits
+  and masterplan now record upstream remediation, target/feature review and
+  tested pin movement as the next priority; no audit exception or pin change was
+  made. This is distinct from the passing history scan and developer-tool Lint.
+
 - **Offline developer discovery, 13 November.** A Python-only `list`, `show`
   and `check` command exposes reviewed source, guidance, prerequisites and action
   boundaries for apps, Lumen, services, Prism, Q Pi, products, assets and upstream
@@ -18,6 +25,10 @@ their changes since, and pulls of what is still shared, are recorded here.
   source content or connects to a service. Hostile-input and fresh-checkout CLI
   tests join the existing hosted tooling suite; public SDK and runtime bridge
   capabilities remain separate Phase 4 tasks.
+  Hosted Lint at `5a853c2` passes 706 Python tests with 124 platform skips and
+  63 ARQADE rule tests. Fourteen focused Windows tests and commit hooks pass;
+  the full local tooling run and all-file hooks remain resource-blocked under
+  the unchanged 3,072-MiB floor.
 
 - **GitHub setup on Windows, 13 November.** Decode GitHub CLI responses as
   UTF-8 so milestone titles with punctuation match their existing records instead

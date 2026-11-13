@@ -102,6 +102,17 @@ plan. The prepared ruleset is not an enforced control.
 
 Say so if you find a way past one; these are the walls we know are low.
 
+- **The pinned core's dependency audit fails.** The 13 November
+  [hosted audit](https://github.com/QOR-MATRIX/qor-os/actions/runs/43474225093)
+  found four vulnerability advisories and 13 additional warnings in the lock file
+  at `6a4822d`: `libsqlite3-sys 0.38.2` (RUSTSEC-2026-0459),
+  `quinn-proto 0.11.18` (RUSTSEC-2026-0523 and RUSTSEC-2026-0524), and
+  `quinn-udp 0.5.15` (RUSTSEC-2026-0538). Current upstream `74a1014` still locks
+  those versions. The SQLite issue depends on opening an untrusted database/WAL
+  pair; the Quinn UDP advisory excludes Linux and Windows. Application feature
+  selection and reachability need review; a lock-file finding alone does not prove
+  exploitation. Fix and test dependencies upstream, rerun the audit, then review
+  the QOR OS pin. No advisory was ignored or security gate weakened.
 - **This repository was public from 27 October to 1 November 2026,** against its own
   documents, while CI ran on the owner's machine. It was recorded as made private on 1 November;
   private visibility was reconfirmed through the repository API on 13 November. Treat the code as

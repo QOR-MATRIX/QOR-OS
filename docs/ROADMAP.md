@@ -374,6 +374,10 @@ services, QQ's agent tools and the upstream QOR Launcher/DRC-369 boundary.
   no execution rights; the [developer guide](../sdk/README.md#offline-discovery)
   describes the contract. This increment is on `feat/developer-discovery`, based
   on main `3e1e2a6`; the installable SDK and runtime integrations remain open.
+  Hosted Lint at `5a853c2` passes 706 tooling tests with 124 platform skips and
+  all 63 ARQADE rule tests. All 14 discovery tests also pass on Windows. The full
+  local tooling run and all-file hooks remain resource-blocked; this does not
+  replace native product, sanitizer or isolated-runner acceptance.
 - [ ] Launcher/DRC-369 and agent integration: first specify and test the required
   read-only core bridge capabilities upstream; then add trusted approval flows for
   authorised mutations. The current bridge has four version/amount commands only.
@@ -682,6 +686,13 @@ vendor's claim. No firmware turns an output-only HDMI port into an input, so thi
 
 - [x] Exploit mitigations on every program, read back in CI; the suites under sanitizers; CI pinned by content; secrets
   and advisories looked for
+- [ ] Resolve the pinned core's current dependency advisories upstream before
+  expanding Launcher/DRC-369 bridge capabilities. The 13 November on-demand audit
+  at `6a4822d` fails with four vulnerability advisories and 13 warnings; upstream
+  `74a1014` retains the affected versions. [SECURITY.md](../SECURITY.md#known-limits)
+  records the findings and their scope. Review feature/target reachability and
+  compatible updates, run upstream tests and a clean audit, then review the QOR
+  pin. Do not suppress findings or copy the core into this repository.
 - [x] The repository private, as its documents always said (1 November; it had been public since 27 October, while CI ran on
   the owner's machine)
 - On 13 November, GitHub Actions settings were tightened and read back: six reviewed
