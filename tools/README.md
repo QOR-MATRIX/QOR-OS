@@ -13,6 +13,7 @@ installation, repository-administration or device commands. Follow
 | `dev/Enter-QorShell.ps1` | Loads MSVC, Qt, CMake and Ninja into the current PowerShell |
 | `dev/build.ps1` | Configure, build, optionally test or build a target with a preset |
 | `dev/run.ps1` | Runs `qor-shell` with arguments |
+| `dev/developer.py` | Offline `list`, `show` and `check` for reviewed developer entry points; versioned JSON for agents, with no execution or network access ([usage and boundaries](../sdk/README.md#offline-discovery)) |
 | `dev/prism-gate.sh`, `dev/prism_benchmark.py` | Existing display diagnostic and its bounded benchmark-report validator; [scope and evidence requirements](../docs/PERFORMANCE.md#how-to-measure), not hardware/release acceptance by themselves |
 | `dev/heavy.py` | Native Linux per-account job coordination and existing RAM guard; [scope, qualification and incomplete-run recovery](../image/README.md#native-linux-heavy-job-coordination). Original Windows/WSL coordinator unchanged |
 | `ci/check_headers.py` | Verifies SPDX headers |

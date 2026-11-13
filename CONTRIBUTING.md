@@ -29,6 +29,10 @@ that bind everyone, people and AI assistants alike, are in
 
 ## One-time setup
 
+Use Python 3.12 or later, matching hosted CI and the offline developer discovery
+tool. [Find a subsystem and its prerequisites](sdk/README.md#offline-discovery)
+before building it.
+
 ```powershell
 git clone https://github.com/QOR-MATRIX/qor-os.git
 cd qor-os

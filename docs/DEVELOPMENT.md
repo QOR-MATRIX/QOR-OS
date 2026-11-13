@@ -8,6 +8,12 @@ before changing them.
 
 ## 1. Daily loop
 
+For a new subsystem, begin with the [developer guide](../sdk/README.md) or
+`python tools/dev/developer.py list`. `show <id> --json` supplies its source,
+prerequisites and action boundaries to an agent without launching that tool.
+`check --json` validates catalogue structure and references offline. These need
+Python 3.12 only; they do not qualify a build environment or grant execution rights.
+
 On the owner's Windows machine, use `ci-windows` for changes while the
 `windows-release` shell may be running. Never kill or relink that shell.
 Configure explicitly when needed; automatic IDE configure/build remains disabled.

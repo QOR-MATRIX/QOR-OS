@@ -366,8 +366,14 @@ homepage links the canonical [developer entry point](../sdk/README.md), current
 progress and this masterplan. The source-verified routes cover apps, assets,
 services, QQ's agent tools and the upstream QOR Launcher/DRC-369 boundary.
 
-- [ ] Offline machine-readable discovery of developer entry points, prerequisites
+- [x] Offline machine-readable discovery of developer entry points, prerequisites
   and action boundaries, with JSON output for agents and hostile-input tests.
+  `tools/dev/developer.py` provides `list`, `show` and `check` for 14 reviewed
+  integration areas using Python only. It validates local path existence and
+  pinned upstream URL syntax, not installed tools or upstream content. It grants
+  no execution rights; the [developer guide](../sdk/README.md#offline-discovery)
+  describes the contract. This increment is on `feat/developer-discovery`, based
+  on main `3e1e2a6`; the installable SDK and runtime integrations remain open.
 - [ ] Launcher/DRC-369 and agent integration: first specify and test the required
   read-only core bridge capabilities upstream; then add trusted approval flows for
   authorised mutations. The current bridge has four version/amount commands only.

@@ -37,8 +37,10 @@ apply. A document not indexed here (or a product's own README) is not current.
 Subsystem entry points are also current references: [apps](../apps/README.md),
 [Kit](../kit/README.md), [Prism](../prism/README.md),
 [platform](../platform/README.md), [services](../services/README.md),
-[simulator](../sim/README.md), [SDK template](../sdk/README.md),
+[simulator](../sim/README.md), [developer guide and SDK template](../sdk/README.md),
 [tools](../tools/README.md) and [tests](../tests/README.md).
+The [developer entry catalogue](../sdk/developer-tools.json) is machine-readable
+navigation for the offline discovery command, not another roadmap or runtime API.
 Image inputs are described by the image guide, including
 [installer attribution](../image/installer/ATTRIBUTION.md) and
 [Q Pi preparation metadata](../image/pi/preparation.json), which is planning data,

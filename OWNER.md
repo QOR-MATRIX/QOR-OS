@@ -1,45 +1,44 @@
 # Where QOR OS stands
 
-For Andrew, 13 November 2026. Main merged the development checkpoint at
-`0c45307`, with current developer guidance, as requested by the owner.
+For Andrew, 13 November 2026. Main is pushed at `3e1e2a6`, following merge
+`0c45307`. New work is on `feat/developer-discovery`, not merged into main.
 
-## Main and the developer entry point
+## Developer access
 
-The older readiness change on main was reconciled with its tested successor.
-The merged application and CI code matches the integration checkpoint; no
-build gate or runner-isolation requirement was relaxed. The repository homepage
-links current progress, the masterplan, the developer guide and security.
-GitHub setup now reads UTF-8 (international text encoding) explicitly: the
-Windows regression reproduced a failed milestone match before the fix. Setup
-also keeps the homepage linked to the canonical documentation index.
+GitHub's homepage links the canonical documentation index. The README links
+progress, the masterplan, developer guidance and security; all five milestones
+were synchronized and read back. GitHub setup now handles international text
+correctly on Windows and retains the homepage link. Its 23 local tests pass.
+Main's hosted Lint and history scan pass. Release readiness fails because the
+required Qt jobs remain paused; their workers are offline.
 
-The developer guide identifies source and tools across apps, services, Prism,
-QQ, ARQADE, Media, assets and Q Pi. Model Context Protocol (MCP), the interface
-for agents to call tools, already connects external clients to QQ Studio over a
-local pipe. Scene mutation and logic execution retain their existing trust gates.
+The new branch adds offline discovery for 14 integration areas. Python 3.12's
+standard library supplies `list`, `show` and `check`, with structured JSON for
+agents. Entries identify source, prerequisites and action boundaries. Validation
+refuses malformed metadata, unsafe paths and misleading upstream links. The
+tool reads no linked source content and performs no tool execution, sign-in,
+network request, installation or device action. It is not the installable SDK
+(software development kit) or an authority grant.
 
-QOR Launcher and DRC-369 asset functionality belong upstream in demiurge-chain.
-Their current source at `74a1014` was inspected. QOR OS's pinned core bridge
-exposes only four version/amount commands; it does not yet expose those asset or
-agent-authorisation operations. The frozen upstream root SDK is not a supported
-integration route. No keys or signing authority are given to agents.
+QOR Launcher and DRC-369 assets remain upstream in demiurge-chain. The current
+QOR OS core bridge exposes four version/amount commands, without asset or agent
+authorization operations. Source links identify the active implementations;
+the frozen upstream root SDK is not a supported route. QQ's existing Model
+Context Protocol (MCP) tools retain their same-user pipe and trust boundaries.
 
-## Evidence and remaining gates
+## Evidence and continuation
 
-The preserved implementation evidence includes 22 Windows software suites,
-33 exploit-hardened programs and zero interface-code warnings. Hosted Lint at
-`3ad8954` passed 691 tooling tests with 124 platform skips. The Pi's 27-suite OS
-check and seven additional QQ protocol cases are separate software evidence.
-Full products, sanitizers, creator/player journey and physical devices remain open.
-Rust's pinned dependency warning still prevents warning-free acceptance.
+All 14 discovery tests pass locally, including the core-pin drift check. The
+broader tooling run stopped at
+3,061 MiB available RAM against the unchanged 3,072-MiB floor; its 72 completed
+test lines do not constitute a suite pass. Local all-file hooks were held at
+3,071 MiB; they and hosted Lint are pending. Seven pinned upstream source objects
+and the changed guides' local links were verified separately. Evidence is retained
+in `build/development-2026-11-13/session-04/`.
 
-GitHub requires reviewed action repositories and full commit pins; job tokens
-are read-only. Registered Qt workers are offline and no isolation flag is set.
-Branch protection remains unavailable on this private repository's current plan.
-A main merge is not an image publication, isolated CI proof or release acceptance.
-
-Next, begin offline developer-tool discovery on a new branch, with structured
-output for agents and tests that refuse unsafe metadata. The masterplan also
-tracks upstream read-only Launcher/DRC-369 bridge work, trusted approvals and
-reproducible app/asset onboarding. Native validation and isolation gates continue.
-Receipts: `build/development-2026-11-13/session-04/`; earlier evidence is intact.
+Next, specify and test read-only Launcher/DRC-369 bridge capabilities upstream,
+then review the core pin and approval requirements. Reproducible app/asset
+onboarding is the other developer priority. The Rust dependency warning, full
+product/sanitizer and creator/player journeys, device acceptance and isolated Qt
+CI (automated builds) remain open. Branch protection remains unavailable on the
+private repository's current plan. No release or hardware gate was closed.

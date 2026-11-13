@@ -1,0 +1,289 @@
+{
+  "schema_version": 1,
+  "entries": [
+    {
+      "id": "apps",
+      "title": "Apps and the in-tree template",
+      "summary": "Build a native Qt app with Lumen controls and QOR service interfaces.",
+      "repository": "QOR-MATRIX/qor-os",
+      "docs": [
+        "sdk/README.md#template",
+        "docs/DEVELOPMENT.md#add-an-app",
+        "docs/BUILDING.md"
+      ],
+      "sources": [
+        "sdk/templates/qor-app",
+        "apps"
+      ],
+      "prerequisites": [
+        "Commercial Qt 6.12 kit and the documented CMake preset.",
+        "Use the existing in-tree modules; an installable public SDK is still a roadmap task."
+      ],
+      "boundary": "Opening source is read-only. Building or running the template is separate; service intents can change the session."
+    },
+    {
+      "id": "lumen",
+      "title": "Lumen and Kit",
+      "summary": "Use the shared controls, design tokens, accessibility behavior and golden-image tests.",
+      "repository": "QOR-MATRIX/qor-os",
+      "docs": [
+        "kit/README.md",
+        "docs/design/LUMEN.md",
+        "docs/PERFORMANCE.md"
+      ],
+      "sources": [
+        "kit",
+        "tests/golden"
+      ],
+      "prerequisites": [
+        "Follow the Lumen roles, reduced-motion settings and keyboard/focus conventions.",
+        "Use the commercial Qt kit and the documented visual-test environment."
+      ],
+      "boundary": "Benchmark visual changes on the same machine. Golden tests and rendering require an explicitly selected test environment."
+    },
+    {
+      "id": "services",
+      "title": "System services, input and audio",
+      "summary": "Find service contracts and the qorctl command reference.",
+      "repository": "QOR-MATRIX/qor-os",
+      "docs": [
+        "docs/SERVICES.md",
+        "docs/CONTROLLERS.md",
+        "docs/AUDIO.md"
+      ],
+      "sources": [
+        "services/interfaces",
+        "input",
+        "audio",
+        "tools/qorctl/main.cpp"
+      ],
+      "prerequisites": [
+        "Read each service's contract before using its state or intents.",
+        "Tests require private endpoints, virtual controllers and silent audio."
+      ],
+      "boundary": "qorctl can change theme, Wi-Fi and notifications in a running session. Discovery does not invoke it or authorize device access."
+    },
+    {
+      "id": "prism",
+      "title": "Prism and platform integration",
+      "summary": "Find the compositor, shell architecture and performance requirements.",
+      "repository": "QOR-MATRIX/qor-os",
+      "docs": [
+        "prism/README.md",
+        "docs/ARCHITECTURE.md",
+        "docs/PERFORMANCE.md"
+      ],
+      "sources": [
+        "prism",
+        "platform"
+      ],
+      "prerequisites": [
+        "Linux and the commercial Qt 6.12 kit for compositor builds.",
+        "Follow the original QOR heavy-job lock and memory checks; preserve the running Windows shell."
+      ],
+      "boundary": "Software, sanitizer, GPU and physical-device evidence are distinct. Do not launch a display or access devices through discovery."
+    },
+    {
+      "id": "q-pi",
+      "title": "Q Pi and device images",
+      "summary": "Find native ARM64 qualification, guarded application builds and image procedures.",
+      "repository": "QOR-MATRIX/qor-os",
+      "docs": [
+        "image/README.md",
+        "docs/BUILDING.md"
+      ],
+      "sources": [
+        "tools/image/pi_preflight.py",
+        "tools/image/pi_payload.py",
+        "tools/dev/heavy.py",
+        "image/pi"
+      ],
+      "prerequisites": [
+        "A supported native ARM64 builder, commercial Qt kit, measured RAM and physical scratch capacity.",
+        "Use the documented authorization and action-time checks for any device write."
+      ],
+      "boundary": "Metadata checks, software tests and image composition do not establish hardware acceptance. This tool neither connects to a Pi nor writes an image."
+    },
+    {
+      "id": "qq",
+      "title": "QQ games and assets",
+      "summary": "Find Studio, Player, samples and the asset-library implementation.",
+      "repository": "QOR-MATRIX/qor-os",
+      "docs": [
+        "products/qq/README.md",
+        "products/qq/samples/README.md",
+        "docs/BUILDING.md"
+      ],
+      "sources": [
+        "products/qq/studio",
+        "products/qq/player",
+        "products/qq/studio/assetlibrary.cpp"
+      ],
+      "prerequisites": [
+        "Build through the documented QQ product procedure with the commercial Qt kit.",
+        "Use a trusted test project and preserve asset provenance and project-trust checks."
+      ],
+      "boundary": "Building, playing, importing assets and publishing are separate actions. External engines retain their own licensing and automation restrictions."
+    },
+    {
+      "id": "qq-mcp",
+      "title": "QQ Studio tools for agents",
+      "summary": "Discover the local stdio MCP relay and the source of live Studio tool schemas.",
+      "repository": "QOR-MATRIX/qor-os",
+      "docs": [
+        "sdk/README.md#agents-and-tools",
+        "SECURITY.md#known-limits",
+        "products/qq/README.md"
+      ],
+      "sources": [
+        "products/qq/agent/bridge.cpp",
+        "products/qq/agent/mcpserver.cpp",
+        "products/qq/agent/studiotools.cpp",
+        "products/qq/tests/tst_agent.cpp"
+      ],
+      "prerequisites": [
+        "Build qq-mcp through the QQ product procedure and open a trusted test project in Studio.",
+        "An MCP client initializes the local relay and requests tools/list before tools/call."
+      ],
+      "boundary": "The same-user pipe is not a sandbox. Scene changes, logic execution and frame capture require their existing trust gates and user authority. Provider keys remain in the platform keychain; QOR keys are never exposed."
+    },
+    {
+      "id": "arqade",
+      "title": "ARQADE apps and games",
+      "summary": "Find the native app, games and rules shared with the upstream server.",
+      "repository": "QOR-MATRIX/qor-os",
+      "docs": [
+        "products/arqade/qt/README.md",
+        "products/arqade/games/README.md",
+        "docs/UPSTREAM.md"
+      ],
+      "sources": [
+        "products/arqade/qt",
+        "products/arqade/games",
+        "products/arqade/tests"
+      ],
+      "prerequisites": [
+        "Use the product build procedure and virtual input/audio for tests.",
+        "Shared game rules and fixtures follow the upstream change procedure."
+      ],
+      "boundary": "The website and server remain upstream. Local play or rule fixtures are not live network, payout or release acceptance."
+    },
+    {
+      "id": "media",
+      "title": "QOR Media",
+      "summary": "Find the native media application and its product build procedure.",
+      "repository": "QOR-MATRIX/qor-os",
+      "docs": [
+        "tools/qor-media/README.md",
+        "docs/BUILDING.md"
+      ],
+      "sources": [
+        "tools/qor-media"
+      ],
+      "prerequisites": [
+        "Use the commercial Qt kit and the documented product build.",
+        "Retain carried-code licensing notices and use hostile file fixtures for parser changes."
+      ],
+      "boundary": "Opening real user media is separate from isolated fixtures. Planned format support is tracked only in the roadmap."
+    },
+    {
+      "id": "store",
+      "title": "Assets, themes and Store packages",
+      "summary": "Find package formats, validation and provenance requirements.",
+      "repository": "QOR-MATRIX/qor-os",
+      "docs": [
+        "docs/STORE.md",
+        "sdk/README.md#themes-and-widgets",
+        "SECURITY.md"
+      ],
+      "sources": [
+        "store",
+        "tools/store/build_store.py"
+      ],
+      "prerequisites": [
+        "Follow signed catalogue and package verification rules.",
+        "QOR OS 1.0 uses free items and test CGT on the devnet only."
+      ],
+      "boundary": "Do not read signing keys, re-sign fixtures, install packages or publish through discovery. An asset listing does not grant install, execution or signing authority."
+    },
+    {
+      "id": "qor-core",
+      "title": "The pinned QOR core bridge",
+      "summary": "Find the current core pin and its four exposed version/amount commands.",
+      "repository": "QOR-MATRIX/demiurge-chain",
+      "docs": [
+        "sdk/README.md#launcher-core-and-drc-369",
+        "docs/UPSTREAM.md",
+        "AGENTS.md"
+      ],
+      "sources": [
+        "https://github.com/QOR-MATRIX/demiurge-chain/blob/6a4822d10c93694d6d12abf33a75b4df6cac918a/tools/qor-launcher/core/src/commands.rs"
+      ],
+      "prerequisites": [
+        "Use core/CMakeLists.txt for the pin and the upstream procedure to change it.",
+        "The current bridge exposes core_version, token_info, parse_amount and format_sparks."
+      ],
+      "boundary": "Do not copy key-handling code here. DRC-369 and agent authorization are not exposed through this bridge; use exact integer amount strings."
+    },
+    {
+      "id": "launcher",
+      "title": "QOR Launcher",
+      "summary": "Find the active upstream Launcher and its Qt shell.",
+      "repository": "QOR-MATRIX/demiurge-chain",
+      "docs": [
+        "sdk/README.md#launcher-core-and-drc-369",
+        "docs/UPSTREAM.md",
+        "docs/ROADMAP.md#phase-4--the-ecosystem"
+      ],
+      "sources": [
+        "https://github.com/QOR-MATRIX/demiurge-chain/tree/74a1014464f85e610f929ebadf8c199c82673db7/tools/qor-launcher",
+        "https://github.com/QOR-MATRIX/demiurge-chain/tree/74a1014464f85e610f929ebadf8c199c82673db7/tools/qor-launcher/shell"
+      ],
+      "prerequisites": [
+        "Read upstream AGENTS.md and its current documentation before changing the Launcher.",
+        "QOR OS integration requires supported upstream bridge capabilities and a reviewed pin update."
+      ],
+      "boundary": "These are source references, not an installed QOR OS service. No Launcher, account or network operation is started."
+    },
+    {
+      "id": "drc369",
+      "title": "DRC-369 assets",
+      "summary": "Find the active chain pallet and core asset client for upstream integration work.",
+      "repository": "QOR-MATRIX/demiurge-chain",
+      "docs": [
+        "sdk/README.md#launcher-core-and-drc-369",
+        "docs/UPSTREAM.md",
+        "docs/ROADMAP.md#phase-4--the-ecosystem"
+      ],
+      "sources": [
+        "https://github.com/QOR-MATRIX/demiurge-chain/blob/74a1014464f85e610f929ebadf8c199c82673db7/chain/pallets/drc369/src/lib.rs",
+        "https://github.com/QOR-MATRIX/demiurge-chain/blob/74a1014464f85e610f929ebadf8c199c82673db7/tools/qor-launcher/core/src/chain/assets.rs"
+      ],
+      "prerequisites": [
+        "Use the active upstream chain/core sources; the root upstream sdk directory is frozen.",
+        "Read-only bridge capabilities and their tests must precede QOR OS integration."
+      ],
+      "boundary": "No DRC RPC or signing capability is advertised here. Asset mutations require the upstream core and trusted approval; QOR OS 1.0 moves no money."
+    },
+    {
+      "id": "launcher-agents",
+      "title": "Launcher agent authorization",
+      "summary": "Find upstream agent-link authorization checks and the example client.",
+      "repository": "QOR-MATRIX/demiurge-chain",
+      "docs": [
+        "sdk/README.md#launcher-core-and-drc-369",
+        "AGENTS.md",
+        "docs/ROADMAP.md#phase-4--the-ecosystem"
+      ],
+      "sources": [
+        "https://github.com/QOR-MATRIX/demiurge-chain/blob/74a1014464f85e610f929ebadf8c199c82673db7/tools/qor-launcher/core/src/agents.rs",
+        "https://github.com/QOR-MATRIX/demiurge-chain/blob/74a1014464f85e610f929ebadf8c199c82673db7/tools/qor-launcher/src-tauri/examples/agent_link.rs"
+      ],
+      "prerequisites": [
+        "Follow upstream controller approval, capability, expiry and signature checks.",
+        "A new QOR OS bridge interface needs upstream tests and a reviewed pin update."
+      ],
+      "boundary": "An assistant cannot grant itself authority or obtain a QOR key. Source discovery does not register an agent, sign a request or expose these operations through the existing bridge."
+    }
+  ]
+}

@@ -1,5 +1,9 @@
 # Building and running QOR OS
 
+Use Python 3.12 or later for repository tooling, matching the hosted CI baseline.
+The [offline developer guide](../sdk/README.md#offline-discovery) can identify
+source, prerequisites and action boundaries before installing a Qt toolchain.
+
 QOR OS has two kinds of build:
 
 - **The OS**: the CMake presets below. They build the Kit, services, shell,

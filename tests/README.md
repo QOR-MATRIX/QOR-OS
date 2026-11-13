@@ -12,6 +12,16 @@ token escalation, credential persistence, rejected writes and readback drift.
 It uses fake API responses; no test changes a real repository or exposes response
 values. Run with `python -m unittest discover -s tests/tools -p test_github_policy.py -v`.
 
+`tests/tools/test_developer.py` validates the real developer catalogue and tests
+the offline CLI from another directory with isolated Python. It covers JSON and
+human output, malformed/oversized metadata, control characters, traversal,
+symlinks/junctions, missing files and misleading or mutable upstream URLs.
+Fixtures confirm that linked source contents are never opened and no tool or
+network connection is started. Run with
+`python -m unittest discover -s tests/tools -p test_developer.py -v`.
+The existing hosted Lint job discovers this suite automatically; upstream content
+and real runtime integrations still need their own acceptance tests.
+
 | Suite | Path | Framework | Notes |
 |-------|------|-----------|-------|
 | `tst_spring` | `kit/tst_spring.cpp` | Qt Test | Spring physics; deterministic stepping via `Spring::step` |

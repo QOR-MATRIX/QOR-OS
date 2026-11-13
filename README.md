@@ -81,7 +81,7 @@ Requirements:
 - **Qt 6.12.0 for MSVC 2022 64-bit**, commercial; the module list is in
   [docs/BUILDING.md](docs/BUILDING.md);
 - **Visual Studio 2022 Build Tools**, with the C++ workload;
-- **Python 3.10+**;
+- **Python 3.12+**, matching CI and the offline developer tooling;
 - **Rust 1.91+**, for the QOR core.
 
 CMake and Ninja come with Qt's tools.
@@ -123,7 +123,7 @@ On Linux, Prism runs as a real Wayland compositor nested in your session; see
 | [`products/qq/`](products/qq/) | **QQ**, the QOR Engine: runtime, QQ Studio, QQ Player, the agent's tools (from demiurge-chain, developed here since [QOR-0015](docs/decisions/QOR-0015-the-products-are-developed-here.md)) |
 | [`products/arqade/`](products/arqade/) | **ARQADE**: the Qt app and its games (developed here), and their replay fixtures (carried) |
 | [`tools/qor-media/`](tools/qor-media/) | **QOR Media**: player, viewer, editor and PDF reader (from demiurge-chain, developed here) |
-| [`image/`](image/) | Fedora image preparation and private VM evidence; Q Pi native builder and headless first-boot preparation, still unqualified |
+| [`image/`](image/) | Fedora image preparation and private VM evidence; Q Pi native software checks, with full product, image and hardware acceptance still open |
 | [`sdk/`](sdk/), [`tools/`](tools/), [`tests/`](tests/) | App template; `qorctl`, generators, dev, CI and upstream scripts; tests |
 | [`docs/`](docs/) | Architecture, building, development, CI, performance, roadmap, design, decisions |
 

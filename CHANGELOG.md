@@ -9,6 +9,16 @@ their changes since, and pulls of what is still shared, are recorded here.
 
 ## [Unreleased]
 
+- **Offline developer discovery, 13 November.** A Python-only `list`, `show`
+  and `check` command exposes reviewed source, guidance, prerequisites and action
+  boundaries for apps, Lumen, services, Prism, Q Pi, products, assets and upstream
+  Launcher/DRC-369/agent work. Versioned JSON supports agent clients. Bounded
+  metadata validation refuses unsafe paths, links and malformed records without
+  echoing rejected values. The tool never executes an integration, reads linked
+  source content or connects to a service. Hostile-input and fresh-checkout CLI
+  tests join the existing hosted tooling suite; public SDK and runtime bridge
+  capabilities remain separate Phase 4 tasks.
+
 - **GitHub setup on Windows, 13 November.** Decode GitHub CLI responses as
   UTF-8 so milestone titles with punctuation match their existing records instead
   of causing duplicate-creation attempts. The regression reproduces a legacy
