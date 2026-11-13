@@ -36,7 +36,7 @@ def gh(*args: str, payload: dict | None = None, check: bool = True) -> subproces
     if payload is not None:
         command += ["--input", "-"]
     return subprocess.run(command, input=json.dumps(payload) if payload is not None else None,
-                          capture_output=True, text=True, check=check)
+                          capture_output=True, text=True, encoding="utf-8", check=check)
 
 
 def sync_labels(repo: str) -> None:
@@ -66,6 +66,7 @@ def apply_settings(repo: str) -> None:
     settings = {
         "description": "QOR OS: the operating system for players, game makers and creators. "
                        "Qt 6.12, Prism, QQ, ARQADE and the QOR network.",
+        "homepage": f"https://github.com/{repo}/blob/main/docs/README.md",
         "has_issues": True,
         "has_projects": True,
         "has_wiki": False,

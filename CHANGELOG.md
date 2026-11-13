@@ -9,6 +9,12 @@ their changes since, and pulls of what is still shared, are recorded here.
 
 ## [Unreleased]
 
+- **GitHub setup on Windows, 13 November.** Decode GitHub CLI responses as
+  UTF-8 so milestone titles with punctuation match their existing records instead
+  of causing duplicate-creation attempts. The regression reproduces a legacy
+  Windows locale with an inert child process. Repository setup also retains the
+  homepage link to the canonical documentation index.
+
 - **Main integration and developer entry points, 13 November.** The owner requested
   merging the validated integration branch into main. The older readiness change
   on main was reconciled with its tested successor, preserving the fail-closed

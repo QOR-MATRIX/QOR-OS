@@ -1,14 +1,17 @@
 # Where QOR OS stands
 
-For Andrew, 13 November 2026. Main integrates the development checkpoint
-`515a7f6` and the current developer guidance, as requested by the owner.
+For Andrew, 13 November 2026. Main merged the development checkpoint at
+`0c45307`, with current developer guidance, as requested by the owner.
 
 ## Main and the developer entry point
 
 The older readiness change on main was reconciled with its tested successor.
-The resulting application and CI code matches the integration checkpoint; no
+The merged application and CI code matches the integration checkpoint; no
 build gate or runner-isolation requirement was relaxed. The repository homepage
 links current progress, the masterplan, the developer guide and security.
+GitHub setup now reads UTF-8 (international text encoding) explicitly: the
+Windows regression reproduced a failed milestone match before the fix. Setup
+also keeps the homepage linked to the canonical documentation index.
 
 The developer guide identifies source and tools across apps, services, Prism,
 QQ, ARQADE, Media, assets and Q Pi. Model Context Protocol (MCP), the interface

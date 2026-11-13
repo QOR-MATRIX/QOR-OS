@@ -144,6 +144,20 @@ class BootstrapTest(unittest.TestCase):
             result["patterns_allowed"].reverse()  # API ordering is not policy drift.
         return subprocess.CompletedProcess(args, 0, json.dumps(result), "")
 
+    def test_github_json_is_utf8_even_with_a_legacy_windows_locale(self):
+        run = subprocess.run
+        title = "Phase 4 \u00b7 The ecosystem"
+        body = json.dumps({"title": title}, ensure_ascii=False).encode("utf-8")
+
+        def fixture_response(command, **kwargs):
+            # An inert child emits the same UTF-8 bytes as gh; never contact GitHub.
+            return run([sys.executable, "-c", "import sys; sys.stdout.buffer.write(" + repr(body) + ")"], **kwargs)
+
+        with patch.object(bootstrap.subprocess, "run", side_effect=fixture_response), \
+                patch.object(subprocess, "_text_encoding", return_value="cp1252"):
+            result = bootstrap.gh("api", "fixture")
+        self.assertEqual(json.loads(result.stdout)["title"], title)
+
     def test_apply_requires_all_three_readbacks(self):
         with patch.object(bootstrap, "gh", side_effect=self.response) as gh:
             bootstrap.apply_actions_policy(bootstrap.DEFAULT_REPO)
@@ -198,6 +212,9 @@ class BootstrapTest(unittest.TestCase):
 
     def test_rejected_security_setting_is_not_reported_as_applied(self):
         def reject_alerts(*args, **kwargs):
+            if args[-1] == "repos/" + bootstrap.DEFAULT_REPO:
+                self.assertEqual(kwargs["payload"]["homepage"],
+                                 "https://github.com/QOR-MATRIX/qor-os/blob/main/docs/README.md")
             if args[-1].endswith("/vulnerability-alerts"):
                 raise subprocess.CalledProcessError(1, "gh")
             return subprocess.CompletedProcess(args, 0, "{}", "")
