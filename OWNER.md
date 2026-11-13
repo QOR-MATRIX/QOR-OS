@@ -1,44 +1,44 @@
 # Where QOR OS stands
 
-For Andrew, 13 November 2026. Main remains `3002419`; current work is on
-`feat/core-audit-remediation`. Upstream repairs are pushed at `042941c` in
-Demiurge-chain draft PR #118. Neither the QOR OS core pin nor a release changed.
+For Andrew, 13 November 2026. Main includes PR #4's Linux test-harness fix and
+updated developer/security guidance. The next branch is
+`feat/native-publishing-validation`. Upstream repairs are pushed at `042941c`
+in Demiurge-chain draft PR #118; the QOR OS core pin remains `6a4822d`.
 
-## Repairs and developer access
+## Verified progress
 
-The Launcher test helper now uses Cargo's reported executable path. Patched
-core and Launcher dependencies report zero vulnerability advisories locally,
-with 13 and 23 maintenance warnings retained. Both services still fail on an
-SQLite dependency that even stable SQLx cannot update to the patched version.
-Compatible blockchain patches remove nine advisory findings; 44 remain, plus
-36 warnings. No audit exception was added.
+Hidden Linux product tests now use a private short runtime directory and leave
+the desktop's directory untouched. All 18 harness fixtures pass on the Pi; the
+new regression also fails against the old script. Repository-wide hooks pass.
+Hosted Lint passes 715 Python tests with 124 platform skips and all 63 ARQADE
+rule tests at `1cdeef6`.
 
-At `042941c`, hosted chain format/lints and all 213 tests pass with WebAssembly
-built. QOR ID, Social and ARQADE build/test jobs pass. Launcher validation is
-still running; the service audits keep upstream's security job red. The pin
-stays at `6a4822d` until upstream and QOR integration are validated.
+Q Pi development is reopened. The full native QQ publishing suite passes all
+11 Qt Test results, including both Studio windows, without failures or skips.
+It uses a private software display, two rendering workers and isolated views of
+devices and networking. Hardware devices are hidden, networking is local only,
+and the original resource lock remains held. Free memory stays above 6,956 MiB
+against the unchanged 3,072-MiB floor. Earlier diagnostic timeouts are preserved.
+This is application evidence, not a Q Pi image or hardware qualification.
 
-Linux product tests now create a private short runtime directory and clean it
-up without touching the desktop's directory. Its new regression fails against
-the old script; all 18 harness fixtures pass on the native Pi with the fix.
+Upstream's repaired Launcher helper uses Cargo, the Rust build tool, to find its
+executable. All four formerly failing spawn tests pass. Hosted checks pass 213
+chain tests with WebAssembly, portable runtime code, built; 245 core tests pass
+with 10 ignored and 109 Launcher tests pass with five ignored. Core and host
+audits report zero vulnerability findings, retaining 13 and 23 maintenance warnings.
+Both services still fail on an SQLite database dependency. The chain's patches
+remove nine findings, leaving 44 and 36 warnings. No exception was added.
 
-GitHub's homepage remains QORSYNC.DEV; the README links progress, the masterplan,
-developer guidance and security. Offline discovery covers 14 contribution areas.
-The core bridge, the shell's command interface, still has four version/amount
-commands. Broader DRC-369 asset and agent capabilities remain gated upstream.
+## Continuation
 
-## Q Pi and remaining acceptance
+Continue the full native product/sanitizer and creator/player journeys, resolve
+upstream service dependencies and warnings, then validate a core-pin update before
+expanding DRC-369 asset or agent commands. The bridge, the shell-to-core interface,
+still has four version/amount commands. Evidence and exact limits are in
+`build/development-2026-11-13/session-05/` and the canonical roadmap.
 
-Q Pi development is reopened. Its approved SSH route, secure remote access,
-works with strict host checks. Native trials verified private device/display
-and network namespaces, with at least 6,970 MiB available throughout rendering.
-Seven publishing protocol cases and the unversioned-folder window case pass;
-the second window case times out with both render loops. Neither run passes
-the complete suite. Evidence is in `build/development-2026-11-13/session-05/`.
-
-Qt CI, automated native builds, remains paused pending isolated workers. Full
-native products/sanitizers, hardware, image and release acceptance remain open.
-GitHub private vulnerability reporting is enabled upstream; QOR OS's public
-report-routing policy is still open. Vercel confirms domain assignments but
-project access remains unresolved. No image, package, release or production
+GitHub's homepage is QORSYNC.DEV; offline discovery covers 14 contribution areas.
+Qt CI, automated native builds, stays paused pending isolated workers. Public
+security-report routing, live service domains, Vercel project access, hardware,
+image and release gates remain open. No image, package, release or production
 deployment was published.

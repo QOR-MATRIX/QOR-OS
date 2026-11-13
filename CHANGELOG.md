@@ -20,9 +20,14 @@ their changes since, and pulls of what is still shared, are recorded here.
   reopened; native software-display qualification continues under its original
   resource lock and unchanged memory floor.
   All 18 Linux harness fixtures pass on the Pi, including a regression shown to
-  fail against the old script. The native QQ publication suite still times out
-  in its second window case; neither software render-loop trial is a full pass.
+  fail against the old script. Initial native publication diagnostics time out
+  with one software-render worker. With the harness's two-worker default, all
+  11 results in the full publishing suite pass in 133.315 seconds, with hardware
+  devices hidden, no external networking and no assertion changes. The earlier
+  diagnostics remain preserved. QOR OS PR #4 integrates the harness fix.
   Upstream's patched chain passes all 213 hosted workspace tests with WebAssembly.
+  The core passes 245 tests with 10 ignored; the Launcher host passes 109 with
+  five ignored, including the four repaired spawn cases and the new regression.
 
 - **Core audit continuation prepared, 13 November.** The new
   `feat/core-audit-remediation` branch adds an upstream repair procedure tied to

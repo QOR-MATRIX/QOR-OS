@@ -715,7 +715,10 @@ vendor's claim. No firmware turns an output-only HDMI port into an input, so thi
   path. Hosted build/test acceptance and the QOR OS pin review remain open.
   At that repair commit, hosted chain format/lints and all 213 workspace tests
   pass with WebAssembly built; QOR ID, Social and ARQADE build/test jobs pass.
-  Launcher validation is still running, and the two service audits still fail.
+  Launcher validation also passes: 245 core tests pass with 10 ignored, and
+  109 host tests pass with five ignored, including all four repaired real-spawn
+  cases and the new artifact-discovery regression. The two service audits still
+  fail, so the upstream repair remains in draft PR #118.
 - [x] The repository private, as its documents always said (1 November; it had been public since 27 October, while CI ran on
   the owner's machine)
 - On 13 November, GitHub Actions settings were tightened and read back: six reviewed
@@ -892,12 +895,16 @@ evidence; no Q Pi image has been built or accepted.
   On 13 November, trusted native test workers verified separate process, mount,
   network and user namespaces, hidden hardware-device paths, loopback-only
   networking and a private software display under the original heavy lock.
-  The minimum observed headroom was 6,970 MiB, above the unchanged 3,072-MiB
-  floor. Seven protocol cases and the unversioned-folder window case pass,
-  but the full publishing run times out at 180 seconds in the other window
-  case with both threaded and basic render loops. These are incomplete runs,
-  not a passing suite or isolated CI-worker acceptance. The basic-loop trial
-  was not adopted. The Linux harness's separate short-runtime regression fails
+  Initial single-worker diagnostics time out at 180 seconds in the second
+  window case with both render loops. The follow-up uses the Linux harness's
+  two software-render workers and a 900-second outer budget, preserving Qt's
+  watchdog and every assertion: **all 11 publishing-suite results pass in
+  133.315 seconds**, with no failures or skips and at least 6,956 MiB available.
+  The original 3,072-MiB floor is unchanged. Earlier incomplete diagnostics stay
+  in the evidence; the basic-loop trial was not adopted. This passes the complete
+  publishing suite, not all products, hardware or CI-worker acceptance. The
+  [building guide](BUILDING.md#q-pi-preparation) records the source-match boundary.
+  The Linux harness's separate short-runtime regression fails
   against the old script and all 18 fixture tests pass with the fix on ARM64.
 - [ ] Build and statically validate a regular-file image with a real maintained
   Pi login/desktop, native QOR apps and local development tools; no simulator.

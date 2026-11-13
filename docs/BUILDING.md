@@ -116,7 +116,7 @@ and removed none. `tests/pi/` built and passed both native parser configurations
 (23 Qt Test results each, four hardened programs). Native resource/tooling checks
 also recorded 196 passes and two wrong-host skips. These are distinct scopes.
 
-The current-source Prism snapshot built serially with warnings as errors, hardening
+The 12 November Prism snapshot built serially with warnings as errors, hardening
 and the native 16-KiB gate. A test-only correction explicitly activates a second
 client through the Shelf path instead of assuming it may steal focus. Corrected
 Release passes all seven selected headless suites without skips; 11 programs
@@ -150,6 +150,30 @@ three Qt Test results, including setup/cleanup). These results retain the Rust
 dependency warning and do not close full product, graphics or image gates.
 Commands, source overlay and original failures:
 `build/development-2026-11-13/session-02/`.
+
+The next continuation passes the complete native QQ publishing suite: **11 Qt
+Test results, no failures or skips**, including both Studio window cases, in
+133.315 seconds. The existing binary ran on a private Wayland display with Mesa's
+llvmpipe software renderer and two rendering workers, matching the Linux harness's
+half-CPU default on this Pi. Test assertions and Qt's watchdog were unchanged;
+the outer worker allowed 900 seconds. Earlier single-worker, 180-second diagnostic
+runs and a debugger interruption are retained as incomplete results.
+
+Bubblewrap 0.12.0 provided separate mount/process/network/user namespaces, a fresh
+device directory, private `/tmp` and `/run`, and read-only source with only the
+evidence directory writable. GPU, sound and input device paths were absent;
+networking contained loopback only. The original native coordinator stayed in
+charge, and the resident worker monitored the unchanged 3,072-MiB floor through
+the run (minimum observed: 6,956 MiB). This is isolation of trusted product tests,
+not qualification of a CI runner or a sandbox for untrusted applications.
+
+The 1,404-file source snapshot was reverified. Its 187 QQ and 203 Kit files also
+match the current tree; four newer Prism compositor files differ and are outside
+this standalone display test. The original coordinator returned cleanly. Source,
+binary and evidence hashes, commands and failed attempts are preserved under
+`build/development-2026-11-13/session-05/native/`. This closes the publishing-suite
+software check only; full products, sanitizers and the complete creator/player
+journey remain required.
 
 The installed kit's bounded ELF checks and these software-only runs do not certify
 all dependencies, commercial redistribution terms, real graphics/audio/input or
