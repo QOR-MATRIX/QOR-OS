@@ -9,6 +9,22 @@ their changes since, and pulls of what is still shared, are recorded here.
 
 ## [Unreleased]
 
+- **Native OS software gate and ARM64 Store fixtures, 13 November.** After the
+  reviewed `9d67ab2` checkpoint was pushed, the full core-enabled Pi development
+  build completed. Its first test run passed 25 of 27 suites: four cases failed
+  because the signed demonstration omitted `linux-arm64`. The generator now
+  includes it in catalogue and package metadata; regenerated demonstration
+  signatures use throwaway keys, with all packaged content and the first-party
+  catalogue unchanged. The regression fails before the fix; all 15 generator
+  tests and three affected Windows Store/Library suites pass afterward. The full
+  native rerun passes all 27 software suites without failures/skips, hardening
+  passes 42 programs, 44 linked files pass ARM64/16-KiB layout checks, and QML lint
+  has zero warnings. QQ's complete scene and Player sandbox suites pass 56 and
+  three Qt Test results respectively, including setup/cleanup. Rust's pinned
+  future-compatibility warning remains; full products, hardware and isolated CI
+  are not accepted. Original failures, the corrected artifact-selection harness,
+  source overlays and receipts remain in `build/development-2026-11-13/session-02/`.
+
 - **Reviewed development checkpoint authorised for Git, 13 November.** The owner
   requested committing and pushing all pending QOR OS work. This checkpoint
   includes the validated Prism regressions, benchmark evidence checks and

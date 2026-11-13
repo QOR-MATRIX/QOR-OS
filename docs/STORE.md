@@ -313,7 +313,10 @@ key exists to keep out of the repository. It is in tests and in a build that ask
 in any other binary, and its key opens nothing else. It has two catalogues in turn, `v1` and `v2` (sequences 1 and 2). Each holds
 Ember Climb as a `game`, its art as an `asset-pack` (1.0.0, then 1.1.0), and Ember Climb's editable project as a draft. Everything
 in it is the Apache-2.0 sample in `products/qq/samples/ember-climb/`, with its licence and notice in each package. It expires in
-2099, because tests read it for years.
+2099, because tests read it for years. Its portable QQ source and assets name Linux x86-64, Linux ARM64 and Windows x86-64
+in both the signed catalogues and package manifests. The ARM64 entry permits the native Q Pi installation/update fixtures;
+it does not qualify the sample's graphics, physical devices or a Q Pi image. The Store still refuses a platform absent from
+signed metadata. Regeneration uses only fresh throwaway keys; the first-party catalogue and its signing keys are unchanged.
 
 ### The demonstration build
 

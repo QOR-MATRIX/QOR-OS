@@ -872,6 +872,17 @@ hardening and ARM64/16-KiB checks. Rust's `proc-macro-error2` 2.0.1 dependency
 warning remains. This focused target does not qualify the complete native OS,
 product/deployment closure or image. Receipts:
 `build/development-2026-11-13/session-01/native-core-20261113/`.
+
+Later on 13 November the full core-enabled development build completed and all
+27 selected non-GPU suites passed after correcting the demonstration fixtures'
+missing ARM64 platform metadata. Hardening passes 42 programs and page-layout
+checks pass 44 linked executable/library files; QML lint has zero warnings.
+QQ's complete scene-data and Player sandbox suites also pass. The Rust dependency
+warning remains, and these software checks do not qualify the complete product,
+dependency/deployment closure, physical devices or image. The source snapshot,
+fixture overlay, initial failures and final results are retained in
+`build/development-2026-11-13/session-02/`.
+
 Required native application tools are CMake 3.27+, Ninja, GNU C++, pkg-config,
 Python and Git. The kit must include Core, Gui/GuiPrivate, Multimedia, Network,
 Qml/QmlPrivate, Quick, Quick 3D/Physics, Spatial Audio, Quick Controls, Test and D-Bus, with

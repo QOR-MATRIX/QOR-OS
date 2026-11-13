@@ -80,6 +80,17 @@ core pin. Its rules comparison uses the local upstream clone's **last fetched**
 `origin/main`; it neither fetches nor proves current remote equality. Update the
 recorded state when an authorised upstream change actually lands.
 
+On 13 November, Rust 1.98.1 on Windows and native ARM64 reports a future-compatibility
+warning in `proc-macro-error2` 2.0.1, reached through `subxt-macro` 0.51.0. The
+diagnostic concerns a private `proc_macro` re-export. A fresh upstream check at
+`74a1014464f85e610f929ebadf8c199c82673db7` still finds that locked dependency.
+The crate's latest published version remains 2.0.1 and its
+[source repository is archived](https://github.com/GnomedDev/proc-macro-error-2).
+A routine pin advance therefore does not clear the warning. The pin stays unchanged
+until a reviewed upstream repair passes the core and QOR OS checks; no warning
+suppression or dependency substitution was adopted. Receipts:
+`build/development-2026-11-13/session-02/dependency-review.json`.
+
 ## Pulling from upstream
 
 For an owner-authorised upstream update, from a clean working tree in Git Bash

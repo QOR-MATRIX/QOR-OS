@@ -45,6 +45,18 @@ private folders and disconnected buses keep tests away from live accounts.
 The core's Cargo.lock is unchanged; Rust's dependency warning remains. This
 focused bridge result is not a full native OS/product or Rust sanitizer run.
 
+The later 13 November native core-enabled build passes all **27 non-GPU root
+suites**, without failures or skips, after correcting ARM64 metadata in the
+signed demonstration fixtures. The initial 25/27 result and four failing Store
+cases are preserved. Hardening passes 42 programs, ARM64/16-KiB layout checks
+pass 44 linked files, and QML lint has zero warnings. The fixture generator's
+ARM64 regression fails before the correction; all 15 generator tests and three
+affected Windows Store/Library suites pass afterward. QQ's complete `tst_scene`
+and `tst_playerwall` suites pass 56 and three Qt Test results, including setup/
+cleanup, without failures/skips. These are isolated software checks, with the
+Rust dependency warning, full product/sanitizer and hardware gates still open.
+Receipts: `build/development-2026-11-13/session-02/`.
+
 `tests/tools/test_prism_benchmark.py` runs the actual gate's embedded Python
 evaluator with inert metadata and directly tests its shared production validator.
 All 26 portable cases pass on Windows; 25 Linux launcher/bundle process tests in

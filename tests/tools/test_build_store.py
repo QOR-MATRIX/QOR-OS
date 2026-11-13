@@ -69,6 +69,7 @@ class Demo(unittest.TestCase):
                 self.assertTrue(entry["placements"], entry["id"])
                 self.assertEqual(entry["entitlement"], {"type": "free"})
                 self.assertIn("linux-x86_64", entry["platforms"], entry["id"])
+                self.assertIn("linux-arm64", entry["platforms"], entry["id"])
                 self.assertIn("windows-x86_64", entry["platforms"], entry["id"])
                 self.assertIs(entry["executable"], False)
 

@@ -84,6 +84,20 @@ ARM64/16-KiB checks. Its dependency warning remains too. This focused target
 does not complete the full native OS build/test gate. Receipts:
 `build/development-2026-11-13/session-01/`.
 
+The later continuation after pushing `9d67ab2` completes the full core-enabled
+native development build and all 27 suites selected without the `gpu` label.
+The first run exposed four Store cases failing in two suites because signed
+demonstration metadata omitted `linux-arm64`. The fixture generator and its
+regression now include ARM64; only demonstration signatures/metadata changed,
+with all packaged content preserved. The final 27-suite run has no failures or
+skips; 42 programs pass hardening, 44 linked files pass ARM64/16-KiB layout checks,
+and QML lint is warning-free. All 15 generator tests and three affected Windows
+Store/Library suites pass. QQ's full scene-data and Player sandbox suites pass
+56 and three Qt Test results, including setup/cleanup, without failures/skips.
+The Rust warning still prevents warning-free acceptance; full product/sanitizer,
+whole-journey, GPU and isolated-CI gates remain. Receipts, including initial
+failures: `build/development-2026-11-13/session-02/`.
+
 **Earlier 12 November Windows/WSL continuation.**
 The warning candidate at the pushed `01ba206` checkpoint compiled without warnings in the focused Qt 6.12
 Linux Release and ASan/UBSan builds. Each passes all 42 pointer-capture results

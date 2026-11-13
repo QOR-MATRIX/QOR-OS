@@ -134,6 +134,19 @@ Full native OS/product and warning-free acceptance remain open. Qt helpers
 exited naturally and the original coordinator returned cleanly. Receipts:
 `build/development-2026-11-13/session-01/native-core-20261113/`.
 
+The later 13 November continuation built the complete core-enabled development
+configuration in that cache. After correcting missing `linux-arm64` metadata in
+the signed demonstration fixtures, all 27 non-GPU suites pass without failures
+or skips. Hardening passes 42 programs; 44 linked executables/libraries pass the
+ARM64/16-KiB layout check; QML lint has zero warnings. The generated Corrosion
+linker-library probe's relocatable object is not a product executable; the first
+artifact-selection harness mistakenly selected it, and that failed receipt is
+retained. QQ's complete scene-data and Player sandbox suites also pass (56 and
+three Qt Test results, including setup/cleanup). These results retain the Rust
+dependency warning and do not close full product, graphics or image gates.
+Commands, source overlay and original failures:
+`build/development-2026-11-13/session-02/`.
+
 The installed kit's bounded ELF checks and these software-only runs do not certify
 all dependencies, commercial redistribution terms, real graphics/audio/input or
 a measured application/image scratch budget. Enterprise entitlement is reported

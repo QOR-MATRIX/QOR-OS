@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: LicenseRef-QOR-OS-Proprietary
 """Builds and checks the QOR OS Store's signed first-party catalogue.
 
     python tools/store/build_store.py build      # sign changed packages and the catalogue
@@ -413,8 +414,9 @@ def fixtures() -> None:
 # ── The demonstration catalogue (format 2, QOR-0021) ────────────────────────
 
 DEMO_DEVELOPER = "org.example.demo"
-# Where QOR OS and QQ run, the device and the development host, so tests install them on either.
-DEMO_PLATFORMS = ["linux-x86_64", "windows-x86_64"]
+# The sample packages contain portable QQ source and assets, including on the native Q Pi builder.
+# This allows the signed installation fixtures there; it is not graphics or device qualification.
+DEMO_PLATFORMS = ["linux-x86_64", "linux-arm64", "windows-x86_64"]
 # Tests read this catalogue for years, and an expired one is refused.
 DEMO_EXPIRES = "2099-12-31"
 # Keep these as store/src/filerules.cpp has them: the engine is what enforces this, and this only stops a mistake sooner.
