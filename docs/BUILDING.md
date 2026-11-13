@@ -789,7 +789,10 @@ tools/dev/products.sh --gpu                           # under WSL, on the GPU, w
   the sound goes nowhere, so nothing reaches the screen or the speakers, and
   nothing on the desktop can take a test window's keyboard. It needs the
   kit's Qt Wayland Compositor, as Prism does. The display's log is in the
-  build root.
+  build root. Hidden runs create a private, mode-0700 runtime directory below
+  `/tmp/qor-products.*`, remove it on exit, and leave the desktop's runtime
+  directory untouched. This keeps Wayland socket paths within Linux's limit even
+  when the caller supplies long `TMPDIR` or `XDG_RUNTIME_DIR` paths.
   - `--display prism` runs them inside Prism, just as hidden, from
     `build/ci-linux` or `build/linux-*` or the one `--prism` names, with
     settings thrown away after the run. Prism opens each window at the size

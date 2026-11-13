@@ -113,6 +113,12 @@ Say so if you find a way past one; these are the walls we know are low.
   selection and reachability need review; a lock-file finding alone does not prove
   exploitation. Fix and test dependencies upstream, rerun the audit, then review
   the QOR OS pin. No advisory was ignored or security gate weakened.
+  The repair at upstream `042941c` in
+  [PR #118](https://github.com/QOR-MATRIX/demiurge-chain/pull/118) clears the four
+  core/host vulnerability findings in local audits; 13 core/23 host warnings
+  remain. Both services still fail on their SQLite dependency, and the chain
+  retains separate findings. Upstream build/test acceptance is pending. This
+  does not change the affected QOR OS pin or establish release readiness.
 - **This repository was public from 27 October to 1 November 2026,** against its own
   documents, while CI ran on the owner's machine. It was recorded as made private on 1 November;
   private visibility was reconfirmed through the repository API on 13 November. Treat the code as

@@ -9,6 +9,28 @@ their changes since, and pulls of what is still shared, are recorded here.
 
 ## [Unreleased]
 
+- **Dependency repair and Linux test isolation, 13 November.** Upstream PR #118
+  now carries patched core/Launcher dependencies and Cargo artifact discovery
+  for the real-spawn tests, plus compatible blockchain dependency patches.
+  Local core/host audits clear the four vulnerability findings; maintenance,
+  service SQLite, chain and hosted acceptance gates remain recorded. The QOR OS
+  pin is unchanged. Linux product tests now use a private short runtime directory
+  in hidden-display modes, with a regression for long inherited runtime/temp
+  paths and cleanup that preserves the desktop's directory. Q Pi development is
+  reopened; native software-display qualification continues under its original
+  resource lock and unchanged memory floor.
+  All 18 Linux harness fixtures pass on the Pi, including a regression shown to
+  fail against the old script. The native QQ publication suite still times out
+  in its second window case; neither software render-loop trial is a full pass.
+  Upstream's patched chain passes all 213 hosted workspace tests with WebAssembly.
+
+- **Core audit continuation prepared, 13 November.** The new
+  `feat/core-audit-remediation` branch adds an upstream repair procedure tied to
+  the official advisory records, actual desktop/bundled-SQLite features and the
+  existing resource/test gates. It separates patched-version candidates from a
+  tested dependency selection and requires synchronized source references for a
+  future pin update. No dependency, advisory exception or core pin changed.
+
 - **Developer/domain integration, 13 November.** Main includes the new offline
   discovery and canonical-domain policy through `0cdae3d`, after hosted Lint
   passed 714 Python tests with 124 platform skips and all 63 ARQADE rule tests.
