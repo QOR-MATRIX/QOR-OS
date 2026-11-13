@@ -16,8 +16,11 @@ their changes since, and pulls of what is still shared, are recorded here.
   prioritizes native products and the creator/player journey, and distinguishes
   the completed publishing suite from the still-running broader procedure.
   Upstream workflow hardening pins actions, audit/coverage tools and checkout
-  credential behavior; its draft and hosted validation remain separate from
-  QOR OS's unchanged core pin and release gates.
+  credential behavior. Its required hosted build/test jobs pass at `97dcb13`;
+  the live Actions allowlist is restricted to nine used repositories. Service
+  audits remain failed, and the optional Rust 1.100 report retains 66 SDK macro
+  lint diagnostics. The separate validator-recovery check is in progress.
+  These results remain separate from QOR OS's unchanged core pin and release gates.
 
 - **Native QOR Media dependencies, 13 November.** The Linux product helper now
   selects pinned x64 or ARM64 PDFium archives and keeps their extracted caches

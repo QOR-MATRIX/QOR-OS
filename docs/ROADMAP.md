@@ -59,6 +59,14 @@ products included on Windows.
 QQ's, ARQADE's and QOR Media's suites.
 
 **Current local priority, 13 November: native products, the creator/player journey and upstream dependency repair.**
+Upstream's workflow hardening passes the required build/test jobs at `97dcb13`:
+213 chain, 245 core and 109 Launcher host tests pass, with 10/five ignored
+core/host tests. The service audits remain failed. The separate two-validator
+recovery check is running; its optional Rust 1.100 report retains the SDK macro
+lint blocker (66 generated DRC-369 diagnostics). The required compiler stays
+1.98.1 and QOR OS's core pin is unchanged; [UPSTREAM.md](UPSTREAM.md) owns the
+repair and integration procedure.
+
 The later native Pi continuation completed the added Prism boundary regressions
 in both Release and ASan/UBSan: all seven selected suites pass without skips,
 including 43 pointer-capture and six window-management Qt Test results. The
