@@ -910,7 +910,13 @@ evidence; no Q Pi image has been built or accepted.
   snapshot omitted the tracked in-memory keyring fixture. A private tools overlay
   now includes that fixture; the broader software run is in progress. The harness
   gains an earlier missing-fixture diagnostic and a regression that checks no bus,
-  display, configure or suite starts. Validation of that new regression is pending.
+  display, configure or suite starts. Hosted Linux Lint at `148c91f` passes the
+  new regression and all 19 harness fixtures; its 840 Python results include
+  124 platform skips, and all 63 ARQADE Node tests pass.
+  The QOR Media helper additionally selects a pinned native ARM64 PDFium package
+  with a separate cache. Its digest and library layout pass static inspection;
+  the Pi kit lacks Qt PDF/PDF Quick, so native Media compilation and runtime
+  acceptance remain open. The architecture/refusal regressions await hosted Lint.
 - [ ] Build and statically validate a regular-file image with a real maintained
   Pi login/desktop, native QOR apps and local development tools; no simulator.
 - [ ] After the [action-time write gates](../image/README.md#authorised-q-pi-target-and-action-time-write-gates), prove Pi boot, hardware graphics,

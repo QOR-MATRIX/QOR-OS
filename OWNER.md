@@ -2,9 +2,9 @@
 
 For Andrew, 13 November 2026. Work continues on
 `feat/native-publishing-validation`. Main contains the Linux test-runtime fix.
-The current change detects a missing fake-keyring test fixture before starting
-its private bus, display, build or suites. Its new regression awaits Linux CI,
-automated checks. Repository-wide checks are being refreshed for this change.
+The missing fake-keyring check passes hosted Linux CI, automated checks:
+716 Python tests pass with 124 platform skips, including all 19 harness fixtures;
+all 63 ARQADE rule tests pass. The new Media dependency selection awaits its checks.
 
 ## Verified progress
 
@@ -12,7 +12,7 @@ The previous native QQ publishing run passes all 11 Qt Test results with no
 failures or skips. It used a private software display and isolated device/network
 views, two rendering workers and the original 3,072-MiB memory guard; available
 memory stayed at least 6,956 MiB. All 18 earlier harness fixtures pass on ARM64.
-Those results do not cover this session's new missing-fixture regression.
+The new missing-fixture regression is covered by the hosted run above.
 
 Q Pi's full QQ product procedure initially stopped before tests: its filtered
 snapshot lacked the tracked in-memory fake keyring. A private tools overlay now
@@ -21,9 +21,15 @@ coordinator. It has not passed; hardware and image qualification remain open.
 
 Demiurge-chain draft PR #118 has further certificate/compression patches at
 `3d71009`. Its local audit reports 38 vulnerability findings and 26 maintenance
-warnings, from 44 and 36. New hosted tests are in progress. The chain framework
+warnings, from 44 and 36. All 213 hosted chain tests pass with the WebAssembly build included. The chain framework
 requires the affected logging version exactly, so that upgrade was refused.
 The framework pin and runtime source remain unchanged.
+
+The Media helper now selects pinned x64/ARM64 PDFium archives in separate caches
+and refuses checksum or extraction failures. Its ARM64 library passes the
+16-KiB page-layout check. Qt PDF modules are absent on the Pi, so Media is not
+built there. The four Prism source differences were only line endings; both
+raw hashes are preserved without claiming a new build.
 
 The earlier upstream repair at `042941c` passes 213 chain, 245 core and 109
 Launcher tests; the latter two retain 10 and five ignored tests. Core/host audits

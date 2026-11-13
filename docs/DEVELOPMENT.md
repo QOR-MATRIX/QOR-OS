@@ -464,6 +464,8 @@ For each native continuation:
    A filtered snapshot that omits this fixture cannot run the complete procedure.
    This fixture is repository code; actual credentials and provider keys stay out
    of snapshots. The harness refuses its absence before starting test services.
+   Preserve raw hashes even when a review finds only line-ending differences;
+   record that comparison separately instead of silently normalizing evidence.
 2. Use the [original native coordinator and resource checks](../image/README.md#native-linux-heavy-job-coordination).
    Observe sustained headroom with the worker resident and monitor the run. Keep
    the 3,072-MiB floor; a refusal does not authorize service changes or another

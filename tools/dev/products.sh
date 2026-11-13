@@ -161,21 +161,37 @@ declare -A SOURCES=([qq]=products/qq [arqade]=products/arqade/qt [media]=tools/q
 
 # PDFium for QOR Media: the release tools/qor-media/build.ps1 pins, for Linux.
 PDFIUM_RELEASE=chromium/8111
-PDFIUM_SHA256=bdc60126399f39fe768566a18d4be055a7b3681bc9e248e8a6656b4f6cae0aa2
 pdfium() {
-    local dir=${XDG_CACHE_HOME:-$HOME/.cache}/qor-media-pdfium/${PDFIUM_RELEASE//\//-}
-    local archive=$dir/pdfium-linux-x64.tgz
+    local arch sha256 dir archive
+    case $(uname -m) in
+        x86_64 | amd64)
+            arch=x64
+            sha256=bdc60126399f39fe768566a18d4be055a7b3681bc9e248e8a6656b4f6cae0aa2 ;;
+        aarch64 | arm64)
+            arch=arm64
+            sha256=042de247138f96341534cccf24ed21c2550a7245b936bb4a60d2340120000f05 ;;
+        *) echo "No pinned PDFium archive for this native architecture; QOR Media was not configured." >&2; return 1 ;;
+    esac
+    # Keep extracted files separate too: an existing x64 CMake package cannot
+    # satisfy an ARM64 run merely because both archives share one release.
+    dir=${XDG_CACHE_HOME:-$HOME/.cache}/qor-media-pdfium/${PDFIUM_RELEASE//\//-}/linux-$arch
+    archive=$dir/pdfium-linux-$arch.tgz
     mkdir -p "$dir"
     if [ ! -f "$archive" ]; then
         curl -sSfL -o "$archive" \
-            "https://github.com/bblanchon/pdfium-binaries/releases/download/$PDFIUM_RELEASE/pdfium-linux-x64.tgz" >&2
+            "https://github.com/bblanchon/pdfium-binaries/releases/download/$PDFIUM_RELEASE/pdfium-linux-$arch.tgz" >&2
     fi
-    if ! echo "$PDFIUM_SHA256  $archive" | sha256sum --check --status; then
+    if ! echo "$sha256  $archive" | sha256sum --check --status; then
         rm -f "$archive"
         echo "PDFium's archive is not the pinned release; it was removed. Run again to fetch it." >&2
         return 1
     fi
-    [ -f "$dir/PDFiumConfig.cmake" ] || tar -xzf "$archive" -C "$dir"
+    if [ ! -f "$dir/PDFiumConfig.cmake" ] || [ "$(cat "$dir/.archive-sha256" 2>/dev/null)" != "$sha256" ]; then
+        # A partial extraction must not be reused merely because its CMake
+        # entry point was written before tar failed.
+        tar -xzf "$archive" -C "$dir" || { echo "PDFium's archive could not be unpacked." >&2; return 1; }
+        printf '%s\n' "$sha256" > "$dir/.archive-sha256" || return 1
+    fi
     echo "$dir"
 }
 

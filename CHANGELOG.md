@@ -9,6 +9,13 @@ their changes since, and pulls of what is still shared, are recorded here.
 
 ## [Unreleased]
 
+- **Native QOR Media dependencies, 13 November.** The Linux product helper now
+  selects pinned x64 or ARM64 PDFium archives and keeps their extracted caches
+  separate. Unsupported architectures, checksum failures and incomplete
+  extraction refuse before Media configuration. The official ARM64 archive's
+  digest and library's ARM64/16-KiB layout were checked without executing it.
+  Native Media builds still require the kit's missing Qt PDF modules.
+
 - **Complete native test fixtures, 13 November.** The Linux product harness
   refuses a missing fake-keyring fixture before starting its private bus, display,
   build or suites. The diagnostic names the missing tracked helper; a regression

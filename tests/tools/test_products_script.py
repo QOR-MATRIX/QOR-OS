@@ -149,11 +149,22 @@ class Attempts(unittest.TestCase):
         python = ('#!/bin/bash\nif [ "$1" = -c ]; then '
                   '[ "${STAND_IN_KEYRING_MODULES:-}" = available ]; exit $?; fi\nexec "$REAL_PYTHON" "$@"\n')
         bus = '#!/bin/bash\ntouch "$STAND_IN/../marks/bus-started"\nexit 1\n'
-        for name, text in (("cmake", CMAKE), ("ctest", CTEST), ("qml", QML), ("python3", python), ("dbus-daemon", bus)):
+        machine = ('#!/bin/bash\nif [ "$1" = -m ] && [ -n "${STAND_IN_MACHINE:-}" ]; then '
+                   'printf "%s\\n" "$STAND_IN_MACHINE"; else exec "$REAL_UNAME" "$@"; fi\n')
+        download = ('#!/bin/bash\nprintf "%s\\0" "$@" > "$STAND_IN/../marks/download.args"\n'
+                    'while [ $# -gt 0 ]; do if [ "$1" = -o ]; then printf fixture > "$2"; exit 0; fi; shift; done\nexit 1\n')
+        checksum = ('#!/bin/bash\ncat > "$STAND_IN/../marks/checksum.input"\n'
+                    '[ "${CHECKSUM_GOES:-}" != fails ]\n')
+        unpack = ('#!/bin/bash\ntouch "$STAND_IN/../marks/unpacked"\n'
+                  'while [ $# -gt 0 ]; do if [ "$1" = -C ]; then touch "$2/PDFiumConfig.cmake"; '
+                  '[ "${UNPACK_GOES:-}" != fails ]; exit $?; fi; shift; done\nexit 1\n')
+        for name, text in (("cmake", CMAKE), ("ctest", CTEST), ("qml", QML), ("python3", python), ("dbus-daemon", bus),
+                           ("uname", machine), ("curl", download), ("sha256sum", checksum), ("tar", unpack)):
             (root / "shims" / name).write_text(text, encoding="utf-8")
             (root / "shims" / name).chmod(0o755)
         environ = dict(os.environ, PATH=f"{root}/shims:{os.environ['PATH']}", REAL_CMAKE=shutil.which("cmake"), REAL_CTEST=shutil.which("ctest"),
-                       STAND_IN=f"{root}/stand-in", REAL_PYTHON=sys.executable, **environment)
+                       STAND_IN=f"{root}/stand-in", REAL_PYTHON=sys.executable, REAL_UNAME=shutil.which("uname"),
+                       XDG_CACHE_HOME=str(root / "cache"), **environment)
         done = subprocess.run(["bash", str(script or _SCRIPT), "--qt", str(root / "kit"), "--build-root", str(root / "build"), "--display", "session",
                                "--product", "qq", *arguments], env=environ, capture_output=True, text=True, timeout=120)
         ran = (root / "marks/ran").read_text(encoding="utf-8").splitlines() if (root / "marks/ran").exists() else []
@@ -163,7 +174,58 @@ class Attempts(unittest.TestCase):
         receipt = root / "marks/display.json"
         self.display = json.loads(receipt.read_text(encoding="utf-8")) if receipt.exists() else None
         self.bus_started = (root / "marks/bus-started").exists()
+        download_args = root / "marks/download.args"
+        self.download_args = download_args.read_bytes().decode().split("\0") if download_args.exists() else []
+        checksum_input = root / "marks/checksum.input"
+        self.checksum_input = checksum_input.read_text() if checksum_input.exists() else ""
+        self.unpacked = (root / "marks/unpacked").exists()
+        archive = self.download_args[self.download_args.index("-o") + 1] if "-o" in self.download_args else None
+        self.download_archive_exists = bool(archive and pathlib.Path(archive).exists())
+        self.download_cache_qualified = bool(archive and (pathlib.Path(archive).parent / ".archive-sha256").exists())
         return done.returncode, done.stdout + done.stderr, ran
+
+    def test_media_selects_the_pinned_native_archive_and_separate_cache(self):
+        for machine, arch, digest in (
+            ("aarch64", "arm64", "042de247138f96341534cccf24ed21c2550a7245b936bb4a60d2340120000f05"),
+            ("x86_64", "x64", "bdc60126399f39fe768566a18d4be055a7b3681bc9e248e8a6656b4f6cae0aa2"),
+        ):
+            with self.subTest(machine=machine):
+                code, said, ran = self.run_script([], "--product", "media", "--build-only", STAND_IN_MACHINE=machine)
+                self.assertEqual(code, 0, said)
+                self.assertEqual(ran, [])
+                self.assertIn(f"https://github.com/bblanchon/pdfium-binaries/releases/download/chromium/8111/pdfium-linux-{arch}.tgz", self.download_args)
+                self.assertTrue(self.checksum_input.startswith(digest + "  "))
+                package = next(arg for arg in self.configure_args if arg.startswith("-DPDFium_DIR="))
+                self.assertTrue(package.endswith(f"/chromium-8111/linux-{arch}"), package)
+                self.assertTrue(self.unpacked)
+                self.assertTrue(self.download_cache_qualified)
+
+    def test_media_refuses_an_unsupported_architecture_before_fetch_or_configure(self):
+        code, said, ran = self.run_script([], "--product", "media", "--build-only", STAND_IN_MACHINE="riscv64")
+        self.assertNotEqual(code, 0, said)
+        self.assertIn("No pinned PDFium archive for this native architecture", said)
+        self.assertEqual(self.download_args, [])
+        self.assertEqual(self.configure_args, [])
+        self.assertFalse(self.unpacked)
+        self.assertEqual(ran, [])
+
+    def test_media_refuses_a_bad_archive_before_unpacking_or_configuring(self):
+        code, said, ran = self.run_script([], "--product", "media", "--build-only", STAND_IN_MACHINE="aarch64", CHECKSUM_GOES="fails")
+        self.assertNotEqual(code, 0, said)
+        self.assertIn("not the pinned release", said)
+        self.assertFalse(self.download_archive_exists)
+        self.assertFalse(self.unpacked)
+        self.assertEqual(self.configure_args, [])
+        self.assertEqual(ran, [])
+
+    def test_media_refuses_partial_extraction_without_qualifying_the_cache(self):
+        code, said, ran = self.run_script([], "--product", "media", "--build-only", STAND_IN_MACHINE="aarch64", UNPACK_GOES="fails")
+        self.assertNotEqual(code, 0, said)
+        self.assertIn("archive could not be unpacked", said)
+        self.assertTrue(self.unpacked)
+        self.assertFalse(self.download_cache_qualified)
+        self.assertEqual(self.configure_args, [])
+        self.assertEqual(ran, [])
 
     def test_missing_keyring_fixture_refuses_before_starting_test_services(self):
         with tempfile.TemporaryDirectory() as source:
