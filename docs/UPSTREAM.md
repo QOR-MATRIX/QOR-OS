@@ -91,6 +91,58 @@ until a reviewed upstream repair passes the core and QOR OS checks; no warning
 suppression or dependency substitution was adopted. Receipts:
 `build/development-2026-11-13/session-02/dependency-review.json`.
 
+## Remediating core dependencies
+
+This is the procedure for the open security task in [ROADMAP.md](ROADMAP.md),
+not a second roadmap. The 13 November audit of pin `6a4822d` found four
+vulnerability advisories and 13 warnings. The same affected versions remain in
+upstream `74a1014`; advancing to that commit is not a fix. Source-domain work in
+[upstream PR #118](https://github.com/QOR-MATRIX/demiurge-chain/pull/118) does not
+change those lock files. The core bridge must not grow around an unresolved audit.
+
+The official RustSec records identify these minimum patched versions; they are
+review inputs, not a tested dependency selection:
+
+- `libsqlite3-sys 0.38.2`: [RUSTSEC-2026-0459](https://github.com/rustsec/advisory-db/blob/main/crates/libsqlite3-sys/RUSTSEC-2026-0459.md)
+  lists `>=0.39.0`. The core's `desktop` feature includes `library`, which uses
+  `rusqlite 0.40.2` with `bundled`. Review the matching rusqlite requirement,
+  database compatibility and actual SQLite features together. The advisory's
+  SQLCipher qualification must not be lost by quoting the version alone.
+- `quinn-proto 0.11.18`: [RUSTSEC-2026-0523](https://github.com/rustsec/advisory-db/blob/main/crates/quinn-proto/RUSTSEC-2026-0523.md)
+  and [RUSTSEC-2026-0524](https://github.com/rustsec/advisory-db/blob/main/crates/quinn-proto/RUSTSEC-2026-0524.md)
+  list `>=0.11.19`. Trace the selected transport features and all parent crates
+  before choosing an update; the presence of a package in a lock file alone is
+  not runtime reachability.
+- `quinn-udp 0.5.15`: [RUSTSEC-2026-0538](https://github.com/rustsec/advisory-db/blob/main/crates/quinn-udp/RUSTSEC-2026-0538.md)
+  lists `>=0.5.16,<0.6.0` or `>=0.6.3`; its affected receive path excludes Linux
+  and Windows. Record that distinction while retaining the audit gate.
+
+Work in a clean upstream `session/*` branch or isolated worktree, under its
+`AGENTS.md`. Leave QOR OS's dependency checkout and pin alone. Before compiling,
+use the real heavy-job coordinator and sustained headroom checks with the actual
+worker resident. An insufficient-memory refusal is a stop, not permission to
+lower the floor, bypass coordination or manage another project's services.
+
+Capture the current manifests, lock-file hashes, selected features and target
+platforms without credentials. Review the narrowest compatible changes, including
+the desktop host's own lock file when its path dependency resolves differently.
+Preserve approved pins and notices; do not add advisory ignores, loosen the
+workflow or suppress the separate `proc-macro-error2` warning.
+
+Run upstream's locked core/host tests and configured audits on the changed
+revision. Test Library database open/read/write and transport refusal behavior
+affected by the selected updates, using local fixtures and test doubles. Record
+commands, environment, failures and skips; a successful dependency resolution or
+format check is not a compiled/tested core. Other upstream audit failures remain
+visible even if these four are repaired.
+
+Only after the upstream repair is reviewed and integrated should QOR OS update
+`core/CMakeLists.txt` and the pinned source references in
+[`sdk/developer-tools.json`](../sdk/developer-tools.json) together. Revalidate the
+discovery catalogue and required native/core checks for the new pin, update the
+existing status/security documents and preserve the exact evidence. Do not copy
+the core here or describe the full ecosystem as secure from one passing audit.
+
 ## Pulling from upstream
 
 For an owner-authorised upstream update, from a clean working tree in Git Bash

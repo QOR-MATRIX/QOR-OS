@@ -1,8 +1,8 @@
 # Where QOR OS stands
 
-For Andrew, 13 November 2026. Main includes the earlier integration merge
-`0c45307` and the developer-discovery/domain work through `0cdae3d`, pushed
-after its hosted Lint passed. This page records the subsequent status update.
+For Andrew, 13 November 2026. Main is pushed at `3002419`, including integration
+`0c45307` and developer/domain work through `0cdae3d`. The next branch is
+`feat/core-audit-remediation`; it prepares the upstream repair procedure.
 
 ## Developer access and domains
 
@@ -40,6 +40,8 @@ The pinned-core dependency audit failed with four vulnerability advisories and
 13 warnings; upstream `74a1014` retains the affected versions. Remediate and test
 upstream before adding bridge capabilities or moving the pin. No advisory was
 ignored, and an inventory finding is not a demonstrated exploit.
+`docs/UPSTREAM.md` now gives the advisory-backed procedure, feature review and
+required tests. Dependency edits and native verification are still outstanding.
 
 Qt CI, automated native builds, stays paused pending isolated workers. Native
 product/sanitizer journeys, hardware and release gates remain open; Q Pi stays

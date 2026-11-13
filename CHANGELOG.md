@@ -9,6 +9,13 @@ their changes since, and pulls of what is still shared, are recorded here.
 
 ## [Unreleased]
 
+- **Core audit continuation prepared, 13 November.** The new
+  `feat/core-audit-remediation` branch adds an upstream repair procedure tied to
+  the official advisory records, actual desktop/bundled-SQLite features and the
+  existing resource/test gates. It separates patched-version candidates from a
+  tested dependency selection and requires synchronized source references for a
+  future pin update. No dependency, advisory exception or core pin changed.
+
 - **Developer/domain integration, 13 November.** Main includes the new offline
   discovery and canonical-domain policy through `0cdae3d`, after hosted Lint
   passed 714 Python tests with 124 platform skips and all 63 ARQADE rule tests.
