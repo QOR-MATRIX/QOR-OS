@@ -1,7 +1,7 @@
 # Where QOR OS stands
 
 For Andrew, 13 November 2026. QOR OS and Q Pi development continue on
-`integration/owner-brief`, following the pushed checkpoint `6a0b861`.
+`integration/owner-brief`; the implementation checkpoint `3ad8954` is pushed.
 
 ## Contributions are safer to prepare
 
@@ -30,6 +30,10 @@ The full tooling run has 720 passes and 92 platform-specific skips (812 total);
 the final Actions-policy suite separately passes all 22 tests. The documentation audit finds
 500 valid local link targets across 19 guides and verifies 105 earlier evidence
 hashes. Final hook and staged scans accompany the commit.
+
+Hosted Lint also passes at `3ad8954`: 691 Linux tooling passes and 124 platform
+skips (815 total), plus the configured catalogue, header, secret, game-rule,
+format and JSON checks. This run does not execute the paused Qt build jobs.
 
 On the Pi, seven additional QQ launcher-protocol cases pass (nine results including
 setup/cleanup), covering handshake, ordering, refusal, malformed frames and

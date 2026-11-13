@@ -30,6 +30,9 @@ their changes since, and pulls of what is still shared, are recorded here.
   bypass, but remains unapplied because the private-repository plan rejects it.
   The repository stays private and both Qt runners remain offline. Evidence and
   settings recovery snapshots: `build/development-2026-11-13/session-03/`.
+  Hosted Lint run `43461849136` subsequently passes at implementation commit
+  `3ad8954`: 691 tooling passes, 124 platform-specific skips, and all remaining
+  configured Lint checks pass. The Qt build pause remains in force.
 
 - **Native OS software gate and ARM64 Store fixtures, 13 November.** After the
   reviewed `9d67ab2` checkpoint was pushed, the full core-enabled Pi development

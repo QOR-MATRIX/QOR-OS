@@ -850,6 +850,15 @@ rejects mutable version tags. Both current `main` and the integration branch use
 those same six action repositories. These settings were applied and read back
 successfully; this is configuration evidence, not a new workflow run.
 
+The subsequent hosted [Lint run 43461849136](https://github.com/QOR-MATRIX/qor-os/actions/runs/43461849136)
+passes at `3ad895449ad3205e38ea9ca88865e3a4df8427a1`. Its Ubuntu run checks all
+three workflows and 16 pinned action uses, then completes 815 tooling tests
+(691 passed, 124 platform-specific skips), catalogue validation, headers, tracked
+file secret scanning, game rules, formatting and JSON validation. This validates
+the contribution controls on GitHub; it does not run the paused Qt jobs or establish
+release readiness. The later documentation-only receipt update does not change
+that tested implementation.
+
 ```powershell
 python tools/github/check_actions_policy.py               # offline; no mutation
 python tools/github/bootstrap.py --actions-only           # authenticated admin; changes only Actions policy

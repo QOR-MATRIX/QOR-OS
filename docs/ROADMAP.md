@@ -671,6 +671,8 @@ vendor's claim. No firmware turns an output-only HDMI port into an input, so thi
   bypass; the API still refuses installation on this private repository's plan.
   Both registered runners report offline. These controls do not close the isolation
   or release gates below; [CI.md](CI.md#repository-settings-and-recovery) owns setup and recovery.
+  Hosted Lint subsequently passes at `3ad8954`, including 691 tooling passes and
+  124 platform-specific skips. Qt jobs remain paused; no isolation gate is closed.
 - [ ] CI that cannot reach the owner's keys or credentials ([CI.md](CI.md#what-ci-trusts)). Build's workstation jobs fail closed
   until their runner is isolated (pull request #2, merged 1 November 2026), both runners are stopped, and Release readiness fails
   while a required build or test did not run
