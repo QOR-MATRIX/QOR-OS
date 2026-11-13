@@ -459,6 +459,11 @@ For each native continuation:
 1. Record the source revision or snapshot/overlay hashes, the actual binary hash,
    Qt/Rust versions and selected preset. Compare the files that the binary uses
    with the current tree. A cached executable does not validate later source edits.
+   Include the tracked test-support files: the hidden product procedure uses
+   `tools/dev/secret-service.py`, an in-memory fake keyring, with its private bus.
+   A filtered snapshot that omits this fixture cannot run the complete procedure.
+   This fixture is repository code; actual credentials and provider keys stay out
+   of snapshots. The harness refuses its absence before starting test services.
 2. Use the [original native coordinator and resource checks](../image/README.md#native-linux-heavy-job-coordination).
    Observe sustained headroom with the worker resident and monitor the run. Keep
    the 3,072-MiB floor; a refusal does not authorize service changes or another

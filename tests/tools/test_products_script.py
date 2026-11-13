@@ -116,7 +116,7 @@ class Attempts(unittest.TestCase):
         self.assertEqual(len(ran), 4)
         self.assertIn("Failed once, and passed only on a later attempt", said)
 
-    def run_script(self, suites, *arguments, old_record=False, blocked_record=False, **environment):
+    def run_script(self, suites, *arguments, old_record=False, blocked_record=False, script=None, **environment):
         made = tempfile.TemporaryDirectory()
         self.addCleanup(made.cleanup)
         root = pathlib.Path(made.name)
@@ -146,13 +146,15 @@ class Attempts(unittest.TestCase):
             f"cmake_minimum_required(VERSION 3.16)\nproject(standin NONE)\nenable_testing()\n{tests}", encoding="utf-8")
         # No test starts the developer's real D-Bus/keyring. Other Python uses
         # still run normally, including the fake compositor's real Unix socket.
-        python = '#!/bin/bash\nif [ "$1" = -c ]; then exit 1; fi\nexec "$REAL_PYTHON" "$@"\n'
-        for name, text in (("cmake", CMAKE), ("ctest", CTEST), ("qml", QML), ("python3", python)):
+        python = ('#!/bin/bash\nif [ "$1" = -c ]; then '
+                  '[ "${STAND_IN_KEYRING_MODULES:-}" = available ]; exit $?; fi\nexec "$REAL_PYTHON" "$@"\n')
+        bus = '#!/bin/bash\ntouch "$STAND_IN/../marks/bus-started"\nexit 1\n'
+        for name, text in (("cmake", CMAKE), ("ctest", CTEST), ("qml", QML), ("python3", python), ("dbus-daemon", bus)):
             (root / "shims" / name).write_text(text, encoding="utf-8")
             (root / "shims" / name).chmod(0o755)
         environ = dict(os.environ, PATH=f"{root}/shims:{os.environ['PATH']}", REAL_CMAKE=shutil.which("cmake"), REAL_CTEST=shutil.which("ctest"),
                        STAND_IN=f"{root}/stand-in", REAL_PYTHON=sys.executable, **environment)
-        done = subprocess.run(["bash", str(_SCRIPT), "--qt", str(root / "kit"), "--build-root", str(root / "build"), "--display", "session",
+        done = subprocess.run(["bash", str(script or _SCRIPT), "--qt", str(root / "kit"), "--build-root", str(root / "build"), "--display", "session",
                                "--product", "qq", *arguments], env=environ, capture_output=True, text=True, timeout=120)
         ran = (root / "marks/ran").read_text(encoding="utf-8").splitlines() if (root / "marks/ran").exists() else []
         self.last_line = done.stdout.strip().splitlines()[-1] if done.stdout.strip() else ""
@@ -160,7 +162,22 @@ class Attempts(unittest.TestCase):
         self.build_args = (root / "marks/build.args").read_bytes().decode().split("\0") if (root / "marks/build.args").exists() else []
         receipt = root / "marks/display.json"
         self.display = json.loads(receipt.read_text(encoding="utf-8")) if receipt.exists() else None
+        self.bus_started = (root / "marks/bus-started").exists()
         return done.returncode, done.stdout + done.stderr, ran
+
+    def test_missing_keyring_fixture_refuses_before_starting_test_services(self):
+        with tempfile.TemporaryDirectory() as source:
+            script = pathlib.Path(source) / "tools/dev/products.sh"
+            script.parent.mkdir(parents=True)
+            shutil.copyfile(_SCRIPT, script)
+            code, said, ran = self.run_script([("tst_fine", "fine")], "--display", "offscreen", "--attempts", "1",
+                                              script=script, STAND_IN_KEYRING_MODULES="available")
+            self.assertNotEqual(code, 0, said)
+            self.assertIn("product test fixture tools/dev/secret-service.py is missing", said)
+            self.assertFalse(self.bus_started, "a bus started before checking the fixture")
+            self.assertIsNone(self.display)
+            self.assertEqual(self.configure_args, [])
+            self.assertEqual(ran, [])
 
     def test_hidden_display_uses_a_private_short_runtime_and_cleans_it_up(self):
         with tempfile.TemporaryDirectory() as outside:

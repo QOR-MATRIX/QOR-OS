@@ -257,6 +257,10 @@ start_keyring() {
         echo "No keyring for the run: it needs dbus-daemon, python3-dbus and python3-gi. QQ's agent suite will fail." >&2
         return 0
     fi
+    if [ ! -f "$REPO/tools/dev/secret-service.py" ]; then
+        echo "The product test fixture tools/dev/secret-service.py is missing; use a complete source checkout." >&2
+        return 1
+    fi
     { read -r address && read -r BUS_PID; } < <(dbus-daemon --session --fork --print-address=1 --print-pid=1)
     export DBUS_SESSION_BUS_ADDRESS=$address
     python3 "$REPO/tools/dev/secret-service.py" > "$log" 2>&1 &

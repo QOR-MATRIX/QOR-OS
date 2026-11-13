@@ -9,6 +9,12 @@ their changes since, and pulls of what is still shared, are recorded here.
 
 ## [Unreleased]
 
+- **Complete native test fixtures, 13 November.** The Linux product harness
+  refuses a missing fake-keyring fixture before starting its private bus, display,
+  build or suites. The diagnostic names the missing tracked helper; a regression
+  checks that no test services or build commands start. Native contribution
+  guidance includes test-support files when preparing a reviewed source snapshot.
+
 - **Native contribution continuation, 13 November.** The next development branch
   documents offline Q Pi/QQ agent-tool discovery, source/binary matching, original
   resource coordination, private software-test boundaries and reproducible handoffs.
