@@ -122,6 +122,19 @@ and runtime source are unchanged. No new exception was added. Service/chain
 findings and core maintenance warnings remain upstream work, not a reason to
 silently update this repository's pin.
 
+The workflow follow-up at `97dcb13` pins all 32 external action references to
+nine upstream commits across both workflows, disables persisted checkout
+credentials and selects explicit audit/coverage tool versions with checksums
+and no fallback installer. Weekly Actions updates are proposed for review.
+A structured YAML comparison preserves the job commands, gates and triggers;
+its hosted workflow checks are still running. The manual publishing workflow
+was not dispatched. These source changes are in draft PR #118, not upstream main.
+The live repository allowlist is restricted to the nine used action repositories;
+read-only default tokens and no pull-request approval remain in force. Global
+SHA enforcement waits for the source pins to merge so current main keeps running.
+
+
+
 The official RustSec records identify these minimum patched versions; they are
 review inputs, not a tested dependency selection:
 

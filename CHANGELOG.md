@@ -9,6 +9,16 @@ their changes since, and pulls of what is still shared, are recorded here.
 
 ## [Unreleased]
 
+- **Native qualification continuation, 13 November.** PR #5 integrates the
+  fixture and architecture-specific Media dependency fixes. The full Windows
+  tooling run passes 746 tests with 98 platform skips under the unchanged memory
+  floor; hosted Linux passes 720 with 124 skips. The roadmap now
+  prioritizes native products and the creator/player journey, and distinguishes
+  the completed publishing suite from the still-running broader procedure.
+  Upstream workflow hardening pins actions, audit/coverage tools and checkout
+  credential behavior; its draft and hosted validation remain separate from
+  QOR OS's unchanged core pin and release gates.
+
 - **Native QOR Media dependencies, 13 November.** The Linux product helper now
   selects pinned x64 or ARM64 PDFium archives and keeps their extracted caches
   separate. Unsupported architectures, checksum failures and incomplete
