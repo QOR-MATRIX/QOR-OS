@@ -58,7 +58,15 @@ products included on Windows.
 *About 2–4 weeks.* Exit: Orb Run plays inside Prism on Linux with a DualSense, and Linux CI runs
 QQ's, ARQADE's and QOR Media's suites.
 
-**Current local priority, 13 November: core-enabled OS and product validation.**
+**Current local priority, 13 November: native products, the creator/player journey and upstream dependency repair.**
+Upstream's workflow hardening passes the required build/test jobs at `97dcb13`:
+213 chain, 245 core and 109 Launcher host tests pass, with 10/five ignored
+core/host tests. The service audits remain failed. The separate two-validator
+recovery check is running; its optional Rust 1.100 report retains the SDK macro
+lint blocker (66 generated DRC-369 diagnostics). The required compiler stays
+1.98.1 and QOR OS's core pin is unchanged; [UPSTREAM.md](UPSTREAM.md) owns the
+repair and integration procedure.
+
 The later native Pi continuation completed the added Prism boundary regressions
 in both Release and ASan/UBSan: all seven selected suites pass without skips,
 including 43 pointer-capture and six window-management Qt Test results. The
@@ -103,8 +111,9 @@ The next continuation passes seven non-windowed QQ launcher-protocol cases
 use a local stand-in and cover handshake, ordering, refusal, framing and loss of
 connection. The cached binary and all 1,404 snapshot/overlay source hashes were
 verified before execution; the initial stale-manifest refusal is preserved in
-`build/development-2026-11-13/session-03/`. The two windowed publication cases and
-whole creator/player journey remain unvalidated on the Pi.
+`build/development-2026-11-13/session-03/`. The two windowed publication cases were subsequently completed in the full
+publishing-suite run recorded in the Q Pi track below. The whole creator/player
+journey remains unvalidated on the Pi.
 
 **Earlier 12 November Windows/WSL continuation.**
 The warning candidate at the pushed `01ba206` checkpoint compiled without warnings in the focused Qt 6.12
@@ -373,6 +382,11 @@ SDK.
   hosts, mail, installed settings and released clients need separate acceptance.
   Automated Vercel preview checks pass; production was not promoted. Upstream
   dependency audits fail, so the PR remains a draft with its gates intact.
+  Read-only live checks at 22:33-22:34 UTC confirm the homepage, QOR ID health and
+  database/cache readiness, and the RPC's runtime 11 with advancing finalized
+  headers. The returned homepage HTML still lacks the exact QOR OS repository
+  link; project management access and deployment/client acceptance remain open.
+
 
 The 13 November owner direction makes developer access across every system an
 explicit workstream alongside the native validation gates. The main repository
@@ -390,7 +404,10 @@ services, QQ's agent tools and the upstream QOR Launcher/DRC-369 boundary.
   the installable SDK and runtime integrations remain open.
   Hosted Lint at `0cdae3d` passes 714 tooling tests with 124 platform skips and
   all 63 ARQADE rule tests. All 14 discovery tests also pass on Windows. The full
-  local tooling run and all-file hooks remain resource-blocked; this does not
+  local tooling run and all-file hooks were then resource-blocked. The later
+  Windows run at `ed3526e` completes all 844 tooling results: 746 pass and 98
+  platform-specific cases skip, with at least 3,314 MiB available under the
+  unchanged guard. All-file hooks passed before PR #5 merged. These checks do not
   replace native product, sanitizer or isolated-runner acceptance.
 - [ ] Launcher/DRC-369 and agent integration: first specify and test the required
   read-only core bridge capabilities upstream; then add trusted approval flows for
@@ -479,7 +496,7 @@ not a vendor's support. The commit and date go in the row.
 |---------------|---------------|--------------|-----------------|----------|-------|------------|--------------|----------------|-------------|
 | QQ, Windows 11, in CI, at `3bf213a` | passed, suites | passed, suites | untested | passed, suites | suites, deaf to the machine | virtual only | passed, suites | untested: the build step has not run on Windows | project in the Player: passed, suites; packaged: untested |
 | QQ, Ubuntu in WSL2, software, hidden display, at `72945fe` | passed, suites | passed, suites | untested | software only | deaf to the machine | virtual only | passed, suites | passed, suites (`tst_gamebuild`, `first_journey`) | what was built, in the real Player: passed, suites; from the Library: Prism starts a stand-in there, and the real Player plays what it asked for |
-| QQ, native Linux | blocked: machine | blocked: machine | blocked: machine | blocked: machine | blocked: machine | blocked: machine | blocked: machine | blocked: machine | blocked: machine |
+| QQ, native ARM64 Linux (Q Pi), software, 13 November 2026, product source unchanged from `ed3526e` | passed, Studio suite (29 Qt Test results) | untested: full acceptance | untested | software only; World suite passes | untested: physical devices hidden | untested: physical devices hidden | passed, Studio save/reopen cases; workspace suite pending | untested: suite pending | untested: play/player suites in progress; complete journey queued |
 | Unreal 5.8 | blocked: licence, not installed | blocked | blocked: Prism's interfaces | blocked | blocked | blocked | blocked | blocked | blocked |
 | Unity 6.3 | blocked: operation gated | blocked | blocked | blocked | blocked | blocked | blocked | blocked | blocked |
 
@@ -922,6 +939,13 @@ evidence; no Q Pi image has been built or accepted.
   fixtures: 720 Python tests pass with 124 platform skips and all 63 ARQADE
   tests pass. The follow-up at `74d22e9` passes the same checks, including a stale
   extraction marker being removed before retrying an incomplete package.
+  These tooling changes are merged through PR #5 (`ed3526e`). The first-journey
+  preparation verifies the five existing simulator-enabled Prism programs and
+  the journey script. Its bounded queue waits for the active QQ procedure to
+  exit, then uses the original native lock and rechecks source/program identities
+  and sustained memory before execution. No complete product/journey pass is
+  claimed. The current native Studio save/reopen evidence is reflected in the
+  existing engine table above; hardware acceptance remains open.
 - [ ] Build and statically validate a regular-file image with a real maintained
   Pi login/desktop, native QOR apps and local development tools; no simulator.
 - [ ] After the [action-time write gates](../image/README.md#authorised-q-pi-target-and-action-time-write-gates), prove Pi boot, hardware graphics,

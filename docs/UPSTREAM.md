@@ -122,6 +122,26 @@ and runtime source are unchanged. No new exception was added. Service/chain
 findings and core maintenance warnings remain upstream work, not a reason to
 silently update this repository's pin.
 
+The workflow follow-up at `97dcb13` pins all 32 external action references to
+nine upstream commits across both workflows, disables persisted checkout
+credentials and selects explicit audit/coverage tool versions with checksums
+and no fallback installer. Weekly Actions updates are proposed for review.
+A structured YAML comparison preserves the job commands, gates and triggers.
+Hosted run `43519214320` passes all 213 chain tests with WebAssembly built,
+245 core tests (10 ignored), 109 Launcher host tests (five ignored), frontend,
+design/accessibility, service, ARQADE and coverage checks. Security still fails
+the two service audits. The manual publishing workflow was not dispatched.
+These source changes are in draft PR #118, not upstream main.
+The live repository allowlist is restricted to the nine used action repositories;
+read-only default tokens and no pull-request approval remain in force. Global
+SHA enforcement waits for the source pins to merge so current main keeps running.
+The separate CI dispatch `43522526902` is building the release node for the
+existing two-validator agreement/finality/restart check. Its optional Rust
+1.100.0 report fails on 66 `clone_on_copy` diagnostics at DRC-369 event/call
+parameters expanded by SDK macros, the issue tracked by upstream ADR-072.
+Required Rust 1.98.1 checks pass; no lint suppression or compiler/SDK pin change
+was made. The report skips WebAssembly and is not runtime test evidence.
+
 The official RustSec records identify these minimum patched versions; they are
 review inputs, not a tested dependency selection:
 

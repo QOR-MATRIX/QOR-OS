@@ -9,6 +9,22 @@ their changes since, and pulls of what is still shared, are recorded here.
 
 ## [Unreleased]
 
+- **Native qualification continuation, 13 November.** PR #5 integrates the
+  fixture and architecture-specific Media dependency fixes. The full Windows
+  tooling run passes 746 tests with 98 platform skips under the unchanged memory
+  floor; hosted Linux passes 720 with 124 skips. The roadmap now
+  prioritizes native products and the creator/player journey, and distinguishes
+  the completed publishing suite from the still-running broader procedure.
+  Upstream workflow hardening pins actions, audit/coverage tools and checkout
+  credential behavior. Its required hosted build/test jobs pass at `97dcb13`;
+  the live Actions allowlist is restricted to nine used repositories. Service
+  audits remain failed, and the optional Rust 1.100 report retains 66 SDK macro
+  lint diagnostics. The separate validator-recovery check is in progress.
+  These results remain separate from QOR OS's unchanged core pin and release gates.
+  The engine table now records the passing native Studio save/reopen cases;
+  the complete creator/player journey is queued after the active product run
+  under the original lock, source checks and unchanged memory floor.
+
 - **Native QOR Media dependencies, 13 November.** The Linux product helper now
   selects pinned x64 or ARM64 PDFium archives and keeps their extracted caches
   separate. Unsupported architectures, checksum failures and incomplete
