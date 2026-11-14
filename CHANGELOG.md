@@ -9,6 +9,13 @@ their changes since, and pulls of what is still shared, are recorded here.
 
 ## [Unreleased]
 
+- **The homepage moves into QOR OS.** `site/` carries the tested static site and
+  pinned Analytics package from upstream `d4c51d7`, with source hashes and licences.
+  Primary project, progress and developer links now point to QOR-MATRIX/QOR-OS.
+  A dedicated workflow checks public output, ownership, privacy and dependency
+  audit. QOR-0027 establishes the existing Astra Matrix / qor project as the
+  deployment target; the network/core remain upstream and the core pin is unchanged.
+
 - **The native creator/player journey completes; remaining failures are retained.**
   The queued software check passes in 201.292 seconds under its unchanged deadline,
   with real Studio builds and Player playback; Prism records a stand-in Library

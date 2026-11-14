@@ -1,0 +1,13 @@
+QOR OS homepage
+
+Carried from QOR-MATRIX/demiurge-chain at
+d4c51d7e99848a3789cbe46f5f1c3de1ed0aca4e on 13 November 2026.
+Copyright 2026 Demiurge. Source is licensed under Apache-2.0;
+see licenses/Apache-2.0.txt. Changes for QOR OS are marked in source.
+
+Cinzel, Barlow, Barlow Semi Condensed and IBM Plex Mono font notices are
+preserved in licenses/. Each is distributed under the SIL Open Font License 1.1.
+
+The Vercel Analytics browser module is distributed with its MIT licence at
+vendor/vercel-analytics.LICENSE.txt. The operating system's proprietary licence
+does not replace these third-party and carried-source licences.

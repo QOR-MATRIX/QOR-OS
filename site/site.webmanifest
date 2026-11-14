@@ -1,0 +1,14 @@
+{
+  "name": "QOR OS",
+  "short_name": "QOR OS",
+  "description": "An operating system for players, game makers and creators, in development.",
+  "start_url": "/",
+  "display": "browser",
+  "background_color": "#06070a",
+  "theme_color": "#06070a",
+  "icons": [
+    { "src": "/icon-180.png", "sizes": "180x180", "type": "image/png" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "/favicon.svg", "sizes": "any", "type": "image/svg+xml" }
+  ]
+}

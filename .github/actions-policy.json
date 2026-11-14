@@ -11,6 +11,7 @@
       "actions/cache@*",
       "actions/checkout@*",
       "actions/setup-python@*",
+      "actions/setup-node@*",
       "actions/upload-artifact@*",
       "ilammy/msvc-dev-cmd@*",
       "seanmiddleditch/gha-setup-ninja@*"

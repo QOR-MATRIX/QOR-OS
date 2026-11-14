@@ -14,6 +14,11 @@ Prism compositor · Lumen design · QQ engine · ARQADE · the QOR network · Qt
 [Developer start](sdk/README.md) · [Documentation](docs/README.md) ·
 [Contributing](CONTRIBUTING.md) · [Security](SECURITY.md)
 
+This repository also owns the [QORSYNC.DEV homepage](site/README.md). Its deployment
+target is [Astra Matrix / QOR](https://vercel.com/astramatrix/qor), using `main`
+and the `site/` root. [Hosting checks](docs/HOSTING.md) keep the source, build
+settings and domains aligned.
+
 QOR OS is a Linux operating system in development, targeting an experience drawn by Qt. The
 compositor and shell, the design system, the system services, the game engine
 and its studio, the arcade, the media player and the account system are all

@@ -1,7 +1,7 @@
 # Upstream: what QOR OS shares with demiurge-chain
 
 demiurge-chain (`QOR-MATRIX/demiurge-chain`, public, Apache-2.0) is
-Demiurge's repository: the chain, QOR ID, Social, the websites and the QOR
+Demiurge's repository: the chain, QOR ID, Social, ARQADE's website and the QOR
 Launcher. QOR OS shares three things with it:
 
 - the QOR core, built from it at a pinned commit
@@ -26,8 +26,15 @@ demiurge-chain's copies of them are frozen (its ADR-126).
 | The QOR core (`tools/qor-launcher/core/` upstream) | Keys, profiles, amounts, the C bridge | built at a pinned commit, never copied | ADR-103, ADR-104 |
 
 Everything Demiurge runs as a service stays upstream: the chain, QOR ID,
-Social, ARQADE's website, the homepage and the QOR Launcher for Windows and
+Social, ARQADE's website and the QOR Launcher for Windows and
 Android.
+
+The homepage moved to this repository's `site/` on 13 November 2026 under
+[QOR-0027](decisions/QOR-0027-the-homepage-lives-in-qor-os.md), carried from
+`d4c51d7e99848a3789cbe46f5f1c3de1ed0aca4e`. Original hashes are in
+`site/upstream-source.json`; source, SDK and font licences are preserved. It is
+developed here, without an ongoing subtree sync. Vercel's existing Astra Matrix /
+qor project targets QOR-MATRIX/QOR-OS `main`, root `site`.
 
 ## The products, developed here
 
