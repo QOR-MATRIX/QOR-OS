@@ -9,6 +9,14 @@ their changes since, and pulls of what is still shared, are recorded here.
 
 ## [Unreleased]
 
+- **One canonical development repository is the owner's long-term direction.**
+  QOR-0028 records QOR OS, Q Pi, Demiurge Chain, ARQADE and associated systems
+  as the intended scope, with the current milestone first. Core ownership,
+  public/private access, licences, shared rules, launcher consumers and homepage
+  deployment require a separate evidence-based proposal. No source moves,
+  restructuring, visibility changes or earlier-decision supersession are
+  authorized; current boundaries remain in force.
+
 - **QQ's 2D Player updates only an actual QQ Sprite as its visual.** A matching
   name on a lookalike node no longer moves that unrelated object, and another
   entity no longer raises a script error. Named lookup and public property

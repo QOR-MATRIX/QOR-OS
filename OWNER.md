@@ -1,40 +1,36 @@
 # Where QOR OS stands
 
-For Andrew, 14 November 2026. QQ, the game engine, now updates the 2D player's
-visual only when it is an actual Sprite, the image used for that character.
-Another scene object with a matching name stays untouched instead of being
-moved or causing a script error. Seven new test cases cover valid and invalid
-visuals, physics-carrier ownership and dimensions, player selection, activation,
-clock interpolation, replay state and parent changes. Public property types,
-named lookup and movement calculations remain unchanged.
+For Andrew, 14 November 2026. Draft pull request #10 continues QQ, the game
+engine, on `fix/native-play-clock-waits`. All 14 worktrees were clean at this
+session's admission; local and remote heads matched `57d9cab`. The Pi had no
+active build or test worker. Existing work and evidence are preserved.
 
-The full native QQ build on the Raspberry Pi 5 has no compiler or license-client
-diagnostics. Its mode is RelWithDebInfo, optimized with debug information. All
-83 scene results pass. Four existing gameplay tests pass before and after the
-fix: tiled-level platforming, top-down movement with its visual, recorded replay
-and 2D triggers. Each run has six results including setup/cleanup, with no failures
-or skips. Their source, assertions, tolerances and durations are unchanged.
-All 83 scene results also pass offscreen under ASan/UBSan, the memory and
-undefined-behavior checks, with leak detection enabled. Executable hardening,
-the exploit-mitigation checks, passes 16 QQ programs and the sanitizer program.
+The current Store-installed game still fails its unchanged 60-second startup
+test on the Raspberry Pi 5. A separate diagnostic reaches the first frame in
+64.204 seconds, then reports 19.9 frames per second and exits cleanly. It uses
+llvmpipe, the software renderer, inside private device and network namespaces.
+That longer diagnostic is not a passing acceptance test. A new regression
+also reproduces duplicate initial sky construction; its repair is being tested.
+Receipts are in `build/development-2026-11-14/session-06/`.
 
-QML, Qt's interface language, has 53 runtime lint warnings: all 14 Player2D
-findings removed, none added. The whole lint gate still fails. These are hidden
-software tests with virtual devices. Full product, Windows product, hardware
-and isolated CI, automated-build/test, acceptance remain unproven. Required Qt
-jobs remain paused. The older Store/Orb timing, Wayland display-library leak,
-ARQADE diagnostics and upstream dependency findings remain open and were not
-rerun for this increment.
+The previous 2D Player change has 83 passing scene results in both optimized
+native and instrumented memory/undefined-behavior runs, plus four selected
+gameplay tests, recorded in session-05. Those are dated, focused results.
+Whole-product, Windows, hardware and bootable Q Pi acceptance remain open.
+The last runtime lint check reports 53 warnings and fails its zero-warning gate.
 
-The original build coordinators allow one heavy job at a time and retain the
-3,072-MiB memory floor. The final native audit verifies 1,404 source fingerprints,
-current build output, tested executable identities and sanitizer instrumentation.
-Evidence, including both reproduced original failures, is in
-`build/development-2026-11-14/session-05/`; earlier receipts remain in their folders.
+Both registered Qt runners remain offline and their isolation-enabling
+variables are absent. CI, automated build and test, remains paused for Qt.
+The proposed isolated virtual machine has no local provisioning/proof record;
+this terminal has no administrator or Hyper-V administrator access. The original
+build coordinators and 3,072-MiB memory floor remain mandatory.
 
-This continuation follows pushed Player commit `8702213` on
-`fix/native-play-clock-waits` for draft pull request #10. No image, package,
-release or production deployment is part of this change.
+The long-term direction is one canonical development repository for QOR OS,
+Q Pi, Demiurge Chain, ARQADE and associated systems. QOR-0028 records planning
+only: reconcile current ownership, history, licences, security boundaries,
+consumers and deployments in a separate proposal after this milestone is
+reviewable. No code moves, restructuring or visibility changes occur here.
 
-Next: finish remaining QQ runtime lint and playback repairs, then complete the
-roadmap's product, isolated-build and upstream audit gates.
+Next: validate the sky repair and report PR #10's exact passing and remaining
+gates. The Store/Orb timing, display-library leak, broader product checks,
+upstream dependency findings and isolated-runner proof remain separate work.

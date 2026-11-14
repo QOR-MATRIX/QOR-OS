@@ -15,6 +15,13 @@ They are developed here since 29 October 2026
 ([QOR-0015](decisions/QOR-0015-the-products-are-developed-here.md)), and
 demiurge-chain's copies of them are frozen (its ADR-126).
 
+The owner now wants one canonical development repository for these systems
+([QOR-0028](decisions/QOR-0028-plan-one-canonical-development-repository.md)).
+That direction is accepted for planning only. The current milestone does not
+move code, change the core pin or alter the sharing rules below. A later proposal
+must reconcile public/private access and licences, core ownership, frozen
+launcher consumers, shared rules and deployment continuity before any cutover.
+
 ## What is shared
 
 | Path (the same here and upstream) | What it is | How | Upstream record |

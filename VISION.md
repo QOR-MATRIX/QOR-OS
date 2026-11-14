@@ -53,6 +53,15 @@ to the roadmap's gates. Native ARM64 Prism and QQ builds have focused software
 test evidence; full application, hardware and bootable Q Pi image acceptance
 remain open in the [roadmap](docs/ROADMAP.md#q-pi-development-edition).
 
+The owner's long-term direction is **one canonical development repository**
+for QOR OS, Q Pi, Demiurge Chain, ARQADE and associated systems
+([QOR-0028](docs/decisions/QOR-0028-plan-one-canonical-development-repository.md)).
+This is accepted for planning; the destination, visibility and migration are
+undecided. Today's private device/public network split, upstream core pin,
+licences and service boundaries remain in force. The current milestone moves
+no code between repositories. A separate evidence-based consolidation proposal
+follows a reviewable account of this milestone.
+
 ## 1. Principles
 
 | # | Principle | What it means in practice |

@@ -16,6 +16,18 @@ products ([UPSTREAM.md](UPSTREAM.md)).
 
 ## The order of work
 
+The owner's 14 November direction is one canonical development repository for
+QOR OS, Q Pi, Demiurge Chain, ARQADE and associated systems
+([QOR-0028](decisions/QOR-0028-plan-one-canonical-development-repository.md)).
+First make the current milestone reviewable in PR #10, retaining explicit
+failed and untested gates. Then propose a separate consolidation plan with
+verified history/licence and access boundaries, active work, consumers,
+deployments, cutover checks and rollback. Destination and visibility remain
+undecided; this milestone authorizes no migration or restructuring. QOR-0002's
+network split, QOR-0003's upstream core, QOR-0015/0017's product and shared-rule
+contracts and QOR-0027's homepage deployment all require reconciliation in that
+later plan. Current contracts remain in force.
+
 The owner's 13 November hosting correction moves the QORSYNC.DEV homepage into
 `site/` here, targeting the existing Astra Matrix / qor project from QOR OS `main`
 ([QOR-0027](decisions/QOR-0027-the-homepage-lives-in-qor-os.md)). Homepage build and
