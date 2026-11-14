@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-// Changed for QOR OS: also keep hosting/source manifests out of public output.
+// Changed for QOR OS: keep manifests private and prevent proxy-injected analytics.
 import assert from 'node:assert/strict';
 import { readFileSync, readdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -106,4 +106,7 @@ test('build output contains public assets and the unmodified SDK with its licenc
   assert.match(csp, /script-src 'self';/);
   assert.match(csp, /connect-src 'self';/);
   assert.equal(headers.find((header) => header.key === 'Referrer-Policy').value, 'no-referrer');
+  const cache = headers.find((header) => header.key === 'Cache-Control').value;
+  assert.ok(cache.split(',').map((value) => value.trim()).includes('no-transform'),
+    'HTML must prevent proxy-injected analytics outside the reviewed privacy controls');
 });

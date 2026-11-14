@@ -9,6 +9,13 @@ their changes since, and pulls of what is still shared, are recorded here.
 
 ## [Unreleased]
 
+- **Hosting now reads QOR OS.** The existing Astra Matrix / qor project is
+  connected to QOR-MATRIX/QOR-OS/main/site with the locked build and `dist` output.
+  Its live alias serves the merged source; canonical links, redirects, security
+  headers and Analytics script delivery are verified. HTML responses now refuse
+  proxy transformations, preventing an observed injected Cloudflare beacon from
+  bypassing the source's analytics controls. Asset cache lifetimes are preserved.
+
 - **The homepage moves into QOR OS.** `site/` carries the tested static site and
   pinned Analytics package from upstream `d4c51d7`, with source hashes and licences.
   Primary project, progress and developer links now point to QOR-MATRIX/QOR-OS.

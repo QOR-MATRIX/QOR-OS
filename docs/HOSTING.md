@@ -17,6 +17,7 @@ The chain, QOR ID, Social, ARQADE web application and pinned core remain upstrea
 | Node | `24.x` |
 | Install | `npm ci --ignore-scripts --no-fund` |
 | Build / output | `npm run build` / `dist` |
+| Existing ignored-build command | `git diff --quiet HEAD^ HEAD -- .` (skips unchanged site content) |
 | Public domains | `qorsync.dev`; `www.qorsync.dev` redirects to the apex with 308 |
 
 These are non-secret identifiers, also recorded in `site/hosting.json`. Never
@@ -51,9 +52,28 @@ part of local homepage work. Production changes remain within the owner's reques
 Initial authenticated inspection on 13 November found this same project and
 domain mapping, but Git still pointed to demiurge-chain repository `1399861408`.
 Root `site` and Node 24 were correct; install/build were no-ops and output was `.`.
-The migration and final verification receipts belong in
-`build/development-2026-11-13/session-08/`. Record the verified resulting commit
-and deployment here when the cut-over completes.
+PR #8 merged the migration at `1dc617bbd8851e8031587da7ccd400a0db3b2a24`.
+Authenticated readback now confirms QOR OS repository `1435244138`, `main`,
+root `site`, the build settings above and unchanged verified domain bindings.
+The production alias serves deployment `dpl_FH1YfDm24Cteyk4aitsu7G4E9pxH`,
+whose Git source is that exact QOR OS main commit. Its preview built successfully;
+five key assets matched reviewed source, apart from Vercel's identified preview toolbar.
+
+Live checks confirm the canonical repository link, HTTPS, six security headers,
+the `www` 308 redirect, unavailable private build files and an HTTP 200 Analytics
+script. Web Analytics is enabled on the existing project; dashboard collection
+has not been exercised. Of 47 public assets, 45 match Git/package bytes exactly.
+Cloudflare adds its automatic beacon to both HTML files; the same-origin security
+policy blocks it. The header correction adds `no-transform`, documented by
+[Cloudflare](https://developers.cloudflare.com/web-analytics/get-started/), to
+prevent that injection while retaining the asset cache rules. Final delivery must
+be checked again after that correction deploys.
+
+The first test-only preview was correctly canceled by the existing ignored-build
+command. The merged source revision built normally; no skip or security check was
+disabled. Safe configuration, source and deployment receipts, the former live alias
+for rollback, and the initial failed byte check are preserved in
+`build/development-2026-11-13/session-08/`.
 
 Official references: [Vercel Git connections](https://vercel.com/docs/cli/git)
 and [project Git settings](https://vercel.com/docs/project-configuration/git-settings).
