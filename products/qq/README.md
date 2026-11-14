@@ -312,10 +312,22 @@ All five screen kinds bind their drawing Components to their own screen part's c
 them on the World's overlay. Text, sizing, fill, images and actions continue to refer to that instance; these drawings use
 no delegate model context. ScreenImage is ready only when its actual Image has finished loading; a malformed file is not ready.
 
+`Game.playingScene` is the loaded QQ scene, or null before loading and after release or failed startup.
+`Game.scene` is inherited from Qt's `View3D`: it is the viewport's own scene root and remains separate when a game
+loads, restarts or releases. The Player and ARQADE read `playingScene` for game state; hosts using the former
+loaded-scene property must use that name too.
+
 The Agent panel also shows supplied status, key-storage problems and messages literally. Markup in those strings stays
 text, including when the status changes during a run.
 
 ## Build, test, deploy
+
+13–14 November native scene follow-up: `Game.playingScene` separates the loaded game from the viewport root. The regression
+reproduces the old collision; the complete scene suite passes 57 results. Test-owned viewports have hidden window owners
+and drain queued destruction. All 57 results pass offscreen under ASan/UBSan with leak detection enabled; Wayland retains
+a 96-byte allocation also reproduced without a viewport, and still exits with failure. Runtime lint retains 102 warnings
+after removing the property override, and Store playback still exceeds its unchanged 60-second deadline. These are
+focused software results, not full product or graphics acceptance. Receipts: `build/development-2026-11-13/session-11/`.
 
 Latest Inspector batch, 5 November: selected kind/name/fields use the same dynamic metadata lookup as the optional
 editor dictionaries, preserving the public target interface, guards, writes and undo keys. Three existing real Studio

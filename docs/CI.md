@@ -424,6 +424,51 @@ loop. The network-confinement suite passes three results without skips. The
 lockdown suite does not complete within a separate 300-second diagnostic budget;
 that bounded probe is not full-suite acceptance or a new standard timeout.
 
+The session-11 follow-up separates `Game.playingScene` from Qt's inherited
+viewport `scene`. The new regression fails on the original implementation and
+passes after the rename; the full scene suite passes 57 results without failures
+or skips. Runtime QML lint removes the property-override finding, retaining the
+other 102 warnings. The Store Player still exceeds 60 seconds. A separate
+300-second affected-play probe passes model startup and two contact cases before
+its aggregate budget expires during the prefab case; that batch is incomplete.
+Early isolated compilation logs also contain Qt license-client registration
+diagnostics: their zero compiler-warning count does not establish a clean build.
+Subsequent checks compile using the host's existing Qt license setup and keep
+test execution in private namespaces. Raw logs and scope corrections are in
+`build/development-2026-11-13/session-11/`.
+
+The sanitizer build verifies actual instrumented compiler commands and linked
+ASan/UBSan libraries. Its first scene run passes all 57 assertions but exits 1
+with 3,744 leaked bytes. Giving standalone viewport tests hidden window owners
+and draining queued destruction removes the viewport allocations. The complete
+offscreen scene run then passes 57 results and exits 0 with leak detection left
+enabled. Wayland still exits 1 with one 96-byte allocation in its hardware
+integration client; the same allocation appears in a numeric-only case that
+creates no viewport. No leak suppression or disabled leak checking was added.
+
+The ARQADE caller build completes compilation but retains two diagnostics: the
+configuration's GuiPrivate version warning and a QML generator warning about
+the namespaced server enum. Its generated metadata still exports
+`ARQADE/ArqadeServer 1.0`. Functional checks against that binary do not clear its
+warning gate; these diagnostics were not suppressed.
+
+The final full QQ build exits 0 without compiler or license-client diagnostics.
+Its current scene suite passes all 57 results. The four affected playback cases
+(imported-model startup and the three contact/trigger cases) complete in
+305.333 seconds: six Qt results including setup/cleanup, no failures or skips.
+Their assertions and internal durations are unchanged; the preceding 300-second
+diagnostic probe was too short for that combined batch.
+
+The four ARQADE caller functions also pass six Qt results in 255.637 seconds,
+including opening/leaving a game and match creation/opponent-join polling.
+A context warning during return to home remains in the log. Hardening passes
+16 QQ Release programs, the ARQADE test program and the sanitizer test program.
+The independent final audit verifies 1,404 source hashes, a current Release
+cache and the original lock available. Some outer-wrapper receipts retain exit
+1 because their temporary drain helper counted exited adopted children awaiting
+their parent's reap as active. That helper was corrected; command results and
+the independent audit are recorded separately, with the raw failures preserved.
+
 **The variable was recorded unset and the Qt-job pause remains in force.** Once
 a runner is qualified and its product step is enabled, the harness runs each
 product's registered CTest suites hidden: **in software when fenced or without a

@@ -9,6 +9,22 @@ their changes since, and pulls of what is still shared, are recorded here.
 
 ## [Unreleased]
 
+- **QQ keeps the loaded game separate from its viewport.** `Game.playingScene`
+  replaces the loaded-scene property that shadowed Qt's read-only `View3D.scene`.
+  The Player and ARQADE follow the new property, including arena polling and
+  the game-view alias. A regression checks loading, replacement and release
+  while preserving the viewport root; ARQADE checks its alias against the
+  loaded scene. The full native scene suite passes 57 results. The override
+  warning is removed; native QQ runtime lint still reports 102 warnings, and the Store
+  Player still exceeds its unchanged 60-second deadline.
+  Standalone viewport tests now own hidden windows and drain queued destruction.
+  All 57 scene results pass offscreen under address and undefined-behavior
+  sanitizers with leak checking enabled. Wayland retains a 96-byte allocation,
+  also reproduced by a numeric-only case; its sanitizer exit remains failed.
+  The full QQ rebuild is clean; all four affected playback functions and four
+  ARQADE game/arena caller functions pass. ARQADE's build/context warnings remain
+  recorded, and hardening passes the checked Release and sanitizer programs.
+
 - **Git reconciliation and native failure diagnosis, 13 November.** All 14 QOR
   worktrees were clean at admission; stale remote-tracking refs were pruned and
   already-integrated histories identified without discarding local checkpoints.

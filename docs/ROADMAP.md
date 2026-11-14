@@ -167,6 +167,28 @@ suite budget, which is shorter than the normal product-harness budget. No
 completed-suite pass is claimed for it. The cache is current, no owned workers
 remain, and the original native lock is free.
 
+The session-11 follow-up fixes QQ's loaded-scene property shadowing Qt's viewport
+root and migrates the Player and ARQADE callers. Its regression reproduces the
+old collision; the full scene suite passes 57 results after the fix. Native
+runtime lint falls from 103 to 102 warnings. Store playback still exceeds its
+unchanged 60-second deadline. A separate affected-play probe passes model startup
+and two contact cases, then reaches its diagnostic budget during the prefab case;
+it is not a completed play-suite pass. The original failures and scope corrections
+remain in `build/development-2026-11-13/session-11/`.
+
+Its instrumented scene suite now passes all 57 results offscreen with leak
+checking enabled. Test-owned viewports have hidden window owners and queued
+destruction is drained. The Wayland run retains a 96-byte allocation, reproduced
+even by a numeric-only case, so that platform's sanitizer gate remains failed.
+The final full QQ rebuild is free of compiler and license-client diagnostics.
+All 57 scene results pass, and all four affected playback functions complete
+with six Qt results and no failures/skips in 305.333 seconds. This completes the
+earlier bounded batch without changing any assertion or internal duration.
+Four ARQADE game/arena caller functions also pass six results without failures
+or skips. Its build and context warnings remain. Hardening passes all checked
+programs; the final source/cache/lock audit passes independently of the documented
+outer-wrapper child-status error. Whole-product acceptance is still incomplete.
+
 Windows/Linux Qt runners remain offline and unqualified for isolation. The local
 session lacks Hyper-V administration rights and has no verified isolated VM;
 observed free memory cannot fit the planned 6-GiB VM while retaining the 3-GiB

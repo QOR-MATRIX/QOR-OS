@@ -13,6 +13,7 @@
 // Changed for QOR OS: imported models cover window startup and empty, failed and repeated loads.
 // Changed for QOR OS: group motion uses the physics and frame clocks in software and reports failed waits.
 // Changed for QOR OS: contact and falling-trigger checks also wait on the existing software physics clock.
+// Changed for QOR OS: inspect the Game's loaded scene through playingScene.
 
 #include <QDir>
 #include <QElapsedTimer>
@@ -1965,7 +1966,7 @@ private slots:
         auto *io = engine.singletonInstance<qq::SceneIO *>("QQ", "SceneIO");
         QVERIFY(io);
         QObject *model = nullptr;
-        for (const QVariant &e : io->entities(game->property("scene").value<QObject *>())) {
+        for (const QVariant &e : io->entities(game->property("playingScene").value<QObject *>())) {
             if (e.value<QObject *>()->property("name").toString() == QStringLiteral("First model"))
                 model = e.value<QObject *>();
         }

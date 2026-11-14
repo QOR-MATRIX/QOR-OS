@@ -14,8 +14,12 @@
 // Changed for QOR OS: the Player shows supplied startup problems and filenames literally.
 // Changed for QOR OS: Player labels follow edits to their different scene and follower objects.
 // Changed for QOR OS: groups and prefabs retain their structural parent-state bindings.
+// Changed for QOR OS: a Game keeps its loaded scene separate from the viewport's own scene.
+// Changed for QOR OS: standalone Game tests own a hidden window so Qt can retire their scene managers.
 
+#include <QCoreApplication>
 #include <QDir>
+#include <QEvent>
 #include <QFile>
 #include <QFileInfo>
 #include <QFont>
@@ -27,7 +31,10 @@
 #include <QQmlComponent>
 #include <QQmlEngine>
 #include <QQmlListReference>
+#include <QQuickItem>
+#include <QQuickWindow>
 #include <QRegularExpression>
+#include <QScopeGuard>
 #include <QStandardPaths>
 #include <QTemporaryDir>
 #include <QTest>
@@ -106,6 +113,11 @@ private slots:
         engine = new QQmlEngine(this);
         io = engine->singletonInstance<qq::SceneIO *>("QQ", "SceneIO");
         QVERIFY(io);
+    }
+
+    void cleanup()
+    {
+        QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
     }
 
     void numbersAreWrittenOneWayOnly()
@@ -1245,6 +1257,44 @@ private slots:
         QVERIFY(!scene->property("recorder").value<QObject *>());
     }
 
+    void aGamesLoadedSceneDoesNotReplaceItsViewportScene()
+    {
+        QTemporaryDir project;
+        QVERIFY(project.isValid());
+        for (const QString &name : {QStringLiteral("first"), QStringLiteral("second")}) {
+            QFile file(project.filePath(name + QStringLiteral(".qml")));
+            QVERIFY(file.open(QIODevice::WriteOnly));
+            const QByteArray text = QStringLiteral("import QQ\nScene { name: \"%1\"; view: \"2d\" }\n").arg(name).toUtf8();
+            QCOMPARE(file.write(text), qint64(text.size()));
+        }
+        QQuickWindow host;
+        QQmlComponent component(engine);
+        component.setData("import QQ\nGame { hearing: false }\n", QUrl(QStringLiteral("qrc:/game-viewport.qml")));
+        std::unique_ptr<QObject> game(component.create());
+        QVERIFY2(game, qPrintable(component.errorString()));
+        auto *viewport = qobject_cast<QQuickItem *>(game.get());
+        QVERIFY(viewport);
+        viewport->setParentItem(host.contentItem());
+        const auto release = qScopeGuard([&game] { QMetaObject::invokeMethod(game.get(), "release"); });
+        QObject *viewportScene = game->property("scene").value<QObject *>();
+        QVERIFY(viewportScene);
+        QVERIFY(!game->property("playingScene").value<QObject *>());
+        for (const QString &name : {QStringLiteral("first"), QStringLiteral("second")}) {
+            QVERIFY(game->setProperty("file", QUrl::fromLocalFile(project.filePath(name + QStringLiteral(".qml")))));
+            QObject *playing = game->property("playingScene").value<QObject *>();
+            QVERIFY(playing);
+            QVERIFY(playing != viewportScene);
+            QCOMPARE(playing->property("name").toString(), name);
+            QCOMPARE(game->property("scene").value<QObject *>(), viewportScene);
+            QVERIFY(game->property("flat").toBool());
+            QVERIFY(game->property("settled").toBool());
+        }
+        QVERIFY(QMetaObject::invokeMethod(game.get(), "release"));
+        QVERIFY(!game->property("playingScene").value<QObject *>());
+        QCOMPARE(game->property("scene").value<QObject *>(), viewportScene);
+        QVERIFY(!game->property("settled").toBool());
+    }
+
     void playerLabelsFollowTheirSceneAndFollower()
     {
         QTemporaryDir project;
@@ -1261,7 +1311,7 @@ private slots:
         QObject *game = window->findChild<QObject *>(QStringLiteral("game"));
         QVERIFY(game);
         QTRY_COMPARE(window->property("title").toString(), QStringLiteral("First — QQ Player"));
-        QObject *scene = game->property("scene").value<QObject *>();
+        QObject *scene = game->property("playingScene").value<QObject *>();
         QObject *follower = game->property("follow").value<QObject *>();
         QVERIFY(scene);
         QVERIFY(follower);
@@ -1340,20 +1390,25 @@ private slots:
         };
         QVERIFY(write(QStringLiteral("bad.qml"), text));
         QVERIFY(write(QStringLiteral("good.qml"), "import QQ\nScene { name: \"recovered\" }\n"));
+        QQuickWindow host;
         QQmlComponent component(engine);
         component.setData("import QQ\nGame { hearing: false }\n", QUrl(QStringLiteral("qrc:/game-errors.qml")));
         std::unique_ptr<QObject> game(component.create());
         QVERIFY2(game, qPrintable(component.errorString()));
+        auto *viewport = qobject_cast<QQuickItem *>(game.get());
+        QVERIFY(viewport);
+        viewport->setParentItem(host.contentItem());
+        const auto release = qScopeGuard([&game] { QMetaObject::invokeMethod(game.get(), "release"); });
         QVERIFY(game->setProperty("file", QUrl::fromLocalFile(QDir(project.path()).filePath(QStringLiteral("bad.qml")))));
         QTRY_VERIFY2(!game->property("problem").toString().isEmpty(), "a scene that could not start needs a reported problem");
-        QVERIFY(!game->property("scene").value<QObject *>());
+        QVERIFY(!game->property("playingScene").value<QObject *>());
         QVERIFY(!game->property("settled").toBool());
         QTRY_VERIFY(!game->findChild<QObject *>(QStringLiteral("rejectedScene")));
 
         // A failed attempt neither leaves a scene behind nor prevents a valid file from starting.
         QVERIFY(game->setProperty("file", QUrl::fromLocalFile(QDir(project.path()).filePath(QStringLiteral("good.qml")))));
-        QTRY_VERIFY(game->property("scene").value<QObject *>());
-        QCOMPARE(game->property("scene").value<QObject *>()->property("name").toString(), QStringLiteral("recovered"));
+        QTRY_VERIFY(game->property("playingScene").value<QObject *>());
+        QCOMPARE(game->property("playingScene").value<QObject *>()->property("name").toString(), QStringLiteral("recovered"));
         QCOMPARE(game->property("problem").toString(), QString());
         QVERIFY(game->property("settled").toBool());
         QVERIFY(QMetaObject::invokeMethod(game.get(), "release"));

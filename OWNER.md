@@ -1,48 +1,44 @@
 # Where QOR OS stands
 
-For Andrew, 13 November 2026. Git version histories are reconciled, the upstream
-homepage handoff is pushed, and native QQ failures now have measured causes.
+For Andrew, 14 November 2026. QQ's loaded-game collision with Qt's graphics
+view is fixed, and its callers have been exercised on the separate Linux builder.
 
-All 14 QOR checkouts had no uncommitted changes when checked. Eight stale records
-of remote branches were pruned; local checkpoints remain intact. Two histories that
-looked unmerged were verified as already integrated by identical content.
-Upstream draft PR #118 contains the handoff through `846d9ba`; the duplicate
-Analytics PR #119 is closed. The fixed core-library revision remains `6a4822d`.
+`Game.playingScene` now holds the loaded game; Qt keeps its own graphics-view
+root. The Player and ARQADE use the new property, including arena polling.
+The regression first reproduced the old collision and now checks loading,
+replacement and release. Standalone test views own hidden windows so Qt can
+retire their scene managers; queued destruction is drained between cases.
 
-The existing Astra Matrix / qor project serves QOR OS PR #9 at `f4c9863`.
-All 47 public files match reviewed bytes; redirects, six security headers,
-private-file exclusions and Analytics script delivery pass. Cloudflare no longer
-injects its analytics script. Dashboard collection remains unproven.
-The homepage's 36 content checks, six privacy/output tests and dependency audit
-pass. These are the verified session-09 results, not a new deployment today.
+The full QQ build passes without compiler or license-client diagnostics.
+Its scene suite passes 57 results. ASan/UBSan, the memory and undefined-behavior
+checks, also pass all 57 offscreen with leak detection enabled. The four affected
+QQ playback functions and four ARQADE caller functions each pass six Qt results,
+including setup/cleanup, without failures or skips. ARQADE's checks include
+opening and leaving a game, creating a match and receiving an opponent's join.
+Executable hardening, the exploit-mitigation checks, passes for both products.
+These are software-graphics results, not physical graphics, audio or input proof.
+An evidence-wrapper child-status error is documented separately from the passing
+commands and independent final source/cache/lock audit.
 
-The separate Linux builder reproduces all four QQ play failures in both rendering
-modes. Three contact/trigger waits allow only 325–409 ms of simulated physics
-before their wall-clock deadlines. Orb Run has not advanced its first frame
-before its startup deadline; a first-frame probe gets further but still fails
-the lantern-idle timer wait. A separate six-wait proposal uses the existing
-software simulation clock and passes the three contact cases, with no failures
-or skips. You approved that exact patch; it is on `fix/native-play-clock-waits`,
-not yet merged. The rebuilt test program matches the one that passed. GPU timing,
-the Player's 20-frames-per-second floor and release checks remain enforced.
+Limits remain explicit. QML, Qt's interface language, has 102 runtime lint
+warnings. Store playback still exceeds 60 seconds; Orb Run's later timer wait
+is unresolved. ARQADE retains build diagnostics and a context warning on return
+from a game. Wayland, the display protocol, retains a 96-byte allocation under
+sanitizers even in a numeric-only case. Its sanitizer exit remains failed.
+No warning, leak check, test assertion or internal deadline was suppressed.
 
-Exploit-mitigation checks pass all 16 QQ programs. QML, Qt's interface language, still has 103
-warnings. Store playback exceeds its unchanged 60-second deadline under either
-rendering mode. The network-confinement suite passes; the lockdown suite is
-incomplete within a bounded probe. The native build is current and its job lock free.
+The branch `fix/native-play-clock-waits` also retains your approved six-wait
+software-physics patch. Draft pull request #10 is unmerged. The other 13 QOR
+checkouts were clean when checked. Upstream draft #118 remains at `846d9ba`
+with its dependency audit failed; the fixed core-library revision is unchanged
+at `6a4822d`. Both Qt CI workers, the automated build/test workers, are offline;
+qualified isolation and full product acceptance remain outstanding.
 
-CI, the automated build/test system, still lacks qualified isolated Qt workers.
-This Windows session lacks virtual-machine administration rights and enough
-available memory for the planned worker plus the unchanged 3-GiB host floor.
-The upstream service audit still fails: stable SQLx, its database library,
-excludes the patched SQLite database binding. No audit exception was added.
+Next: resolve the remaining playback, display-leak and lint findings, complete
+the product suites, qualify isolated workers and clear the upstream audit.
+The original job locks and 3-GiB memory floor remain. No unrelated service,
+production deployment, device image, package or release was changed or published.
 
-Next: resolve Orb Run's timer waits, Store playback, QML lint and the remaining
-QQ suites, qualify isolated workers, and resolve the service
-dependency before extending the shell-to-core interface. The broader product
-run and native graphics acceptance remain incomplete. No device image, package,
-network upgrade or release was published.
-
-Current Git, audit and native diagnostic evidence is in
-`build/development-2026-11-13/session-10/`; homepage proof remains in session-09.
-The roadmap is the sole record of outstanding gates.
+Current evidence is in `build/development-2026-11-13/session-11/`, including
+initial failures and scope corrections; the approved timing proof remains in
+session-10. The roadmap is the sole record of outstanding gates.
