@@ -22,9 +22,13 @@ The owner's 13 November hosting correction moves the QORSYNC.DEV homepage into
 privacy checks are separate from device qualification; [HOSTING.md](HOSTING.md)
 records connection and live-deployment verification. Network/core ownership and
 the device work below are unchanged.
-PR #8 is merged; remote readback confirms that connection, and QORSYNC.DEV serves
-QOR OS main `1dc617b`. The live check found proxy-injected analytics; an explicit
-`no-transform` response header now guards the reviewed HTML privacy boundary.
+PRs #8 and #9 are merged; remote readback confirms that connection, and QORSYNC.DEV
+serves QOR OS main `f4c9863`. The original live check found proxy-injected analytics;
+the deployed `no-transform` response header now guards the reviewed HTML privacy
+boundary. All 47 public files, including both HTML pages, match reviewed source
+or locked-package bytes. Security headers, canonical links, redirect, private-file
+exclusion and Analytics script delivery pass; dashboard collection was not exercised.
+Current hosting receipts are in `build/development-2026-11-13/session-09/`.
 
 The owner's milestones ([QOR-0021](decisions/QOR-0021-projects-engines-and-two-stores.md)). The phases and sections below say
 what each holds. A step is done when it is integrated and its checks have evidence, kept to the configuration they ran on.

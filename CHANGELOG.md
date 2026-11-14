@@ -15,6 +15,8 @@ their changes since, and pulls of what is still shared, are recorded here.
   headers and Analytics script delivery are verified. HTML responses now refuse
   proxy transformations, preventing an observed injected Cloudflare beacon from
   bypassing the source's analytics controls. Asset cache lifetimes are preserved.
+  PR #9 is deployed from `f4c9863`; all 47 public files now match reviewed bytes,
+  including both HTML pages, and the delivered header and private-file checks pass.
 
 - **The homepage moves into QOR OS.** `site/` carries the tested static site and
   pinned Analytics package from upstream `d4c51d7`, with source hashes and licences.

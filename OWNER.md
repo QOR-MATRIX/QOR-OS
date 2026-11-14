@@ -1,42 +1,36 @@
 # Where QOR OS stands
 
-For Andrew, 13 November 2026. PR #8 is merged on main at `1dc617b`.
-The hosting follow-up is on `docs/hosting-verification`.
+For Andrew, 13 November 2026. PR #9 is merged on main at `f4c9863`.
+The homepage correction is deployed and its public delivery is verified.
 
 ## Verified progress
 
-The complete native ARM64 creator/player journey passes in 201.292 seconds
-under its unchanged 300-second deadline. Real Studio builds and Player playback
-run on a private software display. Prism records its Library launch through a
-stand-in; the real Player then runs separately. All 1,404 source hashes and five
-Prism programs match. Available memory stays above 6,954 MiB; the 3,072-MiB
-minimum is unchanged. This does not prove hardware or a Player window inside Prism.
+Authenticated readback confirms that the existing Astra Matrix / qor hosting
+project builds QOR-MATRIX/QOR-OS/main/site with Node 24 and publishes only `dist`,
+the generated public folder. QORSYNC.DEV serves deployment
+`dpl_E41rwWtgMm8imti425U8YAkEaUMt`, built from the merged revision.
 
-The broader QQ run passes World, Scene and Studio, then reports 54 play passes
-and four failures. Its 7,200-second aggregate deadline expires during Player;
-later suites remain incomplete. Earlier Linux tooling passes 720 tests with
-124 platform skips; Windows passes 746 with 98 skips. Media still lacks the
-Pi's required Qt PDF modules. No product source changed in this continuation.
+All 47 public files match the reviewed source or locked package bytes, including
+both HTML pages. Cloudflare no longer appends its analytics script. The delivered
+`no-transform` header forbids proxy edits; all six security headers, canonical
+links, the `www` redirect and seven private-file exclusions pass. The Vercel
+Analytics script is delivered successfully; dashboard collection was not exercised.
 
-Demiurge-chain draft PR #118 passes 213 chain tests and all 13 two-validator
-recovery checks on a hosted local test network. Core/Launcher checks pass
-245/109 tests, with 10/five ignored. Chain advisories and both service database
-audits remain unresolved. Required Rust 1.98.1 passes; the optional newer
-compiler reports 66 generated-code errors. QOR OS's core pin stays `6a4822d`.
-
-The homepage and Vercel Analytics 2.0.1 live in `site/`, with hashes and licences.
-Astra Matrix / qor now reads QOR-MATRIX/QOR-OS/main/site. QORSYNC.DEV serves the
-merged revision; canonical links, security headers, redirect and Analytics script
-pass live checks. Homepage, tooling and history checks pass on GitHub. Cloudflare
-injected a second analytics script into HTML; the existing browser security policy
-blocks it. A response-header correction now prevents proxy edits and awaits final
-live verification. The approved QORSYNC.DEV service subdomains remain unchanged.
+The homepage build passes 36 content checks and six privacy/output tests with
+no failures or skips. The dependency audit reports no vulnerabilities. Homepage
+and history checks also pass on GitHub at the deployed revision. Native Qt CI
+(automated builds and tests) remains paused pending isolated workers, so the
+release-readiness check remains failed. No native source or core pin changed;
+the pin is still `6a4822d`.
 
 ## Continuation
 
-Investigate the four play failures and complete product qualification; resolve
-upstream audits before extending the shell-to-core interface. Native Qt CI,
-automated checks, remains paused pending isolated workers. The homepage was
-deployed; no device image, package, network upgrade or release was published. The roadmap owns
-remaining gates. Native receipts are in session-07; hosting receipts are in
-`build/development-2026-11-13/session-08/`.
+The roadmap retains the earlier native creator/player journey result, four play
+failures and incomplete broader product qualification. Investigate those failures
+and finish the remaining suites; resolve upstream audits before extending the
+shell-to-core interface. These device checks were not rerun in this homepage session.
+No device image, package, network upgrade or release was published.
+
+Current hosting receipts are in `build/development-2026-11-13/session-09/`.
+Session-08 preserves the original proxy mismatch; session-07 preserves the native
+results. The roadmap remains the sole record of outstanding gates.

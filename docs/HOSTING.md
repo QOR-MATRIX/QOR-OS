@@ -55,19 +55,33 @@ Root `site` and Node 24 were correct; install/build were no-ops and output was `
 PR #8 merged the migration at `1dc617bbd8851e8031587da7ccd400a0db3b2a24`.
 Authenticated readback now confirms QOR OS repository `1435244138`, `main`,
 root `site`, the build settings above and unchanged verified domain bindings.
-The production alias serves deployment `dpl_FH1YfDm24Cteyk4aitsu7G4E9pxH`,
+The initial production alias served deployment `dpl_FH1YfDm24Cteyk4aitsu7G4E9pxH`,
 whose Git source is that exact QOR OS main commit. Its preview built successfully;
 five key assets matched reviewed source, apart from Vercel's identified preview toolbar.
 
-Live checks confirm the canonical repository link, HTTPS, six security headers,
+Initial live checks confirmed the canonical repository link, HTTPS, six security headers,
 the `www` 308 redirect, unavailable private build files and an HTTP 200 Analytics
 script. Web Analytics is enabled on the existing project; dashboard collection
-has not been exercised. Of 47 public assets, 45 match Git/package bytes exactly.
-Cloudflare adds its automatic beacon to both HTML files; the same-origin security
-policy blocks it. The header correction adds `no-transform`, documented by
+has not been exercised. Of 47 public assets, 45 matched Git/package bytes exactly.
+Cloudflare added its automatic beacon to both HTML files; the same-origin security
+policy blocked it. The header correction adds `no-transform`, documented by
 [Cloudflare](https://developers.cloudflare.com/web-analytics/get-started/), to
-prevent that injection while retaining the asset cache rules. Final delivery must
-be checked again after that correction deploys.
+prevent that injection while retaining the asset cache rules.
+
+PR #9 subsequently merged that correction at
+`f4c9863a282b21e0dcc2f86517fc29d77022fd8f`. The existing Git integration automatically
+deployed it as `dpl_E41rwWtgMm8imti425U8YAkEaUMt`; authenticated readback confirms
+the QORSYNC.DEV alias, QOR OS repository, `main` branch and exact commit agree.
+All 47 delivered public files now match reviewed Git or locked-package bytes,
+including both HTML pages, with no appended Cloudflare beacon. The HTML
+`Cache-Control` value, six security headers, canonical links, `www` 308 redirect,
+seven private-file 404 responses and HTTP 200 Analytics script all pass.
+The local Node 24 build passes 36 content checks and six privacy/output tests;
+the dependency audit reports no vulnerabilities. The protected preview also
+matched five selected assets and all seven configured headers before merging.
+Dashboard collection was not exercised. Current receipts are preserved in
+`build/development-2026-11-13/session-09/`; native Qt readiness remains separate
+and failed while its required isolated workers are unavailable.
 
 The first test-only preview was correctly canceled by the existing ignored-build
 command. The merged source revision built normally; no skip or security check was
