@@ -62,7 +62,7 @@ QQ's, ARQADE's and QOR Media's suites.
 Upstream's workflow hardening passes the required build/test jobs at `97dcb13`:
 213 chain, 245 core and 109 Launcher host tests pass, with 10/five ignored
 core/host tests. The service audits remain failed. The separate two-validator
-recovery check is running; its optional Rust 1.100 report retains the SDK macro
+recovery check passes all 13 checks on a hosted local test network; its optional Rust 1.100 report retains the SDK macro
 lint blocker (66 generated DRC-369 diagnostics). The required compiler stays
 1.98.1 and QOR OS's core pin is unchanged; [UPSTREAM.md](UPSTREAM.md) owns the
 repair and integration procedure.
@@ -112,8 +112,14 @@ use a local stand-in and cover handshake, ordering, refusal, framing and loss of
 connection. The cached binary and all 1,404 snapshot/overlay source hashes were
 verified before execution; the initial stale-manifest refusal is preserved in
 `build/development-2026-11-13/session-03/`. The two windowed publication cases were subsequently completed in the full
-publishing-suite run recorded in the Q Pi track below. The whole creator/player
-journey remains unvalidated on the Pi.
+publishing-suite run recorded in the Q Pi track below. The complete creator/player
+journey subsequently passes once in 201.292 seconds with its unchanged 300-second
+deadline. Real Studio and Player programs run; Prism records its Library launch
+through a stand-in, followed by separate real Player playback. This is software
+evidence, not a real Player window inside Prism or hardware acceptance. The broad
+QQ run reports four `tst_play` failures (54 passes) and hits its 7,200-second
+aggregate deadline during `tst_player`; remaining suites did not complete.
+Receipts and preserved failures: `build/development-2026-11-13/session-07/`.
 
 **Earlier 12 November Windows/WSL continuation.**
 The warning candidate at the pushed `01ba206` checkpoint compiled without warnings in the focused Qt 6.12
@@ -496,7 +502,7 @@ not a vendor's support. The commit and date go in the row.
 |---------------|---------------|--------------|-----------------|----------|-------|------------|--------------|----------------|-------------|
 | QQ, Windows 11, in CI, at `3bf213a` | passed, suites | passed, suites | untested | passed, suites | suites, deaf to the machine | virtual only | passed, suites | untested: the build step has not run on Windows | project in the Player: passed, suites; packaged: untested |
 | QQ, Ubuntu in WSL2, software, hidden display, at `72945fe` | passed, suites | passed, suites | untested | software only | deaf to the machine | virtual only | passed, suites | passed, suites (`tst_gamebuild`, `first_journey`) | what was built, in the real Player: passed, suites; from the Library: Prism starts a stand-in there, and the real Player plays what it asked for |
-| QQ, native ARM64 Linux (Q Pi), software, 13 November 2026, product source unchanged from `ed3526e` | passed, Studio suite (29 Qt Test results) | untested: full acceptance | untested | software only; World suite passes | untested: physical devices hidden | untested: physical devices hidden | passed, Studio save/reopen cases; workspace suite pending | untested: suite pending | untested: play/player suites in progress; complete journey queued |
+| QQ, native ARM64 Linux (Q Pi), software, 13 November 2026, product source unchanged from `ed3526e` | passed, Studio suite (29 Qt Test results) | untested: full acceptance | untested | software only; World suite passes | untested: physical devices hidden | untested: physical devices hidden | passed, Studio save/reopen cases; workspace suite pending | passed, complete first-journey check | real Player playback passes in the journey; Prism records a stand-in launch. Broad play suite: 54 pass, four fail; aggregate run times out during Player |
 | Unreal 5.8 | blocked: licence, not installed | blocked | blocked: Prism's interfaces | blocked | blocked | blocked | blocked | blocked | blocked |
 | Unity 6.3 | blocked: operation gated | blocked | blocked | blocked | blocked | blocked | blocked | blocked | blocked |
 
@@ -939,13 +945,15 @@ evidence; no Q Pi image has been built or accepted.
   fixtures: 720 Python tests pass with 124 platform skips and all 63 ARQADE
   tests pass. The follow-up at `74d22e9` passes the same checks, including a stale
   extraction marker being removed before retrying an incomplete package.
-  These tooling changes are merged through PR #5 (`ed3526e`). The first-journey
-  preparation verifies the five existing simulator-enabled Prism programs and
-  the journey script. Its bounded queue waits for the active QQ procedure to
-  exit, then uses the original native lock and rechecks source/program identities
-  and sustained memory before execution. No complete product/journey pass is
-  claimed. The current native Studio save/reopen evidence is reflected in the
-  existing engine table above; hardware acceptance remains open.
+  These tooling changes are merged through PR #5 (`ed3526e`), with the checkpoint
+  merged through PR #6 (`b79c40c`). The queued first journey now passes once in
+  201.292 seconds under its unchanged deadline, after verifying 1,404 source
+  hashes and five Prism programs. It uses the original native lock and isolated
+  software display/device/network views; available memory stays above 6,954 MiB.
+  Studio builds and the real Player plays; Prism's Library launch uses a recording
+  stand-in. The broad product run retains four play failures and its aggregate
+  timeout during Player, with later suites incomplete. No full product or hardware
+  acceptance is claimed. Receipts: `build/development-2026-11-13/session-07/`.
 - [ ] Build and statically validate a regular-file image with a real maintained
   Pi login/desktop, native QOR apps and local development tools; no simulator.
 - [ ] After the [action-time write gates](../image/README.md#authorised-q-pi-target-and-action-time-write-gates), prove Pi boot, hardware graphics,
