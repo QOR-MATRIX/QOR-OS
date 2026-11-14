@@ -17,6 +17,7 @@
 // Changed for QOR OS: a Game keeps its loaded scene separate from the viewport's own scene.
 // Changed for QOR OS: standalone Game tests own a hidden window so Qt can retire their scene managers.
 // Changed for QOR OS: a shape's body follows view and playing changes through mixed structural parents.
+// Changed for QOR OS: Shape motion commands refuse missing or mismatched physics nodes without a script error.
 
 #include <QCoreApplication>
 #include <QDir>
@@ -1002,6 +1003,55 @@ private slots:
         outer->setParentItem(root);
         QTRY_COMPARE(state(outer), expected);
         QTRY_COMPARE(state(inner), expected);
+    }
+
+    void shapeMotionCommandsRequireADynamicBody_data()
+    {
+        QTest::addColumn<QString>("bodyMode");
+        QTest::addColumn<QString>("replacement");
+        QTest::addColumn<bool>("accepted");
+        QTest::newRow("dynamic") << QStringLiteral("dynamic") << QString() << true;
+        QTest::newRow("static") << QStringLiteral("static") << QString() << false;
+        QTest::newRow("kinematic") << QStringLiteral("kinematic") << QString() << false;
+        QTest::newRow("none") << QStringLiteral("none") << QString() << false;
+        QTest::newRow("missing") << QStringLiteral("dynamic") << QStringLiteral("null") << false;
+        QTest::newRow("ordinary-node") << QStringLiteral("dynamic") << QStringLiteral("ordinary") << false;
+        QTest::newRow("mismatched-static-body") << QStringLiteral("dynamic") << QStringLiteral("standing") << false;
+    }
+
+    void shapeMotionCommandsRequireADynamicBody()
+    {
+        QFETCH(QString, bodyMode);
+        QFETCH(QString, replacement);
+        QFETCH(bool, accepted);
+        QQmlComponent component(engine);
+        component.setData(QStringLiteral(
+            "import QtQuick3D\nimport QtQuick3D.Physics\nimport QQ\nNode {\n"
+            "    property bool playing: %2\n    property string view: \"3d\"\n"
+            "    Shape { objectName: \"shape\"; body: \"%1\" }\n"
+            "    Node { objectName: \"ordinary\" }\n"
+            "    StaticRigidBody { objectName: \"standing\" }\n}\n")
+                .arg(bodyMode, replacement == QStringLiteral("null") ? QStringLiteral("false") : QStringLiteral("true")).toUtf8(),
+            QUrl(QStringLiteral("qrc:/shape-motion-commands.qml")));
+        std::unique_ptr<QObject> object(component.create());
+        QVERIFY2(object, qPrintable(component.errorString()));
+        QObject *shape = object->findChild<QObject *>(QStringLiteral("shape"));
+        QVERIFY(shape);
+        QObject *originalBody = shape->property("physics").value<QObject *>();
+        QCOMPARE(originalBody != nullptr, bodyMode != QStringLiteral("none") && replacement != QStringLiteral("null"));
+        const auto restore = qScopeGuard([&] { shape->setProperty("physics", QVariant::fromValue(originalBody)); });
+        if (!replacement.isEmpty() && replacement != QStringLiteral("null")) {
+            QObject *other = object->findChild<QObject *>(replacement);
+            QVERIFY(other);
+            QVERIFY(shape->setProperty("physics", QVariant::fromValue(other)));
+        }
+        const QVariant vector = QVariant::fromValue(QVector3D(1, 2, 3));
+        for (const char *method : {"push", "applyForce", "setVelocity", "setSpin"}) {
+            QVariant result;
+            QVERIFY2(QMetaObject::invokeMethod(shape, method, Q_RETURN_ARG(QVariant, result), Q_ARG(QVariant, vector)), method);
+            QVERIFY2(result.metaType() == QMetaType::fromType<bool>(), method);
+            QCOMPARE(result.toBool(), accepted);
+        }
     }
 
     void aShapesBodyFollowsItsNearestParentsState()

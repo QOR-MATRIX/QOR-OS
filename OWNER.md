@@ -1,42 +1,40 @@
 # Where QOR OS stands
 
-For Andrew, 14 November 2026. QQ, the game engine, now keeps each private
-collider and body factory with the shape that created it.
+For Andrew, 14 November 2026. QQ, the game engine, now checks a Shape's actual
+physics body before calling its four motion commands. A missing body, ordinary
+node or mismatched static body returns false without a script error. Public
+properties and every existing test assertion, duration and tolerance remain
+unchanged. Seven new test rows exercise all four commands.
 
-Playing and 2D/3D state still come from the immediate parent, whether it is a
-scene, group or prefab (a reusable group). The new automated check covers live
-changes, reparenting, detachment, restored movement restrictions and the same
-body's identity. The text "true" cannot enable it. Public fields and all existing test assertions, durations
-and tolerances are unchanged.
+The full native QQ build has no compiler or license-client diagnostics. Its
+actual mode is RelWithDebInfo, optimized with debug information. All 65 scene
+results pass. Dynamic/kinematic motion, contact reporting and three 2D movement
+restriction rows pass seven results including setup/cleanup, without failures
+or skips. All 65 scene results also pass offscreen under ASan/UBSan, the memory
+and undefined-behavior checks, with leak detection enabled. Executable
+hardening, the exploit-mitigation checks, passes 16 QQ programs and the
+sanitizer test program. These are hidden software tests with virtual devices.
 
-The full native QQ build is clean of compiler and license-client diagnostics.
-Its actual build mode is RelWithDebInfo, optimized with debug
-information, despite “release” in the cache directory's name. All 58 scene
-results pass. Contact reporting, grouped motion and the three 2D plane-lock
-rows pass seven results including setup/cleanup, without failures or skips.
-ASan/UBSan, the memory and undefined-behavior checks, also pass all 58 scene
-results offscreen with leak detection enabled. Executable hardening, the
-exploit-mitigation checks, passes 16 QQ programs and the sanitizer test program.
+QML, Qt's interface language, now has 83 runtime lint warnings: five removed,
+none added, and none remaining in Shape.qml. The lint gate still fails. The
+roadmap's earlier Store/Orb timing, Wayland display-library leak, ARQADE
+diagnostics and upstream dependency findings remain open; those checks were
+not repeated here. Full product, hardware and isolated automated-build
+acceptance remain unproven.
 
-QML, Qt's interface language, now has 88 warnings in the runtime's static checks:
-14 removed, none added. Its warning gate still fails. Earlier Store/Orb timing failures,
-the 96-byte Wayland display-library leak and ARQADE diagnostics remain open;
-those suites and the Wayland sanitizer run were not repeated here. Full
-products, hardware acceptance and qualified CI, automated builds/tests, remain
-unproven. These checks use isolated software graphics and virtual devices.
+The missing Windows coordinator was restored byte-for-byte to its original
+path after two idle-worker checks, following the preserved recovery procedure.
+Independent lock exclusion and child exit-status propagation pass. All-file
+hooks and the complete working-tree secret scan pass; Windows product builds
+remain unrun. The native coordinator and 3,072-MiB memory floor remain intact. The final audit
+verifies 1,404 native snapshot hashes and a current build cache. Current QQ and
+shared build inputs match that snapshot; unrelated differences are recorded.
 
-The branch retains your approved six-wait software-clock patch and the separate
-loaded-game property fix. Draft pull request #10 remains unmerged. The other
-13 QOR checkouts were clean when checked. Upstream draft #118 stays at
-`846d9ba` with its dependency audit failed; the fixed core-library revision remains
-`6a4822d`. Both Qt CI workers remain offline. No gate was weakened.
+The work continues on `fix/native-play-clock-waits`, above `da45af6`, for
+draft pull request #10. Native evidence, including initial regression failures
+and the fixture correction, is in `build/development-2026-11-14/session-02/`;
+coordinator recovery and Git checks are in session-03 beside it. No image,
+package, release or production deployment is part of this change.
 
-The original job locks and 3-GiB memory floor remain. No unrelated service,
-production deployment, device image, package or release was changed or published.
-Current evidence is in `build/development-2026-11-14/session-01/`, including
-the intermediate context-only result and the final parent-state correction.
-Earlier scene and timing evidence remains in the 13 November session folders.
-
-Next: resolve the remaining lint and playback findings, complete product
-acceptance, qualify isolated CI workers and clear the upstream audit. The
-roadmap remains the sole record of those gates.
+Next: continue the remaining QQ lint and playback repairs, then complete the
+roadmap's product, isolated-build and upstream audit gates.

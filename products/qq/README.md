@@ -320,10 +320,28 @@ no delegate model context. ScreenImage is ready only when its actual Image has f
 loads, restarts or releases. The Player and ARQADE read `playingScene` for game state; hosts using the former
 loaded-scene property must use that name too.
 
+Shape's `push`, `applyForce`, `setVelocity` and `setSpin` require both the `dynamic` body mode and an actual
+`DynamicRigidBody`. A missing body, ordinary node or mismatched static body returns false without a script error.
+The public `physics` property remains a `Node`; the private body factory checks its result as `PhysicsBody` before
+assigning collision shapes. Static, kinematic and scenery modes still refuse these motion commands.
+
 The Agent panel also shows supplied status, key-storage problems and messages literally. Markup in those strings stays
 text, including when the status changes during a run.
 
 ## Build, test, deploy
+
+14 November motion-command follow-up: seven new rows check all four Shape motion commands against dynamic, static,
+kinematic, absent and mismatched bodies. The original runtime raises script errors for the two mismatched types;
+the corrected runtime passes all 65 scene results and seven selected physics results. The full native optimized build
+has no compiler/license-client diagnostics, and hardening passes all 16 QQ programs. The same 65 scene results pass
+offscreen under ASan/UBSan with leak detection enabled; its test program passes hardening. Five Shape lint findings
+are removed without adding any; 83 runtime warnings remain, so the lint gate still fails. The following Git continuation
+recovers the missing Windows coordinator byte-for-byte at its original path after idle-worker checks. Lock exclusion,
+child exit propagation, all-file hooks and the complete working-tree secret scan pass. Windows product builds remain
+unrun. The native coordinator and memory floor are unchanged. These are software-only checks; full product and hardware
+acceptance remain open. Recovery and Git receipts are in session-03 beside the native evidence.
+Receipts, including the original runtime failures and a corrected null-assignment test-fixture error:
+`build/development-2026-11-14/session-02/`.
 
 14 November Shape follow-up: private factories keep their owning context, and structural parent-state reads retain
 live updates and plane locks across reparenting and detachment. The final optimized native build passes all 58 scene

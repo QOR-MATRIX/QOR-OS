@@ -203,6 +203,29 @@ The earlier Store/Orb timing, Wayland leak, ARQADE diagnostics and full-product
 gates remain unresolved. Store, Orb Run and ARQADE suites and the Wayland
 sanitizer run were not repeated for this increment.
 
+The next 14 November continuation checks Shape's actual physics type before
+calling motion methods. A plain node or mismatched static body now returns false
+without a script error; public properties and every existing test are unchanged.
+The new regression reproduces both runtime failures before the fix. One separate
+null-assignment error in its initial fixture is preserved and corrected by
+constructing a non-playing Shape. The full optimized native QQ build has zero
+compiler/license-client diagnostics. All 65 scene results and seven selected
+physics results pass without failures/skips, including dynamic/kinematic motion,
+contact reporting and all three plane-lock rows. Hardening passes 16 programs.
+All 65 scene results also pass offscreen under ASan/UBSan with leak detection
+enabled, and the sanitizer program passes hardening. The separate Wayland leak
+finding and broader product suites were not rechecked for this increment.
+Runtime lint falls from 88 to 83 warnings: all five remaining Shape findings are
+removed and none added; the whole lint gate remains failed. Current evidence:
+`build/development-2026-11-14/session-02/`. The next Git continuation follows the
+preserved recovery procedure: after two idle-worker checks it restores the exact
+Windows helper to its original path and proves independent lock exclusion and
+child exit-status propagation. All-file hooks and the complete working-tree
+secret scan pass. Windows product builds remain unrun. Recovery and Git receipts
+are in session-03 beside the native evidence. The original native coordinator and
+3,072-MiB floor remain in force. Full products, hardware and isolated CI remain
+unaccepted.
+
 Windows/Linux Qt runners remain offline and unqualified for isolation. The local
 session lacks Hyper-V administration rights and has no verified isolated VM;
 observed free memory cannot fit the planned 6-GiB VM while retaining the 3-GiB

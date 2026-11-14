@@ -9,6 +9,22 @@ their changes since, and pulls of what is still shared, are recorded here.
 
 ## [Unreleased]
 
+- **QQ's Shape motion commands check the actual physics body.** `push`,
+  `applyForce`, `setVelocity` and `setSpin` return false for a missing body,
+  an ordinary node or a mismatched static body, without raising a script error.
+  Their existing body-mode checks remain. The private factory uses the physics
+  base type before assigning collision shapes. Public properties are unchanged;
+  seven new test rows cover all four commands, with existing tests untouched.
+  The native optimized build passes all 65 scene results and seven selected
+  physics results, and hardening passes 16 programs. The five remaining Shape
+  lint findings are removed without adding any; 83 runtime findings remain.
+  All 65 scene results also pass offscreen under address and undefined-behavior
+  sanitizers with leak detection enabled; the test program passes hardening.
+  The following Git continuation restores the original Windows coordinator
+  byte-for-byte after idle-worker checks; all-file hooks and the complete
+  working-tree secret scan pass. Windows product builds remain unrun. Receipts:
+  `build/development-2026-11-14/session-02/` and `session-03/` beside it.
+
 - **QQ's shape factories keep their owning context.** Collision shapes and
   static, dynamic and kinematic bodies bind to their owning Shape. Playing and
   2D/3D state still come from the immediate parent through the same structural

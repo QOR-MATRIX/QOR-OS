@@ -20,6 +20,7 @@
 // Changed for QOR OS: private collision factories read dimensions and callbacks through their actual Shape owner.
 // Changed for QOR OS: collision and body factories stay bound to that owner's creation context.
 // Changed for QOR OS: playing and view state keep the parent's structural interface, including groups and prefabs.
+// Changed for QOR OS: motion commands check the body's actual physics type before calling it.
 
 pragma ComponentBehavior: Bound
 
@@ -82,27 +83,31 @@ Node {
     /// A dynamic body's: an impulse (kilogram metres a second) at once, a force (newtons) for this step, a velocity
     /// (metres a second) or a spin (degrees a second about each axis) set outright. False for any other body.
     function push(impulse) {
-        if (body !== "dynamic" || !physics)
+        const moving = physics as DynamicRigidBody
+        if (body !== "dynamic" || !moving)
             return false
-        physics.applyCentralImpulse(impulse)
+        moving.applyCentralImpulse(impulse)
         return true
     }
     function applyForce(force) {
-        if (body !== "dynamic" || !physics)
+        const moving = physics as DynamicRigidBody
+        if (body !== "dynamic" || !moving)
             return false
-        physics.applyCentralForce(force)
+        moving.applyCentralForce(force)
         return true
     }
     function setVelocity(velocity) {
-        if (body !== "dynamic" || !physics)
+        const moving = physics as DynamicRigidBody
+        if (body !== "dynamic" || !moving)
             return false
-        physics.setLinearVelocity(velocity)
+        moving.setLinearVelocity(velocity)
         return true
     }
     function setSpin(spin) {
-        if (body !== "dynamic" || !physics)
+        const moving = physics as DynamicRigidBody
+        if (body !== "dynamic" || !moving)
             return false
-        physics.setAngularVelocity(spin)
+        moving.setAngularVelocity(spin)
         return true
     }
 
@@ -114,6 +119,9 @@ Node {
             return
         const made = (body === "dynamic" ? movingBody : body === "kinematic" ? ledBody : standingBody)
             .createObject(SceneIO.sceneOf(shape) ?? parent, { position: shape.scenePosition, rotation: shape.sceneRotation })
+            as PhysicsBody
+        if (!made)
+            return
         made.collisionShapes = [collider.createObject(made)]
         physics = made
     }
