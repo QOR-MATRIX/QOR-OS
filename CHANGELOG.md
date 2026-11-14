@@ -9,6 +9,21 @@ their changes since, and pulls of what is still shared, are recorded here.
 
 ## [Unreleased]
 
+- **QQ's 2D Player updates only an actual QQ Sprite as its visual.** A matching
+  name on a lookalike node no longer moves that unrelated object, and another
+  entity no longer raises a script error. Named lookup and public property
+  types stay unchanged. Structural scene-clock access and the typed private
+  carrier factory preserve ownership, dimensions, pause/replay behavior and
+  deterministic movement. Seven new rows cover visuals, selection, activation,
+  interpolation, reparenting and detachment; two reproduce the original failures.
+  All 83 scene results pass in the optimized native build and offscreen under
+  address and undefined-behavior sanitizers with leak detection enabled. The
+  same four existing 2D gameplay/replay tests pass before and after the fix,
+  six results including setup/cleanup, with their source unchanged. Hardening
+  passes all 16 QQ programs and the sanitizer program. All 14 Player2D lint
+  findings are removed, none added; 53 runtime findings remain and the whole
+  lint gate still fails. Evidence: `build/development-2026-11-14/session-05/`.
+
 - **QQ's 3D Player moves only an actual character controller.** Its public
   physics property stays a Node, but missing or incompatible bodies stop frame
   updates and receive no movement or teleport commands. The private factory

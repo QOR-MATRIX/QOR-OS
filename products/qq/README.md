@@ -335,10 +335,25 @@ missing or incompatible bodies stop its frame animation and receive no motion or
 pause, gravity and player selection still use the immediate parent's structural scene interface. The factory
 registers its owning player only when that parent has no selected player.
 
+Player2D keeps its named-entity lookup and public `QtObject` sprite property. Visual updates change position and
+facing only for an actual QQ `Sprite`; a lookalike node or another entity stays untouched. Missing names remain
+harmless. Its kinematic carrier, structural scene clock, player selection and deterministic movement are preserved.
+
 The Agent panel also shows supplied status, key-storage problems and messages literally. Markup in those strings stays
 text, including when the status changes during a run.
 
 ## Build, test, deploy
+
+14 November Player2D follow-up: seven new rows cover valid and mismatched visuals, missing names, carrier ownership
+and dimensions, selection, strict activation, paused interpolation, replay state and parent changes. Two rows reproduce
+the original wrong-object mutation and script error. The full optimized native build has no compiler/license-client
+diagnostics. All 83 scene results pass normally and offscreen under ASan/UBSan with leak detection enabled. Four existing
+tiled-level, top-down, recorded-replay and 2D-trigger tests pass before and after the fix, six results per run with no
+failures/skips; their source, assertions, tolerances and durations are unchanged. Hardening passes all 16 QQ programs
+and the sanitizer program. All 14 Player2D lint findings are removed and none added; 53 runtime findings remain, so the
+whole lint gate still fails. The final audit verifies 1,404 native fingerprints, current build output, tested binaries
+and sanitizer instrumentation. Evidence: `build/development-2026-11-14/session-05/`. Broader product, hardware, isolated
+CI and the older Store/Orb, Wayland leak and ARQADE gates remain open and were not rerun for this increment.
 
 14 November 3D Player follow-up: seven new regression rows check actual, missing and incompatible controllers,
 strict activation, pause changes, selected-player ownership, reparenting and detachment. The original runtime

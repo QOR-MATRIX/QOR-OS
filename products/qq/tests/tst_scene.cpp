@@ -20,6 +20,7 @@
 // Changed for QOR OS: Shape motion commands refuse missing or mismatched physics nodes without a script error.
 // Changed for QOR OS: triggers preserve parent state, collider ownership and optional entity callbacks with typed bodies.
 // Changed for QOR OS: Player motion requires a character controller and follows structural scene state.
+// Changed for QOR OS: Player2D carries only a QQ Sprite and preserves structural clock and carrier state.
 
 #include <QCoreApplication>
 #include <QDir>
@@ -1393,6 +1394,167 @@ private slots:
         QTRY_VERIFY(!animation->property("running").toBool());
         QVERIFY(compatible->setProperty("playing", true));
         QTRY_VERIFY(animation->property("running").toBool());
+        for (auto *parent : {ordinary, static_cast<QQuick3DObject *>(nullptr)}) {
+            hero->setParentItem(parent);
+            QTRY_VERIFY(!hero->property("live").toBool());
+            QTRY_VERIFY(!animation->property("running").toBool());
+        }
+        hero->setParentItem(root);
+        QTRY_VERIFY(animation->property("running").toBool());
+        QCOMPARE(hero->property("physics").value<QObject *>(), body);
+        QCOMPARE(root->property("player").value<QObject *>(), static_cast<QObject *>(alreadySelected ? ordinary : hero));
+    }
+
+    void a2DPlayerCarriesOnlyASprite_data()
+    {
+        QTest::addColumn<QString>("lookName");
+        QTest::addColumn<QString>("objectName");
+        QTest::addColumn<bool>("carried");
+        QTest::newRow("sprite") << QStringLiteral("Look") << QStringLiteral("real") << true;
+        QTest::newRow("lookalike-node") << QStringLiteral("Lookalike") << QStringLiteral("ordinary") << false;
+        QTest::newRow("other-entity") << QStringLiteral("Other") << QStringLiteral("other") << false;
+        QTest::newRow("missing-name") << QStringLiteral("Missing") << QString() << false;
+        QTest::newRow("empty-name") << QString() << QString() << false;
+    }
+
+    void a2DPlayerCarriesOnlyASprite()
+    {
+        QFETCH(QString, lookName);
+        QFETCH(QString, objectName);
+        QFETCH(bool, carried);
+        QTemporaryDir dir;
+        const QString asset = dir.filePath(QStringLiteral("look.png"));
+        QImage image(16, 32, QImage::Format_RGBA8888);
+        image.fill(Qt::white);
+        QVERIFY(image.save(asset));
+        QQmlComponent component(engine);
+        component.setData("import QtQuick\nimport QtQuick3D\nimport QQ as Runtime\nNode {\n"
+                          "    property bool playing: false\n    property bool paused: true\n"
+                          "    property bool replaying: true\n    property real gravity: 10\n"
+                          "    property string view: \"2d\"\n    property real pixelsPerUnit: 16\n"
+                          "    property QtObject player: null\n"
+                          "    Runtime.Player2D { objectName: \"hero\"; height: 2 }\n"
+                          "    Runtime.Sprite { objectName: \"real\"; name: \"Look\"; scale: Qt.vector3d(2, 3, 1); position: Qt.vector3d(8, 9, 6) }\n"
+                          "    Node { objectName: \"ordinary\"; property string name: \"Lookalike\"\n"
+                          "        property string kind: \"Sprite\"; property bool flip: false\n"
+                          "        property vector3d size: Qt.vector3d(100, 200, 1); position: Qt.vector3d(8, 9, 6) }\n"
+                          "    Runtime.Shape { objectName: \"other\"; name: \"Other\"; body: \"none\"; position: Qt.vector3d(8, 9, 6) }\n}\n",
+                          QUrl(QStringLiteral("qrc:/player2d-look.qml")));
+        std::unique_ptr<QObject> object(component.create());
+        QVERIFY2(object, qPrintable(component.errorString()));
+        QObject *hero = object->findChild<QObject *>(QStringLiteral("hero"));
+        QObject *real = object->findChild<QObject *>(QStringLiteral("real"));
+        QObject *ordinary = object->findChild<QObject *>(QStringLiteral("ordinary"));
+        QObject *other = object->findChild<QObject *>(QStringLiteral("other"));
+        QVERIFY(hero && real && ordinary && other);
+        QVERIFY(real->setProperty("source", QUrl::fromLocalFile(asset)));
+        QCOMPARE(real->property("size").value<QVector3D>(), QVector3D(1, 2, 1));
+        QVERIFY(object->setProperty("playing", true));
+        QVERIFY(hero->property("physics").value<QObject *>());
+        QVERIFY(hero->setProperty("look", lookName));
+        QObject *selected = objectName.isEmpty() ? nullptr : object->findChild<QObject *>(objectName);
+        QCOMPARE(hero->property("sprite").value<QObject *>(), selected);
+        QVERIFY(hero->setProperty("_lastX", 1.0));
+        QVERIFY(hero->setProperty("_lastY", 2.0));
+        QVERIFY(hero->setProperty("atX", 5.0));
+        QVERIFY(hero->setProperty("atY", 10.0));
+        QVERIFY(hero->setProperty("facingLeft", true));
+        QSignalSpy warnings(engine, &QQmlEngine::warnings);
+        QVERIFY(warnings.isValid());
+        QVERIFY(QMetaObject::invokeMethod(hero, "_show", Q_ARG(QVariant, QVariant(0.25))));
+        QCOMPARE(warnings.count(), 0);
+        QCOMPARE(hero->property("_shownX").toDouble(), 2.0);
+        QCOMPARE(hero->property("_shownY").toDouble(), 4.0);
+        QCOMPARE(real->property("position").value<QVector3D>(), carried ? QVector3D(2, 6, 6) : QVector3D(8, 9, 6));
+        QCOMPARE(real->property("flip").toBool(), carried);
+        QCOMPARE(ordinary->property("position").value<QVector3D>(), QVector3D(8, 9, 6));
+        QCOMPARE(ordinary->property("flip").toBool(), false);
+        QCOMPARE(other->property("position").value<QVector3D>(), QVector3D(8, 9, 6));
+    }
+
+    void a2DPlayerKeepsItsCarrierAndSceneClock_data()
+    {
+        QTest::addColumn<bool>("alreadySelected");
+        QTest::newRow("empty-selection") << false;
+        QTest::newRow("existing-selection") << true;
+    }
+
+    void a2DPlayerKeepsItsCarrierAndSceneClock()
+    {
+        QFETCH(bool, alreadySelected);
+        QQmlComponent component(engine);
+        component.setData("import QtQuick\nimport QtQuick3D\nimport QQ as Runtime\nNode {\n"
+                          "    property var playing: false\n    property bool paused: true\n"
+                          "    property bool replaying: false\n    property real gravity: 10\n"
+                          "    property real _owed: 0.005\n    property real stepRate: 50\n"
+                          "    property QtObject player: null\n"
+                          "    Runtime.Player2D { objectName: \"hero\"; height: 2; position: Qt.vector3d(2, 3, 4) }\n"
+                          "    Node { objectName: \"ordinary\" }\n"
+                          "    Node { objectName: \"compatible\"; property bool playing: true\n"
+                          "        property bool paused: false; property bool replaying: true; property real gravity: 4\n"
+                          "        property real _owed: 0; property real stepRate: 60; property QtObject player: null }\n}\n",
+                          QUrl(QStringLiteral("qrc:/player2d-clock.qml")));
+        std::unique_ptr<QObject> object(component.create());
+        QVERIFY2(object, qPrintable(component.errorString()));
+        auto *root = qobject_cast<QQuick3DObject *>(object.get());
+        auto *hero = object->findChild<QQuick3DObject *>(QStringLiteral("hero"));
+        auto *ordinary = object->findChild<QQuick3DObject *>(QStringLiteral("ordinary"));
+        auto *compatible = object->findChild<QQuick3DObject *>(QStringLiteral("compatible"));
+        QVERIFY(root && hero && ordinary && compatible);
+        const auto restore = qScopeGuard([&] { hero->setParentItem(root); hero->setParent(root); });
+        QObject *animation = nullptr;
+        for (QObject *child : hero->findChildren<QObject *>()) {
+            if (child->metaObject()->indexOfProperty("frameTime") >= 0
+                && child->metaObject()->indexOfProperty("running") >= 0
+                && child->metaObject()->indexOfSignal("triggered()") >= 0) {
+                QVERIFY(!animation);
+                animation = child;
+            }
+        }
+        QVERIFY(animation);
+        QVERIFY(!animation->property("running").toBool());
+        if (alreadySelected)
+            QVERIFY(root->setProperty("player", QVariant::fromValue(static_cast<QObject *>(ordinary))));
+        QVERIFY(root->setProperty("playing", QStringLiteral("true")));
+        QVERIFY(!hero->property("live").toBool());
+        QVERIFY(!hero->property("physics").value<QObject *>());
+        QVERIFY(root->setProperty("playing", true));
+        QTRY_VERIFY(animation->property("running").toBool());
+        QObject *body = hero->property("physics").value<QObject *>();
+        QVERIFY(body);
+        QCOMPARE(body->property("entity").value<QObject *>(), static_cast<QObject *>(hero));
+        QCOMPARE(body->property("isKinematic").toBool(), true);
+        QCOMPARE(body->property("kinematicPosition").value<QVector3D>(), QVector3D(2, 4, 4));
+        QCOMPARE(root->property("player").value<QObject *>(), static_cast<QObject *>(alreadySelected ? ordinary : hero));
+        QQmlListReference colliders(body, "collisionShapes");
+        QCOMPARE(colliders.count(), 1);
+        QCOMPARE(colliders.at(0)->property("extents").value<QVector3D>(), QVector3D(0.75f, 2, 1));
+        QVERIFY(hero->setProperty("width", 2.0));
+        QVERIFY(hero->setProperty("height", 3.0));
+        QCOMPARE(colliders.at(0)->property("extents").value<QVector3D>(), QVector3D(2, 3, 1));
+        QVERIFY(hero->setProperty("_lastX", 1.0));
+        QVERIFY(hero->setProperty("atX", 5.0));
+        QVERIFY(QMetaObject::invokeMethod(animation, "triggered"));
+        QCOMPARE(hero->property("_shownX").toDouble(), 5.0);  // paused: draw the current place
+        QVERIFY(root->setProperty("paused", false));
+        QVERIFY(QMetaObject::invokeMethod(animation, "triggered"));
+        QCOMPARE(hero->property("_shownX").toDouble(), 2.0);  // quarter of the next step
+        QVERIFY(root->setProperty("stepRate", 100.0));
+        QVERIFY(QMetaObject::invokeMethod(animation, "triggered"));
+        QCOMPARE(hero->property("_shownX").toDouble(), 3.0);
+        QVERIFY(root->setProperty("_owed", 0.02));
+        QVERIFY(QMetaObject::invokeMethod(animation, "triggered"));
+        QCOMPARE(hero->property("_shownX").toDouble(), 5.0);  // interpolation never passes the current place
+        hero->setParentItem(compatible);
+        QTRY_VERIFY(!animation->property("running").toBool());
+        QVERIFY(compatible->setProperty("replaying", false));
+        QTRY_VERIFY(animation->property("running").toBool());
+        QVERIFY(QMetaObject::invokeMethod(animation, "triggered"));
+        QCOMPARE(hero->property("_shownX").toDouble(), 1.0);
+        QVERIFY(compatible->setProperty("playing", false));
+        QTRY_VERIFY(!hero->property("live").toBool());
+        QTRY_VERIFY(!animation->property("running").toBool());
+        QVERIFY(compatible->setProperty("playing", true));
         for (auto *parent : {ordinary, static_cast<QQuick3DObject *>(nullptr)}) {
             hero->setParentItem(parent);
             QTRY_VERIFY(!hero->property("live").toBool());

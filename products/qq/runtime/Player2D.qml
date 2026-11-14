@@ -14,6 +14,7 @@
 // to play the look's frames by. A 2D scene's eye follows it. `position` is where its feet are.
 
 // Changed for QOR OS: the private carrier body binds to its owning player.
+// Changed for QOR OS: visual updates require a QQ Sprite and retain structural scene-state access.
 
 pragma ComponentBehavior: Bound
 
@@ -21,6 +22,7 @@ import QtQuick
 import QtQuick3D
 import QtQuick3D.Physics
 import QQ
+import QQ as Runtime
 
 Node {
     id: player
@@ -45,7 +47,7 @@ Node {
     property string look: ""
 
     /// True while the scene this belongs to plays.
-    readonly property bool live: parent !== null && parent.playing === true
+    readonly property bool live: parent !== null && _parentState().playing === true
     /// The kinematic body play made, which PhysX's bodies meet, or null.
     property Node physics: null
 
@@ -81,6 +83,11 @@ Node {
     readonly property QtObject sprite: live && look !== "" && parent
                                        ? SceneIO.everyEntity(parent).find(e => e.name === player.look) ?? null : null
 
+    // Scenes supply the clock and player selection without requiring a particular parent class.
+    function _parentState(): var {
+        return player.parent
+    }
+
     /// Put its middle at `centre`, still.
     function place(centre) {
         atX = centre.x
@@ -103,9 +110,13 @@ Node {
             return
         start = Qt.vector3d(position.x, position.y + height / 2, position.z)
         place(start)
-        physics = carrier.createObject(parent, { position: start })
-        if (!parent.player)
-            parent.player = player
+        const body = carrier.createObject(parent, { position: start }) as DynamicRigidBody
+        if (!body)
+            return
+        physics = body
+        const scene = _parentState()
+        if (!scene.player)
+            scene.player = player
     }
     onLiveChanged: makeBody()
     Component.onCompleted: makeBody()
@@ -138,7 +149,7 @@ Node {
             up = move.y * v
             verticalSpeed = 0
         } else {
-            const g = parent.gravity
+            const g = _parentState().gravity
             if (grounded && Input.jump && !jumpHeld && g > 0)
                 verticalSpeed = Math.sqrt(2 * g * jumpHeight)
             else
@@ -167,7 +178,7 @@ Node {
         // Out of the world: back to the start.
         if (atY < -60)
             respawn()
-        if (parent.replaying)
+        if (_parentState().replaying)
             _show(1)
     }
 
@@ -175,7 +186,7 @@ Node {
     function _show(part) {
         _shownX = _lastX + (atX - _lastX) * part
         _shownY = _lastY + (atY - _lastY) * part
-        const s = sprite
+        const s = sprite as Runtime.Sprite
         if (s) {
             s.position = Qt.vector3d(_shownX, _shownY - height / 2 + s.size.y * s.scale.y / 2, s.position.z)
             s.flip = facingLeft
@@ -184,8 +195,11 @@ Node {
 
     // Each drawn frame: as far between the last two steps as the scene's clock has got; where it stands, when paused.
     FrameAnimation {
-        running: player.live && player.physics !== null && !player.parent.replaying
-        onTriggered: player._show(player.parent.paused ? 1 : Math.min(1, player.parent._owed * player.parent.stepRate))
+        running: player.live && player.physics !== null && !player._parentState().replaying
+        onTriggered: {
+            const scene = player._parentState()
+            player._show(scene.paused ? 1 : Math.min(1, scene._owed * scene.stepRate))
+        }
     }
 
     // A plain figure, when it carries no Sprite: a rounded block in its colour with a lit band where it faces.

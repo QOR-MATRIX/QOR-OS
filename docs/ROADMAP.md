@@ -263,6 +263,25 @@ original coordinator and 3,072-MiB floor remain in force. Broader product,
 Store/Orb, Wayland leak, ARQADE, hardware and upstream-audit gates remain open;
 they were not rerun here. Receipts: `build/development-2026-11-14/session-04/`.
 
+The Player2D continuation checks an actual QQ Sprite before applying visual
+position and facing updates. A lookalike node stays untouched and an unrelated
+entity no longer raises a script error; both failures are reproduced before the
+fix. Named lookup and public property types are preserved. Seven new rows also
+check real/missing visuals, strict activation, carrier ownership and dimensions,
+player selection, paused interpolation, replay state, reparenting and detachment.
+The full optimized native build has zero compiler/license-client diagnostics;
+all 83 scene results pass normally and offscreen under ASan/UBSan with leak
+detection enabled. The same four existing tiled-level, top-down, recorded-replay
+and 2D-trigger tests pass before and after the change, six results per run with
+no failures/skips. Their source, assertions, tolerances and durations are
+unchanged. Hardening passes all 16 QQ programs and the sanitizer program.
+All 14 Player2D lint findings are removed without adding any; 53 runtime warnings
+remain and the whole lint gate still fails. The final native audit verifies
+1,404 snapshot fingerprints, current build output, tested binaries and sanitizer
+instrumentation. The original coordinators and 3,072-MiB floor remain in force.
+Broader product, Store/Orb, Wayland leak, ARQADE, hardware and upstream-audit
+gates were not rerun here. Receipts: `build/development-2026-11-14/session-05/`.
+
 Windows/Linux Qt runners remain offline and unqualified for isolation. The local
 session lacks Hyper-V administration rights and has no verified isolated VM;
 observed free memory cannot fit the planned 6-GiB VM while retaining the 3-GiB
