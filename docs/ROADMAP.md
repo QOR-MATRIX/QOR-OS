@@ -30,6 +30,15 @@ or locked-package bytes. Security headers, canonical links, redirect, private-fi
 exclusion and Analytics script delivery pass; dashboard collection was not exercised.
 Current hosting receipts are in `build/development-2026-11-13/session-09/`.
 
+The Git reconciliation verified all 14 QOR worktrees clean at admission, fetched
+and pruned eight stale remote-tracking refs, and retained every local checkpoint.
+The two apparently unmerged histories are already integrated by identical tree
+or patch. Upstream's pending homepage ownership handoff is committed and pushed
+through `846d9ba` on draft PR #118; duplicate homepage Analytics PR #119 is closed.
+The core pin stays unchanged. The service audit still fails: stable SQLx 0.9.0
+excludes the SQLite binding versions patched for RUSTSEC-2026-0459. No exception
+or dependency-source override was added. Receipts: session-10 beside the above.
+
 The owner's milestones ([QOR-0021](decisions/QOR-0021-projects-engines-and-two-stores.md)). The phases and sections below say
 what each holds. A step is done when it is integrated and its checks have evidence, kept to the configuration they ran on.
 
@@ -134,6 +143,35 @@ evidence, not a real Player window inside Prism or hardware acceptance. The broa
 QQ run reports four `tst_play` failures (54 passes) and hits its 7,200-second
 aggregate deadline during `tst_player`; remaining suites did not complete.
 Receipts and preserved failures: `build/development-2026-11-13/session-07/`.
+
+The next native continuation reproduces all four failures with both threaded and
+basic rendering, using the same binary and deadlines. Diagnostics show only
+325–409 ms of physics during the three 5–6-second contact/trigger waits. Orb Run
+advances no frame before its startup wait expires. A separate six-wait proposal
+uses the existing software physics clock for contact, passage and settling; all
+three cases pass (five results including setup/cleanup), with no failures/skips.
+The owner approved that exact six-wait patch and it is now applied. GPU deadlines, exact outcomes, tolerances,
+the Player frame-rate floor and release gates remain unchanged. Orb Run startup
+passes in a separate first-frame probe, but that full case still fails its later
+lantern-idle timer wait. The startup probe is not a fix or a passing full case.
+The remaining product suites are incomplete. Evidence and the reviewable patch:
+`build/development-2026-11-13/session-10/`.
+
+The approved source is rebuilt in the native snapshot; its binary hash matches
+the passing three-case proposal exactly, and all 1,404 source hashes are checked.
+Hardening passes all 16 QQ programs. Native QQ `all_qmllint` fails with 103
+warnings. The unchanged Store-installed Player case exceeds its internal
+60-second deadline under both render loops. `tst_playerwall` passes all three
+results with no skips; `tst_lockdown` is incomplete at this probe's 300-second
+suite budget, which is shorter than the normal product-harness budget. No
+completed-suite pass is claimed for it. The cache is current, no owned workers
+remain, and the original native lock is free.
+
+Windows/Linux Qt runners remain offline and unqualified for isolation. The local
+session lacks Hyper-V administration rights and has no verified isolated VM;
+observed free memory cannot fit the planned 6-GiB VM while retaining the 3-GiB
+host floor. No runner flag, guard or unrelated service was changed. These are
+separate blockers from the native software tests.
 
 **Earlier 12 November Windows/WSL continuation.**
 The warning candidate at the pushed `01ba206` checkpoint compiled without warnings in the focused Qt 6.12

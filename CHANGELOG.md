@@ -9,6 +9,20 @@ their changes since, and pulls of what is still shared, are recorded here.
 
 ## [Unreleased]
 
+- **Git reconciliation and native failure diagnosis, 13 November.** All 14 QOR
+  worktrees were clean at admission; stale remote-tracking refs were pruned and
+  already-integrated histories identified without discarding local checkpoints.
+  The upstream homepage handoff is pushed through `846d9ba`, and its duplicate
+  Analytics PR is closed. Four native QQ play failures reproduce with both render
+  loops. Diagnostics distinguish slow simulation and startup from missing logic.
+  The owner-approved six-wait patch uses the existing software physics clock
+  and passes the three contact cases; every outcome, tolerance and numeric
+  duration remains unchanged. GPU timing and release gates are unchanged.
+  The accepted native rebuild matches the passing proposal's binary; hardening
+  passes 16 programs. QML lint retains 103 warnings, Orb Run's later timer and
+  the Store Player deadline still fail, and a bounded lockdown probe is incomplete.
+  Isolated CI workers and the upstream SQLite audit remain unresolved.
+
 - **Hosting now reads QOR OS.** The existing Astra Matrix / qor project is
   connected to QOR-MATRIX/QOR-OS/main/site with the locked build and `dist` output.
   Its live alias serves the merged source; canonical links, redirects, security

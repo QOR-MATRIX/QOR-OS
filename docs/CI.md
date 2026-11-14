@@ -392,9 +392,9 @@ this Windows root result; the QQ and Linux metadata gates above remain failed.
 The product wrapper runs suites sequentially on first attempts and retries, overriding inherited CTest parallelism.
 This is checked with real CTest and stand-in suites that fail if they overlap; it does not prove product runtime behavior.
 
-Gameplay checks measure body movement against the existing game-clock helpers when rendering in software. The remaining
-physics/controller, trigger, impulse and Orb Run movement waits now use those helpers, retaining their durations, conditions
-and tolerances. Native waits retain their wall-clock behavior; UI opacity, music and pause controls keep their existing
+Gameplay checks measure body movement against the existing game-clock helpers when rendering in software. The
+physics/controller, trigger, impulse and Orb Run movement waits changed in that earlier snapshot use those helpers,
+retaining their durations, conditions and tolerances. GPU waits retain their wall-clock behavior; UI opacity, music and pause controls keep their existing
 waits. A virtual controller is removed even when its case returns early, so a failure cannot hold input in later cases.
 Earlier clean and component baselines each failed the same 11 play cases; that corrected full-suite snapshot passed
 53 cases. The 5 November Shape check runs full Scene (52 cases) and six physics functions (10 cases) per Release/sanitizer
@@ -402,6 +402,27 @@ build, zero failures/skips. Its group test uses existing physics helpers for lan
 and the frame helper for frame-driven raising. The original raising wait failed with both pre-change and candidate Shape
 sources; height and elapsed frame time agreed. GPU waits and all tolerances remain unchanged. This is functional evidence,
 not native graphics, sound or controller proof.
+
+The 13 November native ARM64 software recheck finds three contact/falling-trigger
+cases still waiting on wall time: only 325–409 ms of physics passed before their
+5–6-second deadlines. Orb Run's startup wait expires before its first frame.
+Both render loops reproduce all four failures. A six-wait physics-clock proposal
+passes the three contact cases in a separate overlay. The owner approved that
+exact six-wait patch, now applied; its source bytes match the tested overlay.
+This qualifies those cases in software and does not prove their real-time speed.
+GPU timing and the Player's frame-rate floor
+are unchanged. A separate first-frame probe advances Orb Run past startup but
+still fails its later lantern-idle timer wait; it is not a complete fix. Logs,
+source hashes and the patch are in
+`build/development-2026-11-13/session-10/`.
+
+The accepted test rebuild reproduces the passing proposal's binary hash, with
+all 1,404 snapshot source hashes verified. Hardening reads 16 QQ programs and
+passes all of them; native QQ `all_qmllint` fails with 103 warnings. The Store
+Player case still exceeds its internal 60-second deadline with either render
+loop. The network-confinement suite passes three results without skips. The
+lockdown suite does not complete within a separate 300-second diagnostic budget;
+that bounded probe is not full-suite acceptance or a new standard timeout.
 
 **The variable was recorded unset and the Qt-job pause remains in force.** Once
 a runner is qualified and its product step is enabled, the harness runs each

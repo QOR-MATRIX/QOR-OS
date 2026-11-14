@@ -1,36 +1,48 @@
 # Where QOR OS stands
 
-For Andrew, 13 November 2026. PR #9 is merged on main at `f4c9863`.
-The homepage correction is deployed and its public delivery is verified.
+For Andrew, 13 November 2026. Git version histories are reconciled, the upstream
+homepage handoff is pushed, and native QQ failures now have measured causes.
 
-## Verified progress
+All 14 QOR checkouts had no uncommitted changes when checked. Eight stale records
+of remote branches were pruned; local checkpoints remain intact. Two histories that
+looked unmerged were verified as already integrated by identical content.
+Upstream draft PR #118 contains the handoff through `846d9ba`; the duplicate
+Analytics PR #119 is closed. The fixed core-library revision remains `6a4822d`.
 
-Authenticated readback confirms that the existing Astra Matrix / qor hosting
-project builds QOR-MATRIX/QOR-OS/main/site with Node 24 and publishes only `dist`,
-the generated public folder. QORSYNC.DEV serves deployment
-`dpl_E41rwWtgMm8imti425U8YAkEaUMt`, built from the merged revision.
+The existing Astra Matrix / qor project serves QOR OS PR #9 at `f4c9863`.
+All 47 public files match reviewed bytes; redirects, six security headers,
+private-file exclusions and Analytics script delivery pass. Cloudflare no longer
+injects its analytics script. Dashboard collection remains unproven.
+The homepage's 36 content checks, six privacy/output tests and dependency audit
+pass. These are the verified session-09 results, not a new deployment today.
 
-All 47 public files match the reviewed source or locked package bytes, including
-both HTML pages. Cloudflare no longer appends its analytics script. The delivered
-`no-transform` header forbids proxy edits; all six security headers, canonical
-links, the `www` redirect and seven private-file exclusions pass. The Vercel
-Analytics script is delivered successfully; dashboard collection was not exercised.
+The separate Linux builder reproduces all four QQ play failures in both rendering
+modes. Three contact/trigger waits allow only 325–409 ms of simulated physics
+before their wall-clock deadlines. Orb Run has not advanced its first frame
+before its startup deadline; a first-frame probe gets further but still fails
+the lantern-idle timer wait. A separate six-wait proposal uses the existing
+software simulation clock and passes the three contact cases, with no failures
+or skips. You approved that exact patch; it is on `fix/native-play-clock-waits`,
+not yet merged. The rebuilt test program matches the one that passed. GPU timing,
+the Player's 20-frames-per-second floor and release checks remain enforced.
 
-The homepage build passes 36 content checks and six privacy/output tests with
-no failures or skips. The dependency audit reports no vulnerabilities. Homepage
-and history checks also pass on GitHub at the deployed revision. Native Qt CI
-(automated builds and tests) remains paused pending isolated workers, so the
-release-readiness check remains failed. No native source or core pin changed;
-the pin is still `6a4822d`.
+Exploit-mitigation checks pass all 16 QQ programs. QML, Qt's interface language, still has 103
+warnings. Store playback exceeds its unchanged 60-second deadline under either
+rendering mode. The network-confinement suite passes; the lockdown suite is
+incomplete within a bounded probe. The native build is current and its job lock free.
 
-## Continuation
+CI, the automated build/test system, still lacks qualified isolated Qt workers.
+This Windows session lacks virtual-machine administration rights and enough
+available memory for the planned worker plus the unchanged 3-GiB host floor.
+The upstream service audit still fails: stable SQLx, its database library,
+excludes the patched SQLite database binding. No audit exception was added.
 
-The roadmap retains the earlier native creator/player journey result, four play
-failures and incomplete broader product qualification. Investigate those failures
-and finish the remaining suites; resolve upstream audits before extending the
-shell-to-core interface. These device checks were not rerun in this homepage session.
-No device image, package, network upgrade or release was published.
+Next: resolve Orb Run's timer waits, Store playback, QML lint and the remaining
+QQ suites, qualify isolated workers, and resolve the service
+dependency before extending the shell-to-core interface. The broader product
+run and native graphics acceptance remain incomplete. No device image, package,
+network upgrade or release was published.
 
-Current hosting receipts are in `build/development-2026-11-13/session-09/`.
-Session-08 preserves the original proxy mismatch; session-07 preserves the native
-results. The roadmap remains the sole record of outstanding gates.
+Current Git, audit and native diagnostic evidence is in
+`build/development-2026-11-13/session-10/`; homepage proof remains in session-09.
+The roadmap is the sole record of outstanding gates.
