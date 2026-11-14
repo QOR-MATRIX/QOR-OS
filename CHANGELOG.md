@@ -9,6 +9,16 @@ their changes since, and pulls of what is still shared, are recorded here.
 
 ## [Unreleased]
 
+- **The native creator/player journey completes; remaining failures are retained.**
+  The queued software check passes in 201.292 seconds under its unchanged deadline,
+  with real Studio builds and Player playback; Prism records a stand-in Library
+  launch. The broader QQ run reports 54 play passes/four failures and times out
+  during Player at its aggregate deadline. The roadmap records these limits.
+  Upstream's two-validator recovery job passes all 13 checks. The requested
+  Vercel Analytics package and homepage integration are prepared in demiurge-chain
+  draft PR #118, with local checks passing; activation/deployment remain unverified
+  because Vercel project access still fails after renewed team approval.
+
 - **Native qualification continuation, 13 November.** PR #5 integrates the
   fixture and architecture-specific Media dependency fixes. The full Windows
   tooling run passes 746 tests with 98 platform skips under the unchanged memory

@@ -1,43 +1,38 @@
 # Where QOR OS stands
 
-For Andrew, 13 November 2026. PR #5 is merged on main at `ed3526e`.
-Native product qualification continues. Linux tooling passes 720 tests
-with 124 platform skips; Windows passes 746 with 98 skips. All 23 Linux harness
-fixtures and 63 ARQADE rule tests pass. Windows stayed above 3,314 MiB available;
-the original 3,072-MiB memory floor is unchanged.
+For Andrew, 13 November 2026. PRs #5 and #6 are merged on main at `b79c40c`.
+The continuation branch is `feat/native-product-acceptance`.
 
 ## Verified progress
 
-The Linux harness checks its fake keyring before starting test services. Media
-selects pinned x64/ARM64 PDFium, its PDF editing library, in separate caches and
-refuses incomplete extraction. Its ARM64 archive and library layout pass static
-checks. Qt PDF modules are absent on the Pi, so Media is not built there.
+The complete native ARM64 creator/player journey passes in 201.292 seconds
+under its unchanged 300-second deadline. Real Studio builds and Player playback
+run on a private software display. Prism records its Library launch through a
+stand-in; the real Player then runs separately. All 1,404 source hashes and five
+Prism programs match. Available memory stays above 6,954 MiB; the 3,072-MiB
+minimum is unchanged. This does not prove hardware or a Player window inside Prism.
 
-Q Pi's broader QQ procedure uses a private software display and isolated device
-and network views. World, scene and Studio pass 11, 56 and 29 Qt Test results;
-play tests are running. Earlier publishing passes 11 results.
-The complete creator/player journey is queued against verified Prism programs
-and waits for the shared lock. Product memory-error, hardware and image checks
-remain open.
+The broader QQ run passes World, Scene and Studio, then reports 54 play passes
+and four failures. Its 7,200-second aggregate deadline expires during Player;
+later suites remain incomplete. Earlier Linux tooling passes 720 tests with
+124 platform skips; Windows passes 746 with 98 skips. Media still lacks the
+Pi's required Qt PDF modules. No product source changed in this continuation.
 
-Demiurge-chain draft PR #118 patches certificate/compression dependencies.
-All 213 chain tests pass with WebAssembly, portable runtime code, built; core
-and Launcher pass 245/109 tests with 10/five ignored. The chain audit retains
-38 vulnerability findings and 26 warnings. Both service audits still fail on
-SQLx's SQLite dependency. The core pin remains `6a4822d`. Upstream workflow pins
-pass hosted build/test checks; the Actions allowlist permits nine repositories.
-The two-validator test runs separately. Rust 1.100's optional report fails on
-66 generated-code lint errors; required Rust 1.98.1 checks pass.
+Demiurge-chain draft PR #118 passes 213 chain tests and all 13 two-validator
+recovery checks on a hosted local test network. Core/Launcher checks pass
+245/109 tests, with 10/five ignored. Chain advisories and both service database
+audits remain unresolved. Required Rust 1.98.1 passes; the optional newer
+compiler reports 66 generated-code errors. QOR OS's core pin stays `6a4822d`.
 
-The public homepage and QOR ID's health, database and cache checks pass. Read-only
-chain requests show runtime 11 and advancing finalized blocks. Vercel project
-access, the live homepage repository link, Social/ARQADE domains and client
-migration remain unresolved. GitHub's homepage points to QORSYNC.DEV.
+The requested Vercel Analytics 2.0.1 homepage integration lives upstream.
+Its static build, 33 site checks, six privacy/build tests and dependency audit
+pass locally. Live collection is unverified: project access still fails after
+renewed team approval. QORSYNC.DEV and approved service subdomains remain canonical.
 
 ## Continuation
 
-Finish native products and the creator/player journey; resolve upstream audits
-before richer asset/agent bridge commands, the shell-to-core interface. The
-roadmap owns the remaining gates. Native Qt CI, automated checks, stays paused
-pending isolated workers. No image, package, release or production deployment
-was published. Receipts: `build/development-2026-11-13/session-06/`.
+Investigate the four play failures and complete product qualification; resolve
+upstream audits before extending the shell-to-core interface. Native Qt CI,
+automated checks, remains paused pending isolated workers. No production
+deployment, image, package publication or release occurred. The roadmap owns
+remaining gates. Receipts: `build/development-2026-11-13/session-07/`.
