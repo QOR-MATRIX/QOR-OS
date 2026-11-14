@@ -9,6 +9,19 @@ their changes since, and pulls of what is still shared, are recorded here.
 
 ## [Unreleased]
 
+- **QQ's shape factories keep their owning context.** Collision shapes and
+  static, dynamic and kinematic bodies bind to their owning Shape. Playing and
+  2D/3D state still come from the immediate parent through the same structural
+  property access used by Group and Prefab. A regression changes that state,
+  reparents and detaches a shape, checks its axis locks and verifies that a
+  truthy string does not start a body. Public fields, collision assertions and
+  test durations are unchanged. The final optimized native build passes 58 scene
+  results and seven selected physics results, without failures or skips.
+  Fourteen runtime lint findings are removed and none added; 88 remain, so the
+  lint gate still fails. All 58 scene results also pass offscreen under address
+  and undefined-behavior sanitizers with leak detection enabled. Hardening passes
+  all 16 QQ programs and the sanitizer test program.
+
 - **QQ keeps the loaded game separate from its viewport.** `Game.playingScene`
   replaces the loaded-scene property that shadowed Qt's read-only `View3D.scene`.
   The Player and ARQADE follow the new property, including arena polling and

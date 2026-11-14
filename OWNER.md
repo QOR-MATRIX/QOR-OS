@@ -1,44 +1,42 @@
 # Where QOR OS stands
 
-For Andrew, 14 November 2026. QQ's loaded-game collision with Qt's graphics
-view is fixed, and its callers have been exercised on the separate Linux builder.
+For Andrew, 14 November 2026. QQ, the game engine, now keeps each private
+collider and body factory with the shape that created it.
 
-`Game.playingScene` now holds the loaded game; Qt keeps its own graphics-view
-root. The Player and ARQADE use the new property, including arena polling.
-The regression first reproduced the old collision and now checks loading,
-replacement and release. Standalone test views own hidden windows so Qt can
-retire their scene managers; queued destruction is drained between cases.
+Playing and 2D/3D state still come from the immediate parent, whether it is a
+scene, group or prefab (a reusable group). The new automated check covers live
+changes, reparenting, detachment, restored movement restrictions and the same
+body's identity. The text "true" cannot enable it. Public fields and all existing test assertions, durations
+and tolerances are unchanged.
 
-The full QQ build passes without compiler or license-client diagnostics.
-Its scene suite passes 57 results. ASan/UBSan, the memory and undefined-behavior
-checks, also pass all 57 offscreen with leak detection enabled. The four affected
-QQ playback functions and four ARQADE caller functions each pass six Qt results,
-including setup/cleanup, without failures or skips. ARQADE's checks include
-opening and leaving a game, creating a match and receiving an opponent's join.
-Executable hardening, the exploit-mitigation checks, passes for both products.
-These are software-graphics results, not physical graphics, audio or input proof.
-An evidence-wrapper child-status error is documented separately from the passing
-commands and independent final source/cache/lock audit.
+The full native QQ build is clean of compiler and license-client diagnostics.
+Its actual build mode is RelWithDebInfo, optimized with debug
+information, despite “release” in the cache directory's name. All 58 scene
+results pass. Contact reporting, grouped motion and the three 2D plane-lock
+rows pass seven results including setup/cleanup, without failures or skips.
+ASan/UBSan, the memory and undefined-behavior checks, also pass all 58 scene
+results offscreen with leak detection enabled. Executable hardening, the
+exploit-mitigation checks, passes 16 QQ programs and the sanitizer test program.
 
-Limits remain explicit. QML, Qt's interface language, has 102 runtime lint
-warnings. Store playback still exceeds 60 seconds; Orb Run's later timer wait
-is unresolved. ARQADE retains build diagnostics and a context warning on return
-from a game. Wayland, the display protocol, retains a 96-byte allocation under
-sanitizers even in a numeric-only case. Its sanitizer exit remains failed.
-No warning, leak check, test assertion or internal deadline was suppressed.
+QML, Qt's interface language, now has 88 warnings in the runtime's static checks:
+14 removed, none added. Its warning gate still fails. Earlier Store/Orb timing failures,
+the 96-byte Wayland display-library leak and ARQADE diagnostics remain open;
+those suites and the Wayland sanitizer run were not repeated here. Full
+products, hardware acceptance and qualified CI, automated builds/tests, remain
+unproven. These checks use isolated software graphics and virtual devices.
 
-The branch `fix/native-play-clock-waits` also retains your approved six-wait
-software-physics patch. Draft pull request #10 is unmerged. The other 13 QOR
-checkouts were clean when checked. Upstream draft #118 remains at `846d9ba`
-with its dependency audit failed; the fixed core-library revision is unchanged
-at `6a4822d`. Both Qt CI workers, the automated build/test workers, are offline;
-qualified isolation and full product acceptance remain outstanding.
+The branch retains your approved six-wait software-clock patch and the separate
+loaded-game property fix. Draft pull request #10 remains unmerged. The other
+13 QOR checkouts were clean when checked. Upstream draft #118 stays at
+`846d9ba` with its dependency audit failed; the fixed core-library revision remains
+`6a4822d`. Both Qt CI workers remain offline. No gate was weakened.
 
-Next: resolve the remaining playback, display-leak and lint findings, complete
-the product suites, qualify isolated workers and clear the upstream audit.
 The original job locks and 3-GiB memory floor remain. No unrelated service,
 production deployment, device image, package or release was changed or published.
+Current evidence is in `build/development-2026-11-14/session-01/`, including
+the intermediate context-only result and the final parent-state correction.
+Earlier scene and timing evidence remains in the 13 November session folders.
 
-Current evidence is in `build/development-2026-11-13/session-11/`, including
-initial failures and scope corrections; the approved timing proof remains in
-session-10. The roadmap is the sole record of outstanding gates.
+Next: resolve the remaining lint and playback findings, complete product
+acceptance, qualify isolated CI workers and clear the upstream audit. The
+roadmap remains the sole record of those gates.

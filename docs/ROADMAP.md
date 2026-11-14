@@ -189,6 +189,20 @@ or skips. Its build and context warnings remain. Hardening passes all checked
 programs; the final source/cache/lock audit passes independently of the documented
 outer-wrapper child-status error. Whole-product acceptance is still incomplete.
 
+The 14 November Shape continuation binds private collision/body factories to
+their owning instance and keeps playing/view reads valid across structural
+parent types. A new regression checks updates, reparenting, detachment, strict
+boolean activation and body identity. The final optimized native build passes
+58 scene results and three selected physics functions (seven results including
+setup/cleanup), without failures or skips. Runtime lint falls from 102 to 88
+warnings, with 14 removed and none added; that gate remains failed. Hardening
+passes all 16 QQ programs. The full 58-result scene suite also passes offscreen
+under ASan/UBSan with leak detection enabled, and its program passes hardening.
+Evidence: `build/development-2026-11-14/session-01/`.
+The earlier Store/Orb timing, Wayland leak, ARQADE diagnostics and full-product
+gates remain unresolved. Store, Orb Run and ARQADE suites and the Wayland
+sanitizer run were not repeated for this increment.
+
 Windows/Linux Qt runners remain offline and unqualified for isolation. The local
 session lacks Hyper-V administration rights and has no verified isolated VM;
 observed free memory cannot fit the planned 6-GiB VM while retaining the 3-GiB

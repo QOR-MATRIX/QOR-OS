@@ -18,6 +18,10 @@
 // shape's own three axes (shaders/surface.frag), so they move and turn with it.
 
 // Changed for QOR OS: private collision factories read dimensions and callbacks through their actual Shape owner.
+// Changed for QOR OS: collision and body factories stay bound to that owner's creation context.
+// Changed for QOR OS: playing and view state keep the parent's structural interface, including groups and prefabs.
+
+pragma ComponentBehavior: Bound
 
 import QtQuick
 import QtQuick3D
@@ -65,9 +69,12 @@ Node {
     property real friction: 0.6
 
     /// True while the scene this belongs to plays.
-    readonly property bool live: parent !== null && parent.playing === true
+    readonly property bool live: parent !== null && _parentValue("playing") === true
     /// The body play made, or null.
     property Node physics: null
+
+    // A parent can be a Scene, Group or Prefab; none is the sole parent type.
+    function _parentValue(field: string): var { return shape.parent[field] }
 
     /// The body met another entity's (null for something that is not an entity), at `point`, pushed along `normal`.
     signal contact(QtObject other, vector3d point, vector3d normal)
@@ -241,8 +248,8 @@ Node {
             massMode: DynamicRigidBody.Mass
             mass: entity.mass
             // In a 2D scene (P3.10) it moves on the plane and turns only about the depth axis.
-            linearAxisLock: shape.parent && shape.parent.view === "2d" ? DynamicRigidBody.LockZ : DynamicRigidBody.LockNone
-            angularAxisLock: shape.parent && shape.parent.view === "2d" ? DynamicRigidBody.LockX | DynamicRigidBody.LockY
+            linearAxisLock: shape.parent && shape._parentValue("view") === "2d" ? DynamicRigidBody.LockZ : DynamicRigidBody.LockNone
+            angularAxisLock: shape.parent && shape._parentValue("view") === "2d" ? DynamicRigidBody.LockX | DynamicRigidBody.LockY
                                                                         : DynamicRigidBody.LockNone
             sendContactReports: true
             receiveContactReports: true

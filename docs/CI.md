@@ -469,6 +469,36 @@ cache and the original lock available. Some outer-wrapper receipts retain exit
 their parent's reap as active. That helper was corrected; command results and
 the independent audit are recorded separately, with the raw failures preserved.
 
+The 14 November Shape continuation verifies a 102-warning baseline. Binding its
+private factories to their owner removes 13 findings but exposes two parent-view
+type findings, reproducing the reason an earlier experiment was excluded. That
+intermediate candidate passes seven physics functions (11 Qt results) and all
+57 scene results. The final change uses Group/Prefab's existing structural
+parent-property pattern for playing/view state and adds a parent-state regression.
+It passes all 58 scene results, plus contact reporting, grouped motion and all
+three 2D plane-lock rows: seven physics results including setup/cleanup, no
+failures or skips, in 385.566 seconds. The new regression emits no QML warnings.
+
+The final full QQ build has zero compiler/license-client diagnostics, and
+hardening passes 16 programs. Runtime lint reports 88 warnings: 14 baseline
+findings removed, none added, with its gate still returning 1. Remaining findings
+are 82 missing properties, three imports and three unresolved types. The actual
+CMake configuration is `RelWithDebInfo` (optimized with debug information);
+earlier prose calling the `q-pi-qq-release/qq` cache "Release" is not evidence of
+a CMake `Release` configuration. No existing assertion, duration or tolerance
+changed. Commands, source comparisons, intermediate results and raw failures
+remain in `build/development-2026-11-14/session-01/`.
+
+The final sanitizer build also has zero compiler/license-client diagnostics.
+Its complete scene suite passes 58 results offscreen and exits 0, with leak
+detection enabled and no suppressions. The sanitizer test program passes
+hardening. The compiler commands for Shape's generated code and the scene test
+carry address/undefined-behavior instrumentation, and both sanitizer libraries
+are linked. The final audit verifies the native snapshot's 1,404 source hashes,
+a current QQ cache and the original lock available; both changed local code
+files match their tested native bytes. This does not clear the separately
+recorded Wayland leak or the remaining full-product and isolated-CI gates.
+
 **The variable was recorded unset and the Qt-job pause remains in force.** Once
 a runner is qualified and its product step is enabled, the harness runs each
 product's registered CTest suites hidden: **in software when fenced or without a

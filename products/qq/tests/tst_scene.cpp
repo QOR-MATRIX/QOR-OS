@@ -16,6 +16,7 @@
 // Changed for QOR OS: groups and prefabs retain their structural parent-state bindings.
 // Changed for QOR OS: a Game keeps its loaded scene separate from the viewport's own scene.
 // Changed for QOR OS: standalone Game tests own a hidden window so Qt can retire their scene managers.
+// Changed for QOR OS: a shape's body follows view and playing changes through mixed structural parents.
 
 #include <QCoreApplication>
 #include <QDir>
@@ -1001,6 +1002,69 @@ private slots:
         outer->setParentItem(root);
         QTRY_COMPARE(state(outer), expected);
         QTRY_COMPARE(state(inner), expected);
+    }
+
+    void aShapesBodyFollowsItsNearestParentsState()
+    {
+        QQmlComponent component(engine);
+        component.setData("import QtQuick3D\nimport QtQuick3D.Physics\nimport QQ\nNode {\n"
+                          "    property var playing: false\n    property string view: \"2d\"\n"
+                          "    readonly property int depthLock: DynamicRigidBody.LockZ\n"
+                          "    readonly property int tiltLocks: DynamicRigidBody.LockX | DynamicRigidBody.LockY\n"
+                          "    readonly property int noLock: DynamicRigidBody.LockNone\n"
+                          "    Shape { objectName: \"shape\"; body: \"dynamic\" }\n"
+                          "    Group { objectName: \"group\" }\n"
+                          "    Prefab { objectName: \"prefab\" }\n"
+                          "    Node { objectName: \"ordinary\" }\n}\n",
+                          QUrl(QStringLiteral("qrc:/shape-parent-state.qml")));
+        std::unique_ptr<QObject> object(component.create());
+        QVERIFY2(object, qPrintable(component.errorString()));
+        auto *root = qobject_cast<QQuick3DObject *>(object.get());
+        auto *shape = object->findChild<QQuick3DObject *>(QStringLiteral("shape"));
+        auto *group = object->findChild<QQuick3DObject *>(QStringLiteral("group"));
+        auto *prefab = object->findChild<QQuick3DObject *>(QStringLiteral("prefab"));
+        auto *ordinary = object->findChild<QQuick3DObject *>(QStringLiteral("ordinary"));
+        QVERIFY(root && shape && group && prefab && ordinary);
+        const auto restore = qScopeGuard([&] { shape->setParentItem(root); shape->setParent(root); });
+        QVERIFY(!shape->property("live").toBool());
+        QVERIFY(!shape->property("physics").value<QObject *>());
+        QVERIFY(object->setProperty("playing", QStringLiteral("true")));
+        QVERIFY(!shape->property("live").toBool());
+        QVERIFY(!shape->property("physics").value<QObject *>());
+        QVERIFY(object->setProperty("playing", true));
+        QTRY_VERIFY(shape->property("live").toBool());
+        QObject *body = shape->property("physics").value<QObject *>();
+        QVERIFY(body);
+        QCOMPARE(body->property("entity").value<QObject *>(), static_cast<QObject *>(shape));
+        const int depthLock = root->property("depthLock").toInt();
+        const int tiltLocks = root->property("tiltLocks").toInt();
+        const int noLock = root->property("noLock").toInt();
+        for (auto *parent : {root, group, prefab}) {
+            shape->setParentItem(parent);
+            QVERIFY(object->setProperty("view", QStringLiteral("2d")));
+            QTRY_COMPARE(body->property("linearAxisLock").toInt(), depthLock);
+            QTRY_COMPARE(body->property("angularAxisLock").toInt(), tiltLocks);
+            QVERIFY(object->setProperty("view", QStringLiteral("3d")));
+            QTRY_COMPARE(body->property("linearAxisLock").toInt(), noLock);
+            QTRY_COMPARE(body->property("angularAxisLock").toInt(), noLock);
+            QVERIFY(object->setProperty("playing", false));
+            QTRY_VERIFY(!shape->property("live").toBool());
+            QVERIFY(object->setProperty("playing", true));
+            QTRY_VERIFY(shape->property("live").toBool());
+            QCOMPARE(shape->property("physics").value<QObject *>(), body);
+        }
+        QVERIFY(object->setProperty("view", QStringLiteral("2d")));
+        for (auto *parent : {ordinary, static_cast<QQuick3DObject *>(nullptr)}) {
+            shape->setParentItem(parent);
+            QTRY_VERIFY(!shape->property("live").toBool());
+            QTRY_COMPARE(body->property("linearAxisLock").toInt(), noLock);
+            QTRY_COMPARE(body->property("angularAxisLock").toInt(), noLock);
+        }
+        shape->setParentItem(root);
+        QTRY_VERIFY(shape->property("live").toBool());
+        QTRY_COMPARE(body->property("linearAxisLock").toInt(), depthLock);
+        QTRY_COMPARE(body->property("angularAxisLock").toInt(), tiltLocks);
+        QCOMPARE(shape->property("physics").value<QObject *>(), body);
     }
 
     void groupsNestEntitiesAndTheFileKeepsThem()

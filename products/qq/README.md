@@ -35,7 +35,10 @@ it; the QQ Player plays a scene on its own, natively and in a browser.
   platformer's hero or a top-down one, under the same input as everything else, carrying a Sprite as its look and
   saying what it is doing (`activity`) so logic plays the right frames; `respawn()` puts it back. Since P3.11 it moves
   by QQ's own kinematics, not PhysX. Shapes and sprites with bodies stay on the plane and turn only about its depth
-  axis. Sprite’s private collider and body factories bind to its owning instance; tests cover dynamic sprites landing on
+  axis. Shape's private collider and body factories bind to its owning instance. Its immediate parent's playing and view
+  state can come from a Scene, Group or Prefab; changes and reparenting update the live state and plane locks. A missing
+  parent or state does not make it live or lock it to the plane. Sprite’s private collider and body factories bind to its
+  owning instance; tests cover dynamic sprites landing on
   static and kinematic sprite floors, contact reports, plane locks and crisp/animated pixels.
 - **Steps, seeds and replay (P3.11, built 19 October 2026; ADR-105 decision 6):** play moves in ticks of 1/60 s,
   whatever the frame rate. Each frame's time is paid in whole ticks, at most eight a frame. Each tick takes the player's
@@ -321,6 +324,14 @@ The Agent panel also shows supplied status, key-storage problems and messages li
 text, including when the status changes during a run.
 
 ## Build, test, deploy
+
+14 November Shape follow-up: private factories keep their owning context, and structural parent-state reads retain
+live updates and plane locks across reparenting and detachment. The final optimized native build passes all 58 scene
+results and seven selected physics results, with no failures or skips. Runtime lint removes 14 findings without adding
+any; 88 warnings remain and the gate still fails. Hardening passes all 16 QQ programs. The cache's actual CMake mode is
+`RelWithDebInfo`, despite `release` in its directory name. All 58 scene results also pass offscreen under ASan/UBSan with
+leak detection enabled; that test program passes hardening. These are isolated software checks, not full product or
+hardware acceptance. Receipts: `build/development-2026-11-14/session-01/`.
 
 13–14 November native scene follow-up: `Game.playingScene` separates the loaded game from the viewport root. The regression
 reproduces the old collision; the complete scene suite passes 57 results. Test-owned viewports have hidden window owners
