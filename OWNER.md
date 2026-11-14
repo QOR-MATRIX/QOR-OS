@@ -1,7 +1,7 @@
 # Where QOR OS stands
 
-For Andrew, 13 November 2026. PR #7 is merged on main at `6562e54`.
-The hosting correction is on `fix/qor-vercel-alignment`.
+For Andrew, 13 November 2026. PR #8 is merged on main at `1dc617b`.
+The hosting follow-up is on `docs/hosting-verification`.
 
 ## Verified progress
 
@@ -24,21 +24,19 @@ recovery checks on a hosted local test network. Core/Launcher checks pass
 audits remain unresolved. Required Rust 1.98.1 passes; the optional newer
 compiler reports 66 generated-code errors. QOR OS's core pin stays `6a4822d`.
 
-The homepage and pinned Vercel Analytics 2.0.1 now live in this repository's
-`site/`, carried with source hashes and licences. Primary developer and project
-links point to QOR-MATRIX/QOR-OS. Authenticated command-line inspection reaches
-Astra Matrix / qor and confirms it still links to demiurge-chain with obsolete
-build settings. The connector's 404 did not mean the project was absent. The
-homepage job passes on GitHub. Its import added a fourth workflow; the policy
-test now counts it, and the public stylesheet hash has an exact, tested scanner
-classification. These corrections are being checked before reconnecting and verifying the
-live revision. QORSYNC.DEV and its approved service subdomains remain canonical.
+The homepage and Vercel Analytics 2.0.1 live in `site/`, with hashes and licences.
+Astra Matrix / qor now reads QOR-MATRIX/QOR-OS/main/site. QORSYNC.DEV serves the
+merged revision; canonical links, security headers, redirect and Analytics script
+pass live checks. Homepage, tooling and history checks pass on GitHub. Cloudflare
+injected a second analytics script into HTML; the existing browser security policy
+blocks it. A response-header correction now prevents proxy edits and awaits final
+live verification. The approved QORSYNC.DEV service subdomains remain unchanged.
 
 ## Continuation
 
 Investigate the four play failures and complete product qualification; resolve
 upstream audits before extending the shell-to-core interface. Native Qt CI,
-automated checks, remains paused pending isolated workers. No production
-deployment, image, package publication or release occurred. The roadmap owns
+automated checks, remains paused pending isolated workers. The homepage was
+deployed; no device image, package, network upgrade or release was published. The roadmap owns
 remaining gates. Native receipts are in session-07; hosting receipts are in
 `build/development-2026-11-13/session-08/`.

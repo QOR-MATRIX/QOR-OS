@@ -40,6 +40,11 @@ pageviews are accepted: query strings, fragments and extra fields are removed;
 custom events and other paths/origins are refused. No account integration exists.
 The script and collection endpoints remain same-origin under the content security
 policy; referrer policy is `no-referrer`, with development event logging disabled.
+HTML responses set `Cache-Control: public, max-age=0, must-revalidate, no-transform`.
+This prevents Cloudflare's automatic beacon injection from adding analytics outside
+those controls, as described in its [setup guide](https://developers.cloudflare.com/web-analytics/get-started/).
+Asset-specific cache lifetimes remain unchanged. Verify the delivered HTML against
+the Git source after changing hosting; a successful origin build alone misses proxy edits.
 Dashboard activation and a working live endpoint require separate verification.
 See Vercel's [quickstart](https://vercel.com/docs/analytics/quickstart).
 
