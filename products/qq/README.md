@@ -325,10 +325,25 @@ Shape's `push`, `applyForce`, `setVelocity` and `setSpin` require both the `dyna
 The public `physics` property remains a `Node`; the private body factory checks its result as `PhysicsBody` before
 assigning collision shapes. Static, kinematic and scenery modes still refuse these motion commands.
 
+Trigger's `inside` count reads an actual `TriggerBody`; a missing volume or another kind of node gives zero.
+Its public `physics` property remains a `Node`. Playing state still follows the immediate structural parent, including
+groups and prefabs. Enter/exit callbacks forward a body's optional QQ entity, or null when no entity is present.
+The private box and sphere colliders remain bound to their owning trigger as its scale changes.
+
 The Agent panel also shows supplied status, key-storage problems and messages literally. Markup in those strings stays
 text, including when the status changes during a run.
 
 ## Build, test, deploy
+
+14 November Trigger follow-up: an ordinary node can no longer supply a false collision count. Four new scene results
+check both collider forms and their owning instance, live dimensions, parent changes, detachment, strict activation,
+missing volumes and optional entity callbacks. Existing tests remain unchanged. The full optimized native QQ build
+has no compiler/license-client diagnostics; all 69 scene results and six selected trigger/group physics results pass
+without failures/skips. Hardening passes 16 programs. Seven Trigger lint findings are removed and none added; 76 runtime
+warnings remain and the whole lint gate still fails. Original failures and passing results are preserved under
+`build/development-2026-11-14/session-03/`.
+All 69 scene results also pass offscreen under ASan/UBSan with leak detection enabled; its test program passes
+hardening. The prior Wayland leak and broader product/Store/Orb/ARQADE findings remain separate, unrerun gates.
 
 14 November motion-command follow-up: seven new rows check all four Shape motion commands against dynamic, static,
 kinematic, absent and mismatched bodies. The original runtime raises script errors for the two mismatched types;

@@ -9,6 +9,20 @@ their changes since, and pulls of what is still shared, are recorded here.
 
 ## [Unreleased]
 
+- **QQ triggers count only an actual trigger volume.** The public physics
+  property stays a Node, but collision counts and private factory results are
+  checked as TriggerBody. An ordinary node with a collisionCount property no
+  longer supplies a false count. Structural parent-state reads and optional
+  QQ entity callbacks retain their behavior. New regressions cover box/sphere
+  ownership, live edits, reparenting, detachment, strict activation, missing
+  volumes and entity/null callbacks; existing tests are unchanged.
+  The optimized native build passes all 69 scene results and six selected
+  trigger/group physics results, with hardening passing 16 programs. All seven
+  Trigger lint findings are removed and none added; 76 runtime findings remain.
+  The same 69 scene results also pass offscreen under address and
+  undefined-behavior sanitizers with leak detection enabled, and the sanitizer
+  test program passes hardening. Evidence: `build/development-2026-11-14/session-03/`.
+
 - **QQ's Shape motion commands check the actual physics body.** `push`,
   `applyForce`, `setVelocity` and `setSpin` return false for a missing body,
   an ordinary node or a mismatched static body, without raising a script error.

@@ -226,6 +226,23 @@ are in session-03 beside the native evidence. The original native coordinator an
 3,072-MiB floor remain in force. Full products, hardware and isolated CI remain
 unaccepted.
 
+The next native continuation reads Trigger's collision count only through an
+actual TriggerBody while keeping the public Node property. The new regression
+reproduces a false count of 17 from an ordinary node before the fix. Structural
+parent state and optional entity callbacks keep their behavior; four new results
+cover both collider forms, live dimensions, reparenting, detachment, strict
+activation, missing volumes and entity/null callbacks. Existing tests are
+unchanged. The complete optimized QQ build has zero compiler/license-client
+diagnostics. All 69 scene results and six selected trigger/group physics results
+pass without failures/skips; hardening passes 16 programs. Runtime lint falls
+from 83 to 76 warnings: all seven Trigger findings are removed and none added.
+All 69 scene results also pass offscreen under ASan/UBSan with leak detection
+enabled, and the sanitizer test program passes hardening. The older Wayland
+leak, Store/Orb timing and ARQADE findings were not rerun for this increment;
+full products and hardware acceptance remain open.
+The whole lint gate still fails. Receipts, including the failing original
+regression: `build/development-2026-11-14/session-03/`.
+
 Windows/Linux Qt runners remain offline and unqualified for isolation. The local
 session lacks Hyper-V administration rights and has no verified isolated VM;
 observed free memory cannot fit the planned 6-GiB VM while retaining the 3-GiB

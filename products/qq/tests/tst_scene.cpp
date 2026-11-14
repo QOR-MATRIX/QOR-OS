@@ -18,6 +18,7 @@
 // Changed for QOR OS: standalone Game tests own a hidden window so Qt can retire their scene managers.
 // Changed for QOR OS: a shape's body follows view and playing changes through mixed structural parents.
 // Changed for QOR OS: Shape motion commands refuse missing or mismatched physics nodes without a script error.
+// Changed for QOR OS: triggers preserve parent state, collider ownership and optional entity callbacks with typed bodies.
 
 #include <QCoreApplication>
 #include <QDir>
@@ -37,6 +38,7 @@
 #include <QQuickWindow>
 #include <QRegularExpression>
 #include <QScopeGuard>
+#include <QSignalSpy>
 #include <QStandardPaths>
 #include <QTemporaryDir>
 #include <QTest>
@@ -1115,6 +1117,148 @@ private slots:
         QTRY_COMPARE(body->property("linearAxisLock").toInt(), depthLock);
         QTRY_COMPARE(body->property("angularAxisLock").toInt(), tiltLocks);
         QCOMPARE(shape->property("physics").value<QObject *>(), body);
+    }
+
+    void aTriggersBodyKeepsItsOwnerAndParentState_data()
+    {
+        QTest::addColumn<QString>("form");
+        QTest::newRow("box") << QStringLiteral("box");
+        QTest::newRow("sphere") << QStringLiteral("sphere");
+    }
+
+    void aTriggersBodyKeepsItsOwnerAndParentState()
+    {
+        QFETCH(QString, form);
+        QQmlComponent component(engine);
+        component.setData(QStringLiteral(
+            "import QtQuick3D\nimport QQ\nNode {\n"
+            "    property var playing: false\n"
+            "    Trigger { objectName: \"trigger\"; form: \"%1\"; scale: Qt.vector3d(2, 3, 4) }\n"
+            "    Trigger { objectName: \"other\"; form: \"%1\"; scale: Qt.vector3d(5, 6, 7) }\n"
+            "    Group { objectName: \"group\"; position: Qt.vector3d(8, 0, 0) }\n"
+            "    Prefab { objectName: \"prefab\" }\n"
+            "    Node { objectName: \"ordinary\" }\n}\n").arg(form).toUtf8(),
+            QUrl(QStringLiteral("qrc:/trigger-parent-state.qml")));
+        std::unique_ptr<QObject> object(component.create());
+        QVERIFY2(object, qPrintable(component.errorString()));
+        auto *root = qobject_cast<QQuick3DObject *>(object.get());
+        auto *trigger = object->findChild<QQuick3DObject *>(QStringLiteral("trigger"));
+        auto *other = object->findChild<QQuick3DObject *>(QStringLiteral("other"));
+        auto *group = object->findChild<QQuick3DObject *>(QStringLiteral("group"));
+        auto *prefab = object->findChild<QQuick3DObject *>(QStringLiteral("prefab"));
+        auto *ordinary = object->findChild<QQuick3DObject *>(QStringLiteral("ordinary"));
+        QVERIFY(root && trigger && other && group && prefab && ordinary);
+        const auto restore = qScopeGuard([&] { trigger->setParentItem(root); trigger->setParent(root); });
+        QVERIFY(!trigger->property("live").toBool());
+        QVERIFY(root->setProperty("playing", QStringLiteral("true")));
+        QVERIFY(!trigger->property("live").toBool());
+        QVERIFY(!trigger->property("physics").value<QObject *>());
+        QVERIFY(root->setProperty("playing", true));
+        QTRY_VERIFY(trigger->property("live").toBool());
+        QObject *body = trigger->property("physics").value<QObject *>();
+        QObject *otherBody = other->property("physics").value<QObject *>();
+        QVERIFY(body && otherBody && body != otherBody);
+        QCOMPARE(body->property("entity").value<QObject *>(), static_cast<QObject *>(trigger));
+        QCOMPARE(otherBody->property("entity").value<QObject *>(), static_cast<QObject *>(other));
+        QQmlListReference colliders(body, "collisionShapes");
+        QQmlListReference otherColliders(otherBody, "collisionShapes");
+        QCOMPARE(colliders.count(), 1);
+        QCOMPARE(otherColliders.count(), 1);
+        QVERIFY(colliders.at(0) != otherColliders.at(0));
+        if (form == QStringLiteral("box")) {
+            QCOMPARE(colliders.at(0)->property("extents").value<QVector3D>(), QVector3D(2, 3, 4));
+            QCOMPARE(otherColliders.at(0)->property("extents").value<QVector3D>(), QVector3D(5, 6, 7));
+        } else {
+            QCOMPARE(colliders.at(0)->property("diameter").toDouble(), 4.0);
+            QCOMPARE(otherColliders.at(0)->property("diameter").toDouble(), 7.0);
+        }
+        QVERIFY(trigger->setProperty("scale", QVariant::fromValue(QVector3D(4, 5, 6))));
+        if (form == QStringLiteral("box")) {
+            QTRY_COMPARE(colliders.at(0)->property("extents").value<QVector3D>(), QVector3D(4, 5, 6));
+            QCOMPARE(otherColliders.at(0)->property("extents").value<QVector3D>(), QVector3D(5, 6, 7));
+        } else {
+            QTRY_COMPARE(colliders.at(0)->property("diameter").toDouble(), 6.0);
+            QCOMPARE(otherColliders.at(0)->property("diameter").toDouble(), 7.0);
+        }
+        for (auto *parent : {root, group, prefab}) {
+            trigger->setParentItem(parent);
+            QTRY_COMPARE(body->property("position").value<QVector3D>(), trigger->property("scenePosition").value<QVector3D>());
+            QVERIFY(root->setProperty("playing", false));
+            QTRY_VERIFY(!trigger->property("live").toBool());
+            QVERIFY(root->setProperty("playing", true));
+            QTRY_VERIFY(trigger->property("live").toBool());
+            QCOMPARE(trigger->property("physics").value<QObject *>(), body);
+        }
+        for (auto *parent : {ordinary, static_cast<QQuick3DObject *>(nullptr)}) {
+            trigger->setParentItem(parent);
+            QTRY_VERIFY(!trigger->property("live").toBool());
+        }
+        trigger->setParentItem(root);
+        QTRY_VERIFY(trigger->property("live").toBool());
+        QCOMPARE(trigger->property("physics").value<QObject *>(), body);
+    }
+
+    void aTriggerCountsOnlyItsActualVolume()
+    {
+        QQmlComponent component(engine);
+        component.setData("import QtQuick3D\nimport QQ\nNode {\n"
+                          "    property bool playing: true\n"
+                          "    Trigger { id: zone; objectName: \"trigger\" }\n"
+                          "    Node { objectName: \"ordinary\"; property int collisionCount: 17 }\n"
+                          "    function clearBody() { zone.physics = null }\n}\n",
+                          QUrl(QStringLiteral("qrc:/trigger-count.qml")));
+        std::unique_ptr<QObject> object(component.create());
+        QVERIFY2(object, qPrintable(component.errorString()));
+        QObject *trigger = object->findChild<QObject *>(QStringLiteral("trigger"));
+        QObject *ordinary = object->findChild<QObject *>(QStringLiteral("ordinary"));
+        QVERIFY(trigger && ordinary);
+        QObject *body = trigger->property("physics").value<QObject *>();
+        QVERIFY(body);
+        const auto restore = qScopeGuard([&] { trigger->setProperty("physics", QVariant::fromValue(body)); });
+        QCOMPARE(trigger->property("inside").toInt(), 0);
+        QVERIFY(trigger->setProperty("physics", QVariant::fromValue(ordinary)));
+        QCOMPARE(trigger->property("inside").toInt(), 0);
+        QVERIFY(ordinary->setProperty("collisionCount", 23));
+        QCOMPARE(trigger->property("inside").toInt(), 0);
+        QVERIFY(QMetaObject::invokeMethod(object.get(), "clearBody"));
+        QVERIFY(!trigger->property("physics").value<QObject *>());
+        QCOMPARE(trigger->property("inside").toInt(), 0);
+        QVERIFY(trigger->setProperty("physics", QVariant::fromValue(body)));
+        QCOMPARE(trigger->property("inside").toInt(), body->property("collisionCount").toInt());
+    }
+
+    void aTriggerReportsOptionalEntityMetadata()
+    {
+        QQmlComponent component(engine);
+        component.setData("import QtQml\nimport QtQuick3D\nimport QtQuick3D.Physics\nimport QQ\nNode {\n"
+                          "    id: fixture\n    property bool playing: true\n"
+                          "    property QtObject marker: QtObject {}\n"
+                          "    Trigger { id: zone; objectName: \"trigger\" }\n"
+                          "    DynamicRigidBody { id: marked; property QtObject entity: fixture.marker }\n"
+                          "    StaticRigidBody { id: unmarked }\n"
+                          "    function notifyMarked() { const volume = zone.physics as TriggerBody;\n"
+                          "        volume.bodyEntered(marked); volume.bodyExited(marked) }\n"
+                          "    function notifyUnmarked() { const volume = zone.physics as TriggerBody;\n"
+                          "        volume.bodyEntered(unmarked); volume.bodyExited(unmarked) }\n"
+                          "    function notifyNull() { const volume = zone.physics as TriggerBody;\n"
+                          "        volume.bodyEntered(null); volume.bodyExited(null) }\n}\n",
+                          QUrl(QStringLiteral("qrc:/trigger-entity.qml")));
+        std::unique_ptr<QObject> object(component.create());
+        QVERIFY2(object, qPrintable(component.errorString()));
+        QObject *trigger = object->findChild<QObject *>(QStringLiteral("trigger"));
+        QObject *marker = object->property("marker").value<QObject *>();
+        QVERIFY(trigger && marker);
+        QSignalSpy entered(trigger, SIGNAL(entered(QObject *)));
+        QSignalSpy exited(trigger, SIGNAL(exited(QObject *)));
+        QVERIFY(entered.isValid() && exited.isValid());
+        for (const char *method : {"notifyMarked", "notifyUnmarked", "notifyNull"}) {
+            QVERIFY(QMetaObject::invokeMethod(object.get(), method));
+            QCOMPARE(entered.count(), 1);
+            QCOMPARE(exited.count(), 1);
+            QObject *expected = QByteArray(method) == "notifyMarked" ? marker : nullptr;
+            QCOMPARE(entered.takeFirst().at(0).value<QObject *>(), expected);
+            QCOMPARE(exited.takeFirst().at(0).value<QObject *>(), expected);
+        }
     }
 
     void groupsNestEntitiesAndTheFileKeepsThem()
