@@ -69,8 +69,11 @@ in that list is not current.
   demiurge-chain at a pinned commit and is never copied here
   ([QOR-0003](docs/decisions/QOR-0003-the-qor-core-at-a-pinned-commit.md)).
   Change it upstream, under demiurge-chain's `AGENTS.md`, then move the pin.
-- **The network** is the chain, QOR ID, Social, ARQADE's website and the
-  homepage. It stays in demiurge-chain, public, under its rules. QOR OS talks
+- **The homepage** lives here in `site/` and deploys from `QOR-MATRIX/QOR-OS`
+  to the existing Astra Matrix / qor project ([QOR-0027](docs/decisions/QOR-0027-the-homepage-lives-in-qor-os.md)).
+  Keep its carried Apache-2.0 notices, pinned dependencies and separate static build.
+- **The network** is the chain, QOR ID, Social and ARQADE's website.
+  It stays in demiurge-chain, public, under its rules. QOR OS talks
   to it as services.
 - **Unreal Engine** is Epic's ([QOR-0020](docs/decisions/QOR-0020-unreal-engine-on-qor-os.md)). Nothing of the engine, its
   editor or its tools enters this repository, the image or the Store's own content. Until Epic or counsel says otherwise,

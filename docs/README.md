@@ -24,6 +24,8 @@ apply. A document not indexed here (or a product's own README) is not current.
 | [../image/README.md](../image/README.md) | Fedora image/lab evidence; Q Pi development preparation, first boot and hardware acceptance still required |
 | [DEVELOPMENT.md](DEVELOPMENT.md) | follow conventions, use recipes (add a service, app or control), debug |
 | [CI.md](CI.md) | understand paused Qt jobs, isolated-runner prerequisites and the checks CI is configured to require |
+| [HOSTING.md](HOSTING.md) | verify the QOR OS repository, existing QOR Vercel project, build settings and canonical domain |
+| [../site/README.md](../site/README.md), [../site/AGENTS.md](../site/AGENTS.md) | develop and validate the canonical homepage and preserve its source and privacy boundaries |
 | [design/LUMEN.md](design/LUMEN.md) | apply the Lumen design language correctly |
 | [design/tokens.md](design/tokens.md) | look up exact Lumen token values (generated) |
 | [design/SHELL.md](design/SHELL.md) | know exactly how each shell surface behaves; keyboard reference |

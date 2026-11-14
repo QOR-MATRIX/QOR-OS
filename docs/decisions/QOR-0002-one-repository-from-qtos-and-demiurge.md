@@ -1,7 +1,9 @@
 # QOR-0002: One repository, from QTOS and Demiurge's device side
 
 - **Status:** Accepted; decision 3 superseded by [QOR-0015](QOR-0015-the-products-are-developed-here.md)
-  for `products/qq/`, `products/arqade/qt/`, `products/arqade/games/` and `tools/qor-media/`
+  for `products/qq/`, `products/arqade/qt/`, `products/arqade/games/` and `tools/qor-media/`;
+  decision 4's homepage ownership superseded by
+  [QOR-0027](QOR-0027-the-homepage-lives-in-qor-os.md), 13 November 2026
 - **Date:** 2026-10-26
 - **Deciders:** the owner
 - **Relates to:** [QTOS-0004](qtos/QTOS-0004-commercial-qt-and-proprietary-repository.md) (amended);

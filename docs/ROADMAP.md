@@ -16,6 +16,13 @@ products ([UPSTREAM.md](UPSTREAM.md)).
 
 ## The order of work
 
+The owner's 13 November hosting correction moves the QORSYNC.DEV homepage into
+`site/` here, targeting the existing Astra Matrix / qor project from QOR OS `main`
+([QOR-0027](decisions/QOR-0027-the-homepage-lives-in-qor-os.md)). Homepage build and
+privacy checks are separate from device qualification; [HOSTING.md](HOSTING.md)
+records connection and live-deployment verification. Network/core ownership and
+the device work below are unchanged.
+
 The owner's milestones ([QOR-0021](decisions/QOR-0021-projects-engines-and-two-stores.md)). The phases and sections below say
 what each holds. A step is done when it is integrated and its checks have evidence, kept to the configuration they ran on.
 

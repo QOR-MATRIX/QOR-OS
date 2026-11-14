@@ -1,7 +1,7 @@
 # Where QOR OS stands
 
-For Andrew, 13 November 2026. PRs #5 and #6 are merged on main at `b79c40c`.
-The continuation branch is `feat/native-product-acceptance`.
+For Andrew, 13 November 2026. PR #7 is merged on main at `6562e54`.
+The hosting correction is on `fix/qor-vercel-alignment`.
 
 ## Verified progress
 
@@ -24,10 +24,15 @@ recovery checks on a hosted local test network. Core/Launcher checks pass
 audits remain unresolved. Required Rust 1.98.1 passes; the optional newer
 compiler reports 66 generated-code errors. QOR OS's core pin stays `6a4822d`.
 
-The requested Vercel Analytics 2.0.1 homepage integration lives upstream.
-Its static build, 33 site checks, six privacy/build tests and dependency audit
-pass locally. Live collection is unverified: project access still fails after
-renewed team approval. QORSYNC.DEV and approved service subdomains remain canonical.
+The homepage and pinned Vercel Analytics 2.0.1 now live in this repository's
+`site/`, carried with source hashes and licences. Primary developer and project
+links point to QOR-MATRIX/QOR-OS. Authenticated command-line inspection reaches
+Astra Matrix / qor and confirms it still links to demiurge-chain with obsolete
+build settings. The connector's 404 did not mean the project was absent. The
+homepage job passes on GitHub. Its import added a fourth workflow; the policy
+test now counts it, and the public stylesheet hash has an exact, tested scanner
+classification. These corrections are being checked before reconnecting and verifying the
+live revision. QORSYNC.DEV and its approved service subdomains remain canonical.
 
 ## Continuation
 
@@ -35,4 +40,5 @@ Investigate the four play failures and complete product qualification; resolve
 upstream audits before extending the shell-to-core interface. Native Qt CI,
 automated checks, remains paused pending isolated workers. No production
 deployment, image, package publication or release occurred. The roadmap owns
-remaining gates. Receipts: `build/development-2026-11-13/session-07/`.
+remaining gates. Native receipts are in session-07; hosting receipts are in
+`build/development-2026-11-13/session-08/`.

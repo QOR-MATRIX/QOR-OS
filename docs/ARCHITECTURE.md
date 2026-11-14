@@ -4,6 +4,12 @@ This document describes the code as it exists today and how it maps onto the
 device architecture in [`VISION.md`](../VISION.md). Decisions and their
 rationale are recorded in [`decisions/`](decisions/README.md).
 
+**Public homepage.** `site/` is the static QORSYNC.DEV homepage, built separately
+with Node 24 by the existing Astra Matrix / qor Vercel project from QOR OS `main`
+([QOR-0027](decisions/QOR-0027-the-homepage-lives-in-qor-os.md)). Only `site/dist/`
+is public output. Device binaries, repository files and dependency directories
+are excluded. The network and pinned core stay upstream; see [HOSTING.md](HOSTING.md).
+
 **Q Pi development edition.** [QOR-0025](decisions/QOR-0025-q-pi-development-edition.md)
 scopes a Pi 5 ARM64 exception: a maintained Raspberry Pi OS desktop and real base
 login host native QOR application processes. It supplies no Prism authentication,

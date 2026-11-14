@@ -8,6 +8,10 @@ before changing them.
 
 ## 1. Daily loop
 
+For the public homepage, use the independent Node 24 workflow in
+[`site/README.md`](../site/README.md). Its source belongs here and its Vercel
+target is recorded in [HOSTING.md](HOSTING.md); it does not build the Qt system.
+
 For a new subsystem, begin with the [developer guide](../sdk/README.md) or
 `python tools/dev/developer.py list`. `show <id> --json` supplies its source,
 prerequisites and action boundaries to an agent without launching that tool.

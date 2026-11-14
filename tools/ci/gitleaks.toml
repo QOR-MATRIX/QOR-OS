@@ -40,3 +40,16 @@ regexes = [
     '''^\s*"kit/Tokens\.qml":\s*"1a9c9a167eac444dccaf97e43232f096aef04624854726d4417a43937117a03b",?\s*$''',
     '''^\s*"kit/tokens/lumen\.tokens\.json":\s*"9717240bbbd228b457320064892304dd78f3c6b5fbc8596dd824a32dc4ec3818",?\s*$''',
 ]
+
+# This exact digest identifies the unchanged, public stylesheet imported from
+# demiurge-chain d4c51d7. It is a Git blob SHA-256, not an API credential. Keep
+# detection enabled for every other value, field and path (regression tested).
+[[allowlists]]
+description = "Verified public stylesheet hash in homepage import provenance"
+targetRules = ["generic-api-key"]
+condition = "AND"
+paths = ['''(^|/)site/upstream-source\.json$''']
+regexTarget = "line"
+regexes = [
+    '''^\s*"site/tokens\.css":\s*"afbaa3e1557d8dbc4843e27b3632be160f4091640711fa8aa0a1ecee3f915b4c",?\s*$''',
+]

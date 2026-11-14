@@ -50,6 +50,13 @@ generated with the image's SBOM).
 
 ## Components
 
+The QORSYNC.DEV homepage in `site/` was carried from demiurge-chain at `d4c51d7`
+under Apache-2.0 (QOR-0027), independently of the earlier product carry. Original
+hashes are in `site/upstream-source.json`; `site/NOTICE.txt` and `site/licenses/`
+preserve its source and font licences in public build output. Vercel Analytics
+2.0.1 is MIT and its unmodified browser module is built with its licence. The
+website's carried-source licence is an exception to QOR OS's proprietary defaults.
+
 | Component | Version | Where | License |
 |-----------|---------|-------|---------|
 | [Qt](https://www.qt.io) | 6.12.0 | build and runtime dependency | Commercial Qt license held by QOR-MATRIX |
