@@ -40,7 +40,7 @@ class ActionsPolicyTest(unittest.TestCase):
 
     def test_repository_workflows_obey_policy(self):
         _, files, uses = policy.check_repository()
-        self.assertEqual(files, 3)
+        self.assertEqual(files, 4)
         self.assertGreater(uses, 0)
 
     def test_valid_workflow_and_quoted_false(self):

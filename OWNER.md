@@ -29,7 +29,9 @@ The homepage and pinned Vercel Analytics 2.0.1 now live in this repository's
 links point to QOR-MATRIX/QOR-OS. Authenticated command-line inspection reaches
 Astra Matrix / qor and confirms it still links to demiurge-chain with obsolete
 build settings. The connector's 404 did not mean the project was absent. The
-source is being checked before reconnecting that same project and verifying the
+homepage job passes on GitHub. Its import added a fourth workflow; the policy
+test now counts it, and the public stylesheet hash has an exact, tested scanner
+classification. These corrections are being checked before reconnecting and verifying the
 live revision. QORSYNC.DEV and its approved service subdomains remain canonical.
 
 ## Continuation

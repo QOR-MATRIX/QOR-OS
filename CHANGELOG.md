@@ -15,6 +15,9 @@ their changes since, and pulls of what is still shared, are recorded here.
   A dedicated workflow checks public output, ownership, privacy and dependency
   audit. QOR-0027 establishes the existing Astra Matrix / qor project as the
   deployment target; the network/core remain upstream and the core pin is unchanged.
+  The Actions policy test accounts for the fourth workflow. Secret scanning
+  classifies only the verified public stylesheet hash in its provenance record;
+  regression tests reject altered values, other fields and other paths.
 
 - **The native creator/player journey completes; remaining failures are retained.**
   The queued software check passes in 201.292 seconds under its unchanged deadline,
