@@ -19,6 +19,7 @@
 // Changed for QOR OS: a shape's body follows view and playing changes through mixed structural parents.
 // Changed for QOR OS: Shape motion commands refuse missing or mismatched physics nodes without a script error.
 // Changed for QOR OS: triggers preserve parent state, collider ownership and optional entity callbacks with typed bodies.
+// Changed for QOR OS: Player motion requires a character controller and follows structural scene state.
 
 #include <QCoreApplication>
 #include <QDir>
@@ -1259,6 +1260,148 @@ private slots:
             QCOMPARE(entered.takeFirst().at(0).value<QObject *>(), expected);
             QCOMPARE(exited.takeFirst().at(0).value<QObject *>(), expected);
         }
+    }
+
+    void playerMotionRequiresItsCharacterController_data()
+    {
+        QTest::addColumn<QString>("replacement");
+        QTest::newRow("character") << QString();
+        QTest::newRow("missing") << QStringLiteral("null");
+        QTest::newRow("ordinary-node") << QStringLiteral("ordinary");
+        QTest::newRow("static-body") << QStringLiteral("standing");
+        QTest::newRow("trigger-body") << QStringLiteral("volume");
+    }
+
+    void playerMotionRequiresItsCharacterController()
+    {
+        QFETCH(QString, replacement);
+        QQmlComponent component(engine);
+        component.setData("import QtQuick\nimport QtQuick3D\nimport QtQuick3D.Physics\nimport QQ\nNode {\n"
+                          "    property bool playing: true\n    property bool paused: false\n"
+                          "    property real gravity: 9.81\n    property QtObject player: null\n"
+                          "    Player { id: hero; objectName: \"hero\" }\n"
+                          "    Node { objectName: \"ordinary\"; y: -50\n"
+                          "        property int collisions: 0\n"
+                          "        property vector3d movement: Qt.vector3d(7, 8, 9)\n"
+                          "        property int teleports: 0\n"
+                          "        function teleport(where) { ++teleports }\n    }\n"
+                          "    StaticRigidBody { objectName: \"standing\" }\n"
+                          "    TriggerBody { objectName: \"volume\" }\n"
+                          "    function clearBody() { hero.physics = null }\n}\n",
+                          QUrl(QStringLiteral("qrc:/player-controller.qml")));
+        std::unique_ptr<QObject> object(component.create());
+        QVERIFY2(object, qPrintable(component.errorString()));
+        QObject *hero = object->findChild<QObject *>(QStringLiteral("hero"));
+        QVERIFY(hero);
+        QObject *body = hero->property("physics").value<QObject *>();
+        QVERIFY(body);
+        QObject *animation = nullptr;
+        for (QObject *child : hero->findChildren<QObject *>()) {
+            if (child->metaObject()->indexOfProperty("frameTime") >= 0
+                && child->metaObject()->indexOfProperty("running") >= 0
+                && child->metaObject()->indexOfSignal("triggered()") >= 0) {
+                QVERIFY(!animation);
+                animation = child;
+            }
+        }
+        QVERIFY(animation);
+        QVERIFY(animation->property("running").toBool());
+        const auto restore = qScopeGuard([&] { hero->setProperty("physics", QVariant::fromValue(body)); });
+        QObject *other = nullptr;
+        if (replacement == QStringLiteral("null")) {
+            QVERIFY(QMetaObject::invokeMethod(object.get(), "clearBody"));
+            QVERIFY(!hero->property("physics").value<QObject *>());
+        } else if (!replacement.isEmpty()) {
+            other = object->findChild<QObject *>(replacement);
+            QVERIFY(other);
+            QVERIFY(hero->setProperty("physics", QVariant::fromValue(other)));
+        }
+        // Even a delivered frame must leave a node with lookalike controller properties untouched.
+        if (replacement == QStringLiteral("ordinary")) {
+            QVERIFY(QMetaObject::invokeMethod(animation, "triggered"));
+            QCOMPARE(other->property("movement").value<QVector3D>(), QVector3D(7, 8, 9));
+            QCOMPARE(other->property("teleports").toInt(), 0);
+        }
+        QCOMPARE(animation->property("running").toBool(), replacement.isEmpty());
+        QVERIFY(hero->setProperty("physics", QVariant::fromValue(body)));
+        QVERIFY(animation->property("running").toBool());
+        QCOMPARE(body->property("entity").value<QObject *>(), hero);
+    }
+
+    void aPlayerKeepsItsSceneOwnerAndPauseState_data()
+    {
+        QTest::addColumn<bool>("alreadySelected");
+        QTest::newRow("empty-selection") << false;
+        QTest::newRow("existing-selection") << true;
+    }
+
+    void aPlayerKeepsItsSceneOwnerAndPauseState()
+    {
+        QFETCH(bool, alreadySelected);
+        QQmlComponent component(engine);
+        component.setData("import QtQuick\nimport QtQuick3D\nimport QQ\nNode {\n"
+                          "    property var playing: false\n    property bool paused: false\n"
+                          "    property real gravity: 9.81\n    property QtObject player: null\n"
+                          "    Player { objectName: \"hero\"; position: Qt.vector3d(2, 3, 4) }\n"
+                          "    Node { objectName: \"ordinary\" }\n"
+                          "    Node { objectName: \"compatible\"; property bool playing: true\n"
+                          "        property bool paused: true; property real gravity: 4\n"
+                          "        property QtObject player: null\n    }\n}\n",
+                          QUrl(QStringLiteral("qrc:/player-scene-state.qml")));
+        std::unique_ptr<QObject> object(component.create());
+        QVERIFY2(object, qPrintable(component.errorString()));
+        auto *root = qobject_cast<QQuick3DObject *>(object.get());
+        auto *hero = object->findChild<QQuick3DObject *>(QStringLiteral("hero"));
+        auto *ordinary = object->findChild<QQuick3DObject *>(QStringLiteral("ordinary"));
+        auto *compatible = object->findChild<QQuick3DObject *>(QStringLiteral("compatible"));
+        QVERIFY(root && hero && ordinary && compatible);
+        const auto restore = qScopeGuard([&] { hero->setParentItem(root); hero->setParent(root); });
+        QObject *animation = nullptr;
+        for (QObject *child : hero->findChildren<QObject *>()) {
+            if (child->metaObject()->indexOfProperty("frameTime") >= 0
+                && child->metaObject()->indexOfProperty("running") >= 0
+                && child->metaObject()->indexOfSignal("triggered()") >= 0) {
+                QVERIFY(!animation);
+                animation = child;
+            }
+        }
+        QVERIFY(animation);
+        QVERIFY(!animation->property("running").toBool());
+        QVERIFY(!hero->property("physics").value<QObject *>());
+        if (alreadySelected)
+            QVERIFY(root->setProperty("player", QVariant::fromValue(static_cast<QObject *>(ordinary))));
+        QVERIFY(root->setProperty("playing", QStringLiteral("true")));
+        QVERIFY(!hero->property("live").toBool());
+        QVERIFY(!hero->property("physics").value<QObject *>());
+        QVERIFY(root->setProperty("playing", true));
+        QTRY_VERIFY(animation->property("running").toBool());
+        QObject *body = hero->property("physics").value<QObject *>();
+        QVERIFY(body);
+        QCOMPARE(body->property("entity").value<QObject *>(), static_cast<QObject *>(hero));
+        QCOMPARE(body->property("position").value<QVector3D>(), QVector3D(2, 3.9f, 4));
+        QCOMPARE(root->property("player").value<QObject *>(), static_cast<QObject *>(alreadySelected ? ordinary : hero));
+        QVERIFY(root->setProperty("paused", true));
+        QTRY_VERIFY(!animation->property("running").toBool());
+        QVERIFY(root->setProperty("paused", false));
+        QTRY_VERIFY(animation->property("running").toBool());
+        hero->setParentItem(compatible);
+        QTRY_VERIFY(hero->property("live").toBool());
+        QTRY_VERIFY(!animation->property("running").toBool());
+        QVERIFY(compatible->setProperty("paused", false));
+        QTRY_VERIFY(animation->property("running").toBool());
+        QVERIFY(compatible->setProperty("playing", false));
+        QTRY_VERIFY(!animation->property("running").toBool());
+        QVERIFY(compatible->setProperty("playing", true));
+        QTRY_VERIFY(animation->property("running").toBool());
+        for (auto *parent : {ordinary, static_cast<QQuick3DObject *>(nullptr)}) {
+            hero->setParentItem(parent);
+            QTRY_VERIFY(!hero->property("live").toBool());
+            QTRY_VERIFY(!animation->property("running").toBool());
+        }
+        hero->setParentItem(root);
+        QTRY_VERIFY(animation->property("running").toBool());
+        QCOMPARE(hero->property("physics").value<QObject *>(), body);
+        QCOMPARE(root->property("player").value<QObject *>(), static_cast<QObject *>(alreadySelected ? ordinary : hero));
     }
 
     void groupsNestEntitiesAndTheFileKeepsThem()

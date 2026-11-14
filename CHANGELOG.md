@@ -9,6 +9,23 @@ their changes since, and pulls of what is still shared, are recorded here.
 
 ## [Unreleased]
 
+- **QQ's 3D Player moves only an actual character controller.** Its public
+  physics property stays a Node, but missing or incompatible bodies stop frame
+  updates and receive no movement or teleport commands. The private factory
+  checks its result as CharacterController before assigning and registering it.
+  Structural scene state, pause behavior, existing player selection and all
+  movement calculations are preserved. Seven new regression rows cover body
+  types, activation, ownership, reparenting and detachment; existing tests are
+  unchanged. The original runtime fails three of those rows after two test
+  import corrections. The optimized native build passes all 76 scene results
+  and six selected player/controller/trigger results, with hardening passing
+  16 programs. All 76 scene results also pass offscreen under address and
+  undefined-behavior sanitizers with leak detection enabled; that program
+  passes hardening. All nine Player lint findings are removed, none added;
+  67 runtime findings remain and the whole lint gate still fails. Evidence,
+  including initial fixture errors and the original runtime failures:
+  `build/development-2026-11-14/session-04/`.
+
 - **QQ triggers count only an actual trigger volume.** The public physics
   property stays a Node, but collision counts and private factory results are
   checked as TriggerBody. An ordinary node with a collisionCount property no

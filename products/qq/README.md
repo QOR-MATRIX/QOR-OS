@@ -330,10 +330,27 @@ Its public `physics` property remains a `Node`. Playing state still follows the 
 groups and prefabs. Enter/exit callbacks forward a body's optional QQ entity, or null when no entity is present.
 The private box and sphere colliders remain bound to their owning trigger as its scale changes.
 
+The 3D `Player` moves only an actual `CharacterController`. Its public `physics` property remains a `Node`, but
+missing or incompatible bodies stop its frame animation and receive no motion or teleport commands. Playing,
+pause, gravity and player selection still use the immediate parent's structural scene interface. The factory
+registers its owning player only when that parent has no selected player.
+
 The Agent panel also shows supplied status, key-storage problems and messages literally. Markup in those strings stays
 text, including when the status changes during a run.
 
 ## Build, test, deploy
+
+14 November 3D Player follow-up: seven new regression rows check actual, missing and incompatible controllers,
+strict activation, pause changes, selected-player ownership, reparenting and detachment. The original runtime
+fails the ordinary-node, static-body and trigger-body rows; two earlier test-fixture import errors are preserved
+separately. Existing tests and movement calculations remain unchanged. The complete native optimized build has
+no compiler/license-client diagnostics. All 76 scene results and six selected keyboard/controller/trigger results
+pass without failures/skips, and hardening passes 16 programs. The same 76 scene results pass offscreen under
+ASan/UBSan with leak detection enabled; its program passes hardening. All nine Player lint findings are removed
+without adding any; 67 runtime warnings remain, so the whole lint gate still fails. The final audit checks the
+1,404 native source fingerprints, current build cache, tested binaries and sanitizer instrumentation. The original
+coordinator and 3,072-MiB floor are unchanged. Evidence: `build/development-2026-11-14/session-04/`.
+Full product, hardware and isolated CI acceptance and the older Store/Orb, Wayland leak and ARQADE findings remain open.
 
 14 November Trigger follow-up: an ordinary node can no longer supply a false collision count. Four new scene results
 check both collider forms and their owning instance, live dimensions, parent changes, detachment, strict activation,

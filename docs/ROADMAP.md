@@ -243,6 +243,26 @@ full products and hardware acceptance remain open.
 The whole lint gate still fails. Receipts, including the failing original
 regression: `build/development-2026-11-14/session-03/`.
 
+The 3D Player continuation requires an actual CharacterController for its frame
+updates and movement commands, while keeping the public Node property and the
+structural scene-parent interface. The original runtime writes movement to an
+ordinary node and leaves updates running for static and trigger bodies; three
+new rows reproduce those failures after two fixture import corrections. Seven
+new rows also check the valid and missing bodies, strict activation, pause
+changes, selection ownership, reparenting and detachment. Existing assertions,
+tolerances, internal durations and movement calculations are unchanged.
+The full optimized native build has zero compiler/license-client diagnostics;
+all 76 scene results and six selected player/controller/trigger results pass
+without failures/skips. Hardening passes 16 programs. All 76 scene results pass
+offscreen under ASan/UBSan with leak detection enabled, and that test program
+passes hardening. Runtime lint falls from 76 to 67 warnings: all nine Player
+findings are removed and none added. The whole lint gate still fails.
+The final native audit verifies all 1,404 snapshot fingerprints, the current
+build cache, tested executable identities and sanitizer instrumentation. The
+original coordinator and 3,072-MiB floor remain in force. Broader product,
+Store/Orb, Wayland leak, ARQADE, hardware and upstream-audit gates remain open;
+they were not rerun here. Receipts: `build/development-2026-11-14/session-04/`.
+
 Windows/Linux Qt runners remain offline and unqualified for isolation. The local
 session lacks Hyper-V administration rights and has no verified isolated VM;
 observed free memory cannot fit the planned 6-GiB VM while retaining the 3-GiB
