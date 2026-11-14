@@ -15,6 +15,7 @@
 // that lives on, as the Studio's does, kept the sky it was first drawn with however its colours were changed.
 
 // Changed for QOR OS: the environment selects this world’s own light-probe textures.
+// Changed for QOR OS: initial sky construction joins queued colour edits so the same sky is not made twice.
 
 import QtQuick
 import QtQuick3D
@@ -212,7 +213,7 @@ View3D {
     }
 
     Component.onCompleted: {
-        makeSky()
+        Qt.callLater(makeSky)
         placeEye()
         overlay = overlayLayer.createObject(world)
     }

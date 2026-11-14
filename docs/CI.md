@@ -28,11 +28,19 @@ and item-text privacy controls, zero failures/skips; this does not mean paused C
 ## What CI trusts
 
 **The workstation Qt-job pause remains in force pending runner isolation.** GitHub
-reported both registered runners offline and not busy on 13 November 2026. That
+reported both registered runners offline and not busy on 14 November 2026. Both
+isolation-enabling repository variables remain absent. That
 API observation does not inspect local services or prove isolation. Lint and Security are configured on hosted
 runners, including portable tooling tests. Qt application/build evidence must name
 the actual machine, revision, commands, failures and skips; registration or a fixture
 pass does not establish that a Qt CI job ran.
+
+The same session found no provisioning or proof folder for the proposed
+`qor-ci-vm` at its documented local locations. Its terminal has neither elevated
+administrator nor Hyper-V administrator access. This establishes missing local
+access/evidence, not an inventory of every VM. Qt CI stays disabled until a
+replacement passes the documented isolation proof. Receipts:
+`build/development-2026-11-14/session-06/`.
 
 No workflow builds or tests native ARM64 QOR applications. Portable tests may
 invoke `q-pi-release` to verify refusal before compiler/Qt execution; the Linux Qt

@@ -101,8 +101,10 @@ private slots:
         player.start();
         const bool finished = player.waitForFinished(60000);
         const QByteArray said = player.readAll();
-        if (!finished)
+        if (!finished) {
             player.kill();
+            player.waitForFinished();
+        }
         QVERIFY2(finished, said.constData());
         QVERIFY2(player.exitStatus() == QProcess::NormalExit && player.exitCode() == 0, said.constData());
 #ifdef Q_OS_LINUX

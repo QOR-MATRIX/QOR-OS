@@ -21,6 +21,7 @@
 // Changed for QOR OS: triggers preserve parent state, collider ownership and optional entity callbacks with typed bodies.
 // Changed for QOR OS: Player motion requires a character controller and follows structural scene state.
 // Changed for QOR OS: Player2D carries only a QQ Sprite and preserves structural clock and carrier state.
+// Changed for QOR OS: the world's initial sky and later colour edits each build one owned texture.
 
 #include <QCoreApplication>
 #include <QDir>
@@ -1818,6 +1819,52 @@ private slots:
         // Existing callers clear through an invalid QVariant rather than a typed pointer.
         QVERIFY(scene->setProperty("recorder", QVariant()));
         QVERIFY(!scene->property("recorder").value<QObject *>());
+    }
+
+    void aWorldBuildsItsSkyOncePerColourBatch()
+    {
+        QQuickWindow host;
+        QQmlComponent component(engine);
+        component.setData("import QQ\nWorld {\n"
+                          "    property int skyChanges: 0\n"
+                          "    onMadeSkyChanged: ++skyChanges\n"
+                          "    skyTop: \"#120d1f\"; skyHorizon: \"#3a1630\"; groundHorizon: \"#0a0710\"\n"
+                          "}\n", QUrl(QStringLiteral("qrc:/sky-batches.qml")));
+        std::unique_ptr<QObject> world(component.create());
+        QVERIFY2(world, qPrintable(component.errorString()));
+        auto *viewport = qobject_cast<QQuickItem *>(world.get());
+        QVERIFY(viewport);
+        viewport->setParentItem(host.contentItem());
+        QTRY_VERIFY(world->property("madeSky").value<QObject *>());
+        QCoreApplication::processEvents();
+        QCOMPARE(world->property("skyChanges").toInt(), 1);
+        QObject *first = world->property("madeSky").value<QObject *>();
+        QObject *texture = world->property("made").value<QObject *>();
+        QVERIFY(texture);
+        QCOMPARE(first->parent(), texture);
+        QCOMPARE(first->property("skyTopColor").value<QColor>(), QColor(QStringLiteral("#120d1f")));
+        QCOMPARE(first->property("skyHorizonColor").value<QColor>(), QColor(QStringLiteral("#3a1630")));
+        QCOMPARE(first->property("groundHorizonColor").value<QColor>(), QColor(QStringLiteral("#0a0710")));
+        QCOMPARE(first->property("groundBottomColor").value<QColor>(), world->property("groundBottom").value<QColor>());
+        QSignalSpy discarded(first, &QObject::destroyed);
+
+        QVERIFY(world->setProperty("skyTop", QColor(QStringLiteral("#112233"))));
+        QVERIFY(world->setProperty("skyHorizon", QColor(QStringLiteral("#445566"))));
+        QVERIFY(world->setProperty("groundBottom", QColor(QStringLiteral("#778899"))));
+        QCOMPARE(world->property("madeSky").value<QObject *>(), first);
+        QTRY_COMPARE(world->property("skyChanges").toInt(), 2);
+        QObject *second = world->property("madeSky").value<QObject *>();
+        QVERIFY(second && second != first);
+        QCOMPARE(second->parent(), texture);
+        QCOMPARE(second->property("skyTopColor").value<QColor>(), QColor(QStringLiteral("#112233")));
+        QCOMPARE(second->property("skyHorizonColor").value<QColor>(), QColor(QStringLiteral("#445566")));
+        QCOMPARE(second->property("groundHorizonColor").value<QColor>(), QColor(QStringLiteral("#0a0710")));
+        QCOMPARE(second->property("groundBottomColor").value<QColor>(), QColor(QStringLiteral("#778899")));
+        QTRY_COMPARE(discarded.count(), 1);
+        QVERIFY(world->setProperty("skyTop", QColor(QStringLiteral("#112233"))));
+        QCoreApplication::processEvents();
+        QCOMPARE(world->property("madeSky").value<QObject *>(), second);
+        QCOMPARE(world->property("skyChanges").toInt(), 2);
     }
 
     void aGamesLoadedSceneDoesNotReplaceItsViewportScene()

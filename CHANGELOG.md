@@ -9,6 +9,22 @@ their changes since, and pulls of what is still shared, are recorded here.
 
 ## [Unreleased]
 
+- **QQ makes its initial procedural sky once per colour batch.** Initial
+  construction now joins the queued colour updates instead of building the
+  same texture twice. A regression reproduces the duplicate construction and
+  checks colour values, ownership, later replacement and disposal. All 84 scene
+  results pass normally and offscreen under address/undefined-behavior
+  sanitizers with leak checking enabled; all 11 world-rendering results pass.
+  The full optimized native build has no compiler/license-client diagnostics,
+  and hardening passes 16 QQ programs plus the sanitizer program. Runtime lint
+  still fails at 53 warnings, unchanged. The Store test now waits for its timed-out
+  Player to exit before teardown, removing the running-process warning. Its
+  unchanged 60-second startup deadline still fails before and after the fix.
+  Separate diagnostics reach the first frame at 64.204/63.827 seconds and exit
+  cleanly; no startup improvement or Store acceptance is claimed. Current
+  evidence: `build/development-2026-11-14/session-06/`. Broader product, Windows,
+  Wayland sanitizer, isolated-CI, upstream-audit and hardware gates remain open.
+
 - **One canonical development repository is the owner's long-term direction.**
   QOR-0028 records QOR OS, Q Pi, Demiurge Chain, ARQADE and associated systems
   as the intended scope, with the current milestone first. Core ownership,

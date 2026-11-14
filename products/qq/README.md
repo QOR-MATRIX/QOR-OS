@@ -344,6 +344,18 @@ text, including when the status changes during a run.
 
 ## Build, test, deploy
 
+14 November sky/startup follow-up: World queues its first procedural sky with the same colour-update batch used
+for later edits, so initial properties do not create the same texture twice. The regression checks construction
+count, final colours, ownership, replacement and disposal; it fails against the original World. All 84 scene results
+pass normally and offscreen under ASan/UBSan with leak detection enabled. All 11 world-rendering results pass, without
+failures/skips, in 1,229.256 seconds. The full optimized native build has no compiler/license-client diagnostics;
+hardening passes 16 QQ programs and the sanitizer program. Runtime lint still fails at the same 53 warnings.
+The Store test now waits for its own timed-out Player to exit before teardown. Its unchanged 60-second deadline
+still fails before and after; separate diagnostics reach the first frame at 64.204/63.827 seconds and exit normally.
+Those longer diagnostics demonstrate neither a speedup nor Store acceptance. The original assertions, tolerances,
+deadlines and rendering settings remain. Evidence: `build/development-2026-11-14/session-06/`. Whole-product, Windows,
+hardware and isolated-CI acceptance, plus the older Orb/Wayland/ARQADE and upstream-audit gates, remain open.
+
 14 November Player2D follow-up: seven new rows cover valid and mismatched visuals, missing names, carrier ownership
 and dimensions, selection, strict activation, paused interpolation, replay state and parent changes. Two rows reproduce
 the original wrong-object mutation and script error. The full optimized native build has no compiler/license-client

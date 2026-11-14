@@ -1,36 +1,40 @@
 # Where QOR OS stands
 
-For Andrew, 14 November 2026. Draft pull request #10 continues QQ, the game
-engine, on `fix/native-play-clock-waits`. All 14 worktrees were clean at this
-session's admission; local and remote heads matched `57d9cab`. The Pi had no
-active build or test worker. Existing work and evidence are preserved.
+For Andrew, 14 November 2026. QQ, the game engine, now creates its initial
+procedural sky once for a batch of colour changes. The new regression first
+reproduced duplicate construction, then verified colours, texture ownership,
+replacement and disposal. The Store playback test also waits for its own
+timed-out Player to exit, removing the running-process warning.
 
-The current Store-installed game still fails its unchanged 60-second startup
-test on the Raspberry Pi 5. A separate diagnostic reaches the first frame in
-64.204 seconds, then reports 19.9 frames per second and exits cleanly. It uses
-llvmpipe, the software renderer, inside private device and network namespaces.
-That longer diagnostic is not a passing acceptance test. A new regression
-also reproduces duplicate initial sky construction; its repair is being tested.
-Receipts are in `build/development-2026-11-14/session-06/`.
+The full optimized QQ build on the Raspberry Pi 5 has no compiler or
+license-client diagnostics. All 84 scene results and all 11 world-rendering
+results pass without failures or skips. All 84 scene results also pass offscreen
+under ASan/UBSan, the memory and undefined-behavior checks, with leak detection
+enabled. Hardening, the exploit-mitigation checks, passes 16 QQ programs and
+the sanitizer program. QML, Qt's interface language, still has 53 runtime lint
+warnings; that gate remains failed.
 
-The previous 2D Player change has 83 passing scene results in both optimized
-native and instrumented memory/undefined-behavior runs, plus four selected
-gameplay tests, recorded in session-05. Those are dated, focused results.
-Whole-product, Windows, hardware and bootable Q Pi acceptance remain open.
-The last runtime lint check reports 53 warnings and fails its zero-warning gate.
+The Store test still exceeds its unchanged 60-second deadline. Separate
+before/after diagnostics reach a first frame at 64.204/63.827 seconds and exit
+cleanly at about 20 frames per second. This is finite software-renderer startup,
+not a proven speedup or a passing Store gate. These hidden software checks use
+virtual devices and a private network; full product, Windows, Q Pi image,
+physical hardware and full OS acceptance remain open.
 
-Both registered Qt runners remain offline and their isolation-enabling
-variables are absent. CI, automated build and test, remains paused for Qt.
-The proposed isolated virtual machine has no local provisioning/proof record;
-this terminal has no administrator or Hyper-V administrator access. The original
-build coordinators and 3,072-MiB memory floor remain mandatory.
+Both registered Qt runners are offline and their isolation-enabling variables
+are absent. CI, automated build and test, stays paused for Qt. There is no local
+provisioning/proof record for the proposed isolated virtual machine, and this
+terminal lacks its administration access. The original build coordinators and
+3,072-MiB free-memory floor remain mandatory.
 
-The long-term direction is one canonical development repository for QOR OS,
-Q Pi, Demiurge Chain, ARQADE and associated systems. QOR-0028 records planning
-only: reconcile current ownership, history, licences, security boundaries,
-consumers and deployments in a separate proposal after this milestone is
-reviewable. No code moves, restructuring or visibility changes occur here.
+The continuation is for draft pull request #10 on `fix/native-play-clock-waits`.
+Current evidence is in `build/development-2026-11-14/session-06/`; prior receipts
+remain preserved. Next: profile the renderer startup cost and satisfy the Store
+deadline, then the Orb timer, remaining product, lint, isolated-build and
+upstream-audit gates. The earlier Wayland display-library leak remains open.
 
-Next: validate the sky repair and report PR #10's exact passing and remaining
-gates. The Store/Orb timing, display-library leak, broader product checks,
-upstream dependency findings and isolated-runner proof remain separate work.
+QOR-0028 records the owner's long-term direction: one canonical development
+repository for QOR OS, Q Pi, Demiurge Chain, ARQADE and associated systems.
+A separate evidence-based consolidation proposal follows a reviewable milestone.
+Current history, licences, source ownership, security and deployment boundaries
+remain in force; this milestone authorizes no migration or restructuring.

@@ -294,6 +294,29 @@ instrumentation. The original coordinators and 3,072-MiB floor remain in force.
 Broader product, Store/Orb, Wayland leak, ARQADE, hardware and upstream-audit
 gates were not rerun here. Receipts: `build/development-2026-11-14/session-05/`.
 
+The next continuation reproduces the Store startup failure on the current code
+at its unchanged 60-second deadline. A separate diagnostic reaches a frame at
+64.204 seconds, draws at 19.9 frames per second and exits normally; software
+rendering threads account for nearly all its startup CPU time. Initial sky
+construction also runs twice for a batch of colour properties. A new regression
+reproduces that duplication; coalescing it passes all 84 scene results normally
+and offscreen under ASan/UBSan with leak detection enabled. All 11 unfiltered
+world-rendering results pass in 1,229.256 seconds, with no failures/skips. The
+full optimized native build has no compiler/license-client diagnostics;
+hardening passes 16 QQ programs and the sanitizer program. Runtime lint remains
+failed at the same 53 findings. The Store test reaps its own timed-out Player
+before teardown, eliminating the running-process warning, but still fails the
+same startup deadline. The final diagnostic reaches a frame at 63.827 seconds
+and exits normally at 20 frames per second; this is not a demonstrated speedup
+or a passing Store gate. Assertions, tolerances, deadlines and rendering settings
+are retained. Receipts: `build/development-2026-11-14/session-06/`.
+
+PR #10's next product gate is the finite but excessive software-renderer startup
+cost, followed by Orb Run's timer wait and the remaining complete product and
+Windows runs. The Wayland sanitizer leak, ARQADE diagnostics, runtime lint,
+upstream dependency audit and isolated Qt CI remain open. Focused scene/rendering
+checks do not qualify the full OS, platform, Q Pi image or physical hardware.
+
 Windows/Linux Qt runners remain offline and unqualified for isolation. The local
 session lacks Hyper-V administration rights and has no verified isolated VM;
 observed free memory cannot fit the planned 6-GiB VM while retaining the 3-GiB
