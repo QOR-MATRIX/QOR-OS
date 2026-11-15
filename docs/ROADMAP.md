@@ -540,8 +540,19 @@ or above 5,835 MiB against the unchanged 3,072-MiB floor. Native compilation
 and hardening pass. Existing assertions, approved timing, the original guard
 and private namespaces are unchanged. Receipts: `build/development-2026-11-15/session-07/`.
 
+The 15 November Windows continuation at source `5d1359e` passes all 22 selected
+core suites, retaining the expected desktop-entry case skip and excluding nine
+GPU-labelled suites. Core/QQ builds and hardening pass for 33/15 programs;
+aggregate and all three QQ structured lint reports have zero warnings. The
+known Rust dependency warning remains.
+Six metadata helper tests and six inert AgentPanel results pass. The original
+Windows coordinator and continuous 3,072-MiB guard stay in force. The owner
+selected qualified checks on this PC; full product runtime checks still need
+an audio/keyring boundary, and GPU checks were not run. Current Windows receipts:
+`build/development-2026-11-15/session-08/`.
+
 PR #10's next product gates include the agent/Player failures and remaining
-full-product and Windows runs. The Wayland sanitizer leak, ARQADE diagnostics,
+full-product and Windows runtime runs. The Wayland sanitizer leak, ARQADE diagnostics,
 upstream dependency audit and isolated Qt CI remain open. Focused scene/rendering
 checks do not qualify the full OS, platform, Q Pi image or physical hardware.
 

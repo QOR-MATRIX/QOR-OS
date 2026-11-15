@@ -562,6 +562,19 @@ or above 5,835 MiB against the unchanged 3,072-MiB floor. Native compilation
 and hardening pass. Existing assertions, approved timing, the original guard
 and private namespaces are unchanged. Receipts: `build/development-2026-11-15/session-07/`.
 
+On 15 November, the qualified Windows continuation at source `5d1359e` passes
+all 22 selected core suites with one expected desktop-entry case skip; nine
+GPU-labelled suites are excluded. Core and QQ builds pass, with the core's
+known Rust dependency warning retained. Hardening accepts 33/15 programs and
+aggregate QML lint reports zero warnings, confirmed by all three QQ structured
+module reports. Six metadata helper tests and six
+inert AgentPanel results pass under the original Windows coordinator and
+continuous 3,072-MiB guard. Full Windows product runtime suites remain unrun:
+offscreen rendering/private profiles do not isolate their audio devices or
+Windows Credential Manager. These local checks do not qualify hosted runners
+or clear skipped Qt jobs/core audit and failed Release readiness. Receipts:
+`build/development-2026-11-15/session-08/`.
+
 The accepted test rebuild reproduces the passing proposal's binary hash, with
 all 1,404 snapshot source hashes verified. Hardening reads 16 QQ programs and
 passes all of them; native QQ `all_qmllint` fails with 103 warnings. The Store

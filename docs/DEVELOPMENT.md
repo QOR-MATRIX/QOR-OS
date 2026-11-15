@@ -55,6 +55,21 @@ exact scopes. Recheck that host's workers and resources before each job;
 dependency closure and measured build-budget qualification remain separate.
 Windows/WSL resources are not inferred from the Pi.
 
+On Windows, qualify each product runtime selection before launching it. QQ uses
+Qt Multimedia, whose Windows audio backend is not disabled by the core's
+`QOR_AUDIO_OUTPUT=null` switch. Offscreen software rendering and private profile
+folders do not isolate audio devices or Windows Credential Manager. Full product
+runtime suites therefore still need a qualified device/keyring boundary.
+The 15 November local continuation selects only AgentPanel's three inert-controller
+checks from `tst_agent`: `agentStatusAndKeyProblemsArePlainText`,
+`agentStepRowsStayBoundAndPlain` and `agentPanelFollowsItsCurrentController`.
+Their initialization and selected paths create no audio engine and call no
+keychain or provider. `QT_D3D_ADAPTER_INDEX` is set to bypass QQ's adapter probe;
+`QT_QPA_PLATFORM=offscreen` and `QT_QUICK_BACKEND=software` keep their windows
+hidden and software-rendered. These selected checks do not qualify the complete
+Agent suite. Preserve the selection, environment, original test limits and logs
+with the [Windows build evidence](BUILDING.md#windows-primary-development-platform).
+
 ## 2. C++ conventions
 
 - C++20, Qt 6.12. Namespaces: `qor` (Kit, Services), `qor::sim`,

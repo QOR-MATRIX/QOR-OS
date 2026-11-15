@@ -9,6 +9,19 @@ their changes since, and pulls of what is still shared, are recorded here.
 
 ## [Unreleased]
 
+- **Qualified Windows checks pass after memory recovery.** Source `5d1359e`
+  passes all 22 selected core suites, with one expected Windows desktop-entry
+  case skipped and nine GPU-labelled suites excluded. Core and QQ builds,
+  hardening for 33/15 programs and aggregate QML lint pass; the core retains its
+  known Rust dependency future-compatibility warning. All three QQ structured
+  lint reports also confirm zero warnings. Six QQ metadata tests and
+  six inert AgentPanel results pass. The original Windows lock, resident-worker
+  admission, continuous 3,072-MiB guard and existing test limits remain unchanged.
+  Full product runtime checks still require a qualified audio/keyring boundary;
+  this is local software evidence, not isolated CI or hardware acceptance.
+  Receipts, including corrected evidence-wrapper failures:
+  `build/development-2026-11-15/session-08/`.
+
 - **QQ Studio's Agent panel clears the final 18 QQ lint findings.**
   An explicit accessor keeps the required structural controller interface and
   follows its current object in bindings and actions. The inert regression

@@ -436,6 +436,22 @@ unverified; the stock builder's separately authorised SSH access is now observed
 
 ### Windows (primary development platform)
 
+The 15 November qualified continuation at source `5d1359e` rebuilds QQ in
+`build/ci-products/qq` with commercial Qt 6.12.0, MSVC 2022, `Release`, warnings
+as errors and serial compilation. Compilation has no compiler/licence
+diagnostics, hardening passes all 15 programs and aggregate QML lint has zero
+warnings; Runtime, Player and Studio structured reports each confirm zero
+warnings. All six metadata helper tests and six focused AgentPanel results pass.
+The panel checks use inert controllers, a private profile, offscreen software
+rendering and bypassed adapter probing; they instantiate no audio engine and
+call no keychain or provider. Full product runtime suites remain unrun on this
+host because their device/keyring boundary is not qualified. The core's null
+audio switch does not disable [Qt Multimedia's Windows audio backend](https://raw.githubusercontent.com/qt/qtmultimedia/v6.12.0/src/multimedia/platform/qplatformaudiodevices.cpp).
+An initial wrapper used the wrong executable path; its corrected continuation
+passed, then exposed a tuple/list error in the result collector. Both wrapper
+failures and the actual zero-exit test output are preserved without repeating
+the passing test. Receipts: `build/development-2026-11-15/session-08/`.
+
 The 14 November local QQ continuation uses `build/ci-products/qq`, the commercial
 Qt 6.12.0 kit and MSVC 2022, with warnings as errors and serial compilation.
 All targets build without compiler/license-client diagnostics; all 84 scene
@@ -836,15 +852,22 @@ development; on device, GPU buffer sharing is part of Phase 3.
 
 ## 4. Tests and lint
 
-On 13 November the current local tree configured/built with `ci-windows`, passed
-all 22 suites selected by `ctest --preset ci-windows -LE gpu --parallel 1`, passed
-hardening for 33 programs and reported zero QML lint warnings. The test harness
-used temporary profile/settings folders, offscreen software rendering, silent
-audio and virtual controllers. Rust's pinned `proc-macro-error2` 2.0.1
-future-compatibility warning remains: a successful build exit is not a
-warning-free result. Full GPU/product, native Linux OS and isolated-CI acceptance
-remain separate. Exact commands and receipts:
-`build/development-2026-11-13/session-01/`.
+On 15 November, source `5d1359e` configured/built with `ci-windows` and the
+required pinned QOR core. All 22 suites selected by
+`ctest --preset ci-windows -LE gpu --parallel 1` passed in 129.266 seconds;
+nine GPU-labelled suites were excluded. One desktop-entry case retains its
+expected Windows skip. The image-decoder errors come from the passing malformed
+preview checks. Hardening passes all 33 programs and QML lint reports zero
+warnings. Temporary profile/settings folders, offscreen software rendering,
+the core's null audio output and virtual controllers isolate this selection.
+Rust's pinned `proc-macro-error2` 2.0.1 future-compatibility warning remains:
+the successful build is not warning-free. All 550 core resource samples stay
+at or above 3,422 MiB against the unchanged 3,072-MiB floor. The original Windows
+coordinator holds its real lock throughout, with 30 resident-worker admission
+samples and continuous monitoring. Full GPU/product, native Linux OS and
+isolated-CI acceptance remain separate. Current receipts:
+`build/development-2026-11-15/session-08/`; the preceding 13 November run remains
+in `build/development-2026-11-13/session-01/`.
 
 ```powershell
 ctest --preset ci-windows                           # all suites in this build

@@ -498,6 +498,19 @@ or above 5,835 MiB against the unchanged 3,072-MiB floor. Native compilation
 and hardening pass. Existing assertions, approved timing, the original guard
 and private namespaces are unchanged. Receipts: `build/development-2026-11-15/session-07/`.
 
+The 15 November Windows continuation at source `5d1359e` builds all QQ targets
+in `build/ci-products/qq`, commercial Qt 6.12.0/MSVC 2022, `Release`, serially
+with warnings as errors and no compiler/licence diagnostics. All 15 programs
+pass hardening; aggregate lint and all three structured module reports have
+zero warnings. Six metadata helper
+tests and six focused AgentPanel results pass. Those panel checks use inert
+controllers, private settings and offscreen software rendering, with no audio
+engine, keychain or provider calls. Full Windows product runtime suites still
+need a qualified audio/keyring boundary; `QOR_AUDIO_OUTPUT=null` does not isolate
+Qt Multimedia on Windows. The original coordinator, continuous 3,072-MiB guard,
+test assertions and deadlines remain unchanged. Exact selection, environment,
+output and corrected wrapper failures: `build/development-2026-11-15/session-08/`.
+
 Earlier 14 November sky/startup follow-up: World queues its first procedural sky with the same colour-update batch used
 for later edits, so initial properties do not create the same texture twice. The regression checks construction
 count, final colours, ownership, replacement and disposal; it fails against the original World. All 84 scene results
