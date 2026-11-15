@@ -165,9 +165,13 @@ Linux, driven by a controller. See [docs/ROADMAP.md](docs/ROADMAP.md).
 Qt CI jobs remain paused pending runner isolation; historical green jobs are not
 current readiness. The private x86-64 VM installation/reboot evidence is separate
 from full device acceptance. Native ARM64 development builds and selected software
-checks now pass on the Pi, including the core-enabled OS and focused QQ suites.
-The Rust dependency warning, full product/sanitizer checks and physical-device
-acceptance remain open; no bootable Pi image is accepted. [OWNER.md](OWNER.md) gives the current handoff and
+checks now pass on the Pi, including the core-enabled OS, complete QQ gameplay,
+security, Studio, workspace and game-build suites, and creator journeys. The
+latest scene suite also passes with memory/undefined-behavior sanitizers and
+leak checking. These are scoped software results: QQ's remaining lint, Agent
+logging and Player frame-rate failures, the Rust dependency warning, other
+product/Windows checks and physical-device acceptance remain open. No bootable
+Pi image is accepted. [OWNER.md](OWNER.md) gives the current handoff and
 [image/README.md](image/README.md) keeps the exact evidence and remaining gates.
 
 ## License

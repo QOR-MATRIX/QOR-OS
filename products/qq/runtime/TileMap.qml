@@ -8,6 +8,8 @@
 // Changed for QOR OS: the root id is distinct from TileGeometry.tiles.
 
 // Changed for QOR OS: private collider factories bind to their owning tile map.
+// Changed for QOR OS: the private wall factory's result keeps its concrete collision-body type.
+// Changed for QOR OS: activation and pixel scale follow the current structural parent.
 
 pragma ComponentBehavior: Bound
 
@@ -38,15 +40,17 @@ Node {
     property color colour: "#ffffff"
 
     /// True while the scene this belongs to plays.
-    readonly property bool live: parent !== null && parent.playing === true
+    readonly property bool live: parent !== null && _parentValue("playing") === true
     /// The body play made, or null.
     property Node physics: null
+
+    function _parentValue(field: string): var { return tileMap.parent[field] }
 
     /// The map as read: { error, width, height, tileWidth, tileHeight, gids, solids, … } (SceneIO.readTiledMap).
     readonly property var map: SceneIO.readTiledMap(SceneIO.resolvedUrl(tileMap, tileMap.source), tileMap.layer)
     /// Why it could not be read, or empty.
     readonly property string error: source.toString() === "" ? "" : (map.error ?? "")
-    readonly property real pixelsPerUnit: parent !== null && parent.pixelsPerUnit !== undefined ? parent.pixelsPerUnit : 16
+    readonly property real pixelsPerUnit: parent !== null && _parentValue("pixelsPerUnit") !== undefined ? _parentValue("pixelsPerUnit") : 16
     readonly property real tileWidth: (map.tileWidth ?? 16) / pixelsPerUnit
     readonly property real tileHeight: (map.tileHeight ?? 16) / pixelsPerUnit
     /// How many tiles are drawn, and the map's size in units, from its top-left corner at `position`.
@@ -89,7 +93,7 @@ Node {
     function makeBody() {
         if (!live || physics || !solid || !map.solids || map.solids.length === 0)
             return
-        const made = wall.createObject(parent, { position: tileMap.position, rotation: tileMap.rotation })
+        const made = wall.createObject(parent, { position: tileMap.position, rotation: tileMap.rotation }) as StaticRigidBody
         const shapes = []
         for (const r of map.solids) {
             // [x, y, w, h] in tiles from the top-left; a box a unit deep, centred on its run.

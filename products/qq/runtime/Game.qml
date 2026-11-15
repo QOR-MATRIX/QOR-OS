@@ -9,6 +9,7 @@
 
 // Changed for QOR OS: failed scene startup is reported and its loaded object is discarded before retry.
 // Changed for QOR OS: the loaded playingScene does not override View3D.scene.
+// Changed for QOR OS: scene and follower fields use their dynamic interfaces, keeping the public object handles.
 
 import QtQuick
 import QtQuick3D
@@ -32,7 +33,12 @@ World {
     readonly property list<string> unloaded: entityList.filter(e => e.kind === "Prop" && e.status === Prop.Failed)
                                                        .map(e => e.name + ": " + e.errorString)
 
-    readonly property QtObject follow: playingScene ? playingScene.player : null
+    // SceneIO accepts compatible scene nodes; followers may be 2D or 3D. Their fields belong to those
+    // dynamic interfaces, while the public handles keep their QObject identity and lifetime tracking.
+    // Read the current object directly so no second property binding can lag during a scene change.
+    function _sceneState(): var { return playingScene }
+    function _followerState(): var { return follow }
+    readonly property QtObject follow: playingScene ? _sceneState().player : null
 
     // The eye with no player: on a sphere around the middle of the scene.
     property real yaw: 25
@@ -40,38 +46,38 @@ World {
     property real distance: 10
     property vector3d middle: Qt.vector3d(0, 1, 0)
 
-    eye: follow ? follow.eye : Qt.vector3d(
+    eye: follow ? _followerState().eye : Qt.vector3d(
         middle.x + distance * Math.cos(pitch * Math.PI / 180) * Math.sin(yaw * Math.PI / 180),
         middle.y + distance * Math.sin(pitch * Math.PI / 180),
         middle.z + distance * Math.cos(pitch * Math.PI / 180) * Math.cos(yaw * Math.PI / 180))
     // Flat, the eye on the player stops at the level's edges (Scene.keptInView); with no player, it looks from the
     // ground up.
-    target: follow ? (flat ? playingScene.keptInView(follow.lookAt, width / (2 * magnification), height / (2 * magnification))
-                           : follow.lookAt)
+    target: follow ? (flat ? _sceneState().keptInView(_followerState().lookAt, width / (2 * magnification), height / (2 * magnification))
+                           : _followerState().lookAt)
                    : flat ? Qt.vector3d(0, viewHeight / 2, 0) : middle
 
-    flat: playingScene ? playingScene.view === "2d" : false
-    pixelsPerUnit: playingScene ? playingScene.pixelsPerUnit : 16
-    viewHeight: playingScene ? playingScene.viewHeight : 12
-    pixelArt: playingScene ? playingScene.pixelArt : true
+    flat: playingScene ? _sceneState().view === "2d" : false
+    pixelsPerUnit: playingScene ? _sceneState().pixelsPerUnit : 16
+    viewHeight: playingScene ? _sceneState().viewHeight : 12
+    pixelArt: playingScene ? _sceneState().pixelArt : true
 
     hearing: true
-    exposure: playingScene ? playingScene.exposure : 1
-    bloom: playingScene ? playingScene.bloom : true
-    skyLight: playingScene ? playingScene.skyLight : 0.75
-    skyTop: playingScene ? playingScene.skyTop : "#0b1430"
-    skyHorizon: playingScene ? playingScene.skyHorizon : "#c7623a"
-    groundHorizon: playingScene ? playingScene.groundHorizon : "#2a1a1a"
-    groundBottom: playingScene ? playingScene.groundBottom : "#07080c"
-    sky: playingScene && String(playingScene.sky) !== "" ? SceneIO.resolvedUrl(playingScene, playingScene.sky) : ""
-    skyTurn: playingScene ? playingScene.skyTurn : 0
+    exposure: playingScene ? _sceneState().exposure : 1
+    bloom: playingScene ? _sceneState().bloom : true
+    skyLight: playingScene ? _sceneState().skyLight : 0.75
+    skyTop: playingScene ? _sceneState().skyTop : "#0b1430"
+    skyHorizon: playingScene ? _sceneState().skyHorizon : "#c7623a"
+    groundHorizon: playingScene ? _sceneState().groundHorizon : "#2a1a1a"
+    groundBottom: playingScene ? _sceneState().groundBottom : "#07080c"
+    sky: playingScene && String(_sceneState().sky) !== "" ? SceneIO.resolvedUrl(playingScene, _sceneState().sky) : ""
+    skyTurn: playingScene ? _sceneState().skyTurn : 0
 
     /// The game asked its host something (ADR-117): a JSON value. Whoever hosts the game answers with tell().
     signal asked(var message)
     /// Tell the game something (ADR-117): a JSON value its logic hears at the next tick (Logic.onTold). False if it was
     /// refused (not playing, not JSON, larger than 16 KiB, or too many waiting).
     function tell(message) {
-        return playingScene ? playingScene.tell(message) : false
+        return playingScene ? _sceneState().tell(message) : false
     }
 
     /// A seed for this play, in place of the scene's (P3.11: the Player's --seed, a run ARQADE starts); 0 keeps the scene's.
@@ -79,13 +85,15 @@ World {
     /// What keeps the run (a RunRecord: the Player's --record), or null.
     property QtObject recorder: null
 
+    function _loadScene(): var { return SceneIO.load(file, holder) }
+
     function restart() {
         if (playingScene)
             SceneIO.discard(playingScene)
         playingScene = null
         entityList = []
         Input.release()
-        const next = SceneIO.load(file, holder)
+        const next = _loadScene()
         if (!next) {
             problem = SceneIO.lastError
             return false

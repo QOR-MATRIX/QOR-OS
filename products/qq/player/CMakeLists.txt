@@ -1,3 +1,4 @@
+# Changed for QOR OS: the bundled HDR sky uses precomputed lighting; its original source stays in the playground.
 # The QQ Player (DIRECTION P3.2): plays one QQ scene as a game, natively and, built with Qt for WebAssembly, in a
 # browser. Its window is the QML module "QQ.Player"; the playground it plays by default is bundled inside it.
 #
@@ -25,6 +26,7 @@ qt_add_resources(qq-player "playground"
         playground/assets/stone.png
         playground/assets/stone-normal.png
         playground/assets/dusk.hdr
+        playground/assets/dusk.ktx
 )
 
 target_link_libraries(qq-player PRIVATE Qt6::Gui Qt6::Quick Qt6::Quick3D qqruntime qqruntimeplugin)

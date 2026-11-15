@@ -9,6 +9,7 @@
 // Logic hears its contacts and pushes it as it does a Shape's.
 
 // Changed for QOR OS: frame colliders and all private body factories bind to their owning sprite.
+// Changed for QOR OS: parent state stays structural, and motion commands require an actual dynamic body.
 
 pragma ComponentBehavior: Bound
 
@@ -60,37 +61,42 @@ Node {
     property real friction: 0.6
 
     /// True while the scene this belongs to plays, and whether that scene is 2D.
-    readonly property bool live: parent !== null && parent.playing === true
-    readonly property bool flat: parent !== null && parent.view === "2d"
+    readonly property bool live: parent !== null && _parentValue("playing") === true
+    readonly property bool flat: parent !== null && _parentValue("view") === "2d"
     /// The body play made, or null.
     property Node physics: null
+
+    function _parentValue(field: string): var { return sprite.parent[field] }
 
     /// The image's pixels, one frame's pixels, and one frame's size in units before the sprite's own scale.
     readonly property size pixels: SceneIO.imageSize(SceneIO.resolvedUrl(sprite, sprite.source))
     readonly property real frameWidth: pixels.width / Math.max(1, columns)
     readonly property real frameHeight: pixels.height / Math.max(1, rows)
-    readonly property real pixelsPerUnit: parent !== null && parent.pixelsPerUnit !== undefined ? parent.pixelsPerUnit : 16
+    readonly property real pixelsPerUnit: parent !== null && _parentValue("pixelsPerUnit") !== undefined ? _parentValue("pixelsPerUnit") : 16
     readonly property vector3d size: Qt.vector3d(frameWidth / pixelsPerUnit, frameHeight / pixelsPerUnit, 1)
 
     /// The body met another entity's (null for something that is not an entity), at `point`, pushed along `normal`.
     signal contact(QtObject other, vector3d point, vector3d normal)
 
     function push(impulse) {
-        if (body !== "dynamic" || !physics)
+        const moving = physics as DynamicRigidBody
+        if (body !== "dynamic" || !moving)
             return false
-        physics.applyCentralImpulse(impulse)
+        moving.applyCentralImpulse(impulse)
         return true
     }
     function applyForce(force) {
-        if (body !== "dynamic" || !physics)
+        const moving = physics as DynamicRigidBody
+        if (body !== "dynamic" || !moving)
             return false
-        physics.applyCentralForce(force)
+        moving.applyCentralForce(force)
         return true
     }
     function setVelocity(velocity) {
-        if (body !== "dynamic" || !physics)
+        const moving = physics as DynamicRigidBody
+        if (body !== "dynamic" || !moving)
             return false
-        physics.setLinearVelocity(velocity)
+        moving.setLinearVelocity(velocity)
         return true
     }
 
@@ -99,6 +105,7 @@ Node {
             return
         const made = (body === "dynamic" ? movingBody : body === "kinematic" ? ledBody : standingBody)
             .createObject(SceneIO.sceneOf(sprite) ?? parent, { position: sprite.scenePosition, rotation: sprite.sceneRotation })
+            as PhysicsBody
         made.collisionShapes = [box.createObject(made)]
         physics = made
     }
@@ -109,7 +116,7 @@ Node {
     property real elapsedFrames: 0
     onFirstChanged: { frame = first; elapsedFrames = 0 }
     FrameAnimation {
-        running: sprite.live && sprite.fps > 0 && sprite.count > 1 && !(sprite.parent && sprite.parent.paused)
+        running: sprite.live && sprite.fps > 0 && sprite.count > 1 && !(sprite.parent && sprite._parentValue("paused"))
         // Played from the first of its frames, unless it is already among them.
         onRunningChanged: if (running && (sprite.frame < sprite.first || sprite.frame >= sprite.first + sprite.count))
                               sprite.frame = sprite.first

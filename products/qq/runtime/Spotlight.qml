@@ -2,6 +2,7 @@
 // It shines along its own forward direction, down unless it is turned (`eulerRotation`), within `cone` degrees from edge
 // to edge, softening toward the edge over `softness` of that, and falls off with distance as a Lamp does. It casts
 // shadows. Logic turns it as it turns anything (a tween on `eulerRotation` sweeps it).
+// Changed for QOR OS: editor-marker visibility follows the current structural parent's live state.
 
 import QtQuick
 import QtQuick3D
@@ -23,7 +24,9 @@ SpotLight {
     property real softness: 0.3
 
     /// True while the scene this belongs to plays.
-    readonly property bool live: parent !== null && parent.playing === true
+    readonly property bool live: parent !== null && _parentValue("playing") === true
+
+    function _parentValue(field: string): var { return spot.parent[field] }
 
     eulerRotation: Qt.vector3d(-90, 0, 0)
     color: "#fff1dc"

@@ -311,9 +311,209 @@ and exits normally at 20 frames per second; this is not a demonstrated speedup
 or a passing Store gate. Assertions, tolerances, deadlines and rendering settings
 are retained. Receipts: `build/development-2026-11-14/session-06/`.
 
-PR #10's next product gate is the finite but excessive software-renderer startup
-cost, followed by Orb Run's timer wait and the remaining complete product and
-Windows runs. The Wayland sanitizer leak, ARQADE diagnostics, runtime lint,
+The next 14 November continuation builds all QQ targets on Windows with Qt
+6.12.0/MSVC 2022, serially under the original coordinator and unchanged memory
+floor. Compilation has no compiler/license-client diagnostics; all 84 scene
+results pass without failures/skips, and all 15 programs pass hardening. The
+offscreen test emits a missing-font warning and a hardware-audio buffer warning
+despite `QOR_AUDIO_OUTPUT=null`. Its assertions are local diagnostic evidence;
+Windows audio isolation and the full product gate remain open. Runtime lint
+fails with 53 warnings. The final evidence collector wrongly assumed Linux's
+`tests/` executable directory after those checks; its failure is preserved and
+the actual CTest command is reconciled separately without repeating the tests.
+
+The owner confirms the Pi is online while this workstation is on a different
+network. Its local hostname does not resolve and no native job starts. A
+timestamped Player diagnostic is prepared under the same native lock, private
+software display and source checks. Installed Qt source identifies environment-map
+filtering as a profiling hypothesis; no speedup, visual change or Store pass is
+claimed. No network/access configuration changed. Current local receipts:
+`build/development-2026-11-14/session-07/`.
+
+The owner subsequently runs that trace through the Pi's existing Raspberry Pi
+Connect remote shell. The supplied terminal report records 1,404 source hashes
+checked, separate isolation namespaces, a clean diagnostic exit, and the original
+lock available afterward. First frame is 63.838 seconds; Qt reports a 63.132-second
+rendered frame with 62.791 seconds in its swap stage. That timing includes graphics
+completion/presentation and does not by itself isolate the cause. A minimal
+comparison with and without sky lighting is prepared under the same native
+coordinator and private software display; its subsequent result is below. Full trace artifacts
+remain on the Pi; the owner-provided report and preparation are preserved in
+`build/development-2026-11-14/session-08/`. Production sources, rendering quality,
+test deadlines and the unresolved Store gate remain unchanged. Both prepared
+scenes lint without warnings. Local all-file hooks stop at 2,897 MiB available,
+below the unchanged 3,072-MiB floor; the incomplete run is preserved without a
+retry or unrelated service changes.
+
+The owner's next Connect report isolates the sky-light path in that minimal
+comparison: first frame is 0.474 seconds without the light probe and 61.054
+seconds with it, a difference of 60.580 seconds. Both report llvmpipe, four
+completed frames, no recorded diagnostics and exit zero. Scene hashes match the
+prepared inputs; the outer report records 1,404 source hashes, separate isolation
+namespaces and an available coordinator afterward. This is a synthetic diagnosis,
+not an improved Player or passing Store case. `session-09/` preserves the
+owner-provided report under `build/development-2026-11-14/`.
+
+The later direct SSH continuation through Tailscale verifies the existing key
+and saved Pi host identity and completes the precomputed-lighting diagnostic.
+Qt's public texture-data API exports the exact default procedural texture;
+an EXR image preserves its half-float pixels for the installed Qt baker. In the
+same private software display, the procedural first frame takes 61.529 seconds
+and the precomputed first frame 0.774 seconds. Both 1280-by-720 captures have the
+same hash and zero differing pixels across the sky and four differently shaded
+spheres. The helper builds without diagnostics, passes hardening, and both
+scenes lint without warnings. The first helper attempt stopped because its QML
+component was not ready; a local base URL and bounded loading wait corrected it.
+Both attempts and the retrieved earlier traces are preserved in
+`build/development-2026-11-14/session-11/`. The original coordinator verifies
+1,404 source hashes, separate namespaces, sustained and continuous resource
+headroom, and clean completion. That diagnostic left production sources and test
+deadlines unchanged; integration and the Store case followed below. A
+2,491-MiB Windows snapshot prevents local heavy checks and leaves all-file hooks
+incomplete. No unrelated service was changed.
+
+The completed integration packages both palettes authored in the bundled scenes,
+including the World default. Matching uses four colour values, including alpha,
+without consulting the game name or path. Other palettes remain procedural and
+explicit sky images retain precedence; exposure, rotation and rendering quality
+are unchanged. Both baked palettes have pixel-identical diagnostic captures;
+Ember Climb's first frame takes 0.768 seconds versus 61.294 seconds procedurally.
+The native `q-pi-release` preset builds all QQ targets without compiler/license
+diagnostics. All 85 scene results pass, including selection, resource hashes,
+colour/alpha edits and image precedence. The unchanged Store-installed Player
+suite now passes three Qt Test results in 8.371 seconds with its original
+60-second internal deadline. All 11 world-rendering results pass in 340.938 seconds;
+all 85 scene results also pass offscreen under ASan/UBSan with leak checking
+enabled. Hardening accepts all 16 QQ programs and the sanitizer program. Runtime
+lint still fails with exactly the previous 53 findings, none added or removed.
+`build/development-2026-11-14/session-12/` preserves
+the first configure refusal for a missing kit environment variable, the corrected
+preset invocation and subsequent native results. Windows heavy checks remain
+stopped at a 2,501-MiB snapshot, below the unchanged 3,072-MiB floor; all-file
+hooks remain incomplete. General edited-palette startup cost and platform
+validation remain open.
+
+The following Orb Run investigation retains the unchanged case's startup
+failure. A separate trace observes zero ticks at that failure, the first eight
+ticks after 10.071 seconds of waiting, and only 24 logic steps (0.4 seconds) before the lantern
+wait expires. The lantern subsequently resets; the next original wall wait
+fails at orb replacement. The first proposal still fails at that replacement.
+The revised proposal adds a software-only first-tick admission and measures
+lantern reset, orb replacement and growth on their logic clock, keeping their
+three/four/three-second game-time limits and bounded wall limits. The complete
+case passes three Qt Test results in 184.714 seconds with no failures/skips;
+the native build has no compiler/license diagnostics and hardening accepts all
+16 programs. GPU branches, predicates, tolerances and unrelated waits retain
+their code. The runtime and game logic are unchanged. This software acceptance
+change awaited the owner's decision under `AGENTS.md`; the original test was
+restored on the Pi before approval. Evidence and the
+reviewable `orb-proposal-v2.patch` are in `build/development-2026-11-14/session-13/`;
+the original failure, diagnostic, first proposal and text-decoding correction
+are preserved. Windows heavy checks remain stopped at a 2,536-MiB snapshot.
+
+The owner then approved that exact four-change Orb proposal. It is applied
+byte-for-byte, and the native acceptance rebuild passes without compiler/license
+diagnostics; hardening accepts all 16 QQ programs. All 1,409 native source hashes
+and the rebuilt executable match the previously passing proposal, so its complete
+184.714-second case supplies the software functional result without a duplicate
+run. Approval, current source/binary proof and free-lock verification are in
+`build/development-2026-11-14/session-14/`. Windows measured 2,791 MiB, below the
+unchanged floor. Full products, hardware and real-time performance remain open.
+
+The following session-15 continuation completes the native QQ suite attempts.
+Gameplay passes 58 results; Studio 29, workspace 241, game builds 195, lockdown
+24, publishing 11, network confinement three and Store launch three. The asset
+library passes 91 with its optional benchmark skipped. The complete Studio
+creator journey passes, and `first_journey` passes through Prism's Library and
+the packaged Player in 202.406 seconds under its original 300-second limit.
+The Library step uses the test launcher before running the real Player on its
+private display; real Player rendering inside Prism remains a hardware gate.
+Scene/world passes are retained by matching current executable fingerprints.
+
+The bundled playground's HDR lighting is now precomputed with identical pixels,
+fixing two Player launch timeouts. Full QQ qualification remains open: the agent
+suite has one timing failure; the Player still fails its unchanged 20-FPS floor
+at 0.5 and 18.9 FPS and skips unavailable Landlock confinement. Runtime lint
+retains exactly 53 findings. No assertion, timing boundary or rendering quality
+is relaxed. Native builds and hardening pass, all 1,412 source files and 15
+executables match receipts, and the original lock is free. All complete suites
+stay above the 3,072-MiB floor, with a 4,923-MiB minimum. Windows heavy checks
+remain stopped below that floor. Evidence is in
+`build/development-2026-11-14/session-15/`.
+
+The 15 November follow-up removes Game's 24 runtime lint findings while keeping
+its public object handles and compatible scene/follower interfaces. The new
+preservation cases pass before and after the change; all 87 scene results pass
+normally and offscreen with address/undefined-behavior sanitizers and leak
+checking. Complete native gameplay passes all 58 results under its approved
+timing boundaries. Store launch passes three and the packaged-game creator
+journey passes in 201.985 seconds under its unchanged 300-second limit. Player
+retains both FPS failures (0.5 and 18.9 against 20) and the Landlock skip.
+The other 29 lint warning lines remain unchanged. Separate traces of
+the original Player and agent concentrate cost in software rendering and its
+synchronization; these diagnostic timings do not replace acceptance results.
+The coordinator, memory floor, rendering quality and approved timing boundaries
+are unchanged. Evidence: `build/development-2026-11-15/session-01/`.
+The ARQADE caller rebuild still emits the existing Qt `GuiPrivate` compatibility
+warning; compilation exits zero, but the build gate fails before caller tests.
+
+The next 15 November increment removes Behaviour's 11 lint findings through
+direct dynamic accessors, preserving compatible logic objects and parent state.
+Focused tests pass before and after the change; all 89 scene results pass
+normally and under offscreen address/undefined-behavior sanitizers with leak
+checking. Callback payloads, prefab target lookup, frame guards, parent changes
+and logic replacement remain covered. Complete native gameplay passes all 58
+results with its approved timing boundaries and source unchanged. The other
+18 lint findings are unchanged. Store launch passes three and the packaged-game
+journey passes in 201.377 seconds under its 300-second limit. The full agent
+suite reproduces its prior failure exactly (21 pass, one fail, one optional
+skip); Player retains two FPS failures at 0.6 and 19.5 against 20, with 13
+passes and the Landlock skip. All runs preserve the original guard and
+isolation; 1,966 resource samples stay at or above 5,427 MiB available.
+Evidence: `build/development-2026-11-15/session-02/`.
+
+The subsequent parent-state and TileMap increment removes 12 more lint findings.
+Six runtime kinds retain their structural parent interfaces, while TileMap's
+private factory result has its concrete collision-body type. Eleven focused
+results pass before and after the change; the complete scene suite passes 97
+normally and offscreen under address/undefined-behavior sanitizers with leak checking.
+Complete native gameplay passes all 58 results with its approved timing
+boundaries and source unchanged.
+Six spatial-audio metadata findings remain, with no new findings. Inspection
+shows the installed SpatialAudio metadata inherits QQuick3DNode but omits the
+QtQuick3D module dependency; this is a candidate cause, not a verified fix.
+The SDK and lint policy remain unchanged. Store launch passes three; the packaged-
+game creator journey passes in 201.631 seconds under its original 300-second
+limit. Agent retains its identical log-timing failure (21 pass, one fail, one
+optional skip). Player retains two 20-FPS-floor failures at 0.5 and 19.7 FPS,
+with 13 passes and the Landlock skip. All 1,997 resource samples remain at or
+above 5,329 MiB available; the original guard, isolation, assertions and limits
+are unchanged. Evidence:
+`build/development-2026-11-15/session-03/`.
+
+The next audit uses structured lint output and corrects the preceding console-only
+remaining count: Runtime had 20 findings, with 14 in Music, Sprite and TileMap
+omitted from its console output. Studio independently has 18 AgentPanel findings;
+Player has none. The three runtime kinds now retain structural parent reads,
+and Sprite motion requires an actual dynamic body. New regressions reproduce
+script errors for ordinary and static replacement handles; all 14 focused
+results pass after the fix. Fourteen structured runtime findings are removed
+with none added, leaving six runtime and 18 Studio findings. A native temporary
+metadata copy confirms the missing SpatialAudio dependency accounts for those
+six runtime findings; after the source fixes, complete Runtime lint passes
+with that copy. Unknown-property and incompatible-type controls still fail;
+normal lint remains failed with the installed metadata. The complete scene
+suite passes 109 normally and offscreen under address/
+undefined-behavior sanitizers with leak checking; complete gameplay passes 58
+with the approved timing and source unchanged. Store launch passes three, and
+the packaged-game creator journey passes in 201.365 seconds under its original
+300-second limit. Agent retains its identical log-timing failure and optional
+provider skip; Player retains its two 20-FPS-floor failures at 0.5 and 19.5 FPS
+and its Landlock skip. The installed SDK and lint policy are unchanged. Evidence:
+`build/development-2026-11-15/session-04/`.
+
+PR #10's next product gates include the agent/Player failures and remaining
+full-product and Windows runs. The Wayland sanitizer leak, ARQADE diagnostics, runtime lint,
 upstream dependency audit and isolated Qt CI remain open. Focused scene/rendering
 checks do not qualify the full OS, platform, Q Pi image or physical hardware.
 

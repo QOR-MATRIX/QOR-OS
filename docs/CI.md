@@ -424,6 +424,116 @@ still fails its later lantern-idle timer wait; it is not a complete fix. Logs,
 source hashes and the patch are in
 `build/development-2026-11-13/session-10/`.
 
+The 14 November session-13 investigation still fails the original Orb startup
+assertion. Its diagnostic sees no ticks at the deadline and the first eight at
+10.071 seconds of waiting. Only 24 logic steps (0.4 seconds) pass before the later lantern
+wait expires. A separate four-change proposal passes the complete Orb case:
+three Qt Test results, no failures/skips, in 184.714 seconds. Software startup
+first admits a scene tick within 120 seconds, then retains the existing
+five-second assertion. The lantern, replacement-orb and growth checks use
+three/four/three seconds on the logic clock, bounded by 120/150/120 seconds on
+the wall. GPU branches retain the original waits; predicates, tolerances, music,
+sound cleanup, input and pause controls are unchanged. Build and hardening pass.
+The owner separately approved these exact four software changes on 14 November,
+as required by `AGENTS.md` section 7. Their applied source is byte-identical to
+the passing proposal. The acceptance rebuild and hardening pass; all 1,409 native
+source hashes and the rebuilt executable match the tested proposal. The case
+was not rerun for that identical rebuild. This accepts the selected software
+functional case; real-time, hardware and full-product acceptance remain open.
+The patch, original failure, diagnostics and pre-approval restoration evidence
+remain under `build/development-2026-11-14/session-13/`; approval and integration
+proof are in `session-14/` beside it. Other software exceptions retain their
+existing scope and status.
+
+The session-15 continuation runs complete, unfiltered QQ suites under the same
+native coordinator and private software display. Gameplay passes 58 results;
+lockdown 24, publishing 11, network confinement three, Store launch three,
+Studio 29, workspace 241 and game builds 195. Asset-library checks pass 91,
+with only their optional measurement skipped. The Studio creator journey passes.
+The separate `first_journey` passes in 202.406 seconds, including Prism's Library,
+rebuild and playing after the source project is removed. Its test launcher
+records Prism's arguments; the real Player then runs them on its private display,
+not inside a hardware-rendered Prism window. Its registered 300-second limit is
+retained; ordinary suites use 5,400 seconds and Qt functions retain 1,800,000 ms.
+
+The agent suite records 21 passed, one timing failure and one live-provider skip.
+A separate diagnostic demonstrates the error log working but not reaching its
+unchanged repetition threshold; its test changes were then restored. The basic
+render-loop comparison also fails.
+The Player's separate bundled HDR sky now uses pixel-identical precomputed
+lighting, fixing both launch timeouts. Its full rerun records 13 passed, two
+20-FPS-floor failures (0.5 and 18.9 FPS), and one unavailable-Landlock skip.
+No software-floor acceptance option or assertion change is used. Runtime lint
+still fails with exactly the same 53 warning lines. Build and hardening pass;
+all 16 QQ programs meet the hardening checks. Full QQ acceptance remains open.
+
+Final readback verifies all 1,412 native source files and 15 executables, including
+the unchanged scene/world binaries whose earlier complete passes are retained.
+Across the complete suites, 5,268 resource samples stay at or above 4,923 MiB.
+The original lock is free and no test worker remains. Windows stays below the
+3,072-MiB floor, so all-file hooks and local heavy checks remain incomplete.
+`build/development-2026-11-14/session-15/` retains commands, environments, sources,
+JUnit reports, failures, diagnostics, provenance and the final reconciliation.
+This is native software evidence; it does not qualify hardware, the Q Pi image,
+the other products or an isolated CI runner.
+
+The 15 November Game interface increment reruns complete scene (87), gameplay
+(58), Player and Store-launch (three) suites. Scene also passes all 87 offscreen
+under ASan/UBSan with leak checking. The packaged-game creator journey passes
+in 201.985 seconds under the registered 300-second limit. Player retains 13
+passes, two FPS failures (0.5 and 18.9 against 20), and the Landlock skip.
+All 24 Game lint findings are removed; the other 29 warning lines remain.
+The first candidate was rejected after log review found transient script errors;
+new coverage reproduces them and passes the corrected direct accessors. Fresh
+corrected-suite logs contain no Game script errors. No existing assertion,
+rendering quality, approved timing boundary, coordinator or isolation setting
+changes. Receipts: `build/development-2026-11-15/session-01/`. The agent timing,
+remaining lint, other-product, Windows, hardware and isolated-CI gates stay open.
+
+The subsequent Behaviour increment passes six focused results on both the
+original and changed runtime, then all 89 scene results normally and offscreen
+under ASan/UBSan with leak checking. Its 11 lint findings are removed, leaving
+18 unchanged warning lines and a failing lint gate. Existing scene assertions,
+approved gameplay timing, coordinator and isolation remain intact. Complete
+gameplay passes 58 results, Store launch three, and the packaged-game journey
+passes in 201.377 seconds under its original 300-second limit. Agent retains
+21 passes, its identical prior failure and one optional live-provider skip;
+Player retains 13 passes, two FPS failures (0.6 and 19.5 against 20) and the
+Landlock skip. Hardening passes all 16 QQ programs and the sanitizer program.
+The separate ARQADE diagnostic gate and all-file Windows checks remain open;
+neither was rerun for this increment. Receipts:
+`build/development-2026-11-15/session-02/`.
+
+The following parent-state and 2D runtime increments retain the approved
+gameplay source and all pre-existing scene assertions. The latest complete
+scene run passes 109 results normally and offscreen under ASan/UBSan with leak
+checking; gameplay passes 58 and Store launch three. The packaged-game creator
+journey passes in 201.365 seconds under its registered 300-second limit. Agent
+retains its identical log-timing failure (21 pass, one fail, one optional
+provider skip); Player retains its two 20-FPS-floor failures at 0.5 and 19.5
+(13 pass, two fail, one Landlock skip). All 16 QQ programs and the sanitizer
+program pass hardening; native builds emit no compiler/licence diagnostics.
+
+Structured output corrects the earlier console-only lint counts: Runtime had
+20 warnings despite printing six; Studio independently had 18. Fourteen runtime
+source findings are removed with none added, leaving six Runtime and 18 Studio
+warnings, and zero Player warnings. The six Runtime findings disappear with
+the missing SpatialAudio dependency added in a temporary metadata copy;
+complete Runtime lint then passes while invalid-property and invalid-type
+controls still fail. The installed SDK and normal lint gate are unchanged.
+No severity, source coverage, assertion or timing limit was relaxed.
+All 2,305 resource samples stay at or above 5,353 MiB available against the
+3,072-MiB floor. Receipts: `build/development-2026-11-15/session-03/` and
+`session-04/`; the LF-format patch export is in `session-04-export/`.
+These are native software results, not hosted Qt CI or hardware acceptance.
+The subsequent repository reconciliation runs all configured pre-commit hooks
+and the tracked-file credential scan successfully on a separate complete Pi
+checkout with the hash-pinned development requirements, the original native
+coordinator and the unchanged memory floor. Windows remains below its floor;
+this completes the repository-hook check without claiming a Windows product
+build. Exact tree and publication receipts are in
+`build/development-2026-11-15/session-05/`.
+
 The accepted test rebuild reproduces the passing proposal's binary hash, with
 all 1,404 snapshot source hashes verified. Hardening reads 16 QQ programs and
 passes all of them; native QQ `all_qmllint` fails with 103 warnings. The Store

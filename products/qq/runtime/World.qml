@@ -16,6 +16,7 @@
 
 // Changed for QOR OS: the environment selects this world’s own light-probe textures.
 // Changed for QOR OS: initial sky construction joins queued colour edits so the same sky is not made twice.
+// Changed for QOR OS: shipped sky palettes use precomputed lighting; other colours keep their procedural texture.
 
 import QtQuick
 import QtQuick3D
@@ -84,7 +85,7 @@ View3D {
     environment: ExtendedSceneEnvironment {
         // Flat, the camera's rays are parallel and a sky box would be one colour: a 2D world draws its backdrop below.
         backgroundMode: world.flat ? SceneEnvironment.Transparent : SceneEnvironment.SkyBox
-        lightProbe: world.skyImage ? world.photographed : world.made
+        lightProbe: world.skyImage ? world.photographed : String(world.bakedSkySource) !== "" ? world.bakedSky : world.made
         probeOrientation: Qt.vector3d(0, world.skyTurn, 0)
         probeExposure: world.skyLight
         // A made sky is soft; a sky image is seen as it is.
@@ -115,6 +116,23 @@ View3D {
         ditheringEnabled: !world.asPainted
     }
 
+    // These are the default and the other palette authored in the bundled samples. The images and their generation
+    // inputs are recorded in skies/manifest.json. Matching colours use the same light in every world, including edits.
+    readonly property url bakedSkySource: {
+        if (Qt.colorEqual(world.groundBottom, "#07080c")) {
+            if (Qt.colorEqual(world.skyTop, "#0b1430") && Qt.colorEqual(world.skyHorizon, "#c7623a")
+                    && Qt.colorEqual(world.groundHorizon, "#2a1a1a"))
+                return "skies/default.ktx"
+            if (Qt.colorEqual(world.skyTop, "#120d1f") && Qt.colorEqual(world.skyHorizon, "#3a1630")
+                    && Qt.colorEqual(world.groundHorizon, "#0a0710"))
+                return "skies/ember-climb.ktx"
+        }
+        return ""
+    }
+    readonly property Texture bakedSky: Texture {
+        source: world.bakedSkySource
+        mappingMode: Texture.LightProbe
+    }
     readonly property Texture made: Texture {
         textureData: world.madeSky
     }

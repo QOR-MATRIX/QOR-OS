@@ -112,6 +112,12 @@ Windows/WSL resources are not inferred from the Pi.
 - `all_qmllint` must stay at zero warnings. The root `.qmllint.ini` uses Qt's `MaxWarnings=0` setting to make warnings fail
   the native command, including generated commands using `--bare`; it does not alter categories or suppress findings.
   See [Qt's qmllint settings](https://doc.qt.io/qt-6/qtqml-tooling-qmllint.html#settings).
+- Audit structured output for every module, not only printed warning lines.
+  Run `qqruntime_qmllint_json`, `qq-player_qmllint_json` and
+  `qqstudio_qmllint_json` separately in a QQ build: aggregate targets can stop
+  at the first failing module. Preserve exit codes and diagnostic severities.
+  [BUILDING.md](BUILDING.md) records the native SpatialAudio metadata diagnosis
+  and its negative controls; a diagnostic copy does not repair normal lint.
 - A QML module exposing C++ types declares the QML modules owning their C++ base types in `qt_add_qml_module(DEPENDENCIES ...)`.
   QQ declares `QtQuick3D` for SoftDot and TileGeometry. This supplies type information without adding auto-imports;
   see [Qt's module-dependency guidance](https://doc.qt.io/qt-6/qt-add-qml-module.html#declaring-module-dependencies).

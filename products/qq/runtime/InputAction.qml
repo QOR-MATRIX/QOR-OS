@@ -10,6 +10,7 @@
 // Logic hears it with onPressed and onReleased, asks held(name), and lets a player rebind it with rebind(name).
 //
 // Changed for QOR OS: the left stick's four ways among the pad's buttons, for games that move a way at a time.
+// Changed for QOR OS: activation follows the current structural parent and preserves existing declarations.
 
 import QtQuick
 import QtQuick3D
@@ -28,7 +29,9 @@ Node {
     property string pad: ""
 
     /// True while the scene this belongs to plays.
-    readonly property bool live: parent !== null && parent.playing === true
+    readonly property bool live: parent !== null && _parentValue("playing") === true
+
+    function _parentValue(field: string): var { return action.parent[field] }
 
     function split(text) {
         return text.split(",").map(s => s.trim()).filter(s => s !== "")

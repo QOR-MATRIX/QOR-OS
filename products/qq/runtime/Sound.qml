@@ -10,6 +10,7 @@
 // Audio: quieter with distance from the eye, silent beyond `reach`, and panned to the side of the eye it is on.
 
 // Changed for QOR OS: voice factories bind to their owner and follow the viewport’s actual camera types.
+// Changed for QOR OS: live and replay state follow the current structural parent without cached object bindings.
 
 pragma ComponentBehavior: Bound
 
@@ -39,12 +40,14 @@ Node {
     property string group: "effects"
 
     /// True while the scene this belongs to plays.
-    readonly property bool live: parent !== null && parent.playing === true
+    readonly property bool live: parent !== null && _parentValue("playing") === true
     /// Whether this is a web page, where sounds are WebVoices (above). Set by a check, to hear as a browser would.
     property bool web: Qt.platform.os === "wasm"
-    readonly property bool sounding: live && String(source) !== "" && !(parent && parent.replaying)
+    readonly property bool sounding: live && String(source) !== "" && !(parent && _parentValue("replaying"))
     /// The sound playing, or null.
     readonly property QtObject playing: web ? webVoice.object : voice.item
+
+    function _parentValue(field: string): var { return sound.parent[field] }
 
     /// Its group's level times the master level, read so that a change of level is heard at once.
     readonly property real gain: (Mixer.levels.master ?? 1) * (group === "master" ? 1 : Mixer.levels[group] ?? 1)

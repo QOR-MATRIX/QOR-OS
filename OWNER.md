@@ -1,40 +1,49 @@
 # Where QOR OS stands
 
-For Andrew, 14 November 2026. QQ, the game engine, now creates its initial
-procedural sky once for a batch of colour changes. The new regression first
-reproduced duplicate construction, then verified colours, texture ownership,
-replacement and disposal. The Store playback test also waits for its own
-timed-out Player to exit, removing the running-process warning.
+For Andrew, 15 November 2026. QQ Sprite motion now refuses incompatible physics
+handles without a script error; two new regressions fail before the fix and
+pass afterward. Music, Sprite and TileMap preserve current-parent play, pause,
+replay and pixel-scale behavior. Existing assertions and gameplay timing stay
+unchanged. All 14 focused results pass.
 
-The full optimized QQ build on the Raspberry Pi 5 has no compiler or
-license-client diagnostics. All 84 scene results and all 11 world-rendering
-results pass without failures or skips. All 84 scene results also pass offscreen
-under ASan/UBSan, the memory and undefined-behavior checks, with leak detection
-enabled. Hardening, the exploit-mitigation checks, passes 16 QQ programs and
-the sanitizer program. QML, Qt's interface language, still has 53 runtime lint
-warnings; that gate remains failed.
+Structured lint, machine-readable checks of Qt's interface language, corrects
+the earlier console-only count: Runtime had 20 warnings and Studio had 18.
+The source fixes remove 14 with none added, leaving six Runtime and 18 Studio
+warnings; Player has none. Adding the missing SpatialAudio dependency in a
+temporary metadata copy makes Runtime lint pass, while invalid-property and
+invalid-type controls still fail. The installed Qt development kit is unchanged;
+normal lint still fails. The correction is proved but not integrated.
 
-The Store test still exceeds its unchanged 60-second deadline. Separate
-before/after diagnostics reach a first frame at 64.204/63.827 seconds and exit
-cleanly at about 20 frames per second. This is finite software-renderer startup,
-not a proven speedup or a passing Store gate. These hidden software checks use
-virtual devices and a private network; full product, Windows, Q Pi image,
-physical hardware and full OS acceptance remain open.
+The native Pi passes all 109 scene results normally and under address/undefined-
+behavior sanitizers, checks for memory and invalid-operation errors, with leak
+checking. Complete gameplay passes 58 results; Store launch passes three.
+The packaged-game creator journey passes in 201.365 seconds under its original
+300-second limit, including edit/rebuild and playback after source removal.
+Prism, the display compositor and shell, verifies Library arguments through a
+test launcher; real Player playback runs separately on a private display.
+Other QQ suites and the complete Studio graphical journey retain their
+14 November evidence and were not all repeated for this increment.
 
-Both registered Qt runners are offline and their isolation-enabling variables
-are absent. CI, automated build and test, stays paused for Qt. There is no local
-provisioning/proof record for the proposed isolated virtual machine, and this
-terminal lacks its administration access. The original build coordinators and
-3,072-MiB free-memory floor remain mandatory.
+Agent retains 21 passes, its identical log-timing failure and one optional
+provider skip. Player retains 13 passes, two failures against the 20-frames-
+per-second floor at 0.5 and 19.5, and an unavailable Landlock kernel-confinement
+check. ARQADE's earlier private-Qt compatibility warning remains unrerun.
 
-The continuation is for draft pull request #10 on `fix/native-play-clock-waits`.
-Current evidence is in `build/development-2026-11-14/session-06/`; prior receipts
-remain preserved. Next: profile the renderer startup cost and satisfy the Store
-deadline, then the Orb timer, remaining product, lint, isolated-build and
-upstream-audit gates. The earlier Wayland display-library leak remains open.
+Native builds emit no compiler or licence diagnostics. Hardening, checks of
+program exploit mitigations, passes 16 QQ programs and the sanitizer program.
+Original isolation and memory guards remain: all 2,305 samples stay at or above
+5,353 MiB available against the 3,072-MiB floor. Final readback verifies 1,412
+sources and eight executables; no test workers remain and the original lock
+is free. Evidence: `build/development-2026-11-15/session-04/`. All 273 files of
+the preceding sealed receipt are unchanged. Complete repository hooks now pass
+on a separate Pi checkout using the pinned tools and original guard. Windows
+remains below its memory floor, so its heavy product checks remain incomplete.
 
-QOR-0028 records the owner's long-term direction: one canonical development
-repository for QOR OS, Q Pi, Demiurge Chain, ARQADE and associated systems.
-A separate evidence-based consolidation proposal follows a reviewable milestone.
-Current history, licences, source ownership, security and deployment boundaries
-remain in force; this milestone authorizes no migration or restructuring.
+Branch `fix/native-play-clock-waits` carries this checkpoint for draft pull
+request #10; the reconciliation, hook and publication receipts are under
+`build/development-2026-11-15/session-05/`. Its preceding hosted source checks
+pass, but required Qt builds and core audit are skipped and Release readiness
+fails. Qt CI, automated build and test, stays paused pending runner isolation.
+Full-product, Windows, hardware and Q Pi image acceptance remain open.
+QOR-0028's canonical-repository direction still requires a separate proposal;
+ownership boundaries remain.

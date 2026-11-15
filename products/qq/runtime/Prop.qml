@@ -6,6 +6,7 @@
 // clock: a step at a time, held while the world is paused, and drawn between steps so it moves smoothly at any frame
 // rate. Logic changes clips by setting `clip`; `clipTime` says how far in it is, and `clipDone` when one that does not
 // loop has reached its end; part(name) is a joint or a mesh of it. While editing, it shows the clip's first pose.
+// Changed for QOR OS: live and frame-clock state read the current structural parent directly.
 
 import QtQuick
 import QtQuick3D
@@ -44,7 +45,9 @@ Node {
                                      && (clipSpeed >= 0 ? clipTime >= clipLength : clipTime <= 0)
 
     /// True while the scene this belongs to plays.
-    readonly property bool live: parent !== null && parent.playing === true
+    readonly property bool live: parent !== null && _parentValue("playing") === true
+
+    function _parentValue(field: string): var { return prop.parent[field] }
 
     /// Empty, Ready or Failed, as the loader reports it.
     readonly property int status: loader.status === RuntimeLoader.Success ? Prop.Ready
@@ -111,8 +114,8 @@ Node {
     }
 
     FrameAnimation {
-        running: prop.live && prop.clip !== "" && !prop.parent.replaying
-        onTriggered: prop._pose(prop.parent.paused ? 0 : prop.parent._owed)
+        running: prop.live && prop.clip !== "" && !prop._parentValue("replaying")
+        onTriggered: prop._pose(prop._parentValue("paused") ? 0 : prop._parentValue("_owed"))
     }
 
     // What a click lands on: an invisible box over the model's bounds. The meshes the loader makes cannot be marked

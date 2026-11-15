@@ -425,6 +425,17 @@ with demiurge-chain, where ARQADE's server judges runs by them. Each product
 is its own CMake project. `tools/dev/products.ps1` calls its Windows `build.ps1`;
 `tools/dev/products.sh` configures and tests it in the isolated Linux harness.
 
+QQ's `World` selects packaged, precomputed lighting when all four sky colours
+match either palette authored in its bundled scenes. The default also serves
+Orb Run; the other serves Ember Climb. Selection is by colours, so any world
+using those values shares the same path. Other colours retain procedural sky
+generation and batched edits, and explicit sky images retain precedence.
+Exposure, rotation, skybox blur and rendering quality are unchanged. The KTX
+textures are embedded in QQ's shared runtime; their source EXR images and
+generation hashes are kept in `products/qq/runtime/skies/`. They are generated
+explicitly under the existing native resource/isolation procedure, not rendered
+as an implicit part of a host build. See [QQ's build notes](../products/qq/README.md#build-test-deploy).
+
 | Product | Path | Targets | Suites |
 |---------|------|---------|--------|
 | **QQ** | `products/qq/` | `qqruntime` (QML module `QQ`), `qq-studio` (`QQ.Studio`), `qq-player` (`QQ.Player`), `qq-mcp`, `qqagent` | `tst_world`, `tst_scene`, `tst_studio`, `tst_play`, `tst_player`, `tst_storegame`, `tst_agent`, `tst_lockdown`, `tst_publish`, `tst_workspace`, `tst_gamebuild`, `tst_assetlibrary`; Linux also `tst_playerwall` and, with Python, `first_journey` |

@@ -22,8 +22,14 @@
 // Changed for QOR OS: Player motion requires a character controller and follows structural scene state.
 // Changed for QOR OS: Player2D carries only a QQ Sprite and preserves structural clock and carrier state.
 // Changed for QOR OS: the world's initial sky and later colour edits each build one owned texture.
+// Changed for QOR OS: shipped sky palettes stay baked across edits, with procedural and image fallback intact.
+// Changed for QOR OS: Game keeps its structural scene and follower bindings, startup state and host messages.
+// Changed for QOR OS: Behaviour forwards events to compatible logic and follows current parents, targets and reloads.
+// Changed for QOR OS: runtime kinds preserve structural parent state and TileMap's owned collision shapes.
+// Changed for QOR OS: 2D kinds preserve live parent state and Sprite motion rejects mismatched bodies.
 
 #include <QCoreApplication>
+#include <QCryptographicHash>
 #include <QDir>
 #include <QEvent>
 #include <QFile>
@@ -34,7 +40,9 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QMetaProperty>
+#include <QPointer>
 #include <QQmlComponent>
+#include <QQmlContext>
 #include <QQmlEngine>
 #include <QQmlListReference>
 #include <QQuickItem>
@@ -52,8 +60,10 @@
 #include <memory>
 
 #include "confinement.h"
+#include "input.h"
 #include "kinematics.h"
 #include "look.h"
+#include "logicfile.h"
 #include "mixer.h"
 #include "run.h"
 #include "sceneio.h"
@@ -939,6 +949,663 @@ private slots:
     }
 
     // ── groups and prefabs (P3.15) ──
+
+    void spriteMotionCommandsRequireADynamicBody_data()
+    {
+        QTest::addColumn<QString>("bodyMode");
+        QTest::addColumn<QString>("replacement");
+        QTest::addColumn<bool>("accepted");
+        QTest::newRow("dynamic") << QStringLiteral("dynamic") << QString() << true;
+        QTest::newRow("static") << QStringLiteral("static") << QString() << false;
+        QTest::newRow("kinematic") << QStringLiteral("kinematic") << QString() << false;
+        QTest::newRow("none") << QStringLiteral("none") << QString() << false;
+        QTest::newRow("missing") << QStringLiteral("dynamic") << QStringLiteral("null") << false;
+        QTest::newRow("ordinary-node") << QStringLiteral("dynamic") << QStringLiteral("ordinary") << false;
+        QTest::newRow("mismatched-static-body") << QStringLiteral("dynamic") << QStringLiteral("standing") << false;
+    }
+
+    void spriteMotionCommandsRequireADynamicBody()
+    {
+        QTest::failOnWarning(QRegularExpression(QStringLiteral(".*(TypeError|ReferenceError|Binding loop).*")));
+        QFETCH(QString, bodyMode);
+        QFETCH(QString, replacement);
+        QFETCH(bool, accepted);
+        QQmlComponent component(engine);
+        component.setData(QStringLiteral(
+            "import QtQuick3D\nimport QtQuick3D.Physics\nimport QQ\nNode {\n"
+            "    property bool playing: %2\n    property string view: \"3d\"\n"
+            "    Sprite { objectName: \"shape\"; body: \"%1\" }\n"
+            "    Node { objectName: \"ordinary\" }\n"
+            "    StaticRigidBody { objectName: \"standing\" }\n}\n")
+                .arg(bodyMode, replacement == QStringLiteral("null") ? QStringLiteral("false") : QStringLiteral("true")).toUtf8(),
+            QUrl(QStringLiteral("qrc:/sprite-motion-commands.qml")));
+        std::unique_ptr<QObject> object(component.create());
+        QVERIFY2(object, qPrintable(component.errorString()));
+        QObject *shape = object->findChild<QObject *>(QStringLiteral("shape"));
+        QVERIFY(shape);
+        QObject *originalBody = shape->property("physics").value<QObject *>();
+        QCOMPARE(originalBody != nullptr, bodyMode != QStringLiteral("none") && replacement != QStringLiteral("null"));
+        const auto restore = qScopeGuard([&] { shape->setProperty("physics", QVariant::fromValue(originalBody)); });
+        if (!replacement.isEmpty() && replacement != QStringLiteral("null")) {
+            QObject *other = object->findChild<QObject *>(replacement);
+            QVERIFY(other);
+            QVERIFY(shape->setProperty("physics", QVariant::fromValue(other)));
+        }
+        const QVariant vector = QVariant::fromValue(QVector3D(1, 2, 3));
+        for (const char *method : {"push", "applyForce", "setVelocity"}) {
+            QVariant result;
+            QVERIFY2(QMetaObject::invokeMethod(shape, method, Q_RETURN_ARG(QVariant, result), Q_ARG(QVariant, vector)), method);
+            QVERIFY2(result.metaType() == QMetaType::fromType<bool>(), method);
+            QCOMPARE(result.toBool(), accepted);
+        }
+    }
+
+    void twoDimensionalKindsKeepTheirParentState_data()
+    {
+        QTest::addColumn<QString>("kind");
+        QTest::addColumn<QString>("mode");
+        for (const char *mode : {"static", "dynamic", "kinematic"})
+            QTest::newRow(mode) << QStringLiteral("Sprite") << QString::fromLatin1(mode);
+        QTest::newRow("tile-map") << QStringLiteral("TileMap") << QString();
+    }
+
+    void twoDimensionalKindsKeepTheirParentState()
+    {
+        QFETCH(QString, kind);
+        QFETCH(QString, mode);
+        QTest::failOnWarning(QRegularExpression(QStringLiteral(".*(TypeError|ReferenceError|Binding loop).*")));
+        const bool sprite = kind == QStringLiteral("Sprite");
+        QQmlComponent component(engine);
+        component.setData(QStringLiteral(
+            "import QtQuick\nimport QtQuick3D\nimport QtQuick3D.Physics\nimport QQ\nNode {\n"
+            " property var playing: false; property var paused: false; property string view: \"2d\"; property real pixelsPerUnit: 16\n"
+            " readonly property int depthLock: DynamicRigidBody.LockZ\n"
+            " readonly property int tiltLocks: DynamicRigidBody.LockX | DynamicRigidBody.LockY\n"
+            " readonly property int noLock: DynamicRigidBody.LockNone\n"
+            " %1 { objectName: \"entity\"; source: \"%2\"; %3 }\n"
+            " Group { objectName: \"group\" }\n Prefab { objectName: \"prefab\" }\n"
+            " Node { objectName: \"compatible\"; property var playing: true; property var paused: true;"
+            " property string view: \"3d\"; property real pixelsPerUnit: 64 }\n"
+            " Node { objectName: \"ordinary\" }\n}\n")
+                .arg(kind, sprite ? QStringLiteral("sheet.png") : QStringLiteral("level.tmj"),
+                     sprite ? QStringLiteral("body: \"%1\"; columns: 4; rows: 2; first: 1; count: 3; fps: 10").arg(mode) : QString()).toUtf8(),
+            QUrl::fromLocalFile(fixture(QStringLiteral("two-dimensional-state.qml"))));
+        std::unique_ptr<QObject> object(component.create());
+        QVERIFY2(object, qPrintable(component.errorString()));
+        auto *root = qobject_cast<QQuick3DObject *>(object.get());
+        auto *entity = object->findChild<QQuick3DObject *>(QStringLiteral("entity"));
+        auto *group = object->findChild<QQuick3DObject *>(QStringLiteral("group"));
+        auto *prefab = object->findChild<QQuick3DObject *>(QStringLiteral("prefab"));
+        auto *compatible = object->findChild<QQuick3DObject *>(QStringLiteral("compatible"));
+        auto *ordinary = object->findChild<QQuick3DObject *>(QStringLiteral("ordinary"));
+        QVERIFY(root && entity && group && prefab && compatible && ordinary);
+        const auto restore = qScopeGuard([&] { entity->setParentItem(root); entity->setParent(root); });
+        QVERIFY(!entity->property("live").toBool());
+        QVERIFY(!entity->property("physics").value<QObject *>());
+        for (const QVariant &truthy : {QVariant(QStringLiteral("true")), QVariant(1)}) {
+            QVERIFY(root->setProperty("playing", truthy));
+            QVERIFY(!entity->property("live").toBool());
+            QVERIFY(!entity->property("physics").value<QObject *>());
+        }
+        QVERIFY(root->setProperty("playing", true));
+        QPointer<QObject> body = entity->property("physics").value<QObject *>();
+        QVERIFY(body);
+        QCOMPARE(qobject_cast<QQuick3DObject *>(body.data())->parentItem(), root);
+        QCOMPARE(body->property("entity").value<QObject *>(), entity);
+        QQmlListReference shapes(body.data(), "collisionShapes");
+        QVERIFY(shapes.isValid() && shapes.count() > 0);
+        QObject *collider = shapes.at(0);
+        QVERIFY(collider);
+        QCOMPARE(qobject_cast<QQuick3DObject *>(collider)->parentItem(), qobject_cast<QQuick3DObject *>(body.data()));
+        QObject *animation = nullptr;
+        if (sprite) {
+            QCOMPARE(shapes.count(), 1);
+            for (QObject *child : entity->findChildren<QObject *>())
+                if (child->metaObject()->indexOfProperty("frameTime") >= 0)
+                    animation = child;
+            QVERIFY(animation && animation->property("running").toBool());
+            QCOMPARE(entity->property("frame").toInt(), 1);
+            QVERIFY(root->setProperty("paused", QStringLiteral("false")));
+            QTRY_VERIFY(!animation->property("running").toBool());
+            QVERIFY(root->setProperty("paused", false));
+            QTRY_VERIFY(animation->property("running").toBool());
+        }
+        const QVariant originalExtent = entity->property(sprite ? "size" : "extent");
+        for (QQuick3DObject *parent : {root, group, prefab}) {
+            entity->setParentItem(parent);
+            QVERIFY(root->setProperty("pixelsPerUnit", 32.0));
+            QTRY_COMPARE(entity->property("pixelsPerUnit").toDouble(), 32.0);
+            if (sprite) {
+                const QVector3D expected = originalExtent.value<QVector3D>();
+                QTRY_COMPARE(entity->property("size").value<QVector3D>(), QVector3D(expected.x() / 2, expected.y() / 2, 1));
+                QCOMPARE(collider->property("extents"), entity->property("size"));
+            } else {
+                const QSizeF expected = originalExtent.toSizeF();
+                QTRY_COMPARE(entity->property("extent").toSizeF(), QSizeF(expected.width() / 2, expected.height() / 2));
+            }
+            QVERIFY(root->setProperty("pixelsPerUnit", 16.0));
+            QTRY_COMPARE(entity->property(sprite ? "size" : "extent"), originalExtent);
+            QVERIFY(root->setProperty("view", QStringLiteral("3d")));
+            if (sprite) {
+                QTRY_VERIFY(!entity->property("flat").toBool());
+                if (mode == QStringLiteral("dynamic"))
+                    QTRY_COMPARE(body->property("linearAxisLock").toInt(), root->property("noLock").toInt());
+            }
+            QVERIFY(root->setProperty("view", QStringLiteral("2d")));
+            if (sprite && mode == QStringLiteral("dynamic")) {
+                QTRY_COMPARE(body->property("linearAxisLock").toInt(), root->property("depthLock").toInt());
+                QTRY_COMPARE(body->property("angularAxisLock").toInt(), root->property("tiltLocks").toInt());
+                QVERIFY(entity->setProperty("turns", false));
+                QTRY_COMPARE(body->property("angularAxisLock").toInt(), root->property("tiltLocks").toInt() | root->property("depthLock").toInt());
+                QVERIFY(entity->setProperty("turns", true));
+            }
+            QVERIFY(root->setProperty("playing", false));
+            QTRY_VERIFY(!entity->property("live").toBool());
+            QVERIFY(root->setProperty("playing", true));
+            QTRY_VERIFY(entity->property("live").toBool());
+            QCOMPARE(entity->property("physics").value<QObject *>(), body.data());
+            QCOMPARE(shapes.at(0), collider);
+        }
+        entity->setParentItem(compatible);
+        QTRY_COMPARE(entity->property("pixelsPerUnit").toDouble(), 64.0);
+        QTRY_VERIFY(entity->property("live").toBool());
+        if (animation)
+            QTRY_VERIFY(!animation->property("running").toBool());
+        for (QQuick3DObject *parent : {ordinary, static_cast<QQuick3DObject *>(nullptr)}) {
+            entity->setParentItem(parent);
+            QTRY_VERIFY(!entity->property("live").toBool());
+            QTRY_COMPARE(entity->property("pixelsPerUnit").toDouble(), 16.0);
+            if (animation)
+                QTRY_VERIFY(!animation->property("running").toBool());
+        }
+        entity->setParentItem(root);
+        QTRY_VERIFY(entity->property("live").toBool());
+        QCOMPARE(entity->property("physics").value<QObject *>(), body.data());
+        QCOMPARE(shapes.at(0), collider);
+    }
+
+    void musicFollowsItsCurrentParentsPlayAndReplayState()
+    {
+        QTest::failOnWarning(QRegularExpression(QStringLiteral(".*(TypeError|ReferenceError|Binding loop).*")));
+        QQmlComponent component(engine);
+        component.setData(
+            "import QtQuick\nimport QtQuick3D\nimport QQ\nNode {\n"
+            " property var playing: false; property var replaying: false; property var paused: false\n"
+            " Music { objectName: \"music\"; web: true; source: \"chime.wav\" }\n"
+            " Node { objectName: \"other\"; property var playing: true; property var replaying: false }\n"
+            " Node { objectName: \"ordinary\" }\n}\n",
+            QUrl::fromLocalFile(fixture(QStringLiteral("music-parent.qml"))));
+        std::unique_ptr<QObject> object(component.create());
+        QVERIFY2(object, qPrintable(component.errorString()));
+        auto *root = qobject_cast<QQuick3DObject *>(object.get());
+        auto *music = object->findChild<QQuick3DObject *>(QStringLiteral("music"));
+        auto *other = object->findChild<QQuick3DObject *>(QStringLiteral("other"));
+        auto *ordinary = object->findChild<QQuick3DObject *>(QStringLiteral("ordinary"));
+        QVERIFY(root && music && other && ordinary);
+        const auto restore = qScopeGuard([&] { music->setParentItem(root); music->setParent(root); });
+        const auto voice = [&]() -> QObject * {
+            QVariant result;
+            if (!QMetaObject::invokeMethod(music, "voice", Q_RETURN_ARG(QVariant, result), Q_ARG(QVariant, 0)))
+                return nullptr;
+            return result.value<QObject *>();
+        };
+        for (const QVariant &truthy : {QVariant(QStringLiteral("true")), QVariant(1)}) {
+            QVERIFY(root->setProperty("playing", truthy));
+            QVERIFY(!music->property("live").toBool());
+            QVERIFY(!voice());
+        }
+        QVERIFY(root->setProperty("playing", true));
+        QTRY_VERIFY(qobject_cast<qq::WebVoice *>(voice()));
+        QObject *playing = voice();
+        QVERIFY(root->setProperty("paused", true));
+        QCOMPARE(voice(), playing); // Music keeps sounding while the world is paused.
+        for (const QVariant &replaying : {QVariant(true), QVariant(QStringLiteral("false")), QVariant(1)}) {
+            QVERIFY(root->setProperty("replaying", replaying));
+            QTRY_VERIFY(!music->property("sounding").toBool());
+            QTRY_VERIFY(!voice());
+            QVERIFY(root->setProperty("replaying", false));
+            QTRY_VERIFY(qobject_cast<qq::WebVoice *>(voice()));
+        }
+        music->setParentItem(other);
+        QTRY_VERIFY(music->property("sounding").toBool());
+        QVERIFY(root->setProperty("replaying", true));
+        QVERIFY(music->property("sounding").toBool());
+        QVERIFY(other->setProperty("replaying", true));
+        QTRY_VERIFY(!voice());
+        for (QQuick3DObject *parent : {ordinary, static_cast<QQuick3DObject *>(nullptr)}) {
+            music->setParentItem(parent);
+            QTRY_VERIFY(!music->property("live").toBool());
+            QTRY_VERIFY(!voice());
+        }
+        QVERIFY(root->setProperty("replaying", false));
+        music->setParentItem(root);
+        QTRY_VERIFY(qobject_cast<qq::WebVoice *>(voice()));
+    }
+
+    void runtimeKindsFollowTheirNearestParentsState_data()
+    {
+        QTest::addColumn<QString>("kind");
+        for (const char *kind : {"Emitter", "Ground", "InputAction", "Prop", "Sound", "Spotlight"})
+            QTest::newRow(kind) << QString::fromLatin1(kind);
+    }
+
+    void runtimeKindsFollowTheirNearestParentsState()
+    {
+        QFETCH(QString, kind);
+        QTest::failOnWarning(QRegularExpression(QStringLiteral(".*(TypeError|ReferenceError|Binding loop).*")));
+        QQmlComponent component(engine);
+        component.setData(QStringLiteral(
+            "import QtQuick\nimport QtQuick3D\nimport QQ\nNode {\n"
+            "    property var playing: false\n    property var paused: false\n    property var replaying: false\n"
+            "    %1 { objectName: \"entity\"; name: \"parent-state-check\"; %2 }\n"
+            "    Group { objectName: \"group\" }\n    Prefab { objectName: \"prefab\" }\n"
+            "    Node { objectName: \"compatible\"; property var playing: false; property var paused: true; property var replaying: false }\n"
+            "    Node { objectName: \"ordinary\" }\n}\n")
+                .arg(kind, kind == QStringLiteral("Sound") ? QStringLiteral("web: true") : QString()).toUtf8(),
+            QUrl::fromLocalFile(fixture(QStringLiteral("parent-state.qml"))));
+        std::unique_ptr<QObject> object(component.create());
+        QVERIFY2(object, qPrintable(component.errorString()));
+        auto *root = qobject_cast<QQuick3DObject *>(object.get());
+        auto *entity = object->findChild<QQuick3DObject *>(QStringLiteral("entity"));
+        auto *group = object->findChild<QQuick3DObject *>(QStringLiteral("group"));
+        auto *prefab = object->findChild<QQuick3DObject *>(QStringLiteral("prefab"));
+        auto *compatible = object->findChild<QQuick3DObject *>(QStringLiteral("compatible"));
+        auto *ordinary = object->findChild<QQuick3DObject *>(QStringLiteral("ordinary"));
+        QVERIFY(root && entity && group && prefab && compatible && ordinary);
+        const auto restore = qScopeGuard([&] { entity->setParentItem(root); entity->setParent(root); });
+        QObject *particles = nullptr;
+        QObject *marker = nullptr;
+        for (QObject *child : entity->findChildren<QObject *>()) {
+            if (child->metaObject()->indexOfProperty("loggingData") >= 0)
+                particles = child;
+            if (child->property("pickable").toBool() && child->metaObject()->indexOfProperty("source") >= 0)
+                marker = child;
+        }
+        const bool emitter = kind == QStringLiteral("Emitter");
+        if (emitter)
+            QVERIFY(particles && marker);
+        if (kind == QStringLiteral("Sound") || kind == QStringLiteral("Spotlight"))
+            QVERIFY(marker);
+        const auto active = [&] { return emitter ? !marker->property("visible").toBool() : entity->property("live").toBool(); };
+        QVERIFY(!active());
+        for (const QVariant &truthy : {QVariant(QStringLiteral("true")), QVariant(1)}) {
+            QVERIFY(root->setProperty("playing", truthy));
+            QVERIFY(!active());
+        }
+        QVERIFY(root->setProperty("playing", true));
+        QTRY_VERIFY(active());
+        if (marker && kind != QStringLiteral("Prop"))
+            QVERIFY(!marker->property("visible").toBool());
+        QPointer<QObject> body = entity->property("physics").value<QObject *>();
+        if (kind == QStringLiteral("Ground")) {
+            QVERIFY(body);
+            QCOMPARE(qobject_cast<QQuick3DObject *>(body.data())->parentItem(), root);
+            QCOMPARE(body->property("entity").value<QObject *>(), entity);
+        }
+        auto *input = engine->singletonInstance<qq::Input *>("QQ", "Input");
+        QVERIFY(input);
+        if (kind == QStringLiteral("InputAction")) {
+            QCOMPARE(entity->property("declared").toString(), QStringLiteral("parent-state-check"));
+            QVERIFY(input->actions().contains(QStringLiteral("parent-state-check")));
+            input->define(QStringLiteral("parent-state-check"), {QStringLiteral("F2")}, {});
+        }
+        if (particles) {
+            QVERIFY(root->setProperty("paused", true));
+            QTRY_VERIFY(particles->property("paused").toBool());
+            QVERIFY(root->setProperty("paused", QStringLiteral("true")));
+            QTRY_VERIFY(!particles->property("paused").toBool());
+            QVERIFY(root->setProperty("paused", false));
+        }
+        if (kind == QStringLiteral("Sound")) {
+            QVERIFY(entity->setProperty("source", QUrl::fromLocalFile(fixture(QStringLiteral("chime.wav")))));
+            QTRY_VERIFY(entity->property("sounding").toBool());
+            QTRY_VERIFY(qobject_cast<qq::WebVoice *>(entity->property("playing").value<QObject *>()));
+            for (const QVariant &replay : {QVariant(true), QVariant(QStringLiteral("false")), QVariant(1)}) {
+                QVERIFY(root->setProperty("replaying", replay));
+                QTRY_VERIFY(!entity->property("sounding").toBool());
+                QTRY_VERIFY(!entity->property("playing").value<QObject *>());
+            }
+            QVERIFY(root->setProperty("replaying", false));
+            QTRY_VERIFY(entity->property("sounding").toBool());
+            QVERIFY(entity->setProperty("source", QUrl()));
+            QTRY_VERIFY(!entity->property("sounding").toBool());
+        }
+        for (QQuick3DObject *parent : {group, prefab, compatible, ordinary}) {
+            entity->setParentItem(parent);
+            QTRY_COMPARE(active(), parent == group || parent == prefab);
+            if (particles)
+                QTRY_COMPARE(particles->property("paused").toBool(), parent == compatible);
+        }
+        entity->setParentItem(compatible);
+        QVERIFY(compatible->setProperty("playing", true));
+        QTRY_VERIFY(active());
+        QVERIFY(compatible->setProperty("playing", QStringLiteral("true")));
+        QTRY_VERIFY(!active());
+        entity->setParentItem(nullptr);
+        QTRY_VERIFY(!active());
+        if (particles)
+            QTRY_VERIFY(!particles->property("paused").toBool());
+        entity->setParentItem(root);
+        QTRY_VERIFY(active());
+        if (kind == QStringLiteral("Ground"))
+            QCOMPARE(entity->property("physics").value<QObject *>(), body.data());
+        if (kind == QStringLiteral("InputAction")) {
+            // Activation and reparenting do not overwrite a binding the player has changed.
+            QCOMPARE(input->describe(QStringLiteral("parent-state-check")), QStringLiteral("F2"));
+        }
+    }
+
+    void aPropsFramesReadItsCurrentParentsClock()
+    {
+        QTest::failOnWarning(QRegularExpression(QStringLiteral(".*(TypeError|ReferenceError|Binding loop).*")));
+        QQmlComponent component(engine);
+        component.setData(
+            "import QtQuick\nimport QtQuick3D\nimport QQ\nNode {\n"
+            "    property var playing: true\n    property var replaying: false\n    property var paused: false\n"
+            "    property real _owed: 0.25\n"
+            "    Prop { objectName: \"prop\"; source: \"rig.gltf\"; clip: \"bend\" }\n"
+            "    Node { objectName: \"other\"; property bool playing: true; property var replaying: false;"
+            " property var paused: false; property real _owed: 0.75 }\n}\n",
+            QUrl::fromLocalFile(fixture(QStringLiteral("prop-clock.qml"))));
+        std::unique_ptr<QObject> object(component.create());
+        QVERIFY2(object, qPrintable(component.errorString()));
+        auto *root = qobject_cast<QQuick3DObject *>(object.get());
+        auto *prop = object->findChild<QQuick3DObject *>(QStringLiteral("prop"));
+        auto *other = object->findChild<QQuick3DObject *>(QStringLiteral("other"));
+        QVERIFY(root && prop && other);
+        const auto restore = qScopeGuard([&] { prop->setParentItem(root); prop->setParent(root); });
+        QTRY_COMPARE(prop->property("status").toInt(), 1);
+        QCOMPARE(prop->property("clipLength").toDouble(), 2.0);
+        QVariant part;
+        QVERIFY(QMetaObject::invokeMethod(prop, "part", Q_RETURN_ARG(QVariant, part), Q_ARG(QVariant, QStringLiteral("Tip"))));
+        QObject *tip = part.value<QObject *>();
+        QVERIFY(tip);
+        QObject *animation = nullptr;
+        for (QObject *child : prop->findChildren<QObject *>())
+            if (child->metaObject()->indexOfProperty("frameTime") >= 0 && child->metaObject()->indexOfSignal("triggered()") >= 0)
+                animation = child;
+        QVERIFY(animation);
+        const auto angle = [&] { return tip->property("eulerRotation").value<QVector3D>().z(); };
+        QVERIFY(animation->property("running").toBool());
+        QVERIFY(QMetaObject::invokeMethod(animation, "triggered"));
+        QVERIFY(qAbs(angle() - 22.5) < 0.01);
+        QCOMPARE(prop->property("clipTime").toDouble(), 0.0);
+        QVERIFY(root->setProperty("_owed", 0.5));
+        QVERIFY(QMetaObject::invokeMethod(animation, "triggered"));
+        QVERIFY(qAbs(angle() - 45) < 0.01);
+        QVERIFY(root->setProperty("paused", QStringLiteral("false")));
+        QVERIFY(QMetaObject::invokeMethod(animation, "triggered"));
+        QVERIFY(qAbs(angle()) < 0.01); // Any truthy paused value holds the pose at the last step.
+        QVERIFY(root->setProperty("replaying", 1));
+        QTRY_VERIFY(!animation->property("running").toBool());
+        prop->setParentItem(other);
+        QTRY_VERIFY(animation->property("running").toBool());
+        QVERIFY(QMetaObject::invokeMethod(animation, "triggered"));
+        QVERIFY(qAbs(angle() - 67.5) < 0.01);
+        QVERIFY(other->setProperty("_owed", 0.5));
+        QVERIFY(prop->setProperty("clipSpeed", 2.0));
+        QVERIFY(QMetaObject::invokeMethod(animation, "triggered"));
+        QVERIFY(qAbs(angle() - 90) < 0.01);
+        QVERIFY(prop->setProperty("clip", QString()));
+        QTRY_VERIFY(!animation->property("running").toBool());
+        QVERIFY(qAbs(angle()) < 0.01);
+        prop->setParentItem(nullptr);
+        QVERIFY(!prop->property("live").toBool());
+        QVERIFY(!animation->property("running").toBool());
+    }
+
+    void aTileMapKeepsItsOwnedCollisionShapes()
+    {
+        QTest::failOnWarning(QRegularExpression(QStringLiteral(".*(TypeError|ReferenceError|Binding loop).*")));
+        QQmlComponent component(engine);
+        component.setData(
+            "import QtQuick\nimport QtQuick3D\nimport QQ\nNode {\n"
+            "    property bool playing: false\n    property real pixelsPerUnit: 32\n"
+            "    TileMap { objectName: \"map\"; source: \"level.tmj\"; solid: false;"
+            " position: Qt.vector3d(3, 4, 5); eulerRotation: Qt.vector3d(0, 0, 30) }\n}\n",
+            QUrl::fromLocalFile(fixture(QStringLiteral("tile-body.qml"))));
+        std::unique_ptr<QObject> object(component.create());
+        QVERIFY2(object, qPrintable(component.errorString()));
+        auto *root = qobject_cast<QQuick3DObject *>(object.get());
+        QObject *map = object->findChild<QObject *>(QStringLiteral("map"));
+        QVERIFY(root && map);
+        QCOMPARE(map->property("error").toString(), QString());
+        QVERIFY(!map->property("physics").value<QObject *>());
+        QVERIFY(root->setProperty("playing", true));
+        QVERIFY(!map->property("physics").value<QObject *>());
+        QVERIFY(root->setProperty("playing", false));
+        QVERIFY(map->setProperty("solid", true));
+        QVERIFY(root->setProperty("playing", true));
+        QPointer<QObject> body = map->property("physics").value<QObject *>();
+        QVERIFY(body);
+        QCOMPARE(qobject_cast<QQuick3DObject *>(body.data())->parentItem(), root);
+        QCOMPARE(body->property("entity").value<QObject *>(), map);
+        QCOMPARE(body->property("position"), map->property("position"));
+        QCOMPARE(body->property("rotation"), map->property("rotation"));
+        QVERIFY(body->property("sendContactReports").toBool());
+        QQmlListReference shapes(body.data(), "collisionShapes");
+        QVERIFY(shapes.isValid());
+        const QVariantList solids = io->readTiledMap(QUrl::fromLocalFile(fixture(QStringLiteral("level.tmj"))))
+                                        .value(QStringLiteral("solids")).toList();
+        QVERIFY(!solids.isEmpty());
+        QCOMPARE(shapes.count(), solids.size());
+        const double tw = map->property("tileWidth").toDouble();
+        const double th = map->property("tileHeight").toDouble();
+        QList<QObject *> identities;
+        for (qsizetype i = 0; i < solids.size(); ++i) {
+            const QVariantList r = solids[i].toList();
+            QCOMPARE(r.size(), 4);
+            QObject *shape = shapes.at(i);
+            QVERIFY(shape);
+            identities << shape;
+            QCOMPARE(qobject_cast<QQuick3DObject *>(shape)->parentItem(), qobject_cast<QQuick3DObject *>(body.data()));
+            QCOMPARE(shape->property("position").value<QVector3D>(),
+                     QVector3D((r[0].toDouble() + r[2].toDouble() / 2) * tw, -(r[1].toDouble() + r[3].toDouble() / 2) * th, 0));
+            QCOMPARE(shape->property("extents").value<QVector3D>(), QVector3D(r[2].toDouble() * tw, r[3].toDouble() * th, 1));
+        }
+        QVERIFY(QMetaObject::invokeMethod(map, "makeBody"));
+        QVERIFY(root->setProperty("playing", false));
+        QVERIFY(root->setProperty("playing", true));
+        QCOMPARE(map->property("physics").value<QObject *>(), body.data());
+        QCOMPARE(shapes.count(), identities.size());
+        for (qsizetype i = 0; i < identities.size(); ++i)
+            QCOMPARE(shapes.at(i), identities[i]);
+        object.reset();
+        QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
+        QVERIFY(body.isNull());
+    }
+
+    void aBehaviourKeepsItsStructuralLogicAndParent_data()
+    {
+        QTest::addColumn<bool>("structural");
+        QTest::newRow("qq-logic") << false;
+        QTest::newRow("compatible-object") << true;
+    }
+
+    void aBehaviourKeepsItsStructuralLogicAndParent()
+    {
+        QFETCH(bool, structural);
+        QTest::failOnWarning(QRegularExpression(QStringLiteral(".*(TypeError|ReferenceError|Binding loop).*")));
+        QTemporaryDir project;
+        QVERIFY(project.isValid());
+        const QString path = QDir(project.path()).filePath(QStringLiteral("events.qml"));
+        QByteArray source = "import QtQuick\nimport QQ\n";
+        source += structural
+            ? "QtObject {\n    readonly property bool qqLogic: true\n"
+              "    property QtObject target\n    property QtObject scene\n"
+              "    signal step(real dt)\n    signal frame(real dt)\n    signal told(var message)\n"
+              "    signal pressed(string action)\n    signal released(string action)\n"
+              "    signal contact(QtObject other, var point, var normal)\n"
+              "    signal entered(QtObject other)\n    signal exited(QtObject other)\n    signal clicked()\n"
+              "    function _step(dt) { step(dt) }\n    function _frame(dt) { frame(dt) }\n"
+              "    function _told(message) { told(message) }\n"
+              "    function _hear(kind, action) { if (kind === \"pressed\") pressed(action); else released(action) }\n"
+            : "Logic {\n";
+        source += "    property int stepCalls: 0\n    property var received\n"
+                  "    property int revision: 1\n"
+                  "    onStep: (dt) => ++stepCalls\n    onTold: (message) => received = message\n}\n";
+        const auto save = [&] {
+            QFile file(path);
+            return file.open(QIODevice::WriteOnly) && file.write(source) == source.size();
+        };
+        QVERIFY(save());
+        QQmlComponent component(engine);
+        component.setData(
+            "import QtQuick\nimport QtQuick3D\nimport QQ\nNode {\n    id: root\n"
+            "    readonly property string kind: \"Scene\"\n"
+            "    property var playing: false\n    property var paused: true\n    property var replaying: false\n"
+            "    Node { objectName: \"global\"; property string kind: \"Shape\"; property string name: \"Target\" }\n"
+            "    Node { id: silent; objectName: \"silent\"; property string kind: \"Shape\"; property string name: \"Silent\" }\n"
+            "    Node { id: prefab; property string kind: \"Prefab\"\n"
+            "        property bool playing: root.playing === true\n"
+            "        property bool paused: root.paused === true\n    property bool replaying: root.replaying === true\n"
+            "        Node { id: own; objectName: \"own\"; property string kind: \"Shape\"; property string name: \"Target\"\n"
+            "            signal contact(QtObject other, var point, var normal)\n"
+            "            signal entered(QtObject other)\n    signal exited(QtObject other)\n    signal clicked()\n        }\n"
+            "        Group { objectName: \"group\"\n"
+            "            Behaviour { objectName: \"behaviour\"; source: \"events.qml\"; target: \"Target\" }\n        }\n    }\n"
+            "    function sendEvents() { own.contact(silent, Qt.vector3d(1, 2, 3), Qt.vector3d(0, 1, 0));"
+            " own.entered(silent); own.exited(silent); own.clicked() }\n}\n",
+            QUrl::fromLocalFile(QDir(project.path()).filePath(QStringLiteral("scene.qml"))));
+        std::unique_ptr<QObject> object(component.create());
+        QVERIFY2(object, qPrintable(component.errorString()));
+        auto *root = qobject_cast<QQuick3DObject *>(object.get());
+        auto *behaviour = object->findChild<QQuick3DObject *>(QStringLiteral("behaviour"));
+        auto *group = object->findChild<QQuick3DObject *>(QStringLiteral("group"));
+        QObject *own = object->findChild<QObject *>(QStringLiteral("own"));
+        QObject *silent = object->findChild<QObject *>(QStringLiteral("silent"));
+        QObject *global = object->findChild<QObject *>(QStringLiteral("global"));
+        QVERIFY(root && behaviour && group && own && silent && global);
+        const auto restore = qScopeGuard([&] { behaviour->setParentItem(group); behaviour->setParent(group); });
+        auto logic = [&] { return behaviour->property("logic").value<QObject *>(); };
+        QVERIFY(!behaviour->property("live").toBool());
+        QVERIFY(behaviour->property("ready").toBool());
+        QVERIFY(!logic());
+        QVERIFY(root->setProperty("playing", true));
+        QTRY_VERIFY(logic());
+        QCOMPARE(behaviour->property("builds").toInt(), 1);
+        QCOMPARE(behaviour->property("error").toString(), QString());
+        QCOMPARE(logic()->property("scene").value<QObject *>(), group);
+        QCOMPARE(logic()->property("target").value<QObject *>(), own);
+
+        QSignalSpy step(logic(), SIGNAL(step(double)));
+        QSignalSpy frame(logic(), SIGNAL(frame(double)));
+        QSignalSpy pressed(logic(), SIGNAL(pressed(QString)));
+        QSignalSpy released(logic(), SIGNAL(released(QString)));
+        QSignalSpy contact(logic(), SIGNAL(contact(QObject*,QVariant,QVariant)));
+        QSignalSpy entered(logic(), SIGNAL(entered(QObject*)));
+        QSignalSpy exited(logic(), SIGNAL(exited(QObject*)));
+        QSignalSpy clicked(logic(), SIGNAL(clicked()));
+        QVERIFY(step.isValid() && frame.isValid() && pressed.isValid() && released.isValid());
+        QVERIFY(contact.isValid() && entered.isValid() && exited.isValid() && clicked.isValid());
+        QVERIFY(QMetaObject::invokeMethod(behaviour, "_stepLogic", Q_ARG(QVariant, 1.0 / 60.0)));
+        QCOMPARE(step.size(), 1);
+        QCOMPARE(step.first().first().toDouble(), 1.0 / 60.0);
+        QCOMPARE(logic()->property("stepCalls").toInt(), 1);
+        const QVariantMap message{{QStringLiteral("items"), QVariantList{1, QStringLiteral("two"), true}},
+                                  {QStringLiteral("nested"), QVariantMap{{QStringLiteral("value"), 7}}}};
+        QVERIFY(QMetaObject::invokeMethod(behaviour, "_told", Q_ARG(QVariant, message)));
+        const QVariant received = logic()->property("received");
+        const QVariant decoded = received.metaType() == QMetaType::fromType<QJSValue>()
+            ? received.value<QJSValue>().toVariant() : received;
+        QCOMPARE(decoded.toMap(), message);
+        QVERIFY(QMetaObject::invokeMethod(behaviour, "_hear", Q_ARG(QVariant, QStringLiteral("pressed")),
+                                         Q_ARG(QVariant, QStringLiteral("jump"))));
+        QVERIFY(QMetaObject::invokeMethod(behaviour, "_hear", Q_ARG(QVariant, QStringLiteral("released")),
+                                         Q_ARG(QVariant, QStringLiteral("jump"))));
+        QCOMPARE(pressed.size(), 1);
+        QCOMPARE(released.size(), 1);
+        QCOMPARE(pressed.first().first().toString(), QStringLiteral("jump"));
+        QCOMPARE(released.first().first().toString(), QStringLiteral("jump"));
+        QVERIFY(QMetaObject::invokeMethod(root, "sendEvents"));
+        QCOMPARE(contact.size(), 1);
+        QCOMPARE(contact.first().at(0).value<QObject *>(), silent);
+        QCOMPARE(contact.first().at(1).value<QVector3D>(), QVector3D(1, 2, 3));
+        QCOMPARE(contact.first().at(2).value<QVector3D>(), QVector3D(0, 1, 0));
+        QCOMPARE(entered.size(), 1);
+        QCOMPARE(exited.size(), 1);
+        QCOMPARE(entered.first().first().value<QObject *>(), silent);
+        QCOMPARE(exited.first().first().value<QObject *>(), silent);
+        QCOMPARE(clicked.size(), 1);
+
+        QObject *animation = nullptr;
+        for (QObject *child : behaviour->findChildren<QObject *>()) {
+            if (child->metaObject()->indexOfProperty("frameTime") >= 0
+                && child->metaObject()->indexOfSignal("triggered()") >= 0) {
+                QVERIFY(!animation);
+                animation = child;
+            }
+        }
+        QVERIFY(animation);
+        QVERIFY(!animation->property("running").toBool());
+        QVERIFY(root->setProperty("paused", false));
+        QTRY_VERIFY(animation->property("running").toBool());
+        QVERIFY(root->setProperty("replaying", true));
+        QTRY_VERIFY(!animation->property("running").toBool());
+        QVERIFY(root->setProperty("replaying", false));
+        QTRY_VERIFY(animation->property("running").toBool());
+        const qsizetype frames = frame.size();
+        QVERIFY(QMetaObject::invokeMethod(animation, "triggered"));
+        QCOMPARE(frame.size(), frames + 1);
+        QCOMPARE(frame.last().first().toDouble(), qMin(animation->property("frameTime").toDouble(), 0.05));
+        QVERIFY(root->setProperty("paused", true));
+        QVERIFY(behaviour->setProperty("target", QStringLiteral("Silent")));
+        QTRY_COMPARE(logic()->property("target").value<QObject *>(), silent);
+        QVERIFY(QMetaObject::invokeMethod(root, "sendEvents"));
+        QCOMPARE(clicked.size(), 1);
+        QCOMPARE(contact.size(), 1);
+        QVERIFY(behaviour->setProperty("target", QStringLiteral("Target")));
+        QTRY_COMPARE(logic()->property("target").value<QObject *>(), own);
+        QVERIFY(QMetaObject::invokeMethod(root, "sendEvents"));
+        QCOMPARE(clicked.size(), 2);
+        QCOMPARE(contact.size(), 2);
+
+        // A different parent changes both lookup scope and the state supplied to the same live logic.
+        QPointer<QObject> first = logic();
+        behaviour->setParentItem(root);
+        QTRY_COMPARE(logic()->property("scene").value<QObject *>(), root);
+        QTRY_COMPARE(logic()->property("target").value<QObject *>(), global);
+        QCOMPARE(logic(), first.data());
+        QVERIFY(root->setProperty("paused", QStringLiteral("false")));
+        QVERIFY(!animation->property("running").toBool()); // A truthy structural value still pauses frames.
+        QVERIFY(root->setProperty("paused", false));
+        QTRY_VERIFY(animation->property("running").toBool());
+        QVERIFY(root->setProperty("replaying", 1));
+        QTRY_VERIFY(!animation->property("running").toBool());
+        QVERIFY(root->setProperty("replaying", false));
+        QVERIFY(root->setProperty("paused", true));
+        behaviour->setParentItem(group);
+        QTRY_COMPARE(logic()->property("scene").value<QObject *>(), group);
+        QTRY_COMPARE(logic()->property("target").value<QObject *>(), own);
+
+        // Reload forwards the very next callback to the replacement, without a cached QObject binding.
+        auto *file = behaviour->findChild<qq::LogicFile *>();
+        QVERIFY(file);
+        source.replace("revision: 1", "revision: 2");
+        QVERIFY(save());
+        file->reload();
+        QVERIFY(logic() && logic() != first.data());
+        QCOMPARE(behaviour->property("builds").toInt(), 2);
+        QCOMPARE(logic()->property("revision").toInt(), 2);
+        QVERIFY(QMetaObject::invokeMethod(behaviour, "_stepLogic", Q_ARG(QVariant, 0.125)));
+        QCOMPARE(logic()->property("stepCalls").toInt(), 1);
+        QCOMPARE(first->property("stepCalls").toInt(), 1);
+        QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
+        QVERIFY(first.isNull());
+        QVERIFY(root->setProperty("playing", QStringLiteral("true")));
+        QTRY_VERIFY(!logic());
+        QVERIFY(!behaviour->property("live").toBool());
+        QVERIFY(behaviour->property("ready").toBool());
+        QVERIFY(QMetaObject::invokeMethod(behaviour, "_stepLogic", Q_ARG(QVariant, 0.25)));
+        QVERIFY(QMetaObject::invokeMethod(root, "sendEvents"));
+        behaviour->setParentItem(nullptr);
+        QVERIFY(!behaviour->property("live").toBool());
+        QVERIFY(root->setProperty("playing", true));
+        behaviour->setParentItem(group);
+        QTRY_VERIFY(logic());
+        QCOMPARE(logic()->property("revision").toInt(), 2);
+        QCOMPARE(logic()->property("stepCalls").toInt(), 0);
+    }
 
     void groupsAndPrefabsKeepTheirNearestParentsState_data()
     {
@@ -1867,6 +2534,74 @@ private slots:
         QCOMPARE(world->property("skyChanges").toInt(), 2);
     }
 
+    void aWorldSelectsBakedLightingByItsColoursAndKeepsCustomSkies()
+    {
+        QQuickWindow host;
+        QQmlComponent component(engine);
+        component.setData("import QQ\nWorld {}\n", QUrl(QStringLiteral("qrc:/baked-sky.qml")));
+        std::unique_ptr<QObject> world(component.create());
+        QVERIFY2(world, qPrintable(component.errorString()));
+        auto *viewport = qobject_cast<QQuickItem *>(world.get());
+        QVERIFY(viewport);
+        viewport->setParentItem(host.contentItem());
+        QObject *environment = world->property("environment").value<QObject *>();
+        QObject *baked = world->property("bakedSky").value<QObject *>();
+        QObject *made = world->property("made").value<QObject *>();
+        QObject *photographed = world->property("photographed").value<QObject *>();
+        QVERIFY(environment && baked && made && photographed);
+        QCOMPARE(environment->property("lightProbe").value<QObject *>(), baked);
+
+        const auto bakedResource = [&] {
+            return qmlContext(baked)->resolvedUrl(baked->property("source").toUrl());
+        };
+        const QUrl defaultResource = bakedResource();
+        QCOMPARE(defaultResource.scheme(), QStringLiteral("qrc"));
+        QFile defaultImage(QLatin1Char(':') + defaultResource.path());
+        QVERIFY(defaultImage.open(QIODevice::ReadOnly));
+        QCOMPARE(defaultImage.read(12), QByteArray::fromHex("ab4b5458203131bb0d0a1a0a"));
+        QVERIFY(defaultImage.seek(0));
+        QCOMPARE(QCryptographicHash::hash(defaultImage.readAll(), QCryptographicHash::Sha256).toHex(),
+                 QByteArray("5ea4c877f220890665c20a8b1c2045c0142885eeaa01260ae10b9e201b1ce097"));
+
+        const char *fields[] = {"skyTop", "skyHorizon", "groundHorizon", "groundBottom"};
+        const QColor defaults[] = {QColor("#0b1430"), QColor("#c7623a"), QColor("#2a1a1a"), QColor("#07080c")};
+        for (int i = 0; i < 4; ++i) {
+            QVERIFY(world->setProperty(fields[i], QColor("#123456")));
+            QCOMPARE(environment->property("lightProbe").value<QObject *>(), made);
+            QVERIFY(world->property("bakedSkySource").toUrl().isEmpty());
+            QTRY_VERIFY(world->property("madeSky").value<QObject *>());
+            QVERIFY(world->setProperty(fields[i], defaults[i]));
+            QCOMPARE(environment->property("lightProbe").value<QObject *>(), baked);
+            QCOMPARE(bakedResource(), defaultResource);
+        }
+
+        QVERIFY(world->setProperty("skyTop", QColor("#120d1f")));
+        QVERIFY(world->setProperty("skyHorizon", QColor("#3a1630")));
+        QVERIFY(world->setProperty("groundHorizon", QColor("#0a0710")));
+        QCOMPARE(environment->property("lightProbe").value<QObject *>(), baked);
+        QVERIFY(bakedResource() != defaultResource);
+        QFile sampleImage(QLatin1Char(':') + bakedResource().path());
+        QVERIFY(sampleImage.open(QIODevice::ReadOnly));
+        QCOMPARE(sampleImage.read(12), QByteArray::fromHex("ab4b5458203131bb0d0a1a0a"));
+        QVERIFY(sampleImage.seek(0));
+        QCOMPARE(QCryptographicHash::hash(sampleImage.readAll(), QCryptographicHash::Sha256).toHex(),
+                 QByteArray("a9900cb3f246c8dceb1daaf7174563b304d191741b3174292e58f52c29ff1858"));
+        QVERIFY(world->setProperty("groundBottom", QColor("#8807080c")));
+        QCOMPARE(environment->property("lightProbe").value<QObject *>(), made);
+        QVERIFY(world->setProperty("groundBottom", QColor("#07080c")));
+        QCOMPARE(environment->property("lightProbe").value<QObject *>(), baked);
+
+        QVERIFY(world->setProperty("skyTurn", 90.0));
+        QVERIFY(world->setProperty("skyLight", 1.25));
+        QCOMPARE(environment->property("lightProbe").value<QObject *>(), baked);
+        QCOMPARE(environment->property("probeOrientation").value<QVector3D>(), QVector3D(0, 90, 0));
+        QCOMPARE(environment->property("probeExposure").toDouble(), 1.25);
+        QVERIFY(world->setProperty("sky", QUrl(QStringLiteral("qrc:/custom-sky.hdr"))));
+        QCOMPARE(environment->property("lightProbe").value<QObject *>(), photographed);
+        QVERIFY(world->setProperty("sky", QUrl()));
+        QCOMPARE(environment->property("lightProbe").value<QObject *>(), baked);
+    }
+
     void aGamesLoadedSceneDoesNotReplaceItsViewportScene()
     {
         QTemporaryDir project;
@@ -1903,6 +2638,129 @@ private slots:
         QVERIFY(!game->property("playingScene").value<QObject *>());
         QCOMPARE(game->property("scene").value<QObject *>(), viewportScene);
         QVERIFY(!game->property("settled").toBool());
+    }
+
+    void aGameFollowsItsLoadedSceneInterface_data()
+    {
+        QTest::addColumn<QByteArray>("text");
+        QTest::newRow("scene") << QByteArray("import QQ\nScene { name: \"interface\" }\n");
+        // SceneIO admits a 3D node by its scene interface, not by one generated QML class.
+        QTest::newRow("structural-node") << QByteArray(
+            "import QtQuick\n"
+            "import QtQuick3D\n"
+            "Node {\n"
+            "    property string kind: \"Scene\"\n"
+            "    property QtObject player: null\n"
+            "    property string view: \"3d\"\n"
+            "    property real pixelsPerUnit: 16\n"
+            "    property real viewHeight: 12\n"
+            "    property bool pixelArt: true\n"
+            "    property real exposure: 1\n"
+            "    property bool bloom: true\n"
+            "    property real skyLight: 0.75\n"
+            "    property color skyTop: \"#0b1430\"\n"
+            "    property color skyHorizon: \"#c7623a\"\n"
+            "    property color groundHorizon: \"#2a1a1a\"\n"
+            "    property color groundBottom: \"#07080c\"\n"
+            "    property url sky\n"
+            "    property real skyTurn: 0\n"
+            "    property int playSeed: 0\n"
+            "    property QtObject recorder: null\n"
+            "    property bool playing: false\n"
+            "    signal asked(var message)\n"
+            "    function tell(message) { return playing && message === \"hello\" }\n"
+            "    function keptInView(point, halfWidth, halfHeight) { return point }\n"
+            "}\n"
+        );
+    }
+
+    void aGameFollowsItsLoadedSceneInterface()
+    {
+        QFETCH(QByteArray, text);
+        QTest::failOnWarning(QRegularExpression(QStringLiteral(".*(TypeError|ReferenceError|Binding loop).*")));
+        QTemporaryDir project;
+        QVERIFY(project.isValid());
+        QFile source(project.filePath(QStringLiteral("scene.qml")));
+        QVERIFY(source.open(QIODevice::WriteOnly));
+        QCOMPARE(source.write(text), qint64(text.size()));
+        source.close();
+
+        QQuickWindow host;
+        qq::RunRecord recorder;
+        QQmlComponent component(engine);
+        component.setData("import QQ\nGame { hearing: false; width: 640; height: 360 }\n",
+                          QUrl(QStringLiteral("qrc:/game-interface.qml")));
+        std::unique_ptr<QObject> game(component.create());
+        QVERIFY2(game, qPrintable(component.errorString()));
+        auto *viewport = qobject_cast<QQuickItem *>(game.get());
+        QVERIFY(viewport);
+        viewport->setParentItem(host.contentItem());
+        const auto release = qScopeGuard([&game] { QMetaObject::invokeMethod(game.get(), "release"); });
+        QVERIFY(game->setProperty("seed", 83));
+        QVERIFY(game->setProperty("recorder", QVariant::fromValue<QObject *>(&recorder)));
+        QVERIFY(game->setProperty("file", QUrl::fromLocalFile(source.fileName())));
+        QObject *scene = game->property("playingScene").value<QObject *>();
+        QVERIFY2(scene, qPrintable(game->property("problem").toString()));
+        QVERIFY(scene->property("playing").toBool());
+        QCOMPARE(scene->property("playSeed").toInt(), 83);
+        QCOMPARE(scene->property("recorder").value<QObject *>(), &recorder);
+        QVERIFY(game->property("settled").toBool());
+
+        const QVariantMap edits{{QStringLiteral("pixelsPerUnit"), 32}, {QStringLiteral("viewHeight"), 9},
+            {QStringLiteral("pixelArt"), false}, {QStringLiteral("exposure"), 1.5}, {QStringLiteral("bloom"), false},
+            {QStringLiteral("skyLight"), 0.9}, {QStringLiteral("skyTop"), QColor("#120d1f")},
+            {QStringLiteral("skyHorizon"), QColor("#3a1630")}, {QStringLiteral("groundHorizon"), QColor("#0a0710")},
+            {QStringLiteral("groundBottom"), QColor("#07080c")}, {QStringLiteral("skyTurn"), 45}};
+        for (auto it = edits.cbegin(); it != edits.cend(); ++it) {
+            const QByteArray field = it.key().toUtf8();
+            QVERIFY(scene->setProperty(field.constData(), it.value()));
+            QCOMPARE(game->property(field.constData()), scene->property(field.constData()));
+        }
+        const QUrl sky = QUrl::fromLocalFile(project.filePath(QStringLiteral("edited.hdr")));
+        QVERIFY(scene->setProperty("sky", sky));
+        QCOMPARE(game->property("sky").toUrl(), sky);
+        QVERIFY(scene->setProperty("sky", QUrl()));
+        QCOMPARE(game->property("sky").toUrl(), QUrl());
+
+        QQmlComponent followerComponent(engine);
+        followerComponent.setData("import QtQuick\nQtObject { property vector3d eye: Qt.vector3d(1, 2, 3); "
+                                  "property vector3d lookAt: Qt.vector3d(4, 5, 6) }\n",
+                                  QUrl(QStringLiteral("qrc:/game-follower.qml")));
+        std::unique_ptr<QObject> first(followerComponent.create());
+        std::unique_ptr<QObject> second(followerComponent.create());
+        QVERIFY2(first && second, qPrintable(followerComponent.errorString()));
+        for (QObject *follower : {first.get(), second.get()}) {
+            QVERIFY(scene->setProperty("player", QVariant::fromValue(follower)));
+            QCOMPARE(game->property("follow").value<QObject *>(), follower);
+            QCOMPARE(game->property("eye").value<QVector3D>(), QVector3D(1, 2, 3));
+            QCOMPARE(game->property("target").value<QVector3D>(), QVector3D(4, 5, 6));
+            QVERIFY(follower->setProperty("eye", QVariant::fromValue(QVector3D(2, 3, 4))));
+            QCOMPARE(game->property("eye").value<QVector3D>(), QVector3D(2, 3, 4));
+            QVERIFY(follower->setProperty("lookAt", QVariant::fromValue(QVector3D(7, 8, 9))));
+            for (const QString &view : {QStringLiteral("2d"), QStringLiteral("3d")}) {
+                QVERIFY(scene->setProperty("view", view));
+                QCOMPARE(game->property("flat").toBool(), view == QStringLiteral("2d"));
+                QCOMPARE(game->property("target").value<QVector3D>(), QVector3D(7, 8, 9));
+            }
+        }
+        QSignalSpy asked(game.get(), SIGNAL(asked(QVariant)));
+        QVERIFY(asked.isValid());
+        QVERIFY(QMetaObject::invokeMethod(scene, "asked", Q_ARG(QVariant, QVariant(QStringLiteral("question")))));
+        QCOMPARE(asked.size(), 1);
+        QVariant told;
+        QVERIFY(QMetaObject::invokeMethod(game.get(), "tell", Q_RETURN_ARG(QVariant, told),
+                                          Q_ARG(QVariant, QVariant(QStringLiteral("hello")))));
+        QVERIFY(told.toBool());
+        QVERIFY(scene->setProperty("player", QVariant::fromValue<QObject *>(nullptr)));
+        QVERIFY(!game->property("follow").value<QObject *>());
+        QVERIFY(QMetaObject::invokeMethod(game.get(), "release"));
+        QVERIFY(!game->property("playingScene").value<QObject *>());
+        QVERIFY(!game->property("settled").toBool());
+        QVERIFY(!game->property("flat").toBool());
+        QCOMPARE(game->property("exposure").toDouble(), 1.0);
+        QVERIFY(QMetaObject::invokeMethod(game.get(), "tell", Q_RETURN_ARG(QVariant, told),
+                                          Q_ARG(QVariant, QVariant(QStringLiteral("hello")))));
+        QVERIFY(!told.toBool());
     }
 
     void playerLabelsFollowTheirSceneAndFollower()

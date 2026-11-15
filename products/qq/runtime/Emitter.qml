@@ -1,6 +1,7 @@
 // A spring of particles: sparks, embers, mist, magic. Soft points of light rise from it at `rate` a second, spread as
 // they go and fade out after `life` seconds. It runs while the scene is edited as well as in play, so it is placed by
 // how it looks.
+// Changed for QOR OS: pause and editor-marker state follow the current structural parent.
 
 import QtQuick
 import QtQuick3D
@@ -30,10 +31,13 @@ Node {
     /// The particles alive now: for a check, or for the agent judging a scene (P3.3).
     readonly property int alive: system.loggingData ? system.loggingData.particlesUsed : 0
 
+    // Scene, Group, Prefab and compatible nodes supply these fields through the current parent.
+    function _parentValue(field: string): var { return emitter.parent[field] }
+
     ParticleSystem3D {
         id: system
         // A paused world's particles hold still (P3.8).
-        paused: emitter.parent !== null && emitter.parent.paused === true
+        paused: emitter.parent !== null && emitter._parentValue("paused") === true
         logging: true
         loggingData.loggingInterval: 250
 
@@ -73,7 +77,7 @@ Node {
         pickable: true
         castsShadows: false
         receivesShadows: false
-        visible: !(emitter.parent && emitter.parent.playing === true)
+        visible: !(emitter.parent && emitter._parentValue("playing") === true)
         materials: PrincipledMaterial {
             baseColor: "#000000"
             emissiveFactor: Qt.vector3d(emitter.colour.r * 2, emitter.colour.g * 2, emitter.colour.b * 2)

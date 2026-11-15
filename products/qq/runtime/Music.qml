@@ -6,6 +6,7 @@
 // In a browser its two voices are WebVoices, as a Sound's are there.
 
 // Changed for QOR OS: both private voice factories keep their owning music context.
+// Changed for QOR OS: play and replay state follow the current structural parent.
 
 pragma ComponentBehavior: Bound
 
@@ -35,8 +36,10 @@ Node {
     property string group: "music"
 
     /// True while the scene this belongs to plays, and whether it is heard: not in a replay.
-    readonly property bool live: parent !== null && parent.playing === true
-    readonly property bool sounding: live && !(parent && parent.replaying)
+    readonly property bool live: parent !== null && _parentValue("playing") === true
+    readonly property bool sounding: live && !(parent && _parentValue("replaying"))
+
+    function _parentValue(field: string): var { return music.parent[field] }
     /// Whether this is a web page, where its voices are WebVoices. Set by a check, to hear as a browser would.
     property bool web: Qt.platform.os === "wasm"
 

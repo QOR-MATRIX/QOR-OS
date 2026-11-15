@@ -17,6 +17,8 @@
 *.webp            binary
 *.ico             binary
 *.qsb             binary
+*.ktx             binary
+*.exr             binary
 
 # Signed store artifacts: the signatures cover their exact bytes.
 *.qorpkg         binary

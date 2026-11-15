@@ -1,6 +1,7 @@
 // Game logic in the scene: a Logic file from the project (`source`, see Logic.qml), driving the entity named `target`
 // (or nothing, for logic that looks after the whole scene). It runs only while the world plays, and a save of the file
 // while it plays is picked up at once, without stopping.
+// Changed for QOR OS: parent state and compatible logic callbacks read their current dynamic interfaces.
 
 import QtQuick
 import QtQuick3D
@@ -20,7 +21,7 @@ Node {
     property string target: ""
 
     /// True while the scene this belongs to plays.
-    readonly property bool live: parent !== null && parent.playing === true
+    readonly property bool live: parent !== null && _parentState().playing === true
 
     readonly property QtObject logic: file.object
     readonly property string error: file.error
@@ -30,10 +31,15 @@ Node {
 
     readonly property QtObject targetEntity: live && target !== "" && parent ? _find(target) : null
 
+    // Parents supply scene state and LogicFile accepts compatible logic objects. Read them directly so a
+    // parent change or reload cannot leave an intermediate object binding behind the current handle.
+    function _parentState(): var { return behaviour.parent }
+    function _logicState(): var { return file.object }
+
     /// The entity called `name`: in a prefab, among its own parts first (P3.15), so each one placed drives its own; then
     /// the scene's own entities, then any prefab's part.
     function _find(name) {
-        for (let p = parent; p; p = p.parent) {
+        for (let p = _parentState(); p; p = p.parent) {
             if (p.kind === "Prefab") {
                 const own = SceneIO.everyEntity(p).find(e => e.name === name)
                 if (own)
@@ -61,24 +67,24 @@ Node {
     // has no steps, so its logic holds still (P3.8).
     function _stepLogic(dt) {
         if (file.object)
-            file.object._step(dt)
+            _logicState()._step(dt)
     }
     // Presses and releases come from the tick too, the same in play and in a replay.
     // What the game's host told it comes from the tick too (ADR-117).
     function _told(message) {
         if (file.object)
-            file.object._told(message)
+            _logicState()._told(message)
     }
 
     function _hear(kind, action) {
         if (file.object)
-            file.object._hear(kind, action)
+            _logicState()._hear(kind, action)
     }
 
     // Frames, for what is only looked at: not in a paused world, and never more than 1/20 s at once.
     FrameAnimation {
-        running: behaviour.live && file.object !== null && !behaviour.parent.paused && !behaviour.parent.replaying
-        onTriggered: file.object._frame(Math.min(frameTime, 0.05))
+        running: behaviour.live && file.object !== null && !behaviour._parentState().paused && !behaviour._parentState().replaying
+        onTriggered: behaviour._logicState()._frame(Math.min(frameTime, 0.05))
     }
 
     // What happens to the target reaches its logic (P3.7, P3.8): a contact on its body, what enters or leaves it when it
@@ -88,19 +94,19 @@ Node {
         ignoreUnknownSignals: true
         function onContact(other, point, normal) {
             if (file.object)
-                file.object.contact(other, point, normal)
+                behaviour._logicState().contact(other, point, normal)
         }
         function onEntered(other) {
             if (file.object)
-                file.object.entered(other)
+                behaviour._logicState().entered(other)
         }
         function onExited(other) {
             if (file.object)
-                file.object.exited(other)
+                behaviour._logicState().exited(other)
         }
         function onClicked() {
             if (file.object)
-                file.object.clicked()
+                behaviour._logicState().clicked()
         }
     }
 }

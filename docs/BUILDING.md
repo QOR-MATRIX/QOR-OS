@@ -82,6 +82,133 @@ Qt kit in the VM or run an image/partitioning command against workstation disks.
 
 ### Q Pi preparation
 
+On 14 November, direct command access was restored across networks through
+Tailscale. The existing restricted SSH transport retains its saved key and
+strict host verification using `HostKeyAlias=qpi-builder.local` for the private
+network address. This is a verified connection to the existing builder, not
+first-boot provisioning or an image acceptance result. Session-10 connection
+receipts and session-11 execution evidence are under
+`build/development-2026-11-14/`; credentials and sign-in links are excluded.
+
+The native precomputed-sky diagnostic exports the default procedural texture
+through Qt 6.12's public API and bakes it with the installed Balsam tool. Its
+helper builds cleanly in a separate cache and passes hardening. Both minimal
+scenes pass QML lint without warnings and use llvmpipe in the existing private
+display/device/network namespaces. First-frame times are 61.529 seconds for
+procedural lighting and 0.774 seconds for precomputed lighting, with identical
+1280-by-720 image hashes and zero differing pixels. The original 30-sample
+resident admission and continuous 3,072-MiB guard are unchanged; 1,404 source
+hashes and the free lock afterward are verified. The initial component-loading
+failure and its local-URL/bounded-wait correction are both retained in
+`session-11/`. That diagnostic changed no production source and did not rerun
+the Store acceptance case; production integration follows below.
+
+The next native run embeds precomputed lighting for both palettes authored in
+the bundled scenes, matched by their four colour values. Edited colours retain
+procedural generation; explicit sky images retain precedence. The checked-in
+EXR inputs, KTX textures and manifest are described in the
+[QQ build guide](../products/qq/README.md#build-test-deploy). Normal application
+builds only embed the reviewed textures; they do not launch the baker.
+
+With `QOR_QT_DIR` set to the installed commercial ARM64 kit, `q-pi-release`
+configures and builds all QQ targets without compiler/license diagnostics.
+All 85 scene results and 11 world-rendering results pass; the unchanged
+Store-installed Player suite passes three results in 8.371 seconds under its
+original 60-second deadline. The `q-pi-asan` preset reuses the established
+sanitizer cache with its `RelWithDebInfo` build type; all 85 scene results pass
+offscreen with address/undefined-behavior sanitizers and leak checking enabled.
+Hardening accepts 16 QQ programs and the sanitizer program. Runtime lint still
+fails at exactly the previous 53 findings, with none added or removed. The first
+configure attempt's missing-kit-environment refusal is preserved alongside the
+corrected run in `build/development-2026-11-14/session-12/`. Final reconciliation
+verifies 1,409 native source hashes, all four test binaries, sanitizer linkage
+and the free original lock, with no remaining QOR workers. The 30-sample resident
+admission and continuous 3,072-MiB guard remain unchanged; the two integration
+runs stay above 5,537 MiB available. Windows heavy checks
+remain stopped at a 2,501-MiB snapshot; all-file hooks and full product, Windows,
+hardware and release acceptance remain incomplete.
+
+The next Orb Run investigation uses the same native preset and private software
+display. Its canonical case still fails startup; separate diagnostic and timing
+proposal builds are preserved under `build/development-2026-11-14/session-13/`.
+The complete revised proposal passes three Qt Test results in 184.714 seconds,
+with no compiler/license diagnostics and hardening passing 16 programs. It
+changes software wait semantics; [the CI guide](CI.md#what-linux-runs) gives the
+exact limits. The original test source and build were restored before approval.
+The owner subsequently approved the exact four-change proposal. Its applied
+source, complete 1,409-file native manifest and rebuilt executable match that
+passing run. The acceptance rebuild and hardening pass; the identical case was
+not rerun. Integration receipts are in `session-14/` beside the probe. An initial local UTF-8
+decoding error and the first proposal's remaining orb-replacement failure are
+preserved. Windows now measured 2,791 MiB available, so local heavy checks and
+all-file hooks remain incomplete; no unrelated services were changed.
+
+The subsequent complete QQ run finds the bundled Player's separate HDR sky
+still preparing its lighting during launch. Qt Balsam now precomputes that
+lighting under the same native coordinator and isolated software renderer.
+`products/qq/player/playground/assets/dusk-lighting.json` records its retained
+Apache-2.0 source image, generator and hashes. Normal builds embed `dusk.ktx`;
+they do not invoke the baker. The 1280-by-720 comparison is pixel-identical,
+with first frames at 61.384 seconds from the HDR and 0.762 seconds from KTX.
+The real Player's first frame is 5.279 seconds and its capture passes, resolving
+the two original 60-second launch timeouts. The full Player run still fails
+the unchanged 20-FPS floor at 0.5 and 18.9 FPS, with one unavailable-Landlock
+skip. These are functional startup results, not real-time or kernel-confinement
+acceptance. Original failures and the comparison are retained in
+`build/development-2026-11-14/session-15/`.
+
+That continuation completes all remaining native QQ suite attempts. Gameplay,
+lockdown, publishing, Player network confinement, Store launch, Studio, workspace
+and game builds pass completely; the asset library passes with its optional
+benchmark skipped. The real Studio creator journey passes, as does the separate
+Prism Library journey in 202.406 seconds under its unchanged 300-second limit.
+The latter records launch arguments with the test launcher, then runs the real
+Player on its private display. It does not prove hardware rendering in Prism.
+Ordinary suites retain 5,400-second limits and Qt functions 1,800,000 ms. Builds
+and hardening pass, but the agent's short log-timing check, the two Player frame
+rates, unavailable Landlock support and the same 53 lint findings prevent full
+QQ acceptance. Scene/world passes are retained by current binary fingerprints.
+The final reconciliation verifies 1,412 native source files and 15 executables;
+the original lock is free and no test worker remains. The complete suites never
+fall below 4,923 MiB available. Windows remains below 3,072 MiB, so local heavy
+checks and all-file hooks are still incomplete.
+
+The 15 November Game interface follow-up uses the same `q-pi-release` build,
+original coordinator, 30 resident-worker admission samples and continuous
+3,072-MiB guard. Public scene/follower handles stay generic; private dynamic
+accessors preserve compatible scene nodes. Baseline and candidate interface
+checks each pass seven results, then the complete scene suite passes all 87
+normally and under `q-pi-asan` offscreen with leak checking enabled. The latter
+retains its established `RelWithDebInfo` cache. The complete native gameplay
+suite also passes all 58 results under its unchanged standard limits. Store
+launch passes three, and the packaged-game creator journey passes in 201.985
+seconds under its registered 300-second limit. Player retains 13 passes, two
+FPS failures (0.5 and 18.9 against 20) and one unavailable-Landlock skip.
+All 24 Game lint findings are
+removed; the other 29 warning lines are unchanged, so lint remains a failed
+gate. No rendering quality, assertion or approved gameplay boundary changes.
+Diagnostic traces of the unchanged Player and agent concentrate cost in software
+rendering and synchronization; instrumentation timings do not replace ordinary
+acceptance results. Receipts are in `build/development-2026-11-15/session-01/`.
+The separate ARQADE caller rebuild exits zero but emits its existing Qt
+`GuiPrivate` compatibility warning. Its strict build gate fails and caller tests
+do not run; no diagnostic suppression or timing change is applied.
+
+The following Behaviour increment retains that coordinator, isolation and
+resource policy. Six focused results pass before and after the direct-accessor
+change, and all 89 scene results pass normally and under the same offscreen
+sanitizer configuration with leak checking. Eleven Behaviour lint findings
+are removed with none added; the other 18 warning lines remain. Existing
+gameplay sources, assertions and suite limits are unchanged. Complete gameplay
+passes 58, Store launch three, and the packaged-game journey passes in 201.377
+seconds under its 300-second limit. Agent reproduces its prior log-timing
+failure; Player retains both FPS-floor failures and the Landlock skip. The
+brief Tailscale outage interrupted the local polling queue; the original native
+guard and test process continued, and the queue resumed against that same run.
+All 1,966 resource samples stay at or above 5,427 MiB available. Final readback
+verifies 1,412 native sources, eight executables, no remaining test workers and
+the original lock free. The receipts are in `build/development-2026-11-15/session-02/`.
+
 Start with the canonical [Pi 5 bootstrap procedure](../image/README.md#pi-5-builder-bootstrap-before-q-pi):
 stock Raspberry Pi OS 64-bit Desktop Trixie establishes a possible native builder;
 it is not the eventual Q Pi image. The current first-boot preparation is headless
@@ -308,6 +435,18 @@ unverified; the stock builder's separately authorised SSH access is now observed
 ## 1. Prerequisites
 
 ### Windows (primary development platform)
+
+The 14 November local QQ continuation uses `build/ci-products/qq`, the commercial
+Qt 6.12.0 kit and MSVC 2022, with warnings as errors and serial compilation.
+All targets build without compiler/license-client diagnostics; all 84 scene
+results pass offscreen and hardening accepts all 15 programs. Runtime QML lint
+still fails at 53 warnings. The scene run's missing-font and hardware-audio
+warnings are preserved: `QOR_AUDIO_OUTPUT=null` does not isolate Qt Multimedia's
+Windows backend. Do not infer device isolation from offscreen rendering or that
+environment variable. Further runtime suites need a qualified audio boundary;
+the full Windows product harness was not run. Receipts and the correction to
+the evidence collector's assumed executable path are in
+`build/development-2026-11-14/session-07/`.
 
 | Tool | Version | Notes |
 |------|---------|-------|
@@ -739,6 +878,21 @@ file retain their hashes. This is diagnosis, without a correction installed or c
 whole QQ failed at 142 console/167 structured warnings at that checkpoint, before later source cleanup.
 The command records and controls are in
 `build/autonomous-2026-11-04/spatial-runtime-diagnostic-verified.json`; this clears no runtime or hardware gate.
+
+The 15 November native Pi reproduction confirms that the one-line metadata-copy correction removes exactly six
+SpatialAudio findings and still rejects unknown properties and invalid inherited property types. The installed SDK
+and generated response files stay unchanged. Structured output also exposes findings omitted from console output:
+QQ Runtime had 20 warnings despite six printed lines, and Studio independently had 18. The subsequent Music/Sprite/
+TileMap correction removes 14 runtime findings, leaving six runtime and 18 Studio findings; Player has none.
+After those source fixes, the corrected temporary copy makes the complete Runtime lint command return zero with
+zero warnings; the invalid-property and invalid-type controls still fail. Normal lint still uses the unchanged SDK
+and fails. Integrating a dependency correction into the build remains separate from this diagnostic proof.
+Do not use console line counts as the complete lint result. Run each module's `qqruntime_qmllint_json`,
+`qq-player_qmllint_json` and `qqstudio_qmllint_json` target separately and inspect its JSON; an aggregate target can
+stop at the first failing module. Preserve every return code and diagnostic severity. Qt documents the
+[module dependencies used by tooling](https://doc.qt.io/qt-6/qt-add-qml-module.html#module-dependencies)
+and [structured lint output](https://doc.qt.io/qt-6/qtqml-tooling-qmllint.html#scripting).
+Native receipts and controls: `build/development-2026-11-15/session-04/`.
 
 The selected collector check also runs in the existing Windows kit without showing a window or using a graphics
 card. Use `ci-windows`, leaving a running `windows-release` shell alone:

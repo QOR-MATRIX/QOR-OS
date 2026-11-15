@@ -9,6 +9,180 @@ their changes since, and pulls of what is still shared, are recorded here.
 
 ## [Unreleased]
 
+- **Sprite motion rejects mismatched physics handles; 14 hidden runtime lint findings are removed.**
+  Sprite's three motion commands require an actual dynamic body as well as
+  dynamic mode. Ordinary nodes and static bodies now return false without a
+  script error; both cases fail against the original code. Music, Sprite and
+  TileMap retain their current parents' play, pause, replay and pixel-scale
+  behavior through direct structural access. Private Sprite factories use
+  their explicit physics base type. All 14 focused results pass after the
+  change; the complete scene suite passes 109 normally and offscreen under
+  address/undefined-behavior sanitizers with leak checking. Existing assertions
+  and approved gameplay timing are unchanged; the complete gameplay suite
+  passes all 58 results. Store launch passes three, and the packaged-game
+  creator journey passes in 201.365 seconds under its unchanged 300-second
+  limit. The existing Agent log-timing failure and Player's two 20-FPS-floor
+  failures remain; no assertion or timing boundary was relaxed.
+  Structured lint corrects the earlier console-only count: runtime findings
+  fall from 20 to six, with none added; Studio has 18 unchanged findings and
+  Player has none. A temporary metadata copy reproduces the six Qt SpatialAudio
+  dependency findings and preserves rejection of invalid properties and types.
+  After the source fixes, complete Runtime lint passes with that temporary
+  copy. Normal lint still fails with the installed metadata.
+  The installed SDK and lint policy are unchanged. Evidence:
+  `build/development-2026-11-15/session-04/`.
+
+- **QQ runtime parent state and TileMap collider types clear 12 lint findings.**
+  Emitter, Ground, InputAction, Prop, Sound and Spotlight read state through
+  their current parent's compatible interface. Existing boolean/truthiness
+  guards, input declarations, animation timing and sound replay suppression
+  remain intact. TileMap gives its private wall factory's result the concrete
+  StaticRigidBody type, retaining body and collider ownership. Eleven focused
+  results pass before and after the change; all 97 scene results pass normally
+  and offscreen under address/undefined-behavior sanitizers with leak checking.
+  Complete native gameplay passes all 58 results with its approved timing
+  boundaries and source unchanged. Store launch passes three, and the packaged-
+  game creator journey passes in 201.631 seconds under its 300-second limit.
+  The agent's prior log-timing failure and Player's two 20-FPS-floor failures
+  remain; no assertion or timing limit changed.
+  Six spatial-audio type-resolution findings remain, with none added.
+  Evidence is in `build/development-2026-11-15/session-03/`.
+
+- **QQ Behaviour preserves compatible logic and parent state while clearing 11 lint findings.**
+  Direct dynamic accessors retain its public object handles, current callback
+  receiver, prefab target lookup and frame-state guards across parent changes
+  and logic reloads. Both QQ Logic and compatible objects pass payload, target,
+  state, replacement and disposal coverage before and after the change. All
+  89 scene results pass normally and offscreen under address/undefined-behavior
+  sanitizers with leak checking; complete native gameplay passes all 58 results.
+  Store launch passes three, and the packaged-game creator journey passes in
+  201.377 seconds under its unchanged 300-second limit. The agent's prior
+  log-timing failure reproduces exactly; Player retains two FPS-floor failures
+  at 0.6 and 19.5 against 20, plus the unavailable-Landlock skip. The other
+  18 runtime lint findings remain unchanged. Existing assertions and approved
+  gameplay timing are preserved.
+  Evidence is in `build/development-2026-11-15/session-02/`.
+
+- **QQ Game preserves its dynamic scene interfaces while clearing 24 lint findings.**
+  Public scene and follower handles retain their object types and identity;
+  private accessors read the fields supplied by compatible scene nodes and 2D/3D
+  followers. New coverage checks live edits, follower replacement, camera state,
+  seed/recorder forwarding, host messages and release on both a QQ Scene and an
+  ordinary compatible 3D node, and rejects script errors and binding loops.
+  All 87 scene results pass normally and offscreen
+  under address/undefined-behavior sanitizers with leak checking; the complete
+  gameplay suite passes all 58 results with its approved timing boundaries.
+  Store launch passes three, and the packaged-game creator journey passes in
+  201.985 seconds under its original 300-second limit. The other 29 runtime lint
+  findings and both Player FPS failures remain. Separate traces of the unchanged
+  Player and agent show software-rendering and synchronization costs; they do
+  not replace the original acceptance measurements or relax their failures.
+  Evidence is in `build/development-2026-11-15/session-01/`.
+
+- **The complete native QQ suites and creator journeys are exercised.**
+  Gameplay passes 58 results with the approved timing boundaries; Studio passes
+  29, workspace 241, game builds 195, security lockdown 24, network confinement
+  three, Store launch three and publishing 11. The asset library passes 91 with
+  one optional benchmark skipped. The real Studio open/edit/save/build/packaged
+  launch journey passes. The separate Prism Library journey passes in 202.406
+  seconds under its original 300-second limit, using the test launcher and then
+  the real Player on a private display. Scene/world results are retained through
+  unchanged executable fingerprints. The agent timing failure, two Player
+  frame-rate failures, unavailable Landlock check and 53 unchanged lint findings
+  keep full qualification open. All runs retain the original native coordinator,
+  isolation, 3,072-MiB memory floor and standard suite limits. Receipts and
+  original failures are in `build/development-2026-11-14/session-15/`.
+
+- **The bundled QQ Player sky no longer prepares its lighting on every launch.**
+  The playground uses a precomputed Qt texture derived from its retained HDR
+  source, with source and output hashes in `dusk-lighting.json`. The guarded
+  native comparison produces identical pixels at 1280 by 720; its first frame
+  falls from 61.384 seconds to 0.762 seconds. The real Player then reaches its
+  first frame in 5.279 seconds and passes the first-frame capture, fixing both
+  original 60-second launch timeouts. Its complete suite records 13 passes,
+  two unchanged frame-rate failures (0.5 and 18.9 FPS against 20), and one
+  Landlock skip because the kernel lacks that confinement feature. Assertions,
+  deadlines, rendering quality and the original HDR source are preserved.
+  Evidence is in `build/development-2026-11-14/session-15/`.
+
+- **Orb Run's approved software timing change is applied.**
+  The original case still fails its five-second startup wait. A separate trace
+  observes the first ticks after 10.071 seconds of waiting and only 0.4 seconds of logic time
+  before the lantern's wall wait expires. The proposal admits software startup
+  separately and measures lantern reset, orb replacement and growth on their
+  logic clock. The complete case passes three Qt Test results in 184.714 seconds;
+  its build and hardening checks pass. GPU branches, predicates, tolerances,
+  input, music and pause waits are unchanged. The owner approved the exact
+  four-change proposal on 14 November; its source is now applied unchanged.
+  The native acceptance rebuild and hardening check pass, with the full source
+  manifest and executable matching the passing proposal. The case was not
+  rerun in that acceptance rebuild. Failures, the UTF-8 preparation correction,
+  patch and restoration receipts remain in `build/development-2026-11-14/session-13/`;
+  approval and integration receipts are in `session-14/` beside it. This accepts
+  the selected software functional case; full products and hardware remain open.
+
+- **Bundled sky lighting is precomputed, and native Store playback passes.**
+  QQ's World selects baked textures by the four colour values used by its
+  default and bundled scenes. Other colours retain procedural generation;
+  explicit sky images, exposure, rotation and rendering quality keep their
+  existing behavior. Checked-in EXR sources and a hash manifest accompany the
+  two KTX resources; normal builds embed them without running a baker. Both
+  palettes produce pixel-identical diagnostic captures. The native preset
+  builds without compiler/license diagnostics, all 85 scene results pass, and
+  the real Store-installed Player completes in 8.371 seconds under its unchanged
+  60-second deadline. All 11 world-rendering results pass; all 85 scene results
+  also pass under address/undefined-behavior sanitizers with leak checking.
+  Hardening accepts all 16 QQ programs and the sanitizer program. Runtime lint
+  retains exactly the previous 53 findings, with none added or removed. Evidence is in
+  `build/development-2026-11-14/session-12/`. Full product, Windows and hardware
+  acceptance remain separate gates.
+
+- **Direct Pi access and the precomputed-sky diagnostic now work.** Tailscale
+  connects the workstation to the native builder using its existing SSH key
+  and saved host identity. Qt's precomputed default sky reaches its first frame
+  in 0.774 seconds versus 61.529 seconds for the procedural path; both software
+  renders produce pixel-identical 1280-by-720 captures. The helper builds without
+  diagnostics, passes hardening, and both scenes lint without warnings. The
+  first helper attempt's component-loading failure and its bounded correction
+  are preserved in `build/development-2026-11-14/session-11/`, alongside the
+  retrieved earlier Pi traces. The original coordinator, 1,404 source hashes,
+  isolation and free lock are verified. That diagnostic preceded the production
+  integration and passing Store test above; Windows heavy checks remain below the
+  3,072-MiB floor.
+
+- **The native comparison isolates the sky-light startup cost.** Owner-provided
+  Raspberry Pi Connect output reports first frames at 0.474 seconds without the
+  procedural sky light probe and 61.054 seconds with it, on otherwise identical
+  minimal scenes. Both use llvmpipe and complete cleanly; source hashes match the
+  prepared scenes and the original coordinator is available afterward. A trial
+  using Qt's precomputed lighting, with timing and pixel comparisons, is prepared
+  in `build/development-2026-11-14/session-09/`; its later native result is recorded
+  above. Windows memory remains below the 3,072-MiB floor; local heavy
+  checks are not retried. No product change or passing Store test is claimed.
+
+- **The owner's native trace narrows the Store startup delay.** Through the Pi's
+  existing Raspberry Pi Connect shell, the diagnostic reports a first frame at
+  63.838 seconds and 62.791 seconds in Qt's reported swap stage. The output
+  records 1,404 verified source hashes, separate isolation namespaces, exit zero
+  and the original lock available afterward. Full artifacts remain on the Pi;
+  `build/development-2026-11-14/session-08/` preserves the owner-provided report
+  and a prepared minimal sky-light comparison. The swap timing alone does not
+  prove the cause. The unchanged 60-second Store gate remains open; no product
+  source, rendering quality, deadline or network configuration changed. Both
+  prepared scenes lint without warnings; local all-file hooks stop at 2,897 MiB
+  available, below the unchanged 3,072-MiB floor, and remain incomplete.
+
+- **The current QQ increment builds on Windows.** The complete serial build
+  has no compiler/license-client diagnostics; all 84 scene results pass and
+  hardening accepts 15 programs. The offscreen run retains font and hardware-audio
+  warnings, so its passes do not qualify Windows audio isolation. Runtime lint
+  still fails at 53 warnings. During that Windows run, the Pi's local hostname
+  was unreachable and no native job started. No runtime source,
+  rendering quality, deadline or network configuration changed. The original
+  collector's wrong executable-path error and separate reconciliation remain in
+  `build/development-2026-11-14/session-07/`. Full products and release acceptance
+  remain open.
+
 - **QQ makes its initial procedural sky once per colour batch.** Initial
   construction now joins the queued colour updates instead of building the
   same texture twice. A regression reproduces the duplicate construction and
