@@ -460,7 +460,7 @@ pass after the fix. Existing scene assertions and approved gameplay source are u
 with the missing QtQuick3D dependency clears only the six SpatialAudio findings while invalid properties and inherited
 property types still fail. No SDK or lint policy was changed. Evidence: `build/development-2026-11-15/session-04/`.
 After the source fixes, complete Runtime lint passes with the corrected copy. Normal lint remains failed against
-the unchanged installed metadata; integrating that correction remains separate work.
+the unchanged installed metadata at that diagnostic checkpoint.
 The complete scene suite passes all 109 results normally and offscreen under ASan/UBSan with leak checking.
 Complete native gameplay passes all 58 results with no failures or skips, including music, sprite animation,
 tile-map rendering and collision coverage under the unchanged approved timing boundaries.
@@ -468,6 +468,17 @@ Store launch passes three results; the packaged-game creator journey passes in 2
 300-second limit, including edit/rebuild and playback after removing the source project. Agent retains the identical
 log-timing failure (21 pass, one fail, one optional provider skip). Player retains the two 20-FPS-floor failures at
 0.5 and 19.5 FPS (13 pass, two fail, one Landlock skip). No assertion, timing boundary or rendering setting changed.
+
+The following build integration supplies the proven SpatialAudio dependency through a local tooling-metadata copy,
+using `cmake/QorSpatialAudioMetadata.cmake`. It leaves the installed SDK and application import environment unchanged.
+Fixed SDK metadata needs no override; unexpected/incomplete metadata and unreviewed broken versions stop configuration.
+All six helper tests pass. The normal runtime console and JSON lint targets now pass with zero warnings; Player has
+none, while Studio's 18 findings retain their failing status. Valid spatial types resolve and invalid properties/types
+remain rejected. The complete native scene suite passes 109 results normally and offscreen under ASan/UBSan with
+leak checking; eight targeted audio results pass. The creator journey passes in 199.848 seconds under its original
+300-second limit. All eight audited executables match the preceding validation byte for byte; the full gameplay,
+Agent, Player and Store suites were not all rerun for this metadata increment. All 862 memory samples stay at or above
+6,588 MiB against the unchanged 3,072-MiB floor. Evidence: `build/development-2026-11-15/session-06/`.
 
 Earlier 14 November sky/startup follow-up: World queues its first procedural sky with the same colour-update batch used
 for later edits, so initial properties do not create the same texture twice. The regression checks construction

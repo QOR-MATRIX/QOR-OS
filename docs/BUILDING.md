@@ -886,13 +886,24 @@ QQ Runtime had 20 warnings despite six printed lines, and Studio independently h
 TileMap correction removes 14 runtime findings, leaving six runtime and 18 Studio findings; Player has none.
 After those source fixes, the corrected temporary copy makes the complete Runtime lint command return zero with
 zero warnings; the invalid-property and invalid-type controls still fail. Normal lint still uses the unchanged SDK
-and fails. Integrating a dependency correction into the build remains separate from this diagnostic proof.
+and fails at that diagnostic checkpoint.
 Do not use console line counts as the complete lint result. Run each module's `qqruntime_qmllint_json`,
 `qq-player_qmllint_json` and `qqstudio_qmllint_json` target separately and inspect its JSON; an aggregate target can
 stop at the first failing module. Preserve every return code and diagnostic severity. Qt documents the
 [module dependencies used by tooling](https://doc.qt.io/qt-6/qt-add-qml-module.html#module-dependencies)
 and [structured lint output](https://doc.qt.io/qt-6/qtqml-tooling-qmllint.html#scripting).
 Native receipts and controls: `build/development-2026-11-15/session-04/`.
+
+The subsequent build integration uses `cmake/QorSpatialAudioMetadata.cmake` from QQ's runtime CMake file. It copies
+only `qmldir` and `plugins.qmltypes` beneath that runtime's build directory, adds the missing dependency to the
+local `qmldir`, and supplies the directory through Qt's documented `IMPORT_PATH` argument. The installed kit,
+diagnostic severities and application import environment are unchanged. A kit already declaring the dependency
+uses its original metadata. Incomplete metadata, unexpected module/base types and an unreviewed version still
+missing the dependency stop configuration instead of silently applying the workaround.
+The generated `qqruntime_qmllint` and `qqruntime_qmllint_json` targets both pass with zero warnings on the native Pi;
+Player remains clean and Studio's 18 findings still fail the aggregate target. Six helper tests and real valid/
+invalid-property/type controls pass. This is a build-tool correction, not Windows deployment or device acceptance.
+Receipts: `build/development-2026-11-15/session-06/`.
 
 The selected collector check also runs in the existing Windows kit without showing a window or using a graphics
 card. Use `ci-windows`, leaving a running `windows-release` shell alone:

@@ -9,6 +9,20 @@ their changes since, and pulls of what is still shared, are recorded here.
 
 ## [Unreleased]
 
+- **Normal QQ runtime lint resolves SpatialAudio's missing base-type dependency.**
+  The Qt 6.12.0 build uses a local tooling-metadata copy with the missing
+  `QtQuick3D` dependency, leaving the installed kit unchanged. Already-correct
+  metadata needs no override; incomplete, unexpected or unreviewed broken
+  metadata is refused. Six helper tests pass, valid spatial types resolve,
+  and invalid properties/types still fail. Both generated runtime lint targets
+  pass with zero warnings; Player has none and Studio retains 18, so the
+  complete lint gate remains failed. The complete native scene suite passes
+  all 109 results normally and offscreen under address/undefined-behavior
+  sanitizers with leak checking; eight audio results pass. The creator journey
+  passes in 199.848 seconds under its unchanged 300-second limit. All eight
+  audited executables match the preceding validation byte for byte. Evidence:
+  `build/development-2026-11-15/session-06/`.
+
 - **Sprite motion rejects mismatched physics handles; 14 hidden runtime lint findings are removed.**
   Sprite's three motion commands require an actual dynamic body as well as
   dynamic mode. Ordinary nodes and static bodies now return false without a

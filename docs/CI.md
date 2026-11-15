@@ -534,6 +534,20 @@ this completes the repository-hook check without claiming a Windows product
 build. Exact tree and publication receipts are in
 `build/development-2026-11-15/session-05/`.
 
+The next increment integrates the SpatialAudio dependency correction through
+QQ's generated QML tooling import path, using only a build-local metadata
+copy. The normal runtime console and JSON lint targets pass with zero warnings;
+Player has none, while Studio's same 18 findings still fail the aggregate gate.
+Six helper tests and the real valid/invalid-property/type controls pass, as do
+all 109 native scene results normally and offscreen under ASan/UBSan with leak
+checking. Eight audio results pass; the creator journey passes in 199.848
+seconds under its original 300-second limit. All eight audited executables
+are byte-identical to the preceding validation, whose complete gameplay,
+Agent, Player and Store results remain scoped to that earlier run. All 862
+samples stay at or above 6,588 MiB against the unchanged 3,072-MiB floor.
+The installed SDK and application import environment remain unchanged. Receipts:
+`build/development-2026-11-15/session-06/`.
+
 The accepted test rebuild reproduces the passing proposal's binary hash, with
 all 1,404 snapshot source hashes verified. Hardening reads 16 QQ programs and
 passes all of them; native QQ `all_qmllint` fails with 103 warnings. The Store

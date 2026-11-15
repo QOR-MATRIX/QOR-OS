@@ -512,8 +512,22 @@ provider skip; Player retains its two 20-FPS-floor failures at 0.5 and 19.5 FPS
 and its Landlock skip. The installed SDK and lint policy are unchanged. Evidence:
 `build/development-2026-11-15/session-04/`.
 
+The subsequent integration connects that correction to the generated QML tools
+through a build-local metadata copy. The installed Qt SDK and application
+import environment remain unchanged. Six helper tests pass, including refusal
+of unexpected/incomplete metadata and unreviewed broken versions; fixed kits
+need no override. Both normal runtime lint targets pass with zero warnings,
+and invalid-property/type controls still fail. Player remains clean, Studio
+retains 18 warnings and the aggregate lint gate remains failed. The complete
+native scene suite passes all 109 results normally and offscreen under ASan/
+UBSan with leak checking; eight audio results pass. The creator journey passes
+in 199.848 seconds under its original 300-second limit. All eight audited
+executables match the preceding validation byte for byte. All 862 samples stay
+at or above 6,588 MiB against the unchanged 3,072-MiB floor. Evidence:
+`build/development-2026-11-15/session-06/`.
+
 PR #10's next product gates include the agent/Player failures and remaining
-full-product and Windows runs. The Wayland sanitizer leak, ARQADE diagnostics, runtime lint,
+full-product and Windows runs. The Wayland sanitizer leak, ARQADE diagnostics, Studio lint,
 upstream dependency audit and isolated Qt CI remain open. Focused scene/rendering
 checks do not qualify the full OS, platform, Q Pi image or physical hardware.
 

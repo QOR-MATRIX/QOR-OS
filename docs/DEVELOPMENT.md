@@ -116,8 +116,10 @@ Windows/WSL resources are not inferred from the Pi.
   Run `qqruntime_qmllint_json`, `qq-player_qmllint_json` and
   `qqstudio_qmllint_json` separately in a QQ build: aggregate targets can stop
   at the first failing module. Preserve exit codes and diagnostic severities.
-  [BUILDING.md](BUILDING.md) records the native SpatialAudio metadata diagnosis
-  and its negative controls; a diagnostic copy does not repair normal lint.
+  [BUILDING.md](BUILDING.md) records the native SpatialAudio diagnosis, its
+  negative controls and the narrowly scoped build-local metadata correction.
+  Keep the installed SDK unchanged; never suppress findings to compensate for
+  missing type dependencies.
 - A QML module exposing C++ types declares the QML modules owning their C++ base types in `qt_add_qml_module(DEPENDENCIES ...)`.
   QQ declares `QtQuick3D` for SoftDot and TileGeometry. This supplies type information without adding auto-imports;
   see [Qt's module-dependency guidance](https://doc.qt.io/qt-6/qt-add-qml-module.html#declaring-module-dependencies).
