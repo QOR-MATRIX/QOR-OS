@@ -905,6 +905,20 @@ Player remains clean and Studio's 18 findings still fail the aggregate target. S
 invalid-property/type controls pass. This is a build-tool correction, not Windows deployment or device acceptance.
 Receipts: `build/development-2026-11-15/session-06/`.
 
+The following AgentPanel correction removes the remaining 18 Studio findings.
+An explicit accessor retains its required structural controller and reads the
+current object in bindings and actions. Native QQ `all_qmllint` now exits zero;
+Runtime, Player and Studio structured commands each report zero warnings.
+No diagnostic category, severity or source coverage changed. Six focused
+results pass against the unchanged panel before the correction and offscreen
+under ASan/UBSan afterward, with leak checking. Complete Agent passes 22 with
+the identical existing log-timing failure and optional provider skip; complete
+Studio passes 29. The packaged-game creator journey passes in 131.581 seconds
+under its original 300-second limit. All 1,351 validation samples stay at
+or above 5,835 MiB against the unchanged 3,072-MiB floor. Native compilation
+and hardening pass. Existing assertions, approved timing, the original guard
+and private namespaces are unchanged. Receipts: `build/development-2026-11-15/session-07/`.
+
 The selected collector check also runs in the existing Windows kit without showing a window or using a graphics
 card. Use `ci-windows`, leaving a running `windows-release` shell alone:
 

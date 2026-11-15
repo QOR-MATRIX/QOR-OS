@@ -168,9 +168,10 @@ from full device acceptance. Native ARM64 development builds and selected softwa
 checks now pass on the Pi, including the core-enabled OS, complete QQ gameplay,
 security, Studio, workspace and game-build suites, and creator journeys. The
 latest scene suite also passes with memory/undefined-behavior sanitizers and
-leak checking. These are scoped software results: QQ's remaining lint, Agent
-logging and Player frame-rate failures, the Rust dependency warning, other
-product/Windows checks and physical-device acceptance remain open. No bootable
+leak checking. Native QQ lint now passes with zero warnings across Runtime,
+Player and Studio. These are scoped software results: Agent logging and Player
+frame-rate failures, the Rust dependency warning, other product/Windows checks
+and physical-device acceptance remain open. No bootable
 Pi image is accepted. [OWNER.md](OWNER.md) gives the current handoff and
 [image/README.md](image/README.md) keeps the exact evidence and remaining gates.
 

@@ -9,14 +9,28 @@ their changes since, and pulls of what is still shared, are recorded here.
 
 ## [Unreleased]
 
+- **QQ Studio's Agent panel clears the final 18 QQ lint findings.**
+  An explicit accessor keeps the required structural controller interface and
+  follows its current object in bindings and actions. The inert regression
+  checks controller replacement, action receivers, state/model/usage updates,
+  plain-text refusal messages and clearing the key input. No provider, account
+  or real keychain is used by that regression. Six focused results pass before
+  the source change and under address/undefined-behavior sanitizers afterward,
+  with leak checking. Complete Agent passes 22 with its identical existing
+  log-timing failure and optional provider skip; complete Studio passes 29.
+  Native QQ aggregate lint and all three structured module commands now pass
+  with zero warnings. The creator journey passes in 131.581 seconds under
+  its original 300-second limit. Existing assertions, timing, isolation and
+  the 3,072-MiB floor are unchanged. Receipts: `build/development-2026-11-15/session-07/`.
+
 - **Normal QQ runtime lint resolves SpatialAudio's missing base-type dependency.**
   The Qt 6.12.0 build uses a local tooling-metadata copy with the missing
   `QtQuick3D` dependency, leaving the installed kit unchanged. Already-correct
   metadata needs no override; incomplete, unexpected or unreviewed broken
   metadata is refused. Six helper tests pass, valid spatial types resolve,
   and invalid properties/types still fail. Both generated runtime lint targets
-  pass with zero warnings; Player has none and Studio retains 18, so the
-  complete lint gate remains failed. The complete native scene suite passes
+  pass with zero warnings. At that checkpoint, Studio retained 18 findings
+  and kept the aggregate lint gate failed. The complete native scene suite passes
   all 109 results normally and offscreen under address/undefined-behavior
   sanitizers with leak checking; eight audio results pass. The creator journey
   passes in 199.848 seconds under its unchanged 300-second limit. All eight

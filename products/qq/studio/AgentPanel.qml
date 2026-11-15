@@ -13,6 +13,7 @@
 
 // Changed for QOR OS: step delegates keep their panel context and read roles from their own row.
 // Changed for QOR OS: body step fonts name the startup application's typed singleton.
+// Changed for QOR OS: the structural controller accessor follows the current required object in bindings and actions.
 
 pragma ComponentBehavior: Bound
 
@@ -26,6 +27,8 @@ ColumnLayout {
     id: panel
 
     required property QtObject designer
+    // DesignLoop and inert test controllers share this interface, without a concrete QML controller type.
+    function _designerState(): var { return designer }
     /// Whether logic the agent writes may run in play: the creator's say, off until they give it.
     property bool mayRun: false
     signal mayRunAsked(bool allowed)
@@ -41,7 +44,7 @@ ColumnLayout {
             Layout.fillWidth: true
         }
         BusyIndicator {
-            running: panel.designer.running
+            running: panel._designerState().running
             visible: running
             implicitWidth: 28
             implicitHeight: 28
@@ -53,7 +56,7 @@ ColumnLayout {
         textFormat: Text.PlainText
         Layout.fillWidth: true
         wrapMode: Text.Wrap
-        text: panel.designer.status !== "" ? panel.designer.status
+        text: panel._designerState().status !== "" ? panel._designerState().status
                                            : qsTr("Describe a game, and the agent designs and builds it here, plays it, "
                                                   + "looks at it and revises. Nothing is saved until you save.")
         opacity: 0.75
@@ -74,7 +77,7 @@ ColumnLayout {
 
     // The key, once: kept in the keychain, never shown again.
     ColumnLayout {
-        visible: !panel.designer.hasKey
+        visible: !panel._designerState().hasKey
         Layout.fillWidth: true
         spacing: 6
         Label {
@@ -95,7 +98,7 @@ ColumnLayout {
             text: qsTr("Keep it in the keychain")
             enabled: keyField.text.trim() !== ""
             onClicked: {
-                const why = panel.designer.setKey(keyField.text)
+                const why = panel._designerState().setKey(keyField.text)
                 keyField.text = ""
                 keyProblem.text = why
             }
@@ -126,7 +129,7 @@ ColumnLayout {
         Layout.fillWidth: true
         Layout.preferredHeight: 110
         wrapMode: TextEdit.Wrap
-        enabled: !panel.designer.running
+        enabled: !panel._designerState().running
         placeholderText: qsTr("What should it be? What the player does, the mood, the look, how long a round lasts…")
         Accessible.name: qsTr("Describe the game")
     }
@@ -137,21 +140,21 @@ ColumnLayout {
             objectName: "agentStart"
             kind: "primary"
             text: qsTr("Design and build")
-            enabled: panel.designer.hasKey && !panel.designer.running && brief.text.trim() !== ""
-            onClicked: panel.designer.start(brief.text)
+            enabled: panel._designerState().hasKey && !panel._designerState().running && brief.text.trim() !== ""
+            onClicked: panel._designerState().start(brief.text)
         }
         StudioButton {
             kind: "danger"
             text: qsTr("Stop")
-            visible: panel.designer.running
-            onClicked: panel.designer.stop()
+            visible: panel._designerState().running
+            onClicked: panel._designerState().stop()
         }
         Item { Layout.fillWidth: true }
         StudioButton {
             text: qsTr("Undo the run")
             flat: true
-            visible: panel.designer.canUndo
-            onClicked: panel.designer.undo()
+            visible: panel._designerState().canUndo
+            onClicked: panel._designerState().undo()
         }
     }
 
@@ -162,7 +165,7 @@ ColumnLayout {
         Layout.minimumHeight: 200
         clip: true
         spacing: 8
-        model: panel.designer.steps
+        model: panel._designerState().steps
         onCountChanged: positionViewAtEnd()
 
         delegate: ColumnLayout {
@@ -194,7 +197,7 @@ ColumnLayout {
     // What the run used on the creator's key, as the provider counted it.
     Label {
         objectName: "agentUsage"
-        readonly property var u: panel.designer.usage
+        readonly property var u: panel._designerState().usage
         visible: u !== undefined && u.answers !== undefined && u.answers > 0
         Layout.fillWidth: true
         wrapMode: Text.Wrap
@@ -213,8 +216,8 @@ ColumnLayout {
     StudioButton {
         text: qsTr("Forget the key")
         flat: true
-        visible: panel.designer.hasKey && !panel.designer.running
+        visible: panel._designerState().hasKey && !panel._designerState().running
         font.pixelSize: 12
-        onClicked: panel.designer.forgetKey()
+        onClicked: panel._designerState().forgetKey()
     }
 }

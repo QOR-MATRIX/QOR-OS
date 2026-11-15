@@ -120,6 +120,12 @@ Windows/WSL resources are not inferred from the Pi.
   negative controls and the narrowly scoped build-local metadata correction.
   Keep the installed SDK unchanged; never suppress findings to compensate for
   missing type dependencies.
+- AgentPanel keeps its required `QtObject` controller interface. Its
+  `_designerState(): var` accessor reads the current object for both bindings
+  and method calls. The inert controller regression covers replacement,
+  action receivers and key-input clearing; the full Agent suite retains the
+  real DesignLoop checks. Do not narrow a compatible public interface merely
+  to satisfy tooling, or replace live reads with a cached object.
 - A QML module exposing C++ types declares the QML modules owning their C++ base types in `qt_add_qml_module(DEPENDENCIES ...)`.
   QQ declares `QtQuick3D` for SoftDot and TileGeometry. This supplies type information without adding auto-imports;
   see [Qt's module-dependency guidance](https://doc.qt.io/qt-6/qt-add-qml-module.html#declaring-module-dependencies).

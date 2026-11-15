@@ -298,6 +298,10 @@ own, Anthropic bills it directly, the panel says so before a key is given and sh
 holds no provider key and pays for no one's generation. Still to come in P3.3: its proof, a scene built from a
 description with no human edit, made by whoever runs it with their own key.
 
+The panel's required controller remains structurally compatible with DesignLoop and inert test controllers.
+Its accessor reads the current object for bindings and actions, including after replacement. A refused key submission
+still clears the password field and displays the problem as plain text; no new key storage or provider path is added.
+
 ## What is here
 
 | Path | What it is |
@@ -479,6 +483,20 @@ leak checking; eight targeted audio results pass. The creator journey passes in 
 300-second limit. All eight audited executables match the preceding validation byte for byte; the full gameplay,
 Agent, Player and Store suites were not all rerun for this metadata increment. All 862 memory samples stay at or above
 6,588 MiB against the unchanged 3,072-MiB floor. Evidence: `build/development-2026-11-15/session-06/`.
+
+The following AgentPanel correction removes the remaining 18 Studio findings.
+An explicit accessor retains its required structural controller and reads the
+current object in bindings and actions. Native QQ `all_qmllint` now exits zero;
+Runtime, Player and Studio structured commands each report zero warnings.
+No diagnostic category, severity or source coverage changed. Six focused
+results pass against the unchanged panel before the correction and offscreen
+under ASan/UBSan afterward, with leak checking. Complete Agent passes 22 with
+the identical existing log-timing failure and optional provider skip; complete
+Studio passes 29. The packaged-game creator journey passes in 131.581 seconds
+under its original 300-second limit. All 1,351 validation samples stay at
+or above 5,835 MiB against the unchanged 3,072-MiB floor. Native compilation
+and hardening pass. Existing assertions, approved timing, the original guard
+and private namespaces are unchanged. Receipts: `build/development-2026-11-15/session-07/`.
 
 Earlier 14 November sky/startup follow-up: World queues its first procedural sky with the same colour-update batch used
 for later edits, so initial properties do not create the same texture twice. The regression checks construction

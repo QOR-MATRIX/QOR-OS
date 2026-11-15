@@ -526,8 +526,22 @@ executables match the preceding validation byte for byte. All 862 samples stay
 at or above 6,588 MiB against the unchanged 3,072-MiB floor. Evidence:
 `build/development-2026-11-15/session-06/`.
 
+The following AgentPanel correction removes the remaining 18 Studio findings.
+An explicit accessor retains its required structural controller and reads the
+current object in bindings and actions. Native QQ `all_qmllint` now exits zero;
+Runtime, Player and Studio structured commands each report zero warnings.
+No diagnostic category, severity or source coverage changed. Six focused
+results pass against the unchanged panel before the correction and offscreen
+under ASan/UBSan afterward, with leak checking. Complete Agent passes 22 with
+the identical existing log-timing failure and optional provider skip; complete
+Studio passes 29. The packaged-game creator journey passes in 131.581 seconds
+under its original 300-second limit. All 1,351 validation samples stay at
+or above 5,835 MiB against the unchanged 3,072-MiB floor. Native compilation
+and hardening pass. Existing assertions, approved timing, the original guard
+and private namespaces are unchanged. Receipts: `build/development-2026-11-15/session-07/`.
+
 PR #10's next product gates include the agent/Player failures and remaining
-full-product and Windows runs. The Wayland sanitizer leak, ARQADE diagnostics, Studio lint,
+full-product and Windows runs. The Wayland sanitizer leak, ARQADE diagnostics,
 upstream dependency audit and isolated Qt CI remain open. Focused scene/rendering
 checks do not qualify the full OS, platform, Q Pi image or physical hardware.
 
