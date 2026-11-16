@@ -47,6 +47,9 @@ Image inputs are described by the image guide, including
 [installer attribution](../image/installer/ATTRIBUTION.md) and
 [Q Pi preparation metadata](../image/pi/preparation.json), which is planning data,
 not a builder configuration or acceptance receipt.
+The [Pi-kernel backport review](../image/README.md#pi-kernel-wait-bo-backport-review)
+indexes the pinned patch/test artifacts and pre-install rollback plan; they are
+not an installed kernel or a passing hardware result.
 
 The products document themselves in their own READMEs:
 [QQ](../products/qq/README.md), its [samples](../products/qq/samples/README.md),

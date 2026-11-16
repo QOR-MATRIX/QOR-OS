@@ -575,34 +575,39 @@ Windows Credential Manager. These local checks do not qualify hosted runners
 or clear skipped Qt jobs/core audit and failed Release readiness. Receipts:
 `build/development-2026-11-15/session-08/`.
 
-The 16 November read-only kernel audit at source `d79c6ab` explains why the
-captured buffer-cache probe sleeps. The running Pi kernel is
-`6.18.50+rpt-rpi-2712`; the V3D and DRM module files match their loaded build IDs.
-The actual V3D instructions convert timeout zero to one jiffy, a kernel timer
-tick, before the buffer fence wait. With `CONFIG_HZ=250`, that is a nominal
-4 ms timeout; timer rounding and scheduling can extend elapsed time. The exact
-package-declared kernel source corroborates the path into `schedule_timeout`.
-This identifies a kernel polling defect, not a measured breakdown of each wait
-or proof that the GPU finished. The unique fence and Studio pass remain unknown.
+The 16 November backport preparation at source `4937e1a` supplies a review
+candidate in `image/pi/kernel-wait-bo/`: a two-line V3D ioctl change preserves
+zero as a poll while leaving positive conversion and error accounting intact.
+It backports the zero-poll semantics of upstream Linux `226666556a9b`, without
+the shared-helper migration. Exact source/config and patch/preimage/postimage
+hashes are pinned. A separate, default-off patch adds six KUnit kernel tests.
+The busy-buffer case uses a real unsignaled fence and the actual ioctl/GEM wait
+path, checking voluntary scheduling rather than a fixed elapsed threshold.
+Its handle/device fixture is synthetic; it submits no GPU work.
 
-The installed but unbooted `6.18.60+rpt-rpi-2712` module has identical wait-function
-instructions and retains the defect. Upstream Linux commit `226666556a9b`
-preserves zero as a poll through `drm_timeout_rel_to_jiffies`; no fixed Pi package
-has been installed or qualified. Next: prepare a reviewable Pi-kernel backport
-candidate and busy-buffer regression plan using that correction, before any
-kernel installation or reboot. Do not change QOR's assertions or bypass waits.
+Patch application and exact reversal pass in a new isolated copy. Original and
+patched V3D objects plus the test object compile against the exact Pi 6.18.50
+headers with `W=1` and `-Werror`; disassembly confirms the zero bypass. These are
+object checks, not a linked kernel or executed KUnit suite. The running kernel
+has KUnit disabled; `bison`, `flex` and QEMU are absent. Full build, unpatched/
+patched KUnit execution, interruption/asynchronous completion integration and
+hardware qualification remain pending. No dependency is installed.
 
-No graphics/test run, production source, executable, image, library, kernel,
-service or system setting changes. The audit uses the original resource guard;
-41 and 34 samples stay above the 3,072-MiB floor. The first job's module checks
-succeed but its header-only helper search has no match; that whole job is not
-reported as passing. The source lookup resolves the helper in the driver header.
-Sealed reference/observer results remain 3 passed, 1 failed, 0 skipped
-(`times > 5` with 3), with later notice/cursor assertions unreached. The independent
-llvmpipe failure and 97 unresolved image outliers stay open. Release, sanitizer,
-broader products and isolated CI acceptance are unrun in this continuation.
-PR #10 stays draft. Evidence: `build/development-2026-11-16/session-05/`;
-session-04 remains sealed.
+The [backport and rollback runbook](../image/README.md#pi-kernel-wait-bo-backport-review)
+records a critical recovery distinction: normal boot files already match
+6.18.60, while the Pi still runs 6.18.50. A reboot or restoring today's boot
+files is not a verified return to the running baseline. A tested recovery path
+is required before any candidate installation. No kernel, boot file, module,
+service, desktop setting, QOR source, executable or assertion changes.
+
+The guarded preparation's 61 samples stay at or above 7,153 MiB against the
+unchanged 3,072-MiB floor. Historical focused results remain 3 passed, 1 failed,
+0 skipped (`times > 5` with 3), later notice/cursor checks unreached. The
+independent llvmpipe failure and 97 image outliers remain open. No new product,
+Release, sanitizer or isolated-CI acceptance is claimed; PR #10 stays draft.
+Next: qualify an isolated kernel-test build environment and run the unpatched
+negative control plus patched KUnit suite before proposing installation.
+Evidence: `build/development-2026-11-16/session-06/`; session-05 remains sealed.
 
 The earlier accepted test rebuild reproduces its passing proposal's binary hash, with
 all 1,404 snapshot source hashes verified. Hardening reads 16 QQ programs and

@@ -1,45 +1,48 @@
 # Where QOR OS stands
 
-For Andrew, 16 November 2026. The exact running Pi graphics driver turns a
-zero-timeout buffer poll into a sleeping wait. This explains the captured cache
-probe's blocking behavior; correcting it has not yet been tested. The original
-natural-frame requirement still fails.
+For Andrew, 16 November 2026. A reviewable Pi-kernel backport is prepared for
+the sleeping zero-timeout buffer poll. It is checked as source and compiled
+objects, not installed, booted or accepted. The original frame test still fails.
 
-The running kernel, `6.18.50+rpt-rpi-2712`, and its package-declared source are
-identified. V3D, the Pi graphics driver, and DRM, Linux's graphics infrastructure,
-have matching loaded/file build identities. Machine instructions turn zero
-into one jiffy, a kernel timer tick. The configured tick is 4 ms; timer rounding
-and scheduling can make the elapsed delay longer. The source path reaches the
-sleeping fence wait, where a fence is a graphics completion signal.
+The production patch changes two lines in V3D, the Pi graphics driver: zero
+remains a poll; positive waits and error accounting retain their original code.
+It is a narrow backport of upstream Linux `226666556a9b`, pinned to the running
+6.18.50 source and configuration. Patch application and exact reversal pass.
+Both original and patched driver objects compile without warnings against the
+matching headers; the patched instructions bypass conversion for zero.
 
-Mesa, the user-space graphics driver, intended to check whether cached buffer
-291 was idle for a tile-state allocation. One captured call spent 11.853 ms
-elapsed and 0.005 ms on CPU, then reported a timeout. The kernel audit explains
-why it can sleep; it does not identify the individual fence or divide that
-elapsed time precisely. Successful buffer reuse and the Studio pass are unknown.
+A separate, default-off patch supplies six KUnit tests, Linux's kernel unit
+tests. A private buffer with an unsignaled completion fence exercises the real
+wait handler and records whether the task voluntarily schedules away. It also
+checks idle polls, positive expiry/success and invalid padding/handles. The
+device and handle fixture are synthetic; no graphics work is submitted.
+The test object compiles, but none of these kernel tests has executed.
 
-The installed newer `6.18.60` kernel's wait instructions retain the same defect.
-Upstream Linux correction `226666556a9b` preserves zero as a poll. No corrected
-Pi kernel is installed or qualified. Next: prepare a reviewable backport
-candidate and busy-buffer regression plan before any installation or reboot.
-No QOR production change or test-contract change is proposed to mask this bug.
+The running kernel has KUnit disabled. The parser generators bison/flex and
+the QEMU virtual machine tool are absent. Full kernel builds, unpatched failure
+and patched pass evidence, kernel sanitizers, interruption/completion integration
+and hardware qualification remain pending. No dependency is installed.
 
-This continuation runs no graphics or product tests. The sealed reference and
-lower-overhead observer remain three passes, one failure, zero skips;
-`times > 5` fails with three. Error capture/coalescing and wall-clock waiting
-passed; later notice/cursor assertions were unreached. The separate software
-renderer failure and 97 unresolved image outliers stay open.
+The rollback plan distinguishes running and next-boot state: normal boot files
+already match 6.18.60, although 6.18.50 is running. Neither reboot nor restoring
+today's boot files proves a return to this baseline. Verify a recovery boot
+before any candidate trial; keep candidate modules and boot files separate.
+No kernel, boot file, module, library, service or desktop setting changes.
 
-Both static audit jobs stay above the 3,072-MiB (mebibyte) resource floor.
-The first job's module checks succeed; a header-only search finds no helper,
-so the whole job is not called passed. The pinned driver source resolves it.
-All 1,414 original source hashes, both binaries and the prior image are intact.
-No kernel, library, service or system setting changes. Locks are free and no
-QOR worker remains. Supplemental logging and early graphics setup stay proposals.
+All 1,414 original QOR source hashes, both binaries and the prior image are
+intact. The guarded preparation's 61 memory samples stay at or above 7,153 MiB
+(mebibytes), above the 3,072-MiB floor. Locks are free and no QOR worker remains.
 
-PR #10 stays draft. Release, sanitizer, full products, Player frame rates,
-the earlier Wayland memory leak, ARQADE diagnostics, isolated CI (automated
-integration checks), hardware and Q Pi image acceptance remain open. Required
-hosted Qt/core-audit jobs skipped and Release readiness failed at admission.
-Receipts: `build/development-2026-11-16/session-05/`; session-04 remains sealed.
+Historical focused results remain three passes, one failure, zero skips;
+`times > 5` fails with three. Later notice/cursor assertions were unreached.
+The software-renderer failure and 97 image outliers remain open. No new QOR
+Release, sanitizer, full-product, hardware or image acceptance is claimed.
+Required hosted Qt/core-audit jobs skipped; Release readiness failed at admission.
+
+Next: qualify an isolated kernel-test build environment and run the unpatched
+negative control plus patched KUnit suite before proposing installation.
+PR #10 stays draft; isolated CI (automated integration checks), Player frame
+rates, the earlier Wayland leak and ARQADE diagnostics remain open.
+Review: `image/pi/kernel-wait-bo/`; runbook: `image/README.md`.
+Receipts: `build/development-2026-11-16/session-06/`; session-05 remains sealed.
 Consolidation planning is separate.

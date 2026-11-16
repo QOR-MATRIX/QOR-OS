@@ -1855,3 +1855,57 @@ passed, later notice/cursor checks unreached. The independent llvmpipe failure,
 97 image outliers, unavailable matching Qt symbols, full products and isolated
 CI remain open. PR #10 stays draft; hosted skipped Qt/core-audit gates are not
 passes. Original source, binaries, image and session-04 seal are preserved.
+
+## Pi kernel backport preparation, 2026-11-16
+
+At `4937e1a`, `image/pi/kernel-wait-bo/` adds a pinned review candidate rather
+than changing the installed driver. Patch 1 changes only the V3D ioctl's timeout
+expression: zero bypasses the old conversion, while positive values retain the
+original helper, clamping, fence path and elapsed/error handling. This is the
+zero-poll semantic subset of upstream `226666556a9b`; it does not import the
+shared DRM helper infrastructure or its separate overflow changes. The base is
+Raspberry Pi source `cff533aec2fa601846766b32ff57204e0a61bed7` and the running
+6.18.50 configuration SHA `8914d802785a04fbb68a00e88e90774db7aa2ec33b9fa1e28f3296be3ebbcff8`.
+
+Patch 2, disabled by default, adds six KUnit cases. A private GEM buffer and
+synthetic handle table hold a real, deliberately unsignaled DMA fence. The real
+`v3d_wait_bo_ioctl`, GEM lookup, reservation iteration and default fence waiter
+run in the test kernel. Sixteen zero polls must each return ETIME, keep the fence
+unsignaled and leave the current task's voluntary context-switch counter
+unchanged. Elapsed nanoseconds are reported but do not set a new tolerance.
+CPU preemption uses the separate involuntary counter. This tests polling
+semantics without assuming a GPU frame rate. Other cases cover idle zero,
+busy positive expiry, signaled positive success, invalid padding and invalid
+handle. No custom fence waiter substitutes for the kernel implementation.
+
+The fixture is not a real allocated V3D hardware buffer, userspace ioctl dispatch,
+GPU submission or image test. Kernel execution must still demonstrate that the
+unpatched control fails the busy-poll requirement and the corrected variant
+passes all six cases. Asynchronous completion while blocked and signal/restart
+semantics remain separate integration gates; the signaled-success case alone
+does not cover them. The original QOR callback assertion and timer are unchanged.
+
+Native guarded checks apply both patches to hash-matched isolated source files,
+verify exact postimages, compile the baseline and patched `v3d_bo.o` with `W=1`
+and `-Werror`, and compile the KUnit object with those warning flags and a
+test-only `CONFIG_KUNIT=1` compiler definition. The installed configuration is
+not modified. This is **object compilation only**, not a linked test kernel.
+The candidate instructions at `0x898` branch on nonzero timeout; zero reaches
+the reservation wait with `x3=0`. Both patches reverse cleanly and restore exact
+preimage hashes; the test source disappears from that disposable copy.
+
+All 14 guarded substeps succeed. The 61 samples have minimum 7,153 MiB against
+the original 3,072-MiB floor. The running kernel lacks KUnit; bison/flex and QEMU
+are absent. No dependency was installed. Full production/test kernel builds,
+negative/positive KUnit execution, kernel KASAN/lock checking, QOR Release/ASan,
+focused original test, image comparison and broader acceptance are **unrun**.
+There is no measured performance improvement from this preparation.
+
+The boot inventory finds a separate recovery issue: normal `kernel_2712.img`
+and `initramfs_2712` match installed 6.18.60 files, while 6.18.50 remains running.
+Both older image/initrd files remain under `/boot`, but their presence is not a
+verified recovery boot. The [rollback plan](../image/README.md#pi-kernel-wait-bo-backport-review)
+requires a known recovery path before any candidate installation or reboot.
+No boot/system file, module, original QOR source/binary/image or prior seal is
+changed. The independent llvmpipe failure and 97 image outliers remain open.
+PR #10 stays draft. Receipts: `build/development-2026-11-16/session-06/`.

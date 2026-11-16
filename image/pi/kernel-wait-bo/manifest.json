@@ -1,0 +1,47 @@
+{
+  "schema": 1,
+  "status": "review-candidate-not-installed-not-runtime-qualified",
+  "base": {
+    "repository": "https://github.com/raspberrypi/linux",
+    "commit": "cff533aec2fa601846766b32ff57204e0a61bed7",
+    "package": "linux",
+    "version": "1:6.18.50-1+rpt1",
+    "release": "6.18.50+rpt-rpi-2712",
+    "config_sha256": "8914d802785a04fbb68a00e88e90774db7aa2ec33b9fa1e28f3296be3ebbcff8"
+  },
+  "upstream_semantic_source": "226666556a9b3b51f04f9dad83662e5b9c78a325",
+  "scope": "Zero timeout only; original positive conversion, fence behavior and error accounting preserved. No shared-helper migration.",
+  "patch_format": "Unified zero context; verify exact preimages before git apply --unidiff-zero.",
+  "preimages": {
+    "drivers/gpu/drm/v3d/v3d_bo.c": "bc001e15c1506c8b96ad7c8ba249a734d8fb61a7a8b397ae6feb72059c8fb81d",
+    "drivers/gpu/drm/v3d/Kconfig": "73352b7712f2d81f9523bb552075bf14a7843e99518a8260887553cf20b3d788",
+    "drivers/gpu/drm/v3d/Makefile": "48f7715394f8b13e17b272e73db328d452d083a7dabb55130e7c5c612bb5e7c7"
+  },
+  "required_absent_paths": [
+    "drivers/gpu/drm/v3d/tests/v3d_wait_bo_test.c"
+  ],
+  "postimages": {
+    "drivers/gpu/drm/v3d/v3d_bo.c": "2a8113d9a807cc69ea14f19ab7b8973059e64b29a5fc4503f8f94fe7d64d0206",
+    "drivers/gpu/drm/v3d/Kconfig": "4065e2e1c5d8cccf37b8883deb27c7b6b23fc0a1f5b50176e606828e02692e92",
+    "drivers/gpu/drm/v3d/Makefile": "89d14d0d822bb3a7a1dba8310a9055862633ac0ae0ca6be1c454ae33fb2c9f59",
+    "drivers/gpu/drm/v3d/tests/v3d_wait_bo_test.c": "312ed95ff7548bce1ade49d963b4763359a04f70adfe3c04a84f17014d9dac3c"
+  },
+  "patches": {
+    "0001-v3d-preserve-zero-timeout-poll.patch": "5297e811590a5d559daf63f3d95543319068a0fbb29635d911d66267126df372",
+    "0002-v3d-wait-bo-kunit.patch": "89fd9f7ce747498c0729245154e564fa1c6169a55e6cfbcc6b3479875731c3c8"
+  },
+  "production_patch_count": 1,
+  "test_patch_count": 1,
+  "production_test_config": "CONFIG_DRM_V3D_KUNIT_TEST disabled",
+  "test_cases": 6,
+  "installation_authorized": false,
+  "reboot_authorized": false,
+  "validation": {
+    "patch_apply_and_exact_reverse": "passed on isolated copy",
+    "arm64_object_compilation": "baseline, patched v3d_bo and KUnit object passed with W=1 and -Werror against 6.18.50 headers",
+    "kunit_runtime": "not run",
+    "full_kernel_link_and_boot": "not run",
+    "qor_focused_test_and_images": "not rerun",
+    "receipt": "build/development-2026-11-16/session-06/"
+  }
+}

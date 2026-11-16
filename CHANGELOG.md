@@ -9,6 +9,15 @@ their changes since, and pulls of what is still shared, are recorded here.
 
 ## [Unreleased]
 
+- **Prepare a Pi-kernel zero-poll backport, kernel regression and rollback plan.**
+  A pinned two-line V3D change preserves zero-timeout polling, with six separate
+  default-off KUnit cases. Patch/reverse and native object compilation pass;
+  full kernel build, kernel-test execution and installation remain pending.
+  The runbook records that next-boot files are 6.18.60 while 6.18.50 runs, and
+  requires verified recovery before a trial. No live kernel or QOR test contract
+  changes. Review artifacts: `image/pi/kernel-wait-bo/`; receipts: session-06
+  under `build/development-2026-11-16/`.
+
 - **Exact Pi kernel audit identifies a sleeping zero-timeout buffer poll.**
   Loaded-module build IDs, original machine instructions and package-pinned
   source show timeout zero becoming one timer tick before the graphics fence

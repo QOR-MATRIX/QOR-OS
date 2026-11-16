@@ -1369,6 +1369,187 @@ and a 30-minute workload/idle check with measured resource use. Record failures
 and unavailable features. No ARM64 build, image assembly, static image validation,
 Pi boot or hardware test has passed yet. The existing VM proof below is separate.
 
+### Pi kernel WAIT_BO backport review
+
+This is a source review candidate, prepared 16 November at QOR commit `4937e1a`.
+It is not a bootable kernel, an installed fix, vendor qualification or Q Pi
+acceptance. Preparation authorizes no installation, module loading or reboot.
+The artifact manifest is [pi/kernel-wait-bo/manifest.json](pi/kernel-wait-bo/manifest.json).
+The original frame deadline/assertion and separate software-renderer failure
+remain unchanged. See [the measured kernel defect](../docs/PERFORMANCE.md#exact-running-kernel-wait-audit-2026-11-16).
+
+#### Review contents and provenance
+
+| Artifact | Purpose |
+| --- | --- |
+| [Patch 1](pi/kernel-wait-bo/0001-v3d-preserve-zero-timeout-poll.patch) | Two-line production change: zero remains a poll; positive conversion and subsequent handling stay unchanged. |
+| [Patch 2](pi/kernel-wait-bo/0002-v3d-wait-bo-kunit.patch) | Separate, default-off kernel regression with six cases. |
+| [Test configuration](pi/kernel-wait-bo/kunit.config) | Overlay for a separate KUnit test kernel, never the production configuration. |
+| [Series](pi/kernel-wait-bo/series) | Review order; production uses patch 1 only. The negative control uses patch 2 only. |
+
+Base: [Raspberry Pi Linux `cff533aec2fa601846766b32ff57204e0a61bed7`](https://github.com/raspberrypi/linux/tree/cff533aec2fa601846766b32ff57204e0a61bed7),
+declared by installed source package `linux` `1:6.18.50-1+rpt1` for running
+`6.18.50+rpt-rpi-2712`. Config SHA256:
+`8914d802785a04fbb68a00e88e90774db7aa2ec33b9fa1e28f3296be3ebbcff8`.
+Compiler observed: Debian GCC 14.2.0-19, AArch64; pages 16 KiB; timer `HZ=250`.
+
+The fix is a deliberately narrow semantic backport of upstream Linux
+[`226666556a9b`](https://github.com/torvalds/linux/commit/226666556a9b3b51f04f9dad83662e5b9c78a325).
+It bypasses the existing conversion only for zero. It does not copy the shared
+helper migration or its separate overflow changes, so it requires no new DRM
+core symbol/header. Review positive timeout behavior against the unchanged
+helper and elapsed/error branches. The kernel changes retain GPL licensing;
+the new kernel test is GPL-2.0-only. Nothing here changes the QOR product licence.
+
+The two patches have zero context. **Exact preimage and patch hash checks are
+mandatory**, not optional offset matching. In a new, clean kernel checkout,
+verify the full HEAD equals the manifest's base commit, all listed preimage
+SHA256 values match, all required-absent paths are absent, and both patch hashes
+match. Refuse any mismatch. Then use `git apply --check --unidiff-zero` before
+applying the selected patches with `git apply --unidiff-zero`. After the full
+test series, verify every postimage hash. For production, only `v3d_bo.c` changes;
+the Kconfig/Makefile/test source additions are not production prerequisites.
+
+Keep the full vendor source/package provenance when producing a kernel: the
+small hash-matched source fixture used for object checks is not a complete
+source/package reproduction. Downloaded build dependencies must have reviewed
+repository signatures, immutable versions and hashes before use. No dependency
+installation or full kernel download occurred in this preparation.
+
+#### What the regression protects
+
+The main KUnit case supplies a private GEM object, a synthetic handle table and
+a real unsignaled DMA fence. It calls the actual `v3d_wait_bo_ioctl`, GEM lookup,
+reservation iterator and default waiter. Sixteen zero-timeout probes must return
+ETIME, leave the fence unsignaled and cause no voluntary context switch in the
+calling task. Elapsed nanoseconds are evidence only, not a new speed threshold.
+Involuntary preemption has a separate counter. An unpatched kernel is expected
+to expose its timed sleep; this negative control must actually run before the
+test is accepted as demonstrated regression coverage.
+
+The remaining cases cover an idle zero poll, busy positive expiry, already
+signaled positive success, invalid padding and invalid handle. All six names
+must appear in complete KTAP results. Missing, skipped, aborted or unexecuted
+cases are not passes. The fixture performs no GPU work and does not test real
+userspace ioctl dispatch, hardware buffer allocation or pixels. Separate
+integration checks must exercise a valid busy V3D buffer, positive completion
+while blocked, interruption/restart and buffer lifetime. Already-signaled
+success is not asynchronous-completion coverage.
+
+#### Pre-install qualification sequence
+
+1. Use a new isolated kernel build environment with the original heavy-job
+   coordinator and `tools/image/vm_resources.py`: one job, serial compilation,
+   sustained resident admission and at least 3,072 MiB available throughout.
+   Keep all outputs under a new `build/` receipt. Never stop unrelated work.
+   The current Pi lacks bison, flex and QEMU; its running kernel has KUnit off.
+   Qualify those prerequisites in an isolated builder before attempting a full
+   build or kernel-test VM. Do not enable KUnit or load a test module in the
+   current desktop kernel as a workaround.
+2. Prepare three separate source/output trees from the pinned base: unpatched
+   control plus patch 2; corrected test plus patches 1 and 2; production plus
+   patch 1 only. Copy the verified 16-KiB configuration into each output tree.
+   Give each a distinct `LOCALVERSION`, preserving the base suffix and adding
+   a clearly recorded trial suffix. Check the resulting `kernelrelease` differs
+   from every installed release. Do not predict it from a filename. The Pi
+   [kernel build guide](https://www.raspberrypi.com/documentation/computers/linux_kernel.html)
+   documents the 2712 configuration and distinct kernel versions.
+3. Run `olddefconfig` in the separate output directory, inspect every config
+   change, and refuse an unintended page-size, graphics, security or service
+   change. Production has the original config apart from the unique version;
+   test changes include the explicit KUnit overlay. Build/link kernel, modules
+   and device trees with `-j1`, warnings reviewed, and record source/config,
+   compiler, kernel/module build IDs, dependency closure and artifact hashes.
+   A changed object alone is insufficient. Stage modules under a private
+   `INSTALL_MOD_PATH`, never `/lib/modules` on the live Pi.
+4. In a disposable kernel-test VM, run only `v3d-wait-bo` first. Capture the
+   unpatched busy-poll failure, then all six patched passes with no skips.
+   Preserve errors and complete KTAP. Repeat the focused corrected tests with
+   kernel address checking (KASAN) and lock checking in a separate test config;
+   record actual support, failures and skips. No such execution has occurred.
+5. After those gates and a verified recovery route, submit the exact candidate
+   hashes/config, proposed boot selection and rollback target for installation
+   approval. A custom build is still a trial, not vendor-supported acceptance.
+   Do not replace a loaded `v3d.ko`, unload the desktop driver or mix modules from
+   different kernel releases.
+6. Following separately authorized candidate boot, verify actual release,
+   module identities, 16-KiB pages and V3D/ES/Qt backend again. Run the unchanged
+   focused Agent test in the existing render-node-only sandbox. Compare matched
+   callback/phase data and complete images; retain the 97 unresolved outliers.
+   Keep compositor/cache conditions constant and disclose kernel/config changes.
+   Qualify real ioctl completion/interruption/lifetime behavior. Resume QOR
+   Release, sanitizer and broader gates only on actual focused resolution.
+   Restore the recorded baseline after the bounded trial; preserve all evidence.
+
+#### Rollback plan: distinguish running from next boot
+
+Read-only inventory finds `auto_initramfs=1`, `arm_64bit=1`, no explicit kernel
+override, and no `tryboot.txt` or `autoboot.txt`. Current normal firmware files
+match **6.18.60**, although **6.18.50 is running**:
+
+| Preserved file | SHA256 |
+| --- | --- |
+| `/boot/firmware/config.txt` | `90a446821551a9df109ec1a77a79f6518fe974517d982d371c5e9efd6bbc98c3` |
+| `kernel_2712.img` / 6.18.60 vmlinuz | `f5b98801c4ec2eef5fbc2f4261a353d642d4a059e31231f418434ef2fffcc83d` |
+| `initramfs_2712` / 6.18.60 initrd | `f921995b146241c8c25111031a000af30bdbf4a6f1c6bbbbdfef55b7a8eb091e` |
+| `/boot/vmlinuz-6.18.50+rpt-rpi-2712` | `154f0ea1e14bb1075077dfd1bdc63c1502bc0b17b0354628d515b4fbd3a4198d` |
+| `/boot/initrd.img-6.18.50+rpt-rpi-2712` | `063222c943130886b15020c8e736e2c9d7418342f847f13fb8a805d31d0a3e7b` |
+
+These hashes identify current artifacts, not a tested rollback. A normal reboot
+is not a return to the running 6.18.50 baseline. Before any trial:
+
+- Re-inventory at action time. Preserve the whole boot selection/config/include
+  chain, kernel, matching initramfs, DTBs/overlays and versioned module tree in
+  a private verified backup, including permissions. Keep credentials and any
+  private command-line data out of logs/repository. Do not overwrite or remove
+  either installed stock kernel. Verify that the recovery set is internally
+  matched; do not pair the older kernel with newer unreviewed device trees.
+- Prefer a separate recovery/test medium. Prove its selected stock kernel,
+  desktop, networking and remote access boot successfully **before** trialing
+  the candidate. Returning specifically to 6.18.50 requires that matched
+  recovery set and a verified boot; merely finding its files is insufficient.
+  Alternatively qualify stock 6.18.60 as a new baseline first, then rebase and
+  repeat the controlled comparison; do not call that a same-baseline rollback.
+- Stage candidate kernel, matching initramfs/device trees/overlays and modules
+  under unique names/directories on the test medium. Raspberry Pi's
+  [boot configuration documentation](https://www.raspberrypi.com/documentation/computers/config_txt.html)
+  describes separate OS prefixes and initramfs selection. Verify the complete
+  selected set: prefix fallback must not silently boot stock artifacts. An
+  optional one-shot tryboot route needs firmware/support and recovery testing;
+  it is not qualified here and cannot guarantee recovery from a hung kernel.
+- Arrange local console/media access and a person able to power-cycle/reselect
+  recovery media if networking fails. Do not depend solely on Tailscale or Pi
+  Connect for recovery from a nonbooting kernel. Define a bounded boot window
+  before starting; failure to regain access triggers the recovery procedure,
+  not another unattended retry.
+
+On trial failure or completion, preserve diagnostics, stop only the trial's
+workers, and return to the preverified recovery selection/media. If the trial
+cannot boot, recover offline from the other computer/console. Restore the exact
+recorded selection files rather than guessing settings. After boot, verify
+`uname -r`, page size, loaded-module build IDs, desktop/remote access and stock
+file hashes against the recovery receipt. Leave candidate files quarantined
+until review; removing them is not part of rollback. Record the actual result.
+No installation, backup-copy, boot selection, reboot or recovery drill was
+performed by this preparation.
+
+#### Verified preparation, remaining gates
+
+The native guarded job passes both patch checks/applications, verifies patched
+hashes, compiles original and changed `v3d_bo.o` plus the KUnit object with `W=1`
+and `-Werror`, inspects the compiled zero bypass, then reverses both patches and
+verifies exact original hashes. For the test object only, the compile command
+defines `CONFIG_KUNIT=1`; the installed config remains unchanged. There is no
+full link, KUnit execution, test-module load or bootable artifact. All 61 memory
+samples exceed the resource floor; minimum 7,153 MiB.
+
+Receipts: `build/development-2026-11-16/session-06/`. Full kernel build/link,
+unpatched/patched and KASAN kernel tests, busy hardware ioctl integration,
+recovery drill, original QOR focused test/images and all acceptance gates remain
+unrun in this preparation. PR #10 stays draft. The next concrete action is to
+qualify an isolated kernel-test builder and run the unpatched negative control
+and patched KUnit suite before proposing installation.
+
 ## Private disposable VM lab
 
 [QOR-0024](../docs/decisions/QOR-0024-disposable-vm-installation-lab.md) defines a

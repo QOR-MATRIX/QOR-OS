@@ -638,16 +638,15 @@ and mark any record it supersedes or amends.
 | Service traffic | `qorctl watch`; `QT_LOGGING_RULES="qt.remoteobjects*=true"` |
 | Frame pacing | `qor-shell --benchmark 8 --benchmark-out bench.json` |
 
-The 16 November read-only kernel continuation matches module files to live
-build IDs and audits the source commit declared by the running kernel package.
-The original V3D instructions convert timeout zero to one timer tick, explaining
-the sleeping Mesa cache probe. The installed newer module retains the same
-instructions. The [kernel audit](PERFORMANCE.md#exact-running-kernel-wait-audit-2026-11-16)
-records binary/source provenance, timer behavior, the upstream correction and
-remaining limits. No kernel change or graphics rerun occurs. Preserve the
-original natural-frame gate and prepare a reviewable backport/regression plan
-before installing or booting a candidate. Receipts:
-`build/development-2026-11-16/session-05/`.
+The 16 November backport preparation provides a pinned two-line kernel patch
+and six default-off KUnit cases under `image/pi/kernel-wait-bo/`. Patch/reverse
+and ARM64 object compilation pass; no kernel suite, full link or boot has run.
+The [review and rollback runbook](../image/README.md#pi-kernel-wait-bo-backport-review)
+defines exact source/hash checks, negative-control testing and separate kernel
+identities. Normal boot files already select a different kernel from the running
+baseline, so recovery must be verified before any trial. Preserve the original
+QOR test gate and sealed evidence. Receipts:
+`build/development-2026-11-16/session-06/`.
 
 ## 7. Tooling reference
 
