@@ -511,6 +511,21 @@ Qt Multimedia on Windows. The original coordinator, continuous 3,072-MiB guard,
 test assertions and deadlines remain unchanged. Exact selection, environment,
 output and corrected wrapper failures: `build/development-2026-11-15/session-08/`.
 
+The following native Agent investigation reproduces the original logging failure
+while the wall-clock wait case passes. Two software traces have the scene and
+logic ready in 37 ms, but deliver only one natural logic-frame callback before
+the 600 ms wait returns at 1,221/1,197 ms. That exception reaches the log; six
+explicit diagnostic callbacks then produce one entry counted seven times.
+Those callbacks are a positive control, not an acceptance pass. The original
+source and executable are restored exactly. Complete Agent again passes 22
+with the same failure and one optional provider skip, in 154.467 seconds.
+Build/hardening and aggregate/structured lint pass. All 470 resource samples
+remain at or above 5,859 MiB against the unchanged 3,072-MiB floor. The failure
+stays open; next isolate render cost from private-display pacing without
+changing the 600 ms request, `times > 5`, quality or worker limits. See the
+[callback timeline](../../docs/PERFORMANCE.md#qq-agent-callback-timing-2026-11-15-isolated-pi-software-rendering).
+Receipts: `build/development-2026-11-15/session-09/`.
+
 Earlier 14 November sky/startup follow-up: World queues its first procedural sky with the same colour-update batch used
 for later edits, so initial properties do not create the same texture twice. The regression checks construction
 count, final colours, ownership, replacement and disposal; it fails against the original World. All 84 scene results

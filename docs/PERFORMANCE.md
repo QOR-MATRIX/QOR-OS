@@ -415,6 +415,55 @@ on a QOR OS device, Prism owns the KMS device.
 
 ## Known costs and next steps
 
+### QQ Agent callback timing (2026-11-15, isolated Pi software rendering)
+
+The unchanged `logicThatThrowsInPlayIsInTheLog` case reproduces at source
+`439b5a8`, while `aLongWaitLastsWhatItWasAskedFor` passes. The logging case
+requests 600 ms through the Agent's wall-clock `wait` tool and requires one
+`TypeError` entry with more than five repetitions. Its logic throws from
+`onFrame`, which is driven by Qt's [FrameAnimation](https://doc.qt.io/qt-6/qml-qtquick-frameanimation.html),
+after the first scene step. Elapsed wall time does not guarantee that many
+animation updates.
+
+Temporary observation slots preserve that 600 ms request and inspect scene
+readiness, frame swaps, logic steps and log delivery. The original failing
+method is unchanged. Both observations use the original native coordinator,
+private display/device/network namespaces, commercial Qt 6.12.0, llvmpipe,
+two renderer workers and the unchanged 3,072-MiB guard.
+
+| Observation | First trace | Trace with logging control |
+| --- | --- | --- |
+| Play returns; scene and behaviour ready | 37 ms | 37 ms |
+| Requested wait | 600 ms | 600 ms |
+| Time at wait return, measured from play call | 1,221 ms | 1,197 ms |
+| Window frame swaps / natural logic-frame callbacks | 3 / 1 | 3 / 1 |
+| Scene / logic steps | 12 / 12 | 11 / 11 |
+| First observed natural QML warning | Not timestamped | 1,195 ms |
+
+The natural callback's exception reaches the log. In the second diagnostic,
+six explicit callbacks after the wait produce six more exceptions immediately:
+the log contains one entry with `times: 7`, exactly matching seven callbacks.
+This confirms delivery and repeated-error counting for the exercised path.
+The explicit callbacks are a positive control, not drawn frames or a passing
+acceptance test. Neither diagnostic is a replacement for the original suite.
+
+The measured failure mechanism is insufficient natural callback delivery in
+this isolated software run. The expensive render/synchronization stage has
+not yet been identified, and no speedup or logger defect is established.
+Next, profile Studio's play-start render work and private-display pacing under
+the same configuration. Keep the 600 ms wait, `times > 5`, rendering quality,
+worker limits and existing failure evidence. Current receipts:
+`build/development-2026-11-15/session-09/`.
+
+All 1,414 original sources and the original Agent executable hash are restored
+after the diagnostic overlays. The unmodified full suite returns 22 passes,
+the same logging failure and one optional provider skip in 154.467 seconds.
+Build and hardening pass; aggregate and all three structured lint reports have
+zero warnings. All 470 validation samples remain at or above 5,859 MiB against
+the unchanged 3,072-MiB floor. The original lock is free with no test workers.
+
+### Earlier startup measurements
+
 Startup branding was compared locally on 5 November 2026: three sequential eight-second
 `prism --size 1600x1000 --benchmark 8` tours before (`8b3bfb8`) and after the startup changes,
 on the same Windows/WSL machine, commercial Qt 6.12, offscreen Qt Quick software, GPU access

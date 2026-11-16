@@ -551,7 +551,22 @@ selected qualified checks on this PC; full product runtime checks still need
 an audio/keyring boundary, and GPU checks were not run. Current Windows receipts:
 `build/development-2026-11-15/session-08/`.
 
-PR #10's next product gates include the agent/Player failures and remaining
+The following native Agent investigation reproduces the original logging failure
+while the wall-clock wait case passes. Two software traces have the scene and
+logic ready in 37 ms, but deliver only one natural logic-frame callback before
+the 600 ms wait returns at 1,221/1,197 ms. That exception reaches the log; six
+explicit diagnostic callbacks then produce one entry counted seven times.
+Those callbacks are a positive control, not an acceptance pass. The original
+source and executable are restored exactly. Complete Agent again passes 22
+with the same failure and one optional provider skip, in 154.467 seconds.
+Build/hardening and aggregate/structured lint pass. All 470 resource samples
+remain at or above 5,859 MiB against the unchanged 3,072-MiB floor. The failure
+stays open; next isolate render cost from private-display pacing without
+changing the 600 ms request, `times > 5`, quality or worker limits. See the
+[callback timeline](PERFORMANCE.md#qq-agent-callback-timing-2026-11-15-isolated-pi-software-rendering).
+Receipts: `build/development-2026-11-15/session-09/`.
+
+PR #10's next product gates include Agent callback timing, Player failures and remaining
 full-product and Windows runtime runs. The Wayland sanitizer leak, ARQADE diagnostics,
 upstream dependency audit and isolated Qt CI remain open. Focused scene/rendering
 checks do not qualify the full OS, platform, Q Pi image or physical hardware.

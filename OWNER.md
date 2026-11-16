@@ -1,41 +1,43 @@
 # Where QOR OS stands
 
-For Andrew, 15 November 2026. The qualified Windows checks now pass at source
-`5d1359e`. All 22 selected core suites pass in 129.266 seconds, with one expected
-Windows desktop-entry case skipped and nine graphics suites excluded. The
-required pinned QOR core is enabled. Core and QQ compilation pass, though the
-core retains its known Rust dependency compatibility warning. Hardening, checks
-of program exploit mitigations, accepts 33 core and 15 QQ programs.
+For Andrew, 15 November 2026. The Agent logging failure is now traced to too
+few natural frame callbacks during its unchanged wait on the isolated Pi
+software renderer. The scene and logic are ready after 37 ms. Two observations
+request 600 ms, return at 1,221/1,197 ms and deliver one logic-frame callback.
+Its exception reaches the log. Six explicit diagnostic callbacks produce six
+more exceptions, correctly kept as one entry counted seven times. They test
+logging only; they do not make the original timing check pass.
 
-QML lint, checks of Qt's interface language, reports zero warnings for the core
-and QQ. Separate Runtime, Player and Studio reports also have zero warnings.
-All six metadata helper tests and six Agent panel results pass. The panel
-checks use inert controllers, objects supplying state and actions, without an
-audio engine, provider or keychain. Bindings and actions follow a replacement
-controller, and refused key submissions clear the input and display literal
-text. No product source, assertion or timing boundary changed in this session.
+All 1,414 original sources and the original Agent executable hash are restored
+after these temporary observations. The complete Agent suite again passes 22
+with the same logging failure and one optional provider skip, in 154.467
+seconds. No production source, assertion, rendering quality or timing boundary
+changed. The failure remains open. Next, separate Studio's rendering cost from
+private-display pacing, the delivery of frames through the test display.
 
-The original Windows coordinator serializes the work. All 821 validation
-samples stay at or above 3,422 MiB available against the unchanged 3,072-MiB
-floor. Private profile folders and hidden software rendering protect this
-selection. The full Windows product suites still need a qualified audio and
-keyring boundary: the core's null-audio setting does not isolate QQ's Qt
-Multimedia backend or Windows Credential Manager. These results do not qualify
-a graphics device or an isolated CI runner, the machine for automated builds.
+Native builds have no compiler or licence diagnostics. Hardening, checks of
+program exploit mitigations, passes for 16 programs. QML lint, checks of Qt's
+interface language, has zero warnings in the aggregate and separate Runtime,
+Player and Studio reports. All 470 validation samples stay at or above 5,859
+MiB available against the unchanged 3,072-MiB floor. The original coordinator
+and private device/network/display boundaries remain; no test workers remain
+and the original lock is free.
 
-The preceding native Pi receipts remain preserved and verified. Full Studio
-passed 29 and the packaged-game creator journey passed in 131.581 seconds
-under its original 300-second limit. Agent passed 22 with its existing logging
-failure and optional provider skip. Earlier gameplay passed 58 and scene tests
-109, including memory/invalid-operation checks. Player retained two failures
-against 20 frames per second, with 13 passes and one unavailable kernel
-confinement check. These native suites were not rerun for Windows validation.
+Earlier native Studio passed 29 and the packaged-game creator journey passed
+in 131.581 seconds under its original 300-second limit. Gameplay passed 58 and
+scene tests 109. Player retains two failures against 20 frames per second,
+13 passes and an unavailable kernel-confinement check. Those suites were not
+rerun in this logging investigation.
 
-Draft pull request #10 remains on `fix/native-play-clock-waits`. Current Windows
-commands, results, wrapper corrections and publication receipts are in
-`build/development-2026-11-15/session-08/`. At the tested source, hosted source,
-history and homepage checks pass; required Qt builds and core audit are skipped
-and Release readiness fails. Full products, the earlier Wayland memory leak,
-ARQADE diagnostics, hardware and Q Pi image acceptance remain open. Agent
-logging is the next product investigation. The separate repository-consolidation
-proposal remains planning only; ownership boundaries are unchanged.
+The preceding Windows checkpoint passed 22 selected core suites, six metadata
+checks and six inert Agent-panel results, with clean lint and hardening. Its
+known Rust dependency warning, expected case skip and excluded graphics suites
+remain recorded. Full Windows products still require an audio/keyring boundary.
+
+Draft pull request #10 remains on `fix/native-play-clock-waits`. Current receipts
+are in `build/development-2026-11-15/session-09/`; the preceding sealed receipts
+remain intact. Hosted source checks passed at the preceding checkpoint, while
+required Qt builds and core audit were skipped and Release readiness failed.
+Full products, the earlier Wayland memory leak, ARQADE diagnostics, hardware
+and Q Pi image acceptance remain open. The repository-consolidation proposal
+remains separate planning; ownership boundaries are unchanged.

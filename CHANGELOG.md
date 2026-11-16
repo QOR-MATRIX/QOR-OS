@@ -9,6 +9,20 @@ their changes since, and pulls of what is still shared, are recorded here.
 
 ## [Unreleased]
 
+- **The native Agent logging failure is traced to callback delivery during its unchanged wait.**
+  The original failure reproduces while the wall-clock wait case passes.
+  Two isolated Pi software traces find the scene and logic ready in 37 ms,
+  but only one natural logic-frame callback by the 600 ms wait's delayed return
+  at 1,221/1,197 ms. The exception reaches the log. Six explicit diagnostic
+  callbacks then produce one entry with seven total repetitions, confirming
+  capture and counting for the exercised path. Those callbacks are a positive
+  control, not an acceptance pass. No logger change is justified by this evidence;
+  the render/synchronization bottleneck remains to be profiled. The test's
+  600 ms request, `times > 5` assertion and standard suite limits are preserved.
+  After exact source/executable restoration, full Agent again passes 22 with
+  the same failure and one optional provider skip. Build, hardening and lint pass.
+  Receipts: `build/development-2026-11-15/session-09/`.
+
 - **Qualified Windows checks pass after memory recovery.** Source `5d1359e`
   passes all 22 selected core suites, with one expected Windows desktop-entry
   case skipped and nine GPU-labelled suites excluded. Core and QQ builds,

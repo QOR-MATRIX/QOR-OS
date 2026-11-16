@@ -517,6 +517,14 @@ For each native continuation:
    canonical roadmap and owner brief with the exact acceptance scope. Full
    products, sanitizers, the creator/player journey and hardware remain distinct.
 
+The Agent logging investigation in 15 November session-09 distinguishes the
+wall-clock `wait` tool from delivered logic-frame callbacks. Preserve its 600 ms
+request and `times > 5` assertion; count natural callbacks and observe the log
+before treating absent text as a logger defect. Temporary explicit callbacks
+can test error capture/counting, but cannot qualify frame timing. Restore and
+hash the original source after such a diagnostic, then run the original suite.
+See the [measured callback timeline](PERFORMANCE.md#qq-agent-callback-timing-2026-11-15-isolated-pi-software-rendering).
+
 ### Pull ARQADE's fixtures and the one look from upstream
 
 `status` compares against the local upstream clone's last fetched `origin/main`;
