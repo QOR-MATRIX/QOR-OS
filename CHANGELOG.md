@@ -9,6 +9,14 @@ their changes since, and pulls of what is still shared, are recorded here.
 
 ## [Unreleased]
 
+- **Matching Mesa symbols identify the captured buffer-291 allocation probe.**
+  An indexed draw submits work while requesting TSDA tile state and checking a
+  cached buffer with timeout zero. Exact build-ID/checksum/range and original
+  machine-code evidence replace nearest-symbol guesses. The memory guard stops
+  the large DWARF reader; bounded symbol-table analysis succeeds. A mismatched
+  Qt debug archive is rejected. No running library, production/test contract or
+  acceptance result changes. Receipts: `build/development-2026-11-16/session-04/`.
+
 - **Client-only graphics tracing locates repeated V3D buffer waits in first Play.**
   The unchanged Agent still fails its frame gate. A matched reference, bounded
   system-call trace and lower-overhead ioctl observer separate tracer disturbance

@@ -1,44 +1,44 @@
 # Where QOR OS stands
 
-For Andrew, 16 November 2026. Studio's first Play still fails its natural-frame
-requirement on the Pi. Client-only tracing locates most of the delay in waits
-for graphics buffers; it has not identified the owning Studio pass or a fix.
+For Andrew, 16 November 2026. Matching Mesa debug symbols now identify the
+graphics operation behind a captured first-Play buffer wait. The original
+natural-frame requirement still fails; no production fix is established.
 
-Actual rendering is OpenGL ES 3.1, a graphics interface, on Broadcom V3D, the
-Pi graphics processor. The private compositor, which draws test windows, is
-unchanged. Temporary observers leave original sources, binaries and timing intact.
+The captured indexed draw, `glDrawElementsBaseVertex`, reaches Mesa's job
+submission and requests a TSDA tile-state buffer, temporary data for drawing
+tiles. Mesa checks whether cached buffer 291 is idle using timeout zero.
+That check returns a timeout; it does not prove the buffer was reused.
+The exact library's machine instructions confirm this allocation and probe.
+The Studio pass and individual graphics completion signal remain unknown.
 
-First Play spends 510.661 ms after recording drawing commands before swap.
-Of that, 491.838 ms is inside 417 V3D buffer-wait calls, using 0.969 ms of
-render-thread CPU. Buffer handle 291 accounts for 383.545 ms and belongs to a
-captured graphics submission. The call stack reaches Qt's end-of-frame method.
-This waits for submitted work; no unique completion signal or shader is known.
-Matching debug symbols for Mesa, the graphics driver, and Qt, the interface
-toolkit, are absent. Nearby symbol names are unreliable.
+All 17 captured Mesa addresses now have matching function ranges. Mesa is the
+graphics driver; its debug file matches both build identity and checksum.
+Two first-frame stacks improve from 3 to 11 named frames out of 18. The Qt
+interface toolkit's candidate symbols are rejected: the downloaded file is
+x86-64, with a different identity, despite its ARM64 repository location.
 
-The reference and lower-overhead observer each fail `times > 5` with three.
-The system-call tracer changes scheduling and records one. Each execution has
-three passes, one failure and zero skips. Error capture/coalescing and wall-clock
-waiting pass; later notice/cursor assertions are unreached. Neither tracing nor
-the earlier warm-cache startup improvement is acceptance.
+The first symbolizer exceeded the 3,072-MiB (mebibyte) memory guard at 2,992 MiB
+and was stopped. A smaller function-table reader completed the Mesa resolution;
+its job's 72 samples stayed at or above 7,232 MiB. No running library or SDK changed.
+All 1,414 source hashes, both original binaries and the prior image are intact.
+Locks are free and no QOR test worker remains.
 
-The independent software-renderer failure remains open. Prior image review
-leaves 97 of 195 high-difference pixels unexplained by the proposed edge rule;
-no new image capture or equivalence is claimed. Supplemental deterministic
-error/warning/cursor coverage and an early Pi graphics initializer remain
-recommendations. The natural-frame requirement stays unchanged.
+No test or graphics run occurred in this continuation. The sealed reference
+and lower-overhead observer each remain three passes, one failure, zero skips;
+`times > 5` fails with three. The system-call tracer recorded one and disturbed
+scheduling. Earlier measurements total 383.545 ms of waits on buffer 291, but
+only one of its calls has the resolved stack; do not assign every wait that stack.
+Error capture/coalescing and wall-clock waiting passed; later notice/cursor
+assertions were unreached. The separate software-renderer failure stays open.
 
-All 1,414 source hashes, both original binaries and the prior screenshot are
-intact. Locks are free and no QOR test workers remain. All 215 diagnostic/setup
-samples exceed the 3,072-MiB (mebibyte) guard, minimum 6,736 MiB. One temporary
-observer compilation refusal is preserved; its corrected build is warning-free.
-No new application Release or sanitizer acceptance is claimed.
+The 97 unresolved image outliers, supplemental deterministic logging coverage
+and early Pi graphics initialization remain unresolved or proposed. No new
+image equivalence, Release, sanitizer or broader product acceptance is claimed.
 
-Next: resolve the captured Mesa/Qt call sites with matching debug information
-to identify the graphics operation and pass that reuse the dominant buffer. PR #10
-stays draft. Full products, Player frame rates, the earlier Wayland memory leak,
-ARQADE diagnostics, isolated CI (automated integration checks), hardware and
-Q Pi image acceptance remain open. Required hosted Qt/core-audit jobs were
-skipped and Release readiness failed at admission. Current receipts:
-`build/development-2026-11-16/session-03/`; session-02 is sealed.
+Next: audit the exact running kernel's zero-timeout V3D buffer-wait path to
+explain why a cache probe sleeps. PR #10 stays draft. Full products, Player frame
+rates, the earlier Wayland memory leak, ARQADE diagnostics, isolated CI (automated
+integration checks), hardware and Q Pi image acceptance remain open. Required
+hosted Qt/core-audit jobs skipped and Release readiness failed at admission.
+Receipts: `build/development-2026-11-16/session-04/`; session-03 remains sealed.
 Consolidation planning is separate.

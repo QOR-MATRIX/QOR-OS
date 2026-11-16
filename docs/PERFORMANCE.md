@@ -1614,3 +1614,127 @@ and proposed regression criteria are unchanged. No application Release,
 sanitizer, broad product suite or isolated CI acceptance runs anew. PR #10 stays
 draft; hosted skips remain skips. Documentation hooks are a separate check, not
 resolution of the product failure.
+
+## Matched symbol attribution, 2026-11-16
+
+At `c096c0b`, the offline continuation verifies session-03's 211-file seal,
+14 clean Windows worktrees, five complete native checkouts, original locks,
+source/binary/image hashes and absence of QOR workers. It resolves the saved
+addresses without launching a graphics client, changing running libraries,
+installing a package or adjusting system settings. The diagnostic window closes
+before its 20-minute limit; exact start/close times are in `timebox.json` and
+`halt-requested.json`. Receipts: `build/development-2026-11-16/session-04/`.
+
+### Matching artifacts and resource refusal
+
+The existing Pi package index supplies `mesa-libgallium-dbgsym`
+`26.2.6-1~bpo13+0~rpt2`, ARM64, 80,450,020 bytes. The archive is downloaded from
+the [Raspberry Pi package repository](https://archive.raspberrypi.com/debian/pool/main/m/mesa/)
+into the diagnostic directory and checked against its recorded SHA256
+`69e74e01fbee4f8e595d2641fffaead509e1331bf92e2de7226e53b77659f841`.
+Only the matching debug file is extracted; no installation occurs.
+Its AArch64 ELF build ID is `75d95637686f30eb26d51f6cc9ef87138bc160b2`, equal to
+the captured loaded Mesa library. Its GNU debuglink CRC32 `5858e1df` independently
+matches the original binary's link. Debug-file SHA256:
+`b643d56e5cb847044416f698afaa4359e805a1462afeb18950900db04b0b944b`.
+Original library SHA256 remains
+`0330e2aec721436c28b67f78240055692b21fa3bcca7f864a87f5e6ef9e9f5ee`.
+
+GNU `addr2line -a -f -C -i` crosses the unchanged 3,072-MiB floor at 2,992 MiB
+available. The coordinator stops that task's symbolizer; no attribution is
+accepted from its empty output. Its 56 retained successful samples reach a
+minimum 3,416 MiB; the failing 2,992-MiB observation is recorded in the refusal,
+not silently omitted from the outcome. No unrelated process is stopped.
+
+A separate guarded job reads only ELF headers, `.symtab` and its string table,
+checking `STT_FUNC` ranges (`start <= address < start + size`) rather than nearest
+export names. It streams file hashing and avoids DWARF expansion. All 17 distinct
+captured Mesa addresses resolve unambiguously among 52,852 function symbols;
+the resolver step completes in 2.013 seconds. This job's 72 resource samples
+stay at or above 7,232 MiB. It later refuses the mismatched Qt candidate, so the
+overall job is not labelled passed. No identical large-symbolizer retry.
+
+The official Qt 6.12 ARM64 component metadata advertises a qtbase debug archive
+with `X86_64` in its filename. The candidate is inspected rather than assumed
+compatible: 290,707,592 bytes, published SHA1
+`11d39ba626027c4a73e2cdc69d9ceda44303482b`, local SHA256
+`3a4ec2d0e7ddca8590e8701d533a902481ef5e29b2a9aeea7134fb5aa830bb67`.
+The extracted QtGui file is actually **x86-64**, build ID
+`aa16571707759b48ec6339b89d06e5b7c5f3a7c7`; the installed AArch64 QtGui requires
+`fe6d433bf1bd02d07b8d41d33cf67a6d64276b79` and debuglink CRC `3d456ef0`.
+It is rejected, never installed or used for attribution. The
+[official component index](https://download.qt.io/online/qtsdkrepository/linux_arm64/desktop/qt6_6120/qt6_6120/qt.qt6.6120.debug_info.linux_gcc_arm64/)
+and saved metadata document this candidate, not the absence of every possible
+commercial ARM64 symbol source. No account credential or installer state is read.
+
+### The captured operation
+
+For event 982, first-Play render TID 31/FD 16 waits on buffer 291, timeout 0, from
+monotonic 326587068153364 to 326587080006367 ns: 11.853003 ms wall and
+0.005407 ms thread CPU, returning `-1/ETIME`. Its resolved Mesa chain, shown
+from caller toward the wait, is:
+
+```text
+QRhi::endFrame
+  unresolved QtGui frames (0x597ec4, 0x596f64)
+  _mesa_DrawElementsBaseVertex             0x41f958
+  _mesa_validated_drawrangeelements        0x41e39c
+  u_vbuf_draw_vbo                          0x877af4
+  v3d_draw_vbo                            0x1307cdc
+  v3d_predraw_check_stage_inputs           0x130726c
+  v3d_job_submit                          0x12f2304
+  v3d_bo_alloc                            0x12ef6d0
+  v3d_bo_wait                             0x12ef550
+  drmIoctl -> client observer -> WAIT_BO
+```
+
+This is an **indexed draw via `glDrawElementsBaseVertex`**, entering pre-draw job
+submission and allocation, not an identified swap/presentation call. Original
+machine instructions at `0x12f2300` call `v3d_bo_alloc`; the third argument
+points to the binary's literal `TSDA` at `0x1df6d40`. The preceding allocation
+uses `tile_alloc` at `0x1df6d30`. In `v3d_bo_alloc`, the code at `0x12ef6c0`
+and `0x12ef6c8` sets the wait's arguments to zero before the call at `0x12ef6cc`.
+The cached-buffer idle check is compiled into this function; it is not a
+separate frame in the captured stack. These observations come from the exact
+hashed loaded binary, corroborated by matching full function ranges.
+
+Upstream Mesa 26.2.6's [job code](https://gitlab.freedesktop.org/mesa/mesa/-/raw/mesa-26.2.6/src/gallium/drivers/v3d/v3d_job.c)
+associates `TSDA` with `job->tile_state`; its
+[buffer manager](https://gitlab.freedesktop.org/mesa/mesa/-/raw/mesa-26.2.6/src/gallium/drivers/v3d/v3d_bufmgr.c)
+checks a cached buffer with a zero-timeout wait and falls back to a fresh
+allocation if it remains busy. The source hashes and selected line numbers are
+saved. These release sources corroborate the binary; downstream package patches
+have not been exhaustively compared, and no source-line DWARF claim is made.
+
+Thus the captured operation **attempts to reuse a cached buffer for tile-state
+allocation**. Its `ETIME` result rejects that attempt; it does not prove that
+buffer 291 was successfully reused, or that the buffer's previous use was also
+tile state. The earlier trace correlates it with submission 946/out_sync 2 and
+measures 383.545 ms across 50 calls. Only one of those calls has this captured
+stack; assigning all 50 calls the same stack or one unique fence is unsupported.
+The Studio draw/pass/material and underlying fence context/sequence remain
+unidentified. Qt internal/Quick/thread frames remain unresolved by matching
+symbols. Each first-frame stack improves from 3/18 to **11/18** named frames;
+later saved stacks resolve 7/14, 11/18, 7/14 and 7/14. Full mappings are retained
+in `attribution.json`, including the distinct later buffer-map/subdata and blit
+paths. No new timing, profiler overhead or GPU execution measurement is made.
+
+### Decision and validation scope
+
+No QOR production change is justified yet. The evidence shifts the next bounded
+investigation to the exact running kernel's **zero-timeout V3D WAIT_BO path**:
+explain why a nominal cached-buffer idle probe sleeps before choosing a driver,
+environment or application correction. Do not patch around it by weakening the
+natural-frame test, replacing required software support or changing system
+graphics/security settings. Qt symbols from the tested archive cannot close
+the unresolved application-pass mapping.
+
+All 1,414 original sources, both original test binaries and the prior screenshot
+remain intact; the captured Mesa/Qt libraries are rehashed unchanged. Original
+locks are free and QOR workers absent. No new graphics test, application build,
+Release, sanitizer, image regression, broad suite or isolated-CI gate runs.
+The prior reference/observer remain 3/1/0 with `times > 5` failing at 3; ptrace's
+perturbed value 1 remains separate. Independent llvmpipe failure, 97 image
+outliers and the unimplemented deterministic-logging/early-ES proposals remain.
+PR #10 stays draft; documentation checks and hosted source checks cannot clear
+the failed product/required-isolation gates.

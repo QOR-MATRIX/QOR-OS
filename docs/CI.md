@@ -575,34 +575,31 @@ Windows Credential Manager. These local checks do not qualify hosted runners
 or clear skipped Qt jobs/core audit and failed Release readiness. Receipts:
 `build/development-2026-11-15/session-08/`.
 
-The 16 November client-only graphics trace at source `489ddfe` narrows first
-Play to repeated V3D buffer waits inside Qt's `QRhi::endFrame`. In the targeted
-ioctl observer, 417 `WAIT_BO` calls occupy 491.838 of the 510.661-ms
-after-render-to-swap interval, with 0.969 ms of render-thread CPU. Buffer handle
-291 accounts for 383.545 ms and is present in captured submission 946. This
-identifies a dominant buffer reservation wait, not a unique fence sequence,
-shader or Studio pass. Matching Mesa/Qt debug symbols are absent; raw offsets
-are preserved. No production change follows from this evidence alone.
+The 16 November offline symbol continuation at source `c096c0b` resolves all
+17 captured Mesa addresses using an exact build-ID and debuglink-checksum match.
+The captured buffer-291 wait comes from an indexed draw (`glDrawElementsBaseVertex`)
+whose pre-draw job submission requests a `TSDA` tile-state buffer. Mesa probes
+the cached buffer with timeout zero; this probe returns `ETIME`, so successful
+reuse is not established. Original-binary disassembly confirms the allocation
+label and cache-probe call. The Studio pass and unique fence remain unknown.
 
-The same original Agent cases report 3 passed, 1 failed and 0 skipped in all
-three executions. Reference/observer fail `times > 5` with 3; `strace` fails
-with 1 and measurably perturbs scheduling. Error capture/coalescing and the
-wall-clock case pass; later notice/cursor assertions are unreached. Actual
-V3D/OpenGL ES 3.1/Mesa/Qt identities and private compositor are checked;
-client caches start empty. There are no shader/pipeline errors. The independent
-llvmpipe failure remains open, and no new image equivalence is claimed.
+The first GNU `addr2line` attempt crossed the 3,072-MiB guard at 2,992 MiB and
+was stopped. A bounded function-symbol-table reader resolves the same addresses
+without expanding DWARF data; its job's 72 samples stay at or above 7,232 MiB.
+The official Qt debug candidate is rejected: its actual ELF is x86-64 with a
+different build ID despite the ARM64 repository location. No running library,
+SDK, source, executable, screenshot, assertion or test deadline is changed.
 
-Original sources, binaries, screenshot, assertions and suite limits are intact.
-All 215 diagnostic/setup resource samples exceed 3,072 MiB, minimum 6,736 MiB.
-One observer compilation refusal is preserved and corrected before its test
-ran. No application Release, sanitizer, broader product suite or isolated CI
-acceptance was run anew. Prior 97 unexplained image outliers, deterministic
-logging coverage and an early ES initializer remain unresolved/proposed.
-Next: resolve the captured Mesa/Qt call sites with matching debug information
-to identify the GL operation and pass that reuse the dominant buffer. Keep
-PR #10 draft; skipped hosted Qt/core-audit jobs are not passes and required
-Release readiness remains unmet. Receipts:
-`build/development-2026-11-16/session-03/`; session-02 remains sealed.
+There are no new graphics/test executions or timing measurements. The sealed
+reference/observer results remain 3 passed, 1 failed, 0 skipped (`times > 5`
+with 3); ptrace's result with 1 remains perturbed. The independent llvmpipe
+failure and 97 unresolved image outliers stay open. Release, sanitizer, broader
+products and isolated CI acceptance are not rerun. Supplemental logging and
+early ES initialization remain proposals; the natural-frame gate is unchanged.
+Next: audit the exact running kernel's zero-timeout V3D WAIT_BO path to explain
+why a cache probe sleeps before selecting a production or environment correction.
+Keep PR #10 draft and hosted skips distinct from passes. Evidence:
+`build/development-2026-11-16/session-04/`; session-03 remains sealed.
 
 The earlier accepted test rebuild reproduces its passing proposal's binary hash, with
 all 1,404 snapshot source hashes verified. Hardening reads 16 QQ programs and

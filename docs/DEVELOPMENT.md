@@ -638,15 +638,16 @@ and mark any record it supersedes or amends.
 | Service traffic | `qorctl watch`; `QT_LOGGING_RULES="qt.remoteobjects*=true"` |
 | Frame pacing | `qor-shell --benchmark 8 --benchmark-out bench.json` |
 
-The 16 November client-only continuation pairs the original phase observer with
-bounded `strace`, then a reversible ioctl observer because tracing perturbs frame
-scheduling. The latter attributes 491.838 ms of first Play to repeated V3D buffer
-waits inside `QRhi::endFrame`; it does not resolve the unique fence or Studio pass.
-Preserve all failed/partial outcomes and the original timing contract. The
-[graphics wait trace](PERFORMANCE.md#client-only-graphics-wait-trace-2026-11-16)
-records scope, bounds, alignment, overhead, buffer/submission evidence and symbol
-limits. Receipts: `build/development-2026-11-16/session-03/`. No further test variant
-is queued; resolve captured call sites before selecting another comparison or fix.
+The 16 November offline continuation resolves captured Mesa function ranges
+using exact build IDs and debuglink checksums. The original binary corroborates
+an indexed draw's TSDA allocation and timeout-zero cache probe. GNU `addr2line`
+exceeds the memory guard on this large debug file; a bounded symbol-table reader
+avoids DWARF expansion. Reject the tested Qt archive's wrong architecture/build
+ID. The [symbol attribution](PERFORMANCE.md#matched-symbol-attribution-2026-11-16)
+records resolved frames, provenance, refusals and limits. No graphics rerun or
+library replacement occurs. Preserve the failed natural-frame gate and audit
+the exact kernel wait path before choosing a fix. Receipts:
+`build/development-2026-11-16/session-04/`.
 
 ## 7. Tooling reference
 
