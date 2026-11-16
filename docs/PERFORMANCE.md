@@ -610,8 +610,8 @@ launch created no job; readback preceded the successful launch.
 
 No production change or new regression test is justified by these findings.
 Sanitizers and broader acceptance were not rerun; earlier failures and skips
-remain open. Next, use Mesa's generated-code symbol mapping in a bounded
-diagnostic to associate the unresolved hot addresses with shader work before
+remain open. The next step at that checkpoint was a bounded Mesa generated-code
+symbol-mapping diagnostic to associate hot addresses with shader work before
 selecting an image-preserving optimization. If the workload is unavoidable,
 qualify a faster isolated renderer against the original gate. The tested CPU
 Vulkan backend is insufficient; reducing quality, prewarming, suppressing
@@ -626,6 +626,143 @@ The alternative uses [Qt's supported backend selection](https://doc.qt.io/qt-6/q
 Raw logs, configurations, markers, callback timestamps, selected stacks,
 overhead calculations and restoration receipts:
 `build/development-2026-11-15/session-11/` (ignored local evidence, not in a fresh clone).
+
+**Generated-code attribution at source `01eb67b`, session-12.** The investigation
+was bounded to 17:44-18:04 local time and closed at 18:01; restoration, original
+validation and publication followed. The session-11 seal (285 files), clean
+branch and 14 worktrees, both original coordinator identities/locks, all 1,414
+native sources and the original executable were verified before work. No other
+jobs were interrupted. The same 1600x960 original viewport, private Wayland
+display/keyring/network/device namespaces, commercial Qt 6.12, Mesa 26.2.6,
+LLVM 19.1.7, two llvmpipe workers and standard suite limits were retained.
+
+`perf` is absent. Mesa's matching debug files are not installed, and the old
+process's anonymous generated-code addresses have no retained symbol mapping;
+those old addresses cannot be resolved by guessing against a new address space.
+The installed LLVM library exports the GDB JIT registration descriptor. A
+temporary test-only overlay enables `GALLIVM_DEBUG=symbols` and snapshots its
+registered objects after the observation. Process-global lookup initially
+found no descriptor because the loaded LLVM symbols are library-local. One
+bounded retry looks up the already-loaded library explicitly. There was no
+third capture: `readelf` then rejected ten saved objects, which caused that
+capture's post-analysis harness to fail despite the completed diagnostic test.
+The failed attempt and raw data remain preserved; valid objects were analyzed
+offline. Subsequent post-analysis records this error instead of claiming all
+objects are readable. None of these diagnostic slot passes is product acceptance.
+
+The retained snapshot contains 135 objects / 1,048,024 bytes. Exactly 125 are
+valid little-endian ELF64 objects; ten fail the magic check and are excluded.
+The cause of those invalid objects is not established. Matching sampled PCs
+only to valid runtime section/symbol ranges yields no ambiguous matches:
+
+| Exclusive sampled work | CPU-seconds | Share of 2.25 CPU-seconds |
+| --- | ---: | ---: |
+| `texfunc_res_1_sam_1_2020` | 0.740 | 32.89% |
+| Other resolved `texfunc_*` texture functions | 0.240 | 10.67% |
+| `fs_variant_partial` | 0.460 | 20.44% |
+| `fs_variant_whole` | 0.420 | 18.67% |
+| Other previously named/static work and remaining unknown PCs | 0.390 | 17.33% |
+
+This resolves **1.86 / 1.87 unknown CPU-seconds (99.47%)**, newly attributing
+82.67% of all sampled work. It does not mean 99.47% of the entire call stack is
+symbolized. Saved disassembly places hot addresses in half-float texel loads,
+conversion and interpolation instructions within `texfunc_res_1_sam_1_2020`.
+The attribution is generated texture sampling and fragment shading, not a
+proven cache-miss cause, a complete unwound shader call chain, or an identified
+Qt material/resource binding. Those semantic pass details remain unresolved.
+
+Collection retains gprofng 2.44, 10 ms timer sampling, a 60-second collector
+ceiling, no descendants, Java, periodic resource sampling or archives. Only
+sample interval 2, 6.783422773-8.011450550 seconds (1.228028 seconds), is used;
+the unfiltered startup totals are excluded. SIGPROF/timer-change warnings and
+the unavailable Qt QML JIT mapping remain limits on sampling accuracy. The
+snapshot took 9.466 ms **after** the measured observation; marker calls took
+62/47 microseconds. The same symbol-enabled binary without profiling supplies
+the overhead reference; enabling symbol registration itself is not separately
+benchmarked. A single pair is not a statistical performance claim.
+The failed post-analysis did not write that profile run's executable hash.
+Identical source manifests, an empty reference overlay and no intervening
+compile/link support the same-binary comparison; the following reference and
+shadow control independently record the identical executable hash.
+
+| Same symbol-enabled diagnostic binary | First recorded-render-to-presentation interval | Process CPU | Render-thread CPU | Natural callbacks / repeats | Wait return from play start |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Original viewport, no profiler | 1,133.941 ms | 2,151.869 ms | 160.751 ms | 1 / 1 | 1,312 ms |
+| API-controlled profiler | 1,217.838 ms | 2,238.436 ms | 243.254 ms | 1 / 1 | 1,405 ms |
+| Only Sun `castsShadow=false`, no profiler | 1,181.242 ms | 1,755.801 ms | 647.920 ms | 1 / 1 | 1,622 ms |
+
+The matched profiling overhead is **7.40% elapsed / 4.02% process CPU**.
+The shadow control changes one property after play, with its before/after
+values recorded. It changes pixels and render state, and may incur variant
+preparation; the increased render-thread cost prevents treating it as a clean
+steady-state shadow benchmark. It does prove that this one-property removal
+does not resolve the measured startup gate. It neither exonerates all shadow
+work nor justifies a production quality change. Display commit-to-callback
+latency remains about 10 ms. Earlier viewport-opacity suppression (207.230 ms,
+20 callbacks) and `LP_NO_RAST` (205.132 ms, 24 callbacks) agree with drawing cost
+being dominant, but remain non-acceptance controls from their earlier sessions.
+
+**Test contract review.** `logicThatThrowsInPlayIsInTheLog` and QQ's documented
+planted-fault coverage intend to prove repeated real logic errors appear once,
+with a count. `StudioLog::append` coalesces consecutive identical level/text,
+increments the repeat count and sequence; `since()` returns the changed entry.
+The `wait` tool uses `QTimer::singleShot`, not a frame-count guarantee.
+`Behaviour.qml` drives logic from `FrameAnimation`. The existing 600 ms request
+and `times > 5` therefore combine logger correctness with startup throughput;
+the test measures no upper elapsed-time bound and is not a precise FPS test.
+The adjacent wall-clock check tests only `elapsed >= 1500`, so its pass does not
+prove responsiveness. One observed callback produces one captured error;
+session-09's six additional controlled callbacks produced six additional repeats.
+No dropped-warning defect is demonstrated. The roughly one-second render stall
+is real on this CPU configuration, but the reference-laptop first-app-frame
+budget is not a defined Pi-software play-start service guarantee.
+
+An evidence-backed correction is proposed, **not implemented**: add a controlled
+fixture issuing six identical actual QML exceptions through QML warnings, the
+production Qt message handler, `StudioLog` and MCP `log_read`. Assert exactly
+one error entry with `times == 6`, correct filename/level/text, retained notices
+and cursor advancement. Read an initial batch, then another repeat, and verify
+that the already-read coalesced entry becomes visible at the new cursor. Keep
+natural frames from adding uncounted fixture emissions. This protects dropped
+errors, missing increments, duplicate entries and broken incremental reads.
+Retain the original 600 ms / `times > 5` case as unresolved natural-delivery
+evidence; any later reclassification needs an explicit acceptance boundary and
+an independent natural-frame/startup-latency gate. Controlled emissions cannot
+replace rendering acceptance, and the Player's existing 20-FPS checks remain.
+
+**Renderer decision.** No image-preserving production optimization is supported
+by this time box. Practical alternatives have different evidence:
+
+| Renderer | Verified on this Pi | Decision |
+| --- | --- | --- |
+| OpenGL/llvmpipe | Full original viewport, one natural callback; generated sampler/fragment work dominates | Keep the unresolved software-support result; do not lower quality or timing requirements |
+| Vulkan/lavapipe | Session-11 actual isolated Qt Wayland swapchain on a CPU device; one callback, 1,280 ms wait | Available, insufficient for this gate; no new duplicate run |
+| V3D / V3DV | Read-only host inventory finds `/dev/dri/renderD128` bound to `v3d` with account access | Candidate only: no node opened, GPU context created, renderer identity or behavior verified inside isolation |
+| Qt Quick's 2D software adaptation | Qt documents no support for Quick 3D content | Not a replacement for the Studio viewport |
+
+[Mesa documents V3D/V3DV on Raspberry Pi](https://docs.mesa3d.org/drivers/v3d.html),
+and [Qt documents the Quick 3D graphics requirements](https://doc.qt.io/qt-6/qtquick3d-requirements.html).
+Next, qualify the V3D candidate in a separate sandbox exposing only its render
+node, with private display/audio/keyring/input/network boundaries retained.
+Verify the actual Qt renderer and original workload before calling it usable;
+keep llvmpipe support and image/hardware acceptance separate. Node presence is
+not GPU acceleration or acceptance evidence.
+
+All original sources and the original executable hash above are restored.
+The original focused cases report **3 passes, 1 failure, 0 skips in 13.296 s**:
+`times > 5` still fails with value `1`; wall-clock waiting passes. Native build
+and 16-program hardening pass without compiler/licence diagnostics. The cache
+is RelWithDebInfo, not CMake Release. All 370 native samples exceed the unchanged
+3,072-MiB floor (minimum 6,343 MiB); the original lock is free with no workers.
+No production code remains changed, so there is no new regression or visual
+equivalence claim, sanitizer run or broader-suite pass. Required isolated CI
+gates remain unmet; draft PR #10 is not ready. The symbol snapshot uses the
+[GDB JIT interface](https://sourceware.org/gdb/current/onlinedocs/gdb.html/JIT-Interface.html);
+Mesa also provides [llvmpipe profiling guidance](https://docs.mesa3d.org/drivers/llvmpipe.html#profiling),
+but `perf` is unavailable here; this capture uses LLVM's registered objects.
+Commands, configurations, raw PCs/objects and hashes, coverage parser, failure
+logs, matched overhead and callback evidence, test-contract review and restoration
+receipts: `build/development-2026-11-15/session-12/` (local ignored evidence).
 
 ### Earlier startup measurements
 

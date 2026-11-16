@@ -551,30 +551,35 @@ selected qualified checks on this PC; full product runtime checks still need
 an audio/keyring boundary, and GPU checks were not run. Current Windows receipts:
 `build/development-2026-11-15/session-08/`.
 
-The first-frame profile at source `8f0f52a` and a targeted control identify
-software rasterization as the dominant cost on this isolated Pi. The original
-viewport takes 1,036.716 ms from render recording to presentation; disabling
-rasterization only for diagnosis reduces that to 205.132 ms, with render-thread
-CPU nearly unchanged at 207.135/204.954 ms. Callback counts rise from one to 24.
-The missing-pixels control is not acceptance. The 1.125-second profile interval
-contains 2.05 CPU-seconds; 81.95% of exclusive time lacks resolved symbols.
-Profiling adds about 7.5% to the frame interval. Warnings and the initial failed
-collector attempt are preserved; no particular shader defect or fix is proven.
+The session-12 follow-up at source `01eb67b` resolves 1.86 of 1.87 previously
+unknown sampled CPU-seconds to generated texture sampling and fragment shading
+on the isolated Pi. That is 99.47% of unknown time, newly attributing 82.67% of
+the 2.25 CPU-second profile. Valid symbols cover 125 of 135 captured objects;
+ten invalid objects are excluded. The owning Studio material/pass remains
+unresolved. A same-binary comparison measures 7.40% elapsed profiling overhead.
+Collector warnings and the failed symbol lookup/post-analysis attempts remain
+recorded. Disabling only the Sun shadow for diagnosis still delivers one
+callback and does not improve the measured wait; it cannot qualify acceptance.
 
-The supported Vulkan/lavapipe alternative is verified on the actual Pi with
-physical devices still hidden. It delivers one callback and returns from the
-600 ms request at 1,280 ms, so it does not resolve the gate. All 1,414 original
-sources and the executable hash are restored. The original focused tests report
-three passes, one failure (`times > 5`, value `1`) and zero skips in 13.263 s.
-Build and 16-program hardening pass; the native preset is RelWithDebInfo, not
-CMake Release. All 503 native samples stay at or above 6,394 MiB against the
-3,072-MiB floor. No production code, quality, callback requirement or timeout
-changes. Sanitizers and broader acceptance are not rerun while this failure
-remains open. Next, resolve hot addresses with Mesa's generated-code symbols before
-selecting an image-preserving optimization. A faster isolated renderer still
-requires the original gate; the tested Vulkan alternative is insufficient.
+The test combines log-repeat correctness with natural frame throughput: its
+600 ms timer request guarantees no callback count and can return late. The
+proposed correction adds deterministic real QML exceptions through the complete
+logging path, including repeat counts and incremental reads, while retaining
+the original natural-frame gate. No assertion, timeout or production behavior
+is changed. The measured software-renderer stall remains a performance issue.
+
+All 1,414 original sources and the original executable hash are restored.
+Original focused cases report three passes, one failure (`times > 5`, value `1`)
+and zero skips in 13.296 seconds. Build and 16-program hardening pass; the native
+preset remains RelWithDebInfo, not CMake Release. All 370 native samples remain
+at or above 6,343 MiB against the unchanged 3,072-MiB guard. No image-preserving
+fix is justified; sanitizers and broader acceptance were not rerun. The tested
+Vulkan/lavapipe CPU alternative remains insufficient. Host inventory identifies
+a V3D render node, but no GPU was opened or qualified. Next, qualify that
+candidate in a separate render-node-only sandbox against the unchanged focused
+workload; keep the software-renderer failure and required isolated CI gates open.
 See the [profile and controlled comparisons](PERFORMANCE.md#qq-agent-callback-timing-2026-11-15-isolated-pi-software-rendering).
-Receipts: `build/development-2026-11-15/session-11/`.
+Receipts: `build/development-2026-11-15/session-12/`.
 
 PR #10's next product gates include Agent callback timing, Player failures and remaining
 full-product and Windows runtime runs. The Wayland sanitizer leak, ARQADE diagnostics,

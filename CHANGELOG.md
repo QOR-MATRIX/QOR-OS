@@ -9,6 +9,18 @@ their changes since, and pulls of what is still shared, are recorded here.
 
 ## [Unreleased]
 
+- **The bounded Agent follow-up resolves the sampled generated-code hotspot.**
+  Valid LLVM symbols map 1.86 of 1.87 unknown CPU-seconds to texture sampling and
+  fragment shading; ten invalid objects and collector warnings remain recorded.
+  Matched elapsed profiling overhead is 7.4%. A single Sun-shadow control does
+  not resolve the callback failure; no image-preserving fix is established.
+  The test-contract review proposes deterministic real-error logging coverage
+  alongside the unchanged natural-frame gate. Original sources/executable are
+  restored; focused results remain three passes, one failure and zero skips.
+  Build/hardening pass; broader acceptance remains closed. The V3D host node is
+  an unqualified renderer candidate, not acceleration evidence. No production,
+  assertion, timeout or quality change. Receipts: `build/development-2026-11-15/session-12/`.
+
 - **The Agent first-frame investigation identifies software rasterization as the dominant cost.**
   A bounded Pi call-stack profile retains unresolved-symbol and collector limits;
   measured overhead is 7.5%. A diagnostic rasterization control reduces the

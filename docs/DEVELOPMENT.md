@@ -543,9 +543,25 @@ production defaults. The separate Vulkan/lavapipe probe uses the installed
 Qt backend, and retains every existing device boundary. It is available but
 does not meet the callback gate. Both flags and every test overlay are removed
 before the final original focused run. The dominant cost is software drawing;
-the unresolved hot addresses need symbol mapping before a specific
-production optimization is justified. No new sanitizer/full-suite result is
-claimed for this documentation-only investigation.
+session-12 maps 1.86 of 1.87 unknown sampled CPU-seconds to texture sampling
+and fragment variants using valid LLVM JIT objects. Capture only within a bounded
+diagnostic, preserve raw objects, reject invalid ELF and ambiguous ranges, and
+never map addresses across process lifetimes. The library-local descriptor
+lookup corrected the initial empty capture; ten invalid saved objects caused a
+post-analysis failure and remain excluded. Record profiler overhead separately
+from symbol-snapshot work after observation. The single Sun-shadow control does
+not resolve the callback gate and changes pixels; it is not a production fix.
+
+Keep the test's logging contract separate from its implicit throughput demand.
+A proposed deterministic fixture must use actual QML exceptions through the
+production message handler and MCP log reads, verify exact repeat counts and
+incremental cursor updates, and prevent unrelated frame emissions. It cannot
+replace the original natural-frame gate or establish responsiveness. No such
+test correction or production optimization is implemented here. The observed
+V3D host render node is only a candidate for a separate isolated qualification;
+do not expose it in the existing software fence or infer acceleration from its
+presence. No new sanitizer/full-suite result is claimed for this documentation-only
+investigation; restore/hash original sources and executable before final checks.
 See the [measured callback timeline](PERFORMANCE.md#qq-agent-callback-timing-2026-11-15-isolated-pi-software-rendering).
 
 ### Pull ARQADE's fixtures and the one look from upstream
