@@ -884,6 +884,161 @@ New commands, configs, wire/CPU logs, renderer proofs, images, helper correction
 analysis and final publication checks are in
 `build/development-2026-11-15/session-13/`; PR #10 remains draft.
 
+### Client-only ES 3.1 diagnostic, 2026-11-16
+
+Source `8eda5ec361cd6e5721303cb811544ebe1a86648b`; session-13's 204-file seal is
+verified unchanged. All 14 Windows worktrees and both complete Pi checkouts were
+clean, permanent locks available and no QOR workers active before work. The
+20-minute diagnostic window started at 02:20:15 local time and closed at
+02:26:23, before 02:40:15. Three focused executions; no unchanged retry or broad suite.
+
+**Request and actual path.** A diagnostic shared library, compiled against the
+installed commercial Qt 6.12.0, runs a constructor in only the selected client.
+It copies the default `QSurfaceFormat`, sets `OpenGLES` and version 3.1, then calls
+`setDefaultFormat`. It logs that no application or current context exists yet.
+[Qt recommends setting the default before application creation](https://doc.qt.io/qt-6/qsurfaceformat.html#setDefaultFormat).
+Only that client's environment contains the temporary loader setting. This is
+not a production delivery mechanism; no application source or binary is rebuilt
+or altered. The same helper in observer-only mode leaves the default unchanged.
+
+Actual Studio and both Agent contexts report **OpenGL ES 3.1**, Broadcom **V3D
+7.1.10.2**, Mesa **26.2.6-1~bpo13+0~rpt2**, with Qt's **OpenGL QRhi backend**
+(Qt's rendering abstraction). The requested/default enum is OpenGLES (2), version
+3.1; application/current-context presence is zero at the request. The existing
+`v3d` render-node identity (226:128, mode 0660, existing account group permissions)
+and direct EGL probe are rechecked. Studio's actual context, not just the direct
+probe, gates the Agent run. The private compositor remains EGLFS KMS headless,
+1920-by-1080, V3D/ES 3.1, with only `/dev/dri/renderD128` exposed. Audio, input,
+primary display, network, private home and keyring boundaries remain unchanged.
+No desktop, service, permission or system graphics/security change is made.
+
+**Original assertions, actual outcome.** The original Agent executable
+`5e754f6ee300b52801b6833a46f7d72919e0ff22d496e792f95902b6824ebd10` runs
+`logicThatThrowsInPlayIsInTheLog aLongWaitLastsWhatItWasAskedFor -v2` under the
+unchanged 5,400-second suite and 1,800,000-ms Qt watchdog limits. Verbose Qt Test
+output identifies each assertion reached; it changes logging, not the test body.
+Result: **3 passes, 1 failure, 0 skips, 29.713 s**.
+
+| Assertion/behavior | Observed result |
+| --- | --- |
+| Studio opens; log contains `oops.qml` and TypeError | Reached and passed |
+| Exactly one TypeError entry | Reached and passed |
+| Original `times > 5` after `wait(600)` | Reached and failed, value **3** |
+| Playing notice and later cursor assertion in that case | Not reached after failure; not passing or Qt-reported skips |
+| Wall-clock tool result and elapsed >= 1500 ms | Reached and passed |
+
+There are no missing-GLSL or graphics-pipeline warnings. Three actual QML
+on-frame exceptions become one counted entry, consistent with consecutive-only
+coalescing. The two audio warnings (`pa_context_connect` and no output device)
+remain visible in the private no-audio environment and precede those exceptions;
+no real device is exposed and no warning is filtered. No full Agent pass is claimed.
+
+**Timing and counts.** Wayland wire tracing and 100-ms process CPU sampling are
+retained; there is no profiler and observer/preload/verbosity overhead is
+unmeasured. Agent first surface creation to first completed frame callback is
+**25,381.554 ms**, including startup/context/shader work. The first request-to-
+callback is **10.614 ms**. Five completed surface-frame callbacks precede the
+failed assertion; display-sync callbacks are excluded. They are different events
+from the three QML on-frame exceptions. Exact timestamps, buffer commits and
+every callback interval are in `derived.json`. Whole-process samples cover
+26.80 client CPU-seconds and 0.02 compositor CPU-seconds, not a per-pass profile.
+There is no play-start marker or measured `wait(600)` elapsed value in the
+unchanged executable. No precise shader-compilation, GPU or synchronization
+bottleneck can be assigned from these timestamps alone.
+
+**Complete images.** The unchanged Studio executable
+`390d66647b83ecbb2053ae7aebaf963c37e6b30908d64df3d8274325ae83d981` runs
+`theStudioWearsTheOneLooksToolRegister` on ES/V3D and on a fresh matched llvmpipe
+client. The latter uses the identical helper in observer-only mode, original
+default format (type 0/version 2.0), actual desktop GL 4.6/LLVM 19.1.7, and the
+same headless V3D compositor. Profiles and caches are fresh; source, test, viewport
+and limits match. Only client renderer/API selection differs. This is not the
+original GPU-hidden software fence, and neither timing is directly comparable
+to the old offscreen-compositor play-frame interval.
+
+| Client | UI test pass/fail/skip | Test elapsed | Surface creation to first callback | Shader/pipeline warnings |
+| --- | --- | ---: | ---: | ---: |
+| V3D / ES 3.1 | 3/0/0 | 27.663 s | 25.380 s | 0 |
+| llvmpipe / desktop GL 4.6 | 3/0/0 | 10.470 s | 6.951 s | 0 |
+
+Both full 1600-by-960 captures were visually inspected: sky, environment
+illumination, objects, floor/shadows, ring, transform gizmo and interface are
+present. Quantitative comparison uses raw RGB with **no registration, rescaling
+or masking of viewport pixels**, plus separately reported regions. The complete
+frame mean absolute channel difference is 0.244/255. The entire viewport
+(270,56)-(1280,960) is 0.062224/255, RMS 0.363409, 99th percentile one and maximum
+136. Exactly 195 of 913,040 viewport pixels (0.02136%) have any channel difference
+above eight; outliers cluster at the sphere/ring edges, not missing sky or floor.
+The sky region maximum is six; the floor/shadow region maximum is eight.
+Toolbar and inspector differences are retained: their mean differences are
+2.351 and 0.367 respectively, including random project-label/layout and text
+rendering differences. These are descriptive measurements, not a newly chosen
+pass tolerance. The images are not exactly equal; one fixture is not exhaustive
+image qualification. Both narrow button/focus checks passing alone proves less.
+Full images, hashes, region metrics and outlier coordinates are retained.
+
+**Supplemental logging proposal, not implemented.** Reuse the suite's existing
+one-time `StudioLog::install`; do not install it recursively. Use a hidden inert
+QML Window with the properties/signals consumed by `StudioTools`, the real
+`QQmlEngine`, `McpServer`, `StudioTools` and `Client::tool("log_read")`, without
+opening the 3D Studio, starting play or scheduling natural frames. An actual QML
+signal-handler fixture throws at one fixed source line when explicitly triggered;
+its warning goes through Qt's normal handler, not direct `StudioLog::append`.
+Setup/import warnings must be checked before taking the starting cursor, not
+silently discarded as acceptable fixture noise. Exact sequence:
+
+1. Emit a known Studio notice, then the identical real QML error twice. Read via
+   MCP: one error entry, `times == 2`, source/text and warning level correct,
+   notice retained, next cursor advanced.
+2. Emit the same error once after that read. Read from the prior cursor: the same
+   coalesced entry is visible with `times == 3` and a newer sequence. An immediate
+   read without emissions returns no new entries and a stable cursor.
+3. Emit a distinct real QML `console.warn` sentinel, then the same error three
+   more times. Full-window read must show error runs **3 and 3**, separated by
+   the sentinel, exactly six errors total, preserved ordering/notice and advancing
+   cursors. The read from step 2's cursor sees only the sentinel and new error run.
+
+This protects lossless warning capture, consecutive-only repetition, warning
+interleaving, aggregate error counts and incremental visibility. It does not
+assert one global error entry across unrelated warnings, promise a frame rate,
+exercise GPU images, or replace natural on-frame delivery. Retain the original
+600 ms / `times > 5` case unchanged and independently failing. This is a proposed
+supplement, not an implemented test-contract change or acceptance waiver.
+
+**Decision and bounded next step.** Explicit ES 3.1 is supported by the actual
+client and resolves the observed desktop-GL shader/image mismatch. It does
+**not** qualify the focused workload: three callbacks still fail the original
+gate. The independent llvmpipe baseline remains `times > 5` with one. A minimal
+production candidate for the image defect would be a shared early Qt-format
+initializer selected only by an explicit supported Pi/V3D launch configuration,
+before application/context creation, without changing default desktop/software
+selection. It would replace the diagnostic loader, not ship it. Before adoption,
+add deterministic full-scene image regressions covering sky, lit materials,
+shadows and gizmos with fixed project labels/camera/animation state, approved
+cross-renderer edge tolerances, actual API verification and unsupported-context
+failure coverage. Validate other platform defaults and both software/hardware
+paths, then relevant Release/sanitizer gates. No such production change is made.
+
+The single next investigation is a bounded first-Play timeline/profile under
+this verified ES configuration, separating client synchronization/shader work
+from presentation waits and mapping natural callbacks to render phases. Reuse
+the existing targeted render-phase diagnostic; do not infer the expensive path
+from startup totals or retry broad suites. If a later cold/warm cache comparison
+is needed, label and control cache state explicitly; warm-up is not an acceptance
+workaround.
+
+All 1,414 original sources, both executables and the pre-existing screenshot are
+verified after the run. The subsequent observer-only client confirms no process-
+local format persists; no global loader variable is set and all QOR workers exit.
+All 168 native guard samples exceed 3,072 MiB, minimum 6,631 MiB. The only new
+compile is the diagnostic library, warning-free with stack protection and eager
+read-only relocations; the reused application cache remains RelWithDebInfo.
+No new application Release build, hardening/lint suite, sanitizer or broader
+acceptance result is claimed. Hosted Qt builds/core audit were skipped and Release
+readiness failed at the starting revision; current publication outcomes remain
+separate in the handoff. PR #10 stays draft. Receipts:
+`build/development-2026-11-16/session-01/`; previous sealed evidence is unchanged.
+
 ### Earlier startup measurements
 
 Startup branding was compared locally on 5 November 2026: three sequential eight-second

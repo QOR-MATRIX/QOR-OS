@@ -579,6 +579,21 @@ binding to a Qt material/pass before another single-variable diagnostic; avoid
 repeating broad suites or removing image content as a production fix.
 See the [measured callback timeline](PERFORMANCE.md#qq-agent-callback-timing-2026-11-15-isolated-pi-software-rendering).
 
+The 16 November client-format diagnostic establishes actual V3D/ES 3.1 through
+`QSurfaceFormat::setDefaultFormat` before application creation. A small temporary
+client-only library uses the public Qt API; original sources and executable bytes
+stay unchanged, and the compositor does not load it. Its observer-only control
+confirms the default format returns to its original value in another process.
+Treat this loader mechanism as a reversible diagnostic, not a deployment method.
+Shader errors and missing sky/lighting disappear, but the unchanged Agent repeat
+gate fails with three. Full images, all reached assertions and separate wire/QML
+callback counts are in the [ES diagnostic](PERFORMANCE.md#client-only-es-31-diagnostic-2026-11-16).
+Do not install a graphics-selection policy or change the test contract from this
+partial result. The next bounded profile should isolate first-Play client work
+from presentation waits in the same ES environment. Deterministic logging coverage
+must protect consecutive-only coalescing across warning interleaving while leaving
+natural-frame acceptance intact.
+
 ### Pull ARQADE's fixtures and the one look from upstream
 
 `status` compares against the local upstream clone's last fetched `origin/main`;

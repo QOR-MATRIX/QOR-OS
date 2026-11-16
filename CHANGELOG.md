@@ -9,6 +9,16 @@ their changes since, and pulls of what is still shared, are recorded here.
 
 ## [Unreleased]
 
+- **The client-only ES diagnostic restores Studio's observed image, but not its frame gate.**
+  Actual V3D/OpenGL ES 3.1 removes the shader mismatch without changing original
+  source or executable bytes. Complete images are compared with a matched
+  llvmpipe control, retaining edge and UI differences. Focused Agent remains
+  three passes, one failure and zero skips: errors coalesce correctly, but
+  `times > 5` fails with three. Supplemental deterministic counting/interleaving
+  coverage and an explicit Pi graphics selection are proposals only. Natural
+  assertions, timing, the software failure and broader acceptance gates remain.
+  Receipts: `build/development-2026-11-16/session-01/`.
+
 - **Isolated V3D access is verified; Studio hardware qualification fails.**
   The render-node-only sandbox reaches the Pi GPU without changing the desktop
   or software configuration. The original client selects desktop OpenGL 3.1,
