@@ -551,43 +551,34 @@ selected qualified checks on this PC; full product runtime checks still need
 an audio/keyring boundary, and GPU checks were not run. Current Windows receipts:
 `build/development-2026-11-15/session-08/`.
 
-The 16 November first-Play profile at source `9357d3b` separates a cache-dependent
-startup cost from a persistent synchronization stall. Actual clients remain
-Broadcom V3D 7.1.10.2 / OpenGL ES 3.1, Mesa 26.2.6-1~bpo13+0~rpt2, Qt 6.12 OpenGL
-backend, on the unchanged private render-node-only compositor. Original sources,
-binaries, test timing and assertions are unchanged; observers live in a temporary
-client library. No desktop, security, graphics or software-renderer configuration
-change was made.
+The 16 November client-only graphics trace at source `489ddfe` narrows first
+Play to repeated V3D buffer waits inside Qt's `QRhi::endFrame`. In the targeted
+ioctl observer, 417 `WAIT_BO` calls occupy 491.838 of the 510.661-ms
+after-render-to-swap interval, with 0.969 ms of render-thread CPU. Buffer handle
+291 accounts for 383.545 ms and is present in captured submission 946. This
+identifies a dominant buffer reservation wait, not a unique fence sequence,
+shader or Studio pass. Matching Mesa/Qt debug symbols are absent; raw offsets
+are preserved. No production change follows from this evidence alone.
 
-The fresh-cache reference, observed cold run and observed warm run each report
-**3 passes, 1 failure, 0 skips**: `times > 5` fails with 3; source/error presence,
-coalescing and wall-clock waiting pass. Later notice/cursor assertions are unreached.
-No shader/pipeline warning occurs. Cold startup from window show to first swap is
-25.435 s; seeding only the previous run's 73 Mesa shader-cache files reduces it to
-1.793 s. First Play's after-recording-to-swap interval remains 508.851/507.219 ms,
-with only 11.111/9.676 ms render-thread CPU. Thread samples show DMA-fence waits
-(waiting for submitted work) while the GUI thread waits on a futex (thread lock).
-The owning GPU pass, fence and API call remain unidentified; unsupported ES GPU
-timestamps cannot establish GPU execution time. Five Wayland surface callbacks
-before failure and four swaps during Play are distinct from three QML errors.
+The same original Agent cases report 3 passed, 1 failed and 0 skipped in all
+three executions. Reference/observer fail `times > 5` with 3; `strace` fails
+with 1 and measurably perturbs scheduling. Error capture/coalescing and the
+wall-clock case pass; later notice/cursor assertions are unreached. Actual
+V3D/OpenGL ES 3.1/Mesa/Qt identities and private compositor are checked;
+client caches start empty. There are no shader/pipeline errors. The independent
+llvmpipe failure remains open, and no new image equivalence is claimed.
 
-The prior full-image outliers were inspected: 192/195 are at control-image local
-gradients of at least 8, but only 98 match a control pixel within one pixel and
-8 channel levels. No missing sky, lighting or geometry is visible in the compared
-fixture; the remaining 97 are not explained by that simple edge test. Explicit
-visual criteria and negative-control checks are proposed, not approved equivalence.
-Supplemental real-error/warning/cursor coverage and an early Pi ES initializer
-remain proposals. The natural-frame gate and independent llvmpipe failure stay open.
-
-All 1,414 source hashes, both original binaries and the old screenshot are intact.
-All 250 native resource samples exceed 3,072 MiB, minimum 6,718 MiB. Two pre-test
-setup refusals and a transient busy-lock refusal are preserved; the reference
-helper drained normally. No new application Release, sanitizer or broad-suite
-acceptance is claimed. PR #10 stays draft; required hosted Qt/core-audit jobs remain
-unmet. Next, use a bounded client-only ioctl trace with the phase observer to locate
-the first-Play fence wait; do not warm caches to turn the gate green.
-See the [first-Play evidence and visual proposal](PERFORMANCE.md#first-play-phase-profile-2026-11-16).
-Receipts: `build/development-2026-11-16/session-02/`; session-01 remains sealed.
+Original sources, binaries, screenshot, assertions and suite limits are intact.
+All 215 diagnostic/setup resource samples exceed 3,072 MiB, minimum 6,736 MiB.
+One observer compilation refusal is preserved and corrected before its test
+ran. No application Release, sanitizer, broader product suite or isolated CI
+acceptance was run anew. Prior 97 unexplained image outliers, deterministic
+logging coverage and an early ES initializer remain unresolved/proposed.
+Next: resolve the captured Mesa/Qt call sites with matching debug information
+to identify the GL operation and pass that reuse the dominant buffer. Keep
+PR #10 draft; skipped hosted Qt/core-audit jobs are not passes and required
+Release readiness remains unmet. Receipts:
+`build/development-2026-11-16/session-03/`; session-02 remains sealed.
 
 PR #10's next product gates include Agent callback timing, Player failures and remaining
 full-product and Windows runtime runs. The Wayland sanitizer leak, ARQADE diagnostics,

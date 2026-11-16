@@ -1,42 +1,44 @@
 # Where QOR OS stands
 
-For Andrew, 16 November 2026. Studio's first Play still misses its natural-frame
-requirement on the Pi. The new profile separates slow startup from a later wait
-for submitted graphics work; neither is an accepted production fix.
+For Andrew, 16 November 2026. Studio's first Play still fails its natural-frame
+requirement on the Pi. Client-only tracing locates most of the delay in waits
+for graphics buffers; it has not identified the owning Studio pass or a fix.
 
-Actual rendering remains OpenGL ES 3.1, a graphics interface, on Broadcom V3D,
-the Pi graphics processor. The private compositor, which draws test windows,
-is unchanged. A temporary client library observes phases without modifying the
-original sources, executables, assertions or deadlines.
+Actual rendering is OpenGL ES 3.1, a graphics interface, on Broadcom V3D, the
+Pi graphics processor. The private compositor, which draws test windows, is
+unchanged. Temporary observers leave original sources, binaries and timing intact.
 
-Cold startup takes 25.435 seconds from window show to first swap. Reusing only
-73 Mesa shader-cache files reduces it to 1.793 seconds. First Play still spends
-about 508 ms between recorded drawing commands and swap, using only 10–11 ms of
-render-thread CPU. Samples show a DMA-fence wait, a wait for submitted work;
-the interface thread waits on a thread lock. The owning graphics pass and fence
-remain unknown. Qt cannot supply GPU timestamps on this ES path.
+First Play spends 510.661 ms after recording drawing commands before swap.
+Of that, 491.838 ms is inside 417 V3D buffer-wait calls, using 0.969 ms of
+render-thread CPU. Buffer handle 291 accounts for 383.545 ms and belongs to a
+captured graphics submission. The call stack reaches Qt's end-of-frame method.
+This waits for submitted work; no unique completion signal or shader is known.
+Matching debug symbols for Mesa, the graphics driver, and Qt, the interface
+toolkit, are absent. Nearby symbol names are unreliable.
 
-Reference, cold-profile and warm-profile runs each report three passes, one
-failure and zero skips. `times > 5` still fails with three. Error capture and
-coalescing pass; later notice/cursor assertions are unreached. Wall-clock waiting
-passes. Warm caches are a diagnostic comparison, not acceptance.
+The reference and lower-overhead observer each fail `times > 5` with three.
+The system-call tracer changes scheduling and records one. Each execution has
+three passes, one failure and zero skips. Error capture/coalescing and wall-clock
+waiting pass; later notice/cursor assertions are unreached. Neither tracing nor
+the earlier warm-cache startup improvement is acceptance.
 
-The prior full images show sky and lighting restored. Of 195 viewport outliers,
-192 lie at local image gradients; only 98 match within one pixel and eight colour
-levels. No missing content is visible, but 97 need more than that simple edge
-explanation. Visual criteria and regressions are proposed; equivalence is unproven.
+The independent software-renderer failure remains open. Prior image review
+leaves 97 of 195 high-difference pixels unexplained by the proposed edge rule;
+no new image capture or equivalence is claimed. Supplemental deterministic
+error/warning/cursor coverage and an early Pi graphics initializer remain
+recommendations. The natural-frame requirement stays unchanged.
 
-Supplemental deterministic error/warning/cursor coverage and an early Pi graphics
-initializer remain recommendations. The natural-frame gate stays unchanged.
-The separate software-renderer failure remains open. All 1,414 source hashes,
-both original binaries and the prior screenshot are intact; locks are free and
-no QOR test workers remain. All 250 samples exceed the 3,072-MiB (mebibyte) guard,
-minimum 6,718 MiB. No new application Release or sanitizer acceptance is claimed.
+All 1,414 source hashes, both original binaries and the prior screenshot are
+intact. Locks are free and no QOR test workers remain. All 215 diagnostic/setup
+samples exceed the 3,072-MiB (mebibyte) guard, minimum 6,736 MiB. One temporary
+observer compilation refusal is preserved; its corrected build is warning-free.
+No new application Release or sanitizer acceptance is claimed.
 
-Next: trace the first-Play graphics-system calls alongside the phase observer
-to identify the blocking fence. PR #10 remains draft. Full products, Player frame
-rates, the earlier Wayland memory leak, ARQADE diagnostics, isolated CI (automated
-integration checks), hardware and Q Pi image acceptance remain open. Required
-hosted Qt/core-audit jobs were skipped and Release readiness failed at admission.
-Current receipts: `build/development-2026-11-16/session-02/`; session-01 is sealed.
+Next: resolve the captured Mesa/Qt call sites with matching debug information
+to identify the graphics operation and pass that reuse the dominant buffer. PR #10
+stays draft. Full products, Player frame rates, the earlier Wayland memory leak,
+ARQADE diagnostics, isolated CI (automated integration checks), hardware and
+Q Pi image acceptance remain open. Required hosted Qt/core-audit jobs were
+skipped and Release readiness failed at admission. Current receipts:
+`build/development-2026-11-16/session-03/`; session-02 is sealed.
 Consolidation planning is separate.

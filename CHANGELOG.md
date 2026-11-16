@@ -9,6 +9,15 @@ their changes since, and pulls of what is still shared, are recorded here.
 
 ## [Unreleased]
 
+- **Client-only graphics tracing locates repeated V3D buffer waits in first Play.**
+  The unchanged Agent still fails its frame gate. A matched reference, bounded
+  system-call trace and lower-overhead ioctl observer separate tracer disturbance
+  from 491.838 ms of buffer waits within a 510.661-ms frame interval. Buffer 291
+  and its submission are identified; the unique fence, GL operation and Studio
+  pass remain unresolved without matching debug symbols. Original artifacts and
+  prior failures are preserved; no production/test-contract change or new Release,
+  sanitizer or image acceptance. Receipts: `build/development-2026-11-16/session-03/`.
+
 - **First-Play tracing separates Mesa cache startup cost from a persistent fence wait.**
   The unchanged ES Agent cases still fail `times > 5` with three, with or without
   a seeded cache. Phase/thread evidence narrows the wait without assigning a GPU

@@ -638,15 +638,15 @@ and mark any record it supersedes or amends.
 | Service traffic | `qorctl watch`; `QT_LOGGING_RULES="qt.remoteobjects*=true"` |
 | Frame pacing | `qor-shell --benchmark 8 --benchmark-out bench.json` |
 
-The 16 November first-Play continuation adds process-local window-phase observers
-without rebuilding the original test. Separate dedicated client caches prove that
-Mesa cache reuse improves startup but leaves a roughly 508-ms DMA-fence wait in
-first Play and the original assertion failed. Qt GPU timestamps are unavailable
-on ES. Preserve the raw phase/thread evidence, setup refusals, visual outlier review
-and proposed supplemental test contract in `build/development-2026-11-16/session-02/`.
-The [phase profile](PERFORMANCE.md#first-play-phase-profile-2026-11-16) defines what
-is measured and the single next client-only trace; no broad suite or production
-change follows from these diagnostics alone.
+The 16 November client-only continuation pairs the original phase observer with
+bounded `strace`, then a reversible ioctl observer because tracing perturbs frame
+scheduling. The latter attributes 491.838 ms of first Play to repeated V3D buffer
+waits inside `QRhi::endFrame`; it does not resolve the unique fence or Studio pass.
+Preserve all failed/partial outcomes and the original timing contract. The
+[graphics wait trace](PERFORMANCE.md#client-only-graphics-wait-trace-2026-11-16)
+records scope, bounds, alignment, overhead, buffer/submission evidence and symbol
+limits. Receipts: `build/development-2026-11-16/session-03/`. No further test variant
+is queued; resolve captured call sites before selecting another comparison or fix.
 
 ## 7. Tooling reference
 

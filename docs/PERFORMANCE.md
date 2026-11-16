@@ -1453,3 +1453,164 @@ Measure its perturbation and keep GPU-time attribution open without suitable dat
 Do not change compositor, security settings or natural-frame requirements.
 Receipts: `build/development-2026-11-16/session-02/`, especially `profile-analysis.json`,
 `derived.json`, `image-review.json` and raw logs under `from-pi/`/`final-from-pi/`.
+
+## Client-only graphics wait trace, 2026-11-16
+
+Continuation at `489ddfe`, branch `fix/native-play-clock-waits`, draft PR #10.
+Session-02's 236-file seal is verified unchanged. All 14 Windows worktrees,
+four complete native checkouts, original locks and active QOR workers are checked
+before work. The 20-minute investigation opens at 09:47:23 local and closes at
+10:02:24 (cutoff 10:07:23): three focused executions and one preserved observer
+compilation refusal that launches no test. Subsequent analysis/publication does
+not run further graphics variants. Receipts live in
+`build/development-2026-11-16/session-03/`.
+
+### Controlled setup and bounds
+
+Every execution uses the original `tst_agent` SHA
+`5e754f6ee300b52801b6833a46f7d72919e0ff22d496e792f95902b6824ebd10`,
+the unchanged `logicThatThrowsInPlayIsInTheLog` and
+`aLongWaitLastsWhatItWasAskedFor` cases with `-v2`, and the existing client-only
+ES/phase observer SHA
+`e0b1b28a479ef306181eaaf1a5bf9174722bd8842fbe33e1874e638674e4cccf`.
+The cache is RelWithDebInfo, not Release. The 5,400-second suite and
+1,800,000-ms function limits, assertions and play/wait behavior are unchanged.
+
+Private user/process/mount/network namespaces, home/data/config/cache/runtime,
+bus/keyring/audio/input isolation and read-only source remain. Only
+`/dev/dri/renderD128`, character device 226:128, original permissions and actual
+sysfs V3D driver, is exposed; no primary DRM/display or real sound/input devices.
+Actual client identity in both test contexts is V3D 7.1.10.2, OpenGL ES 3.1,
+Mesa 26.2.6-1~bpo13+0~rpt2 and Qt 6.12 OpenGL QRhi. The private EGLFS KMS
+headless compositor is unchanged at 1920x1080 with no physical vsync; client
+1600x960. Each client cache starts empty and is separate from the compositor
+cache. System page caches and thermal state are not reset. No desktop, system
+graphics/security/service setting or software-renderer configuration changes.
+
+Installed `strace` is 6.13 with no stack-unwind support. A one-syscall detach
+probe inside the same sandbox verifies that daemonized tracing preserves client
+PID and intentional exit 7. Missing `/proc/sys/kernel/yama/ptrace_scope` is recorded
+as absent, not assumed permissive. Only the chosen test process and descendants
+are traced; no compositor, desktop or unrelated process is attached.
+
+The trace command is `strace -D -f -I 1 --absolute-timestamps=unix,ns -T -yy -v
+-s 64 --syscall-limit=50000 -e
+trace=ioctl,futex,poll,ppoll,epoll_wait,epoll_pwait,clock_nanosleep -o <private-log>`
+with client-only preload/environment passed using `-E`, followed by the original
+test/cases. The supervisor detaches only its identity-checked tracer at 60 seconds
+or 16 MiB; these are capture limits, not test limits. The complete trace ends
+naturally at client exit 1 after 30.757 seconds: 2,061,896 bytes, 5,838 completed
+calls, 4,282 ioctls, 20 client TIDs, no unmatched/resumed calls or capture cap hit.
+Wall-clock trace timestamps align with monotonic phases using paired CPU samples;
+median epoch offset 1794525523047250176 ns, spread 18,037 ns. That spread is not
+a bound on tracing overhead.
+
+### Results and perturbation
+
+| Client observer | Test elapsed | Show to first swap | First-Play after-render to swap | Render-thread CPU in interval | Natural error callbacks (`times`) | Wayland surface callbacks before failure |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| Existing phase observer | 29.781 s | 25.407 s | 508.726 ms | 11.119 ms | 3 | 5 |
+| Same plus `strace` | 30.535 s | 25.047 s | 521.452 ms | 13.694 ms | 1 | 4 |
+| Same plus targeted ioctl observer | 29.811 s | 25.428 s | 510.661 ms | 14.861 ms | 3 | 5 |
+
+All three report **3 passed, 1 failed, 0 skipped**. `times > 5` fails unchanged;
+source/error presence and consecutive coalescing assertions pass. Later
+notice/cursor assertions are unreached. The wall-clock case passes, including
+`waited.elapsed() >= 1500`. Two private-audio warnings persist; QML TypeErrors
+number 3/1/3. Shader/pipeline errors are absent. Surface callback timestamps and
+latencies, every phase, and reached assertions are retained in raw logs and
+`profile-analysis.json`; surface callbacks are not the test's error callbacks.
+
+The ptrace run adds 754 ms overall and changes the callback count. Its first-Play
+interval adds 12.726 ms. These single observations establish perturbation, not a
+statistical overhead bound. The lower-overhead observer adds 30 ms overall and
+1.935 ms to that interval, reproducing three callbacks. Its selected-call handler
+accounting totals 28.430 ms across the process, excluding real ioctl time;
+phase accounting is 1.014 ms (reference 0.811 ms, strace 19.442 ms). Unselected
+hook dispatch, common CPU/wire observation and normal run variability are not
+fully measured. No claim of zero observer overhead.
+
+### Buffer waits and call-stack coverage
+
+The targeted client library forwards requests/returns unchanged and preserves
+`errno`. It observes only V3D WAIT_BO/CREATE_BO/SUBMIT_CL on character 226:128,
+for 60 seconds, at most 8,192 events and eight backtraces of waits above 10 ms.
+Payload copies read only the client itself; submission arrays are bounded at
+256 handles. It adds no rendering command or frame request. It records 3,456
+events (2,868 waits, 474 creations, 114 submissions), six stacks, zero dropped
+events and zero truncated arrays. The initial compile refused kernel-source
+`__user` annotations; the temporary userspace observer corrects that annotation
+only, then compiles warning-free with `-Wall -Wextra -Werror` and hardening flags.
+No original source or executable is rebuilt or replaced.
+
+Observed request values are WAIT_BO `0xc0106441` (16 bytes), CREATE_BO
+`0xc0106442` (16 bytes), SUBMIT_CL `0xc0486440` (72 bytes). Actual V3D identity
+disambiguates strace's overlapping ioctl names. Installed UAPI header 6.18.60 is
+newer than running kernel 6.18.50; ABI sizes/requests are verified, not an exact
+source match. Both header hashes and compile configuration are retained.
+
+The observed first Play starts at monotonic 326587005043160 ns; after-render is
+326587016618423 ns and swap 326587527278962 ns. On render TID 31/FD 16, **417
+WAIT_BO calls occupy 491.838 ms of this 510.661-ms interval**, with 0.969 ms CPU.
+Sixty-three calls exceed 1 ms and sum to 491.351 ms. The dominant handles are:
+
+| Handle | Calls in interval | Wall time | Creation request size | Relevant captured submission |
+| --- | ---: | ---: | ---: | --- |
+| 291 | 50 | 383.545 ms | 4,096 bytes | Event 946, 11 BO handles, out_sync 2 |
+| 184 | 15 | 87.248 ms | 16,384 bytes | Events 373/897 |
+| 289 | 3 | 11.730 ms | 8,192 bytes | Event 927 |
+
+Handle 291 has 49 timeout 0 calls and one infinite-timeout call; 48 return
+`-1/ETIME` (62). Successful-call errno values are stale and are not errors.
+Submission 946 starts 40.468 ms after Play and includes handle 291. Call 982 on
+that buffer lasts 11.853 ms, only 0.005 ms thread CPU. Its captured stack is
+`QRhi::endFrame` -> unresolved Qt/Mesa frames -> `drmIoctl` -> observer. Call 933
+on handle 289 gives the same enclosing path. Mesa offsets including `0x12ef550`,
+`0x12ef6d0`, `0x12f2304`, `0x130726c`, `0x1307cdc`, `0x877af4`, `0x41e39c`,
+`0x41f958`, and QtGui `0x596f64`/`0x597ec4` are preserved with ELF build IDs
+and SHA256s. The Qt callsite is an indirect dispatch, not a resolved GL name.
+
+The lower-overhead result confirms that expensive timeout 0 calls persist without
+ptrace; attributing all such cost to strace would be wrong. It does not establish
+why those nominal polls sleep or whether driver timeout granularity, resource
+reuse or GPU work dominates. The [V3D driver source](https://raw.githubusercontent.com/raspberrypi/linux/rpi-6.18.y/drivers/gpu/drm/v3d/v3d_bo.c)
+describes waiting through a buffer reservation and converting nanoseconds to
+kernel timeout units; the live branch is not proven to match this running build.
+No kernel defect is concluded from it.
+
+Neither WAIT_BO nor the captured submission supplies a unique underlying fence
+context/sequence. BO handles and sync object 2 may be reused; close/lifetime and
+other submission types are not fully instrumented. These are correlated buffer
+and submission records, not proof of a specific shader/pass or unique fence.
+The traced infinite wait on handle90 (459.636 ms, starting Play+640.103 ms) is
+later than the first-frame interval. The observer's corresponding later long
+wait is 306.566 ms. Neither is substituted for the dominant first-frame cost.
+
+Installed Mesa/Qt libraries lack `.debug_info`, `.symtab` and matching build-ID
+debug files; adjacent/debuglink search locations also lack the named files.
+Of each first-frame 18-frame stack, three frames have exact dynamic
+symbol names (observer ioctl, drmIoctl, QRhi::endFrame); 15 retain object/offset
+only. `addr2line` falls back to unrelated nearest exported names, so those names
+are explicitly rejected. No download, package installation or security change
+was made to obtain symbols. GPU timing/pass identity remains unknown; unsupported
+Qt OpenGL ES GPU timestamps are not evidence of negligible GPU execution.
+
+### Preservation, decision and next action
+
+All 1,414 sources, original Agent/Studio binaries and sealed screenshot verify
+unchanged. No preload/observer variables remain in the parent environment, and a
+fresh no-application probe again shows default type 0/version 2.0. Original locks
+are free and QOR workers absent. All 215 diagnostic/setup guard samples exceed
+3,072 MiB, minimum 6,736 MiB. The failed compiler setup remains in its own folder.
+Earlier software failure, cold/warm evidence and image outliers remain sealed.
+No new visual capture/equivalence, production fix or test-contract edit is made.
+
+The next bounded action is to resolve these captured Mesa/Qt call sites using
+matching debug information, identifying the GL operation and Studio pass that
+reuse the dominant buffer. Do not select an optimization from buffer size or
+nearest symbol names alone. Deterministic logging coverage stays supplemental;
+the original natural-frame gate is retained. The 97 unresolved image outliers
+and proposed regression criteria are unchanged. No application Release,
+sanitizer, broad product suite or isolated CI acceptance runs anew. PR #10 stays
+draft; hosted skips remain skips. Documentation hooks are a separate check, not
+resolution of the product failure.
