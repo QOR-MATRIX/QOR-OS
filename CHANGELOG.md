@@ -9,6 +9,15 @@ their changes since, and pulls of what is still shared, are recorded here.
 
 ## [Unreleased]
 
+- **Provision the authorized private ARM64 kernel-build dependencies.**
+  Lock 218 Debian package versions/hashes and signed metadata; extract payloads
+  only into the private root. Compiler/linker, parser generators and paused
+  QEMU startup checks pass under the original guard. Host packages, kernel,
+  boot files and regression assertions remain unchanged. No kernel is built
+  or booted; all six control/corrected cases remain unrun. The dependency lock
+  and runbook distinguish tool readiness from kernel/product acceptance.
+  Receipts: `build/development-2026-11-16/session-08/`; PR #10 stays draft.
+
 - **Qualify the kernel-test isolation mechanism and document exact blockers.**
   A private namespace probe passes, but bison, flex, QEMU and the
   complete pinned source are unavailable. All six control/corrected cases are

@@ -1,47 +1,44 @@
 # Where QOR OS stands
 
-For Andrew, 16 November 2026. Kernel-test preparation is blocked on missing
-builder tools. The reviewed buffer-poll backport remains unchanged and
-uninstalled. The original gameplay frame test still fails.
+For Andrew, 16 November 2026. Authorized private builder dependencies are
+provisioned and their tool checks pass. The Pi's host packages and running
+kernel are unchanged. Kernel regression and product acceptance remain open.
 
-The target is the running Pi 6.18.50 source and configuration: 64-bit ARM,
-16,384-byte memory pages and 250 timer ticks per second. The two-line V3D
-(Pi graphics driver) patch keeps zero as an immediate poll; positive waits
-and error accounting keep their original code. Earlier patch/reverse and
-object compilation passed. No complete kernel has been linked or booted.
+The private 64-bit ARM tool root contains 218 pinned Debian packages. Signed
+metadata and every archive hash verify before payload extraction. No package
+installation script runs. The root is mounted read-only for work; it is not
+a configured Debian system. Its contents, permissions and links are recorded.
 
-Six KUnit tests (Linux kernel unit tests) are prepared and object-compiled.
-Source review confirms the unsignaled completion fence reaches the real waiter.
-Neither unpatched nor patched suite has run: no runtime pass, failure or skip
-is claimed. Expiring positive waits are covered in source; completion while
-blocked, restart signals and actual hardware calls still need integration.
+GCC 14.2.0 compiles, links and runs a small program with OpenSSL. bison/flex
+(parser generators) produce working compiled programs. QEMU 10.0.13 (the
+emulator) starts a paused ARM64 machine and exits normally. No kernel is
+provided to that emulator; this is not a successful kernel boot or test.
+The original guard records 158 samples, at least 7,214 MiB (mebibytes)
+available, above the unchanged 3,072-MiB floor. A separate content seal passes.
 
-The Pi lacks bison/flex parser generators, QEMU (the emulator), and a complete
-source tree in the inspected locations. A private namespace probe passes,
-excluding host boot files, home, devices and external network. This is not a
-complete builder. Package simulation installs nothing. The runbook proposes
-provisioning dependencies only in an authorized private ARM64 builder root.
+The reviewed two-line V3D (Pi graphics driver) backport still targets the
+running 6.18.50 source/configuration. It keeps zero as an immediate poll while
+preserving positive waits and errors. Its six KUnit (Linux kernel unit) cases
+are unchanged and remain unrun on both kernels. Earlier object compilation
+is separate evidence. Complete source/config preparation, kernel link,
+regression execution and kernel sanitizer checks remain to be done.
 
-Recovery inventory verifies SD boot and retained stock kernel, initial-memory
-filesystem, module and device-tree sets. Normal boot files and the Pi 5 device
-tree match 6.18.60, although 6.18.50 is running. Restoring only the old kernel
-is insufficient. Physical card access, verified backup and stock recovery boot
-remain unproved. No package, boot file, module, service or desktop changes.
+Recovery inventory retains the stock kernel, initial-memory filesystem,
+modules and device trees. Normal boot files select 6.18.60 while 6.18.50 runs.
+Physical media access, backup readback and a stock recovery boot remain
+unverified. Nothing authorizes candidate installation, module loading or reboot.
 
 All 1,414 original source hashes, Agent/Studio binaries and prior image are
-intact; locks are free at admission. Native admission has 7,281 MiB (mebibytes)
-available, above the unchanged 3,072-MiB floor. No kernel compiler or virtual
-machine ran; this snapshot does not qualify resources for a running builder.
+preserved at admission. The original gameplay result remains three passes,
+one failure and zero skips: `times > 5` is three; later notice/cursor checks
+were unreached. The software-renderer failure and 97 image outliers remain.
+No new QOR Release, sanitizer, product or image acceptance is claimed.
 
-Historical focused results remain three passes, one failure, zero skips;
-`times > 5` fails with three. Later notice/cursor assertions were unreached.
-The software-renderer failure and 97 image outliers remain open. No new QOR
-Release, sanitizer, product or image acceptance is claimed. Hosted Qt/core-audit
-jobs skipped and Release readiness failed at admission.
-
-Next: authorize private builder provisioning in `image/README.md`, then run
-the unchanged six-case control and corrected suite. PR #10 stays draft;
-isolated CI (automated integration checks), Player frame rates, the earlier
-Wayland leak and ARQADE diagnostics remain open. Receipts:
-`build/development-2026-11-16/session-07/`; session-06 remains sealed.
+Next: verify the complete pinned kernel source/config, build the isolated
+test kernel, then run the unchanged six-case control and corrected suite.
+PR #10 stays draft while required acceptance and isolated CI (automated
+integration checks) remain incomplete. Player frame rates, the earlier
+Wayland leak and ARQADE diagnostics remain open. Review the dependency lock
+and runbook in `image/README.md`; receipts:
+`build/development-2026-11-16/session-08/`. Session-07 remains sealed.
 Consolidation planning is separate.

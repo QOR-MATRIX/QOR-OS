@@ -1386,6 +1386,7 @@ remain unchanged. See [the measured kernel defect](../docs/PERFORMANCE.md#exact-
 | [Patch 2](pi/kernel-wait-bo/0002-v3d-wait-bo-kunit.patch) | Separate, default-off kernel regression with six cases. |
 | [Test configuration](pi/kernel-wait-bo/kunit.config) | Overlay for a separate KUnit test kernel, never the production configuration. |
 | [Series](pi/kernel-wait-bo/series) | Review order; production uses patch 1 only. The negative control uses patch 2 only. |
+| [Builder dependency lock](pi/kernel-wait-bo/builder-lock.json) | Authorized private tool payloads, signed metadata and complete package/root hashes; not a kernel runtime result. |
 
 Base: [Raspberry Pi Linux `cff533aec2fa601846766b32ff57204e0a61bed7`](https://github.com/raspberrypi/linux/tree/cff533aec2fa601846766b32ff57204e0a61bed7),
 declared by installed source package `linux` `1:6.18.50-1+rpt1` for running
@@ -1573,16 +1574,78 @@ Evidence: `build/development-2026-11-16/session-07/`, especially
 `builder-recovery-inventory.json`, `sandbox-qualification.json`,
 `fence-path-source.json` and `regression-results.json`. Session-06 is preserved.
 
+#### Private builder dependencies provisioned
+
+The owner authorized private dependency provisioning after session-07.
+Session-08 at QOR source `6c8cf83` supplies a tool payload root at
+`/home/qpi/qor-prism-current-20261112/build/native-kernel-builder-20261116-session08/rootfs`.
+The [builder lock](pi/kernel-wait-bo/builder-lock.json) records all 218 package
+versions, archive paths, sizes and SHA256 values, trust metadata, the target
+kernel/config identities and the root-content manifest hash. The dependency
+blocker is resolved **for these tool checks**, not for full kernel acceptance.
+
+APT uses a new private configuration, empty package status, metadata, cache
+and log directories. Host configuration hooks and package state are excluded.
+Fresh Debian Trixie metadata is verified with the existing public archive
+keyring; independent gpgv verification accepts three signatures and the
+uncompressed ARM64 Packages hash matches the signed Release. The complete
+resolved dependency set is pinned before download, and all 218 archive hashes
+and sizes match before extraction. Downloads total 151,333,672 bytes.
+
+Only payload extraction runs, inside a namespace with network disabled and
+only the private root writable. No package maintainer script runs on either
+host or private root. This is a kernel build tool root, **not a configured
+Debian installation**; dpkg's package database and service setup are not
+claimed complete. A recorded private `cc -> gcc` alias supplies the one needed
+compiler alias absent without maintainer scripts. The host package-status
+hash is unchanged; bison, flex and QEMU remain absent from the host PATH.
+See Debian's [extraction semantics](https://manpages.debian.org/trixie/dpkg/dpkg-deb.1.en.html).
+
+All 11 provisioning/check commands pass. In the read-only root, with only
+private work/tmp/proc/dev writable and no external network or host boot/home/
+graphics/input/audio/KVM/desktop access, the following checks pass:
+
+- GCC/G++ 14.2.0-19 identification; C compile/link/run with `-Wall -Wextra
+  -Werror`, including OpenSSL linkage; serial make 4.4.1 execution.
+- bison 3.8.2 and flex 2.6.4 generate sources that compile without warnings
+  and run with the expected results; Python 3.13.5 is available.
+- QEMU 10.0.13 enumerates `virt-10.0` and ARM CPUs, then starts a one-CPU,
+  1,024-MiB TCG machine paused before execution and exits normally. No kernel,
+  firmware or guest image is provided. This proves emulator startup, not
+  16-KiB guest boot, runtime resource qualification or any KUnit case.
+
+The original heavy coordinator protects provisioning: 158 samples, minimum
+7,214 MiB, with the unchanged 3,072-MiB floor and 30 resident admission samples.
+A separate guarded seal records 16,632 file/directory/symlink entries and
+695,276,361 regular-file bytes; 32 samples, minimum 7,438 MiB. Root modes,
+symlink targets and file hashes are preserved under the native job directory.
+Verify that manifest before reuse and mount the root read-only; only a new,
+separate output tree is writable. Do not mutate this root with apt/dpkg.
+Future dependencies need a new reviewed lock/root, preserving this evidence.
+
+No kernel source/config, backport, test assertion, timeout, host package,
+boot file, loaded module, desktop or service changes. **All six unpatched and
+patched KUnit cases remain unrun**; session-06 object compilation remains
+separate evidence. The authorization here has provisioned dependencies only.
+Next: acquire/verify the complete pinned kernel source and vendor provenance,
+resolve the exact config plus test overlay, and build the isolated test kernel
+before running the unchanged control and corrected suites. Keep the separate
+kernel sanitizer, physical recovery, QOR Release/ASan, image and isolated-CI
+gates open. No new installation/reboot authorization is inferred.
+
+Receipts: `build/development-2026-11-16/session-08/`; session-07 remains sealed.
+
 #### Pre-install qualification sequence
 
 1. Use a new isolated kernel build environment with the original heavy-job
    coordinator and `tools/image/vm_resources.py`: one job, serial compilation,
    sustained resident admission and at least 3,072 MiB available throughout.
    Keep all outputs under a new `build/` receipt. Never stop unrelated work.
-   The current Pi lacks bison, flex and QEMU; its running kernel has KUnit off.
-   Qualify those prerequisites in an isolated builder before attempting a full
-   build or kernel-test VM. Do not enable KUnit or load a test module in the
-   current desktop kernel as a workaround.
+   The live Pi has KUnit off; session-08 supplies the isolated tool payload
+   root above. Verify its lock/content manifest and repeat resident admission
+   with the actual build/guest worker. Its tool checks are not a full kernel
+   build or guest qualification. Do not enable KUnit or load a test module in
+   the current desktop kernel as a workaround.
 2. Prepare three separate source/output trees from the pinned base: unpatched
    control plus patch 2; corrected test plus patches 1 and 2; production plus
    patch 1 only. Copy the verified 16-KiB configuration into each output tree.
@@ -1715,9 +1778,10 @@ samples exceed the resource floor; minimum 7,153 MiB.
 Receipts: `build/development-2026-11-16/session-06/`. Full kernel build/link,
 unpatched/patched and KASAN kernel tests, busy hardware ioctl integration,
 recovery drill, original QOR focused test/images and all acceptance gates remain
-unrun in this preparation. PR #10 stays draft. The next concrete action is to
-qualify an isolated kernel-test builder and run the unpatched negative control
-and patched KUnit suite before proposing installation.
+unrun in this preparation. PR #10 stays draft. Session-08 subsequently
+provisions and checks the private builder dependencies above. The next step
+is the complete pinned source/config build, then the original unpatched and
+patched KUnit runs before any installation proposal.
 
 ## Private disposable VM lab
 
