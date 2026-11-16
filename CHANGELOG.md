@@ -9,6 +9,16 @@ their changes since, and pulls of what is still shared, are recorded here.
 
 ## [Unreleased]
 
+- **The Agent frame delay is isolated to Studio viewport rendering on the Pi software renderer.**
+  Client render/CPU traces and matched display callbacks separate a 1,056 ms
+  first-frame interval from 10.3-10.6 ms compositor callback latency. A temporary
+  viewport-pixel control delivers 20 natural callbacks instead of one during
+  the same 600 ms request, with matching log counts; it is not acceptance.
+  Exact original source/executable restoration retains the focused failure.
+  No production fix, assertion, timing, quality or worker-limit change is made.
+  Broader acceptance stays closed pending the focused failure; first-frame
+  call-stack profiling is next. Receipts: `build/development-2026-11-15/session-10/`.
+
 - **The native Agent logging failure is traced to callback delivery during its unchanged wait.**
   The original failure reproduces while the wall-clock wait case passes.
   Two isolated Pi software traces find the scene and logic ready in 37 ms,

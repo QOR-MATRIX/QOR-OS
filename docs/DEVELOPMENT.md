@@ -522,7 +522,14 @@ wall-clock `wait` tool from delivered logic-frame callbacks. Preserve its 600 ms
 request and `times > 5` assertion; count natural callbacks and observe the log
 before treating absent text as a logger defect. Temporary explicit callbacks
 can test error capture/counting, but cannot qualify frame timing. Restore and
-hash the original source after such a diagnostic, then run the original suite.
+hash the original source and executable after such a diagnostic, then run the
+original focused cases. Resume broader acceptance only after the focused
+failure is resolved. Session-10 adds client render-phase/CPU timestamps and
+matched Wayland frame requests, commits and callbacks. Its viewport-opacity
+control changes the draw workload only for diagnosis; it cannot qualify the
+original test. Immediate replay has pending scene-deletion interference, so it
+is not a clean shader-cache comparison. The next bounded profile must identify
+driver setup or drawing cost before a production optimization is justified.
 See the [measured callback timeline](PERFORMANCE.md#qq-agent-callback-timing-2026-11-15-isolated-pi-software-rendering).
 
 ### Pull ARQADE's fixtures and the one look from upstream

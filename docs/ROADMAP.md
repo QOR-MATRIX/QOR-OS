@@ -551,20 +551,28 @@ selected qualified checks on this PC; full product runtime checks still need
 an audio/keyring boundary, and GPU checks were not run. Current Windows receipts:
 `build/development-2026-11-15/session-08/`.
 
-The following native Agent investigation reproduces the original logging failure
-while the wall-clock wait case passes. Two software traces have the scene and
-logic ready in 37 ms, but deliver only one natural logic-frame callback before
-the 600 ms wait returns at 1,221/1,197 ms. That exception reaches the log; six
-explicit diagnostic callbacks then produce one entry counted seven times.
-Those callbacks are a positive control, not an acceptance pass. The original
-source and executable are restored exactly. Complete Agent again passes 22
-with the same failure and one optional provider skip, in 154.467 seconds.
-Build/hardening and aggregate/structured lint pass. All 470 resource samples
-remain at or above 5,859 MiB against the unchanged 3,072-MiB floor. The failure
-stays open; next isolate render cost from private-display pacing without
-changing the 600 ms request, `times > 5`, quality or worker limits. See the
-[callback timeline](PERFORMANCE.md#qq-agent-callback-timing-2026-11-15-isolated-pi-software-rendering).
-Receipts: `build/development-2026-11-15/session-09/`.
+The following Agent pacing comparison at source `564f032` locates the dominant
+delay in Studio viewport rendering on llvmpipe. Its first play frame spends
+1,056 ms between render recording and presentation, using 1,991 ms of client
+CPU time across threads. The private display sends submitted-frame callbacks
+after 10.3-10.6 ms and uses about 10 ms of CPU time during the 1.2-second
+observation. Suppressing only viewport pixels in a temporary control yields
+20 natural logic callbacks instead of one during the same 600 ms request;
+all 20 exceptions are counted. That reduced workload is not acceptance.
+Immediate replay is confounded by pending scene deletion and establishes no
+cache cause. No production defect or fix is established.
+
+All 1,414 source hashes and the original Agent executable are restored.
+The original focused cases report three passes and one failure:
+`times > 5` fails with value `1`; the wall-clock case passes.
+Native build/hardening pass, with no compiler
+or licence diagnostics. The unchanged 3,072-MiB guard observes at least 6,359
+MiB available. Broader suites and sanitizers are not rerun: no production code
+changed and the focused failure remains open. Next, profile the first viewport
+frame's call stacks before selecting an optimization or qualifying a faster
+isolated renderer. Preserve 600 ms, `times > 5`, quality and worker limits.
+See the [controlled comparison](PERFORMANCE.md#qq-agent-callback-timing-2026-11-15-isolated-pi-software-rendering).
+Receipts: `build/development-2026-11-15/session-10/`.
 
 PR #10's next product gates include Agent callback timing, Player failures and remaining
 full-product and Windows runtime runs. The Wayland sanitizer leak, ARQADE diagnostics,

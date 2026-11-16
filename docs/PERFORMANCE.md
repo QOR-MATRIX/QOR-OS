@@ -447,20 +447,80 @@ This confirms delivery and repeated-error counting for the exercised path.
 The explicit callbacks are a positive control, not drawn frames or a passing
 acceptance test. Neither diagnostic is a replacement for the original suite.
 
-The measured failure mechanism is insufficient natural callback delivery in
-this isolated software run. The expensive render/synchronization stage has
-not yet been identified, and no speedup or logger defect is established.
-Next, profile Studio's play-start render work and private-display pacing under
-the same configuration. Keep the 600 ms wait, `times > 5`, rendering quality,
-worker limits and existing failure evidence. Current receipts:
+Those session-09 receipts establish insufficient natural callback delivery,
+not a logger defect. They remain sealed in
 `build/development-2026-11-15/session-09/`.
 
-All 1,414 original sources and the original Agent executable hash are restored
-after the diagnostic overlays. The unmodified full suite returns 22 passes,
-the same logging failure and one optional provider skip in 154.467 seconds.
-Build and hardening pass; aggregate and all three structured lint reports have
-zero warnings. All 470 validation samples remain at or above 5,859 MiB against
-the unchanged 3,072-MiB floor. The original lock is free with no test workers.
+**Controlled follow-up at source `564f032`, session-10.** The same isolated Pi,
+commercial Qt 6.12.0, existing `RelWithDebInfo` cache, 1600 x 960 Studio window,
+private display/keyring, two llvmpipe workers and standard limits remain.
+Temporary instrumentation records monotonic render-phase timestamps, process
+and render-thread CPU time, natural warning timestamps/counts and scene state.
+Both client and server Wayland traces match surface frame requests to commits
+and callback IDs; 100 ms samples observe only the test and its compositor.
+No callback is injected. Qt's [frameSwapped signal](https://doc.qt.io/qt-6/qquickwindow.html#frameSwapped)
+means queued presentation, not physical scanout.
+
+| Observation | Normal viewport | Diagnostic viewport opacity zero |
+| --- | --- | --- |
+| Play returns | 38 ms | 37 ms |
+| Play-to-wait-return elapsed time; request remains 600 ms | 1,220 ms | 639 ms |
+| Natural logic callbacks / logged repetitions | 1 / 1 | 20 / 20 |
+| Window swaps / logic steps | 3 / 11 | 21 / 29 |
+| First frame: after render recording to queued presentation | 1,056.341 ms | 207.230 ms |
+| Client CPU consumed in that interval, summed across threads | 1,990.864 ms | 224.684 ms |
+
+The control suppresses viewport pixels after normal startup while retaining
+its 1010 x 904 layout area and live scene. It changes the draw workload; it is
+not an acceptance run or a quality change to ship. Its natural error timestamps,
+in milliseconds from play, are 307, 318, 336, 352, 367, 383, 399, 415, 431, 452,
+469, 484, 505, 521, 543, 560, 581, 597, 615 and 637. The normal trace records
+its single error at 1,218 ms. Both use the same 600 ms tool request.
+
+In the normal run the display sends callbacks 10.256-10.554 ms after receiving
+the associated commits. Across a 1,204 ms sampled interval, the client consumes
+2,220 ms of CPU time and the compositor about 10 ms (10 ms counter resolution).
+The next two client frames take 45.259 and 44.775 ms between recording and
+presentation. This locates the dominant delay in client viewport rendering,
+not the private display withholding an already submitted frame. The control's
+callbacks arrive 9.477-12.024 ms after commits, with twenty natural logic
+callbacks during its wait. It also shows the display can deliver the required
+callback count when the draw workload is lower.
+
+A separate first/second-play observation keeps one Studio process. Its first
+trial independently reproduces the delay: 1,206 ms elapsed, one natural logic
+callback, and 1,042.559 ms in the first render-to-present interval. Immediate
+replay remains slow (929 ms, first interval 889.606 ms), with zero new-scene
+frame/step signals despite two QML errors. `SceneIO::discard()` defers deletion;
+this is consistent with old-scene interference. The replay is not a clean
+cold/warm comparison and does not establish a shader-cache cause or a separate
+production defect. Its raw evidence is retained.
+
+The result establishes a workload/capacity bottleneck for this software
+configuration, but does not identify which driver setup, resource allocation
+or drawing work is excessive. No production fix or regression test is justified
+yet. Next, capture a bounded call-stack profile of the first viewport frame in
+the same sandbox. If it is expected software rendering cost, the defensible
+environment correction is to qualify a sufficiently fast isolated renderer
+with the original workload and timing gate. Do not prewarm acceptance, hide
+the viewport, inject callbacks, reduce quality or relax `times > 5`/600 ms.
+
+All 1,414 source hashes and the original executable hash are restored. The
+original focused logging/wall-clock run reports three passes and one failure:
+the log now captures one error and `times > 5` fails with value `1`. The
+wall-clock case passes. Native build and 16-program hardening pass
+without compiler/licence diagnostics. The original lock is free; no test workers
+remain; native samples stay at or above 6,359 MiB against the 3,072-MiB floor.
+Broader acceptance and sanitizers were not rerun because the focused failure
+remains open and production code is unchanged. Existing full-suite/lint and
+sanitizer receipts retain their earlier scope. Current raw traces, CPU samples,
+matched callback analysis and restoration evidence:
+`build/development-2026-11-15/session-10/`.
+
+Earlier session-09 restored all 1,414 original sources and the executable hash,
+then ran the full suite: 22 passes, the logging failure and one optional provider
+skip in 154.467 seconds. Build, hardening and aggregate/structured lint passed;
+470 samples stayed at or above 5,859 MiB. This remains earlier full-suite evidence.
 
 ### Earlier startup measurements
 

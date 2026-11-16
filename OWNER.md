@@ -1,43 +1,44 @@
 # Where QOR OS stands
 
-For Andrew, 15 November 2026. The Agent logging failure is now traced to too
-few natural frame callbacks during its unchanged wait on the isolated Pi
-software renderer. The scene and logic are ready after 37 ms. Two observations
-request 600 ms, return at 1,221/1,197 ms and deliver one logic-frame callback.
-Its exception reaches the log. Six explicit diagnostic callbacks produce six
-more exceptions, correctly kept as one entry counted seven times. They test
-logging only; they do not make the original timing check pass.
+For Andrew, 15 November 2026. The Agent frame-callback failure remains open.
+The latest isolated Pi comparison locates the main delay in Studio's viewport
+rendering with llvmpipe, the processor-based graphics renderer. Its first play
+frame takes 1,056 ms between recorded rendering and presentation, consuming
+1,991 ms of processor time across threads. The private display sends callbacks
+10.3-10.6 ms after receiving frames and uses about 10 ms of processor time
+during the 1.2-second observation. The display is not the dominant delay.
 
-All 1,414 original sources and the original Agent executable hash are restored
-after these temporary observations. The complete Agent suite again passes 22
-with the same logging failure and one optional provider skip, in 154.467
-seconds. No production source, assertion, rendering quality or timing boundary
-changed. The failure remains open. Next, separate Studio's rendering cost from
-private-display pacing, the delivery of frames through the test display.
+A diagnostic control suppresses only viewport pixels, retaining layout and
+the live scene. The same 600 ms request then delivers 20 natural logic callbacks
+instead of one, all correctly counted in the log. This is evidence of rendering
+cost, not an acceptance pass or an approved rendering change. Immediate replay
+is also slow and has scene-lifecycle interference; it does not establish a
+shader-cache cause. No specific production defect or safe fix is established.
 
-Native builds have no compiler or licence diagnostics. Hardening, checks of
-program exploit mitigations, passes for 16 programs. QML lint, checks of Qt's
-interface language, has zero warnings in the aggregate and separate Runtime,
-Player and Studio reports. All 470 validation samples stay at or above 5,859
-MiB available against the unchanged 3,072-MiB floor. The original coordinator
-and private device/network/display boundaries remain; no test workers remain
-and the original lock is free.
+All 1,414 original sources and the original Agent executable hash are restored.
+The two original focused cases report three passes and one failure: the log
+captures one error, failing `times > 5`. The wall-clock wait case passes.
+Build and hardening, checks of program
+exploit mitigations, pass. The original coordinator, private device/network/
+display boundaries and 3,072-MiB floor remain. Native samples stay at or above
+6,359 MiB available; the lock is free and no test workers remain.
 
-Earlier native Studio passed 29 and the packaged-game creator journey passed
-in 131.581 seconds under its original 300-second limit. Gameplay passed 58 and
-scene tests 109. Player retains two failures against 20 frames per second,
-13 passes and an unavailable kernel-confinement check. Those suites were not
-rerun in this logging investigation.
+Next, capture a bounded call-stack profile of the first viewport frame in the
+same sandbox to distinguish driver setup from drawing cost. If the unchanged
+workload exceeds this software builder's capacity, qualify a sufficiently fast
+isolated renderer for the unchanged gate. No callback injection, prewarming,
+quality reduction or deadline change qualifies the original test.
 
-The preceding Windows checkpoint passed 22 selected core suites, six metadata
-checks and six inert Agent-panel results, with clean lint and hardening. Its
-known Rust dependency warning, expected case skip and excluded graphics suites
-remain recorded. Full Windows products still require an audio/keyring boundary.
+Earlier complete Agent remains 22 passes, one failure and one optional provider
+skip; Studio passed 29 and the packaged-game creator journey passed in 131.581
+seconds under its 300-second limit. Those broader suites and sanitizers were
+not rerun: production code is unchanged and the focused failure remains open.
+Earlier qualified Windows checks, clean interface-language lint and remaining
+Player frame-rate failures retain their recorded scope.
 
-Draft pull request #10 remains on `fix/native-play-clock-waits`. Current receipts
-are in `build/development-2026-11-15/session-09/`; the preceding sealed receipts
-remain intact. Hosted source checks passed at the preceding checkpoint, while
-required Qt builds and core audit were skipped and Release readiness failed.
-Full products, the earlier Wayland memory leak, ARQADE diagnostics, hardware
-and Q Pi image acceptance remain open. The repository-consolidation proposal
-remains separate planning; ownership boundaries are unchanged.
+Draft pull request #10 remains on `fix/native-play-clock-waits`. Current receipts:
+`build/development-2026-11-15/session-10/`; preceding sealed receipts are intact.
+At the starting revision, hosted source checks passed, required Qt builds and
+core audit skipped, and Release readiness failed. Full products, isolated CI,
+the earlier Wayland memory leak, ARQADE diagnostics, hardware and Q Pi image
+acceptance remain open. Repository-consolidation planning stays separate.
