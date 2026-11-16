@@ -551,35 +551,46 @@ selected qualified checks on this PC; full product runtime checks still need
 an audio/keyring boundary, and GPU checks were not run. Current Windows receipts:
 `build/development-2026-11-15/session-08/`.
 
-The session-12 follow-up at source `01eb67b` resolves 1.86 of 1.87 previously
-unknown sampled CPU-seconds to generated texture sampling and fragment shading
-on the isolated Pi. That is 99.47% of unknown time, newly attributing 82.67% of
-the 2.25 CPU-second profile. Valid symbols cover 125 of 135 captured objects;
-ten invalid objects are excluded. The owning Studio material/pass remains
-unresolved. A same-binary comparison measures 7.40% elapsed profiling overhead.
-Collector warnings and the failed symbol lookup/post-analysis attempts remain
-recorded. Disabling only the Sun shadow for diagnosis still delivers one
-callback and does not improve the measured wait; it cannot qualify acceptance.
+The session-13 V3D qualification at source `f0893ea` verifies the Pi graphics
+processor inside a separate render-node-only sandbox, but does not qualify it
+for Studio. `/dev/dri/renderD128` is character device 226:128, mode 0660, bound
+to `v3d`; access works with existing account permissions. The direct probe and
+private headless compositor use Broadcom V3D 7.1.10.2 / OpenGL ES 3.1. The original
+Studio client instead selects desktop OpenGL 3.1, which cannot consume several
+baked GLSL 150 shaders. No system graphics, service, permission or desktop change
+is made; the original software configuration remains intact.
 
-The test combines log-repeat correctness with natural frame throughput: its
-600 ms timer request guarantees no callback count and can return late. The
-proposed correction adds deterministic real QML exceptions through the complete
-logging path, including repeat counts and incremental reads, while retaining
-the original natural-frame gate. No assertion, timeout or production behavior
-is changed. The measured software-renderer stall remains a performance issue.
+The original focused Agent cases report **3 passes, 1 failure, 0 skips in
+28.341 seconds**. Three intentional QML errors are split into two entries by
+intervening shader warnings: `typeErrors == 1` fails before `times > 5` is reached.
+Wall-clock waiting passes. First surface creation to first Wayland frame callback
+is 24.064 seconds, including startup; the first frame request-to-callback is
+13.152 ms. These are wire timestamps, not the earlier instrumented play interval.
+The changed private compositor has no physical vsync, so no direct speedup over
+the sealed software baseline is claimed. An initial attempt using the original
+offscreen compositor fell back to llvmpipe and correctly aborted on the existing
+renderer assertion (1 pass / 1 failure / 0 skips; second case not run).
 
-All 1,414 original sources and the original executable hash are restored.
-Original focused cases report three passes, one failure (`times > 5`, value `1`)
-and zero skips in 13.296 seconds. Build and 16-program hardening pass; the native
-preset remains RelWithDebInfo, not CMake Release. All 370 native samples remain
-at or above 6,343 MiB against the unchanged 3,072-MiB guard. No image-preserving
-fix is justified; sanitizers and broader acceptance were not rerun. The tested
-Vulkan/lavapipe CPU alternative remains insufficient. Host inventory identifies
-a V3D render node, but no GPU was opened or qualified. Next, qualify that
-candidate in a separate render-node-only sandbox against the unchanged focused
-workload; keep the software-renderer failure and required isolated CI gates open.
-See the [profile and controlled comparisons](PERFORMANCE.md#qq-agent-callback-timing-2026-11-15-isolated-pi-software-rendering).
-Receipts: `build/development-2026-11-15/session-12/`.
+The existing Studio button/focus image check passes on V3D and on a matched
+llvmpipe client control (3/0/0 each), but the V3D capture loses the sky and
+environment lighting. The control uses the same headless compositor and original
+binary and renders them correctly. Narrow UI passes do not establish viewport
+correctness. Software timing remains open: the preserved original baseline is
+3/1/0, `times > 5` fails with 1. Recommend supplemental deterministic real-error
+counting/cursor coverage while retaining the unchanged natural-frame requirement;
+no test contract or production code is changed.
+
+All 1,414 original source hashes and the original Agent binary remain intact.
+Native preset builds pass without diagnostics (RelWithDebInfo, not CMake Release).
+All 216 samples exceed the 3,072-MiB guard, minimum 6,653 MiB; the native lock is
+free and workers have exited. Qualification failed, so no new sanitizer, Release
+acceptance or broader-suite pass is claimed. Next, use a bounded reversible
+OpenGL ES 3.1 client diagnostic to test the shader/API mismatch, preserving image
+and original timing requirements. Software support still needs attribution of
+the dominant texture sampler to its Studio material/pass; hardware is no substitute.
+See the [renderer evidence](PERFORMANCE.md#qq-agent-callback-timing-2026-11-15-isolated-pi-software-rendering).
+Receipts: `build/development-2026-11-15/session-13/`; session-12 evidence is sealed
+and preserved. Draft PR #10 and required isolated CI gates remain open.
 
 PR #10's next product gates include Agent callback timing, Player failures and remaining
 full-product and Windows runtime runs. The Wayland sanitizer leak, ARQADE diagnostics,

@@ -737,13 +737,13 @@ by this time box. Practical alternatives have different evidence:
 | --- | --- | --- |
 | OpenGL/llvmpipe | Full original viewport, one natural callback; generated sampler/fragment work dominates | Keep the unresolved software-support result; do not lower quality or timing requirements |
 | Vulkan/lavapipe | Session-11 actual isolated Qt Wayland swapchain on a CPU device; one callback, 1,280 ms wait | Available, insufficient for this gate; no new duplicate run |
-| V3D / V3DV | Read-only host inventory finds `/dev/dri/renderD128` bound to `v3d` with account access | Candidate only: no node opened, GPU context created, renderer identity or behavior verified inside isolation |
+| V3D / V3DV | Session-12 host inventory only; session-13 below verifies isolated V3D access | Studio qualification fails on desktop GL shader compatibility and image correctness; V3DV remains unqualified |
 | Qt Quick's 2D software adaptation | Qt documents no support for Quick 3D content | Not a replacement for the Studio viewport |
 
 [Mesa documents V3D/V3DV on Raspberry Pi](https://docs.mesa3d.org/drivers/v3d.html),
 and [Qt documents the Quick 3D graphics requirements](https://doc.qt.io/qt-6/qtquick3d-requirements.html).
-Next, qualify the V3D candidate in a separate sandbox exposing only its render
-node, with private display/audio/keyring/input/network boundaries retained.
+The resulting V3D qualification is recorded in session-13 below, in a separate
+render-node-only sandbox with private display/audio/keyring/input/network boundaries retained.
 Verify the actual Qt renderer and original workload before calling it usable;
 keep llvmpipe support and image/hardware acceptance separate. Node presence is
 not GPU acceleration or acceptance evidence.
@@ -763,6 +763,126 @@ but `perf` is unavailable here; this capture uses LLVM's registered objects.
 Commands, configurations, raw PCs/objects and hashes, coverage parser, failure
 logs, matched overhead and callback evidence, test-contract review and restoration
 receipts: `build/development-2026-11-15/session-12/` (local ignored evidence).
+
+### V3D render-node qualification, session-13
+
+Source `f0893ea8c18290b26fa31cf18dce7c56d0708eca`, original Agent binary
+`5e754f6ee300b52801b6833a46f7d72919e0ff22d496e792f95902b6824ebd10`.
+Qualification ran within a 20-minute window, 22:37:21 to 22:55:01 local time,
+closing before 22:57:21. Four focused executions, no source overlay and no
+profiler were used. Session-12's 360-file seal and all 1,414 native source hashes
+remain intact. No new production change or test-contract correction is made.
+
+**Device and isolation.** On this AArch64 Pi with 16,384-byte pages,
+`/dev/dri/renderD128` is character device 226:128, mode 0660, owner 0/group 992,
+bound through sysfs to `v3d`. The existing account belongs to group 992; an
+actual read/write open succeeds inside the sandbox. Mesa is
+26.2.6-1~bpo13+0~rpt2; commercial Qt is 6.12.0. The separate bubblewrap sandbox
+exposes only that render node, with all primary graphics, audio, input, DMA-heap
+and Pi control devices hidden. Private network, process, user, IPC and mount
+namespaces, home/XDG directories, bus and test keyring remain verified. No host
+permission, graphics setting, service, security control or desktop is changed.
+The established software configuration is not edited.
+
+A direct EGL 1.5 pbuffer probe reports Broadcom V3D 7.1.10.2 / OpenGL ES 3.1,
+and all sixteen pixels of its 4-by-4 red readback are exact with no GL error.
+That proves access and a small render/readback operation, not Studio correctness.
+The first original-test attempt keeps the existing offscreen software compositor.
+It cannot initialize its EGL display or advertise hardware buffers, so the client
+falls back to llvmpipe. The unchanged renderer assertion correctly aborts:
+**1 pass, 1 failure, 0 skips, 7.249 s**, SIGABRT; the second case is not run.
+
+The next comparison changes only the private compositor backend to the installed
+`eglfs_kms` plugin with `{"device":"/dev/dri/renderD128","headless":"1920x1080","hwcursor":false}`.
+[Qt documents this render-node headless mode](https://doc.qt.io/qt-6/embedded-linux.html#headless-mode-using-drm-render)
+without display-master access and without physical vsync throttling. No display
+node is exposed. The compositor now reports V3D / ES 3.1 and advertises `wl_drm`;
+the original 1600-by-960 Wayland client reports V3D **desktop OpenGL 3.1**.
+
+**Unchanged focused result.** `logicThatThrowsInPlayIsInTheLog` and
+`aLongWaitLastsWhatItWasAskedFor` give **3 passes, 1 failure, 0 skips, 28.341 s**.
+Wall-clock waiting passes. Logging fails at `QCOMPARE(typeErrors, 1)` with 2;
+the later `times > 5` assertion is not reached, and is not a pass. The log has
+three intentional QML on-frame exceptions, with shader warnings between the
+second and third. `StudioLog::append` coalesces consecutive identical text/level
+only; two entries are consistent with that implementation. Across both cases,
+45 missing-GLSL warnings and 15 graphics-pipeline failures remain recorded.
+The baked shaders provide GLSL 150 and ES 300 variants, while this desktop
+context searches GLSL 140, 130 and 120. No warning filter or version override is used.
+
+Wire tracing records first surface creation at 348171.861 ms, first buffer
+commit at 372222.828 ms, and first completed frame callback at 372235.837 ms:
+**24,063.976 ms** from surface creation, including startup, context and shader
+work. The first frame request-to-callback is **13.152 ms**. Five completed
+surface-frame callbacks precede the logging failure (13.152, 5.693, 5.639,
+5.568 and 5.974 ms request-to-callback); display-sync callbacks are excluded.
+These are not the three QML on-frame error emissions. No play-start marker or
+instrumented wait-elapsed value exists in this unchanged binary. The 100-ms
+process samples cover 25.44 client CPU-seconds and 0.04 compositor CPU-seconds
+over the complete two-case process, not a per-pass GPU profile. No profiler ran;
+wire/CPU-observer overhead is unmeasured. Do not infer a precise startup hotspot
+or compare this metric to session-12's after-rendering play interval.
+
+**Images, not speed alone.** Run the existing
+`theStudioWearsTheOneLooksToolRegister` once on V3D, then once with only the
+client forced to llvmpipe (`LIBGL_ALWAYS_SOFTWARE=1`, `GALLIUM_DRIVER=llvmpipe`,
+expected renderer `software`). Same headless V3D compositor, original Studio
+binary `390d66647b83ecbb2053ae7aebaf963c37e6b30908d64df3d8274325ae83d981`,
+viewport, test, private profiles and suite limits; actual client identities
+are verified. Each gets a fresh private cache. This software image control
+still exposes the render node for its compositor, so it is not the original
+software-fence qualification. Existing `studio-look.png` is backed up and
+restored; both new captures are retained separately.
+
+| Client | UI test pass/fail/skip | Test elapsed | Surface creation to first frame callback | Pipeline failures |
+| --- | --- | ---: | ---: | ---: |
+| V3D, desktop GL 3.1 | 3/0/0 | 26.315 s | 24.044 s | 9 |
+| llvmpipe, desktop GL 4.6 | 3/0/0 | 10.503 s | 6.941 s | 0 |
+
+Both narrow button/focus assertions pass. Visual inspection shows a black sky
+and missing environment lighting on V3D versus the orange sky and lit scene on
+the matched software control. The static sky rectangle (300,80)-(1200,250) has
+mean RGB 7.845/8.818/11.832 versus 193.858/88.880/69.290. These descriptive pixels
+are not a new acceptance threshold or an exact-equivalence claim. Random project
+titles, renderer arithmetic and possible animated state differ. The failed
+shader pipelines and missing image content reject hardware qualification even
+though some frames and UI checks work. A pre-existing screenshot was preserved
+but is not used as the matched control because its complete provenance was not
+re-established.
+
+**Decision and next action.** Keep the original software failure open: its
+sealed original run is 3/1/0 in 13.296 s, `times > 5` fails with 1. The new
+compositor, buffer transport, client API and missing pixels prevent a direct
+hardware/software speedup claim. The deterministic real-QML-error proposal above
+is recommended as supplemental counting/cursor coverage, including intentional
+interleaving that protects the consecutive-only rule. Retain the original
+natural-frame requirement unchanged and separately reported. Neither shader
+warnings nor rendering acceptance should disappear through a test rewrite.
+
+The next bounded diagnostic should explicitly request ES 3.1 in the client
+through Qt's supported [surface-format API](https://doc.qt.io/qt-6/qsurfaceformat.html#setRenderableType),
+verify the actual context, and repeat image plus unchanged focused checks before
+selecting any production policy. ES 3.1 works in the direct probe/compositor;
+that client selection is not yet verified for Studio. Inspected Qt 6.12 RHI/Wayland source shows
+`QSG_RHI_BACKEND=gles2` selects the same GL backend as `opengl`; it does not force
+an ES context. No applicable environment-only ES selector was established in
+this time box. Do not spoof Mesa versions or assume Vulkan/V3DV is qualified.
+For the separate software blocker, map the already captured dominant texture
+sampler's resource binding to its Qt material/pass before another reversible
+single-variable probe. The missing V3D lighting is not proof that that pass owns
+the llvmpipe hotspot, and disabling it is not an image-preserving fix.
+
+All four native preset builds pass without compiler/licence diagnostics, using
+RelWithDebInfo rather than CMake Release. All 216 resident-worker admission and
+continuous samples exceed the unchanged 3,072-MiB floor (minimum 6,653 MiB).
+Original sources and binary, free permanent lock and no QOR workers are checked
+afterward. Qualification failed and code is unchanged, so conditional Release/
+sanitizer acceptance and broader gates do not resume. No new hardening, complete
+lint, full-suite or sanitizer pass is claimed. Hosted Qt builds/core audit remain
+separate skipped gates at the starting revision, with Release readiness failed.
+New commands, configs, wire/CPU logs, renderer proofs, images, helper correction,
+analysis and final publication checks are in
+`build/development-2026-11-15/session-13/`; PR #10 remains draft.
 
 ### Earlier startup measurements
 

@@ -9,6 +9,18 @@ their changes since, and pulls of what is still shared, are recorded here.
 
 ## [Unreleased]
 
+- **Isolated V3D access is verified; Studio hardware qualification fails.**
+  The render-node-only sandbox reaches the Pi GPU without changing the desktop
+  or software configuration. The original client selects desktop OpenGL 3.1,
+  misses baked shader variants and loses its sky/environment lighting in a
+  matched image comparison. Focused Agent reports three passes, one failure and
+  zero skips; wall-clock waiting passes, logging fails before the repeat gate.
+  Button/focus checks pass on both clients but do not qualify the viewport.
+  Original sources, binaries, timing and assertions are preserved. The software
+  failure and broader gates remain open; deterministic logging coverage is
+  recommended as a supplement, not a replacement. No production fix is claimed.
+  Receipts: `build/development-2026-11-15/session-13/`.
+
 - **The bounded Agent follow-up resolves the sampled generated-code hotspot.**
   Valid LLVM symbols map 1.86 of 1.87 unknown CPU-seconds to texture sampling and
   fragment shading; ten invalid objects and collector warnings remain recorded.

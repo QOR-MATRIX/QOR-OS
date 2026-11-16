@@ -557,11 +557,26 @@ A proposed deterministic fixture must use actual QML exceptions through the
 production message handler and MCP log reads, verify exact repeat counts and
 incremental cursor updates, and prevent unrelated frame emissions. It cannot
 replace the original natural-frame gate or establish responsiveness. No such
-test correction or production optimization is implemented here. The observed
-V3D host render node is only a candidate for a separate isolated qualification;
-do not expose it in the existing software fence or infer acceleration from its
-presence. No new sanitizer/full-suite result is claimed for this documentation-only
-investigation; restore/hash original sources and executable before final checks.
+test correction or production optimization is implemented here. Session-13 verifies
+actual V3D access only in a separate sandbox; keep the existing software fence.
+Expose only `/dev/dri/renderD128` after checking its identity and permissions,
+not a primary display node. Qt's documented `eglfs_kms` headless configuration
+allows the private compositor to advertise hardware client buffers without
+touching the desktop. Its lack of physical vsync changes the timing environment.
+The original client selects desktop OpenGL 3.1 and misses GLSL 150 shader
+variants; OpenGL ES 3.1 is verified only in the direct probe and compositor.
+Do not spoof driver versions or disable shader warnings. A bounded reversible
+client-format diagnostic must verify the actual API, whole viewport and unchanged
+focused assertions before a production selection policy is considered. Qt's
+`QSG_RHI_BACKEND=gles2` is an alias for its GL backend, not an ES-context guarantee.
+Both renderer image checks pass the narrow UI assertions, but only the llvmpipe
+control draws the sky and environment lighting correctly. Preserve the captured
+images and trace data; do not treat that UI pass as viewport acceptance.
+No new sanitizer/full-suite result is claimed. Hash original sources and
+executables, check both permanent locks and workers, and seal the new receipts.
+For software support, map the existing dominant generated sampler's resource
+binding to a Qt material/pass before another single-variable diagnostic; avoid
+repeating broad suites or removing image content as a production fix.
 See the [measured callback timeline](PERFORMANCE.md#qq-agent-callback-timing-2026-11-15-isolated-pi-software-rendering).
 
 ### Pull ARQADE's fixtures and the one look from upstream
