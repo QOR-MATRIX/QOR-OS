@@ -53,3 +53,17 @@ regexTarget = "line"
 regexes = [
     '''^\s*"site/tokens\.css":\s*"afbaa3e1557d8dbc4843e27b3632be160f4091640711fa8aa0a1ecee3f915b4c",?\s*$''',
 ]
+
+# This is the exact cache filename of Debian's public passwd package, verified
+# against the signed Trixie package index and archive SHA-256 in builder-lock.
+# gitleaks also inspects the URL-decoded line, where the epoch separator is ':'.
+# Do not allow another value, field or path. Security CI exercises those bounds.
+[[allowlists]]
+description = "Verified Debian passwd package archive filename"
+targetRules = ["generic-api-key"]
+condition = "AND"
+paths = ['''(^|/)image/pi/kernel-wait-bo/builder-lock\.json$''']
+regexTarget = "line"
+regexes = [
+    '''^\s*"archive":\s*"passwd_1(?:%3a|:)4\.17\.4-2_arm64\.deb",?\s*$''',
+]

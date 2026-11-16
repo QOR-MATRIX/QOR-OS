@@ -42,6 +42,7 @@ jobs:
             "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/$archive"
           echo "$GITLEAKS_SHA256  $RUNNER_TEMP/$archive" | sha256sum --check --strict
           tar -xzf "$RUNNER_TEMP/$archive" -C "$RUNNER_TEMP" gitleaks
+          python tests/security/test_gitleaks_provenance.py --gitleaks "$RUNNER_TEMP/gitleaks" -v
           status=0
           "$RUNNER_TEMP/gitleaks" git . --redact --no-banner --log-level warn --exit-code 1 --config tools/ci/gitleaks.toml \
             --report-format json --report-path "$RUNNER_TEMP/found.json" || status=$?

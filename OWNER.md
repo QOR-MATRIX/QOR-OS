@@ -34,6 +34,11 @@ one failure and zero skips: `times > 5` is three; later notice/cursor checks
 were unreached. The software-renderer failure and 97 image outliers remain.
 No new QOR Release, sanitizer, product or image acceptance is claimed.
 
+The first hosted security scan flags a verified public archive filename.
+An exact path/line exception has five passing local scanner checks; hosted
+verification remains separate. Windows refuses a history scan at 2,398 MiB,
+below the resource floor. No services are stopped to free memory.
+
 Next: verify the complete pinned kernel source/config, build the isolated
 test kernel, then run the unchanged six-case control and corrected suite.
 PR #10 stays draft while required acceptance and isolated CI (automated

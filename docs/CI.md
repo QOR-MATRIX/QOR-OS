@@ -619,6 +619,18 @@ open; PR #10 stays draft. Next: verify the complete pinned source/config and
 build the isolated test kernel, then run the unchanged suites. Receipts:
 `build/development-2026-11-16/session-08/`; session-07 remains sealed.
 
+The first session-08 hosted Security run (`43952473290`, commit `55f0ffd`)
+flags the verified public Debian archive filename in the dependency lock.
+The correction permits only that exact archive line (including its decoded
+epoch separator), manifest path and `generic-api-key` rule. Five real
+gitleaks 8.30.1 checks pass locally: the complete lock is accepted; changed
+value, path, field and additional same-line fields remain detectable.
+Security now runs these checks using its existing pinned scanner before
+the full-history scan. Missing/wrong scanner versions fail, never skip.
+The first failure is preserved. Windows history scanning was refused at
+2,398 MiB against the unchanged 3,072-MiB floor; this is not a scan pass.
+Native and hosted receipts remain distinct from kernel/product acceptance.
+
 The earlier accepted test rebuild reproduces its passing proposal's binary hash, with
 all 1,404 snapshot source hashes verified. Hardening reads 16 QQ programs and
 passes all of them; native QQ `all_qmllint` fails with 103 warnings. The Store

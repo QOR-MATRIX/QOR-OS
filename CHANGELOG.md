@@ -9,6 +9,14 @@ their changes since, and pulls of what is still shared, are recorded here.
 
 ## [Unreleased]
 
+- **Keep the private builder's public archive provenance scannable.**
+  Security scanning mistook one verified Debian package filename for a secret.
+  Limit its exception to that exact archive line, manifest path and rule,
+  including the scanner's URL-decoded form. Five real-scanner checks cover the
+  complete lock and rejected changes to the value, path, field and line.
+  Hosted Security runs those checks before scanning history; default detection
+  remains enabled. The initial failed hosted run is retained in session-08.
+
 - **Provision the authorized private ARM64 kernel-build dependencies.**
   Lock 218 Debian package versions/hashes and signed metadata; extract payloads
   only into the private root. Compiler/linker, parser generators and paused
