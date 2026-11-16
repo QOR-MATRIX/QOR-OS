@@ -541,9 +541,25 @@ unchanged 3,072-MiB floor. Historical focused results remain 3 passed, 1 failed,
 0 skipped (`times > 5` with 3), later notice/cursor checks unreached. The
 independent llvmpipe failure and 97 image outliers remain open. No new product,
 Release, sanitizer or isolated-CI acceptance is claimed; PR #10 stays draft.
-Next: qualify an isolated kernel-test build environment and run the unpatched
-negative control plus patched KUnit suite before proposing installation.
-Evidence: `build/development-2026-11-16/session-06/`; session-05 remains sealed.
+Session-07 prerequisite qualification from `645e35f` confirms bison, flex
+and QEMU are missing; libelf-dev is also absent; the complete pinned source is also absent
+from the inspected builder locations. A private namespace probe passes with
+boot/home/devices/network excluded, but it is not a qualified kernel builder.
+All six unpatched and patched cases remain **not run**; no negative control,
+runtime pass, skip or timeout is claimed. The unchanged fixture's real fence
+path and positive/error semantics pass static review only. No package is
+installed. The runbook now specifies the private ARM64 builder setup and
+module-in-guest execution required to run the existing overlay.
+
+Recovery inventory confirms SD boot, retained stock DTB/module/initramfs sets
+and a normal Pi 5 device tree matching 6.18.60 rather than the running 6.18.50.
+Physical media access, backup readback and a stock recovery boot remain
+unverified. No kernel, boot or product artifact changes. Next: authorize the
+private builder dependency provisioning described in the runbook, then run
+the unchanged six-case control and corrected suite. PR #10 remains draft;
+the gameplay/software failures, 97 image outliers, QOR Release/sanitizer and
+isolated CI gates remain open. Receipts:
+`build/development-2026-11-16/session-07/`; session-06 remains sealed.
 
 Earlier 14 November sky/startup follow-up: World queues its first procedural sky with the same colour-update batch used
 for later edits, so initial properties do not create the same texture twice. The regression checks construction

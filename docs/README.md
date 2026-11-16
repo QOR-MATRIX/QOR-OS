@@ -49,7 +49,9 @@ Image inputs are described by the image guide, including
 not a builder configuration or acceptance receipt.
 The [Pi-kernel backport review](../image/README.md#pi-kernel-wait-bo-backport-review)
 indexes the pinned patch/test artifacts and pre-install rollback plan; they are
-not an installed kernel or a passing hardware result.
+not an installed kernel or a passing hardware result. The same runbook records
+the blocked builder prerequisites, six unexecuted regression cases and actual
+SD recovery inventory from session-07; recovery has not been boot-tested.
 
 The products document themselves in their own READMEs:
 [QQ](../products/qq/README.md), its [samples](../products/qq/samples/README.md),

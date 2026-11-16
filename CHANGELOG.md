@@ -9,6 +9,15 @@ their changes since, and pulls of what is still shared, are recorded here.
 
 ## [Unreleased]
 
+- **Qualify the kernel-test isolation mechanism and document exact blockers.**
+  A private namespace probe passes, but bison, flex, QEMU and the
+  complete pinned source are unavailable. All six control/corrected cases are
+  explicitly not run; no test or patch changes. The setup plan preserves the
+  exact wait/preemption configuration and loads the test module only in a guest.
+  SD recovery inventory finds retained matched stock components and a newer
+  normal device tree; physical recovery and boot remain unverified. No package,
+  kernel, boot configuration or service changes. Receipts: session-07 under
+  `build/development-2026-11-16/`; PR #10 remains draft.
 - **Prepare a Pi-kernel zero-poll backport, kernel regression and rollback plan.**
   A pinned two-line V3D change preserves zero-timeout polling, with six separate
   default-off KUnit cases. Patch/reverse and native object compilation pass;

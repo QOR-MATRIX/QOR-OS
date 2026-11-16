@@ -1436,6 +1436,143 @@ integration checks must exercise a valid busy V3D buffer, positive completion
 while blocked, interruption/restart and buffer lifetime. Already-signaled
 success is not asynchronous-completion coverage.
 
+#### Isolated builder qualification: blocked on prerequisites
+
+Read-only qualification at QOR commit `645e35f` (16 November, session-07)
+reconfirms the exact running source/config identities above. GCC 14.2.0-19,
+binutils 2.44-3, make 4.4.1-2, bc, OpenSSL development headers, pahole, cpio
+and dynamic BusyBox are installed. **bison, flex and QEMU are not.**
+libelf-dev is also absent; whether it is needed must follow the final build features, not a generic dependency list.
+The stock config has `DEBUG_INFO_NONE=y`, with no enabled OBJTOOL/BTF option.
+The known source fixture contains selected files only; `/usr/src` supplies
+headers/kbuild, not a complete pinned kernel source tree. Windows has none of
+the checked ARM64 compiler/QEMU/parser tools on PATH and no running WSL
+distribution. No stopped environment is started as a workaround.
+
+Existing bubblewrap 0.12.0 and unprivileged user namespaces work. A bounded
+probe creates private process/network/mount namespaces, drops capabilities,
+binds tools read-only and writes only an ephemeral private work directory.
+The probe confirms absence of `/boot`, the user's home, DRM/input/audio/KVM
+devices and desktop sockets; only loopback exists in its network namespace.
+This qualifies the namespace mechanism, **not a complete builder or VM**.
+No dependency download/install, package-index refresh, host setting, service,
+kernel/module load or Pi reboot occurs. Admission reports 7,281 MiB available
+against the unchanged 3,072-MiB floor; these are inventory snapshots, not
+sustained admission with a kernel compiler or VM resident.
+
+Unprivileged `apt-get --simulate --no-install-recommends install bison flex
+qemu-system-arm` against existing metadata reports **13 additions, zero
+upgrades/removals**. Adding libelf-dev would make 15 additions. Neither
+simulation installs anything. Observed candidate versions:
+
+| Missing prerequisite | Candidate from existing metadata |
+| --- | --- |
+| bison | `2:3.8.2+dfsg-1+b2` |
+| flex | `2.6.4-8.2+b4` |
+| libelf-dev (conditional build dependency) | `0.192-4` |
+| qemu-system-arm | `1:10.0.13+ds-0+deb13u1` |
+
+This simulation describes the current Pi's dependency delta, not the complete
+closure of a fresh root filesystem. Metadata versions/hashes are recorded,
+but package bytes, signature chains and a frozen builder root are not yet
+verified. Do not turn the simulation into a host install command.
+
+The minimal proposed setup is an **owner-authorized private ARM64 Debian
+Trixie builder root** under a new QOR `build/` directory. Provision bison, flex
+and qemu-system-arm with their complete signed, version/hash-pinned closure,
+with GCC 14.2.0-19 and the existing build prerequisites. Add libelf-dev only
+if the reviewed build requires it. Do not run package scripts against the
+host root. Verify the root's dependency closure and
+tool versions; mount it read-only for builds, exposing only dedicated source,
+output and evidence paths. No host home, boot, device or service passthrough.
+Keep provisioning separate from the offline build/test namespace. A reviewed
+builder image with the same verified contents is an alternative, not an
+already available or approved artifact.
+
+After provisioning, acquire and verify the complete pinned source and vendor
+package provenance. Retain `/boot/config-6.18.50+rpt-rpi-2712` by its pinned
+hash; use separate unpatched/test-patch-only and corrected/two-patch trees.
+Preserve ARM64, 16-KiB pages, HZ250 and `CONFIG_PREEMPT=y` in both. Review
+every `olddefconfig` difference; test-only KUnit and unique local versions are
+explicit differences from the stock config, never an exact-stock-config claim.
+Keep `DRM_V3D=m`: the current test overlay links the suite into `v3d.ko`, so
+booting a kernel alone does **not** execute it. A private initramfs must carry
+that kernel's module dependency closure, a verified userspace loader and its
+runtime libraries, and load V3D inside the guest. Confirm the suite actually
+appears in KTAP before interpreting results. Do not load it on the live Pi.
+
+Use a disposable ARM64 QEMU `virt` guest with software emulation (TCG), one
+CPU and initially 1,024 MiB guest RAM, no network, graphics, audio, host disk
+or KVM passthrough. Pin the available machine/CPU model after inspecting the
+installed QEMU; verify support for 16-KiB pages by actual guest boot. PL011
+serial, GIC, initramfs and ELF support are present in the observed stock
+config; this is not proof the complete config boots on `virt`. No Pi firmware
+or hardware is emulated/qualified by this test. The
+[QEMU platform documentation](https://www.qemu.org/docs/master/system/arm/virt.html)
+describes this distinction. Record any necessary guest-only config differences
+and apply them identically to both controls; stop for review if they affect
+the wait/preemption path. Do not switch to an unrelated default KUnit config.
+
+The outer original heavy coordinator owns serial compilation and the VM.
+Require 30 one-second resident admission samples and continuous 3,072-MiB
+headroom; a snapshot cannot reserve it. Size source/output/package scratch
+before starting. Record fixed build/guest time limits before execution; a
+timeout is an incomplete run, never the expected defect. Preserve complete
+console/KTAP, command/config/tool hashes, elapsed time, memory/CPU samples and
+exit/timeout status. The first control must complete before running the patch.
+Kernel sanitizer/lock checks follow only after the focused pair is valid.
+
+#### Regression review and actual run matrix
+
+All six cases are **not run** on both unpatched and patched kernels in
+session-07: prerequisites are unavailable. There is no KTAP output, runtime,
+case skip or test timeout to report. Do not convert blocked cases into passes
+or claim an observed negative-control failure. Session-06 object compilation
+is separate and was not repeated.
+
+| Case | Unpatched | Patched |
+| --- | --- | --- |
+| `wait_busy_poll_does_not_sleep` | Not run | Not run |
+| `wait_idle_poll_succeeds` | Not run | Not run |
+| `wait_busy_positive_expires` | Not run | Not run |
+| `wait_idle_positive_succeeds` | Not run | Not run |
+| `wait_invalid_padding_is_rejected` | Not run | Not run |
+| `wait_invalid_handle_is_rejected` | Not run | Not run |
+
+Static review against the exact target confirms the fixture's handle refers
+to its private GEM object and the real WRITE fence is included by the READ
+reservation query used by `wait_all=true`. The unsignaled fence is not filtered
+out. Its absent `enable_signaling` callback does not signal it automatically;
+its absent custom waiter selects `dma_fence_default_wait`. The original zero
+converts to one jiffy and reaches `schedule_timeout`; the patch keeps zero and
+returns busy without that sleep. The voluntary-switch samples bracket only the
+handler, excluding KUnit logging. Keep PREEMPT, HZ and page size unchanged:
+voluntary-preemption configurations can introduce unrelated scheduling into
+`might_sleep`. This path review supports the fixture but does not execute it.
+
+Only the busy-poll case is expected to distinguish old/new code. Accept its
+negative control only if setup succeeds, the fence stays unsignaled, every
+poll returns ETIME with remaining timeout zero, and the failure is specifically
+the voluntary-switch assertion. Other failures, warnings, allocation errors,
+missing cases, module-load errors or guest timeouts invalidate that conclusion.
+If attribution remains uncertain, capture one guest-only scheduler/call-path
+trace before changing any code; do not relax the assertion. Expect the other
+five cases to pass on both versions, but no such result is claimed yet.
+
+The production patch still changes only the zero conversion. Positive
+rounding/clamping, interruptible waits, remaining-time subtraction and
+ETIME-to-EAGAIN handling are identical. Padding fails before waiting; invalid
+handles return EINVAL; negative restart errors propagate through the unchanged
+handler. Fence completion error status is not newly interpreted. Existing
+coverage includes positive expiry and already-signaled success, **not**
+completion while blocked, restart signals, large/clamped timeouts or raw
+userspace dispatch. Those remain explicit integration/review gaps. No patch,
+test assertion, timeout or product behavior changes in session-07.
+
+Evidence: `build/development-2026-11-16/session-07/`, especially
+`builder-recovery-inventory.json`, `sandbox-qualification.json`,
+`fence-path-source.json` and `regression-results.json`. Session-06 is preserved.
+
 #### Pre-install qualification sequence
 
 1. Use a new isolated kernel build environment with the original heavy-job
@@ -1494,6 +1631,38 @@ match **6.18.60**, although **6.18.50 is running**:
 | `initramfs_2712` / 6.18.60 initrd | `f921995b146241c8c25111031a000af30bdbf4a6f1c6bbbbdfef55b7a8eb091e` |
 | `/boot/vmlinuz-6.18.50+rpt-rpi-2712` | `154f0ea1e14bb1075077dfd1bdc63c1502bc0b17b0354628d515b4fbd3a4198d` |
 | `/boot/initrd.img-6.18.50+rpt-rpi-2712` | `063222c943130886b15020c8e736e2c9d7418342f847f13fb8a805d31d0a3e7b` |
+
+Session-07 verifies this actual machine is a **Raspberry Pi 5 Model B Rev 1.1**,
+booting from SD: `/dev/mmcblk0p1` is FAT at `/boot/firmware` and `p2` is the
+ext4 root. The current user can read but not write the boot directory. Firmware
+reports `57db150d`, built 5 November 2025; bootloader properties are retained.
+These observations do not prove tryboot, watchdog recovery or media access.
+
+Both stock initramfs listings contain only their respective module release.
+The old package retains 411 readable DTB/overlay files under
+`/usr/lib/modules/6.18.50+rpt-rpi-2712/dtb/`; the new one retains 415.
+The normal Pi 5 DTB matches 6.18.60 (SHA256
+`03ce4742452ad52e3e8ec2259a0c705b496970e2b75e6e0b4e5446475ea1b926`),
+whereas the old Pi 5 DTB is
+`a5165cb562035f479ea9f5a81cedf7b6596ea32a0598608c4dc3b77ada909c60`.
+The inspected V3D Pi 5 overlay matches both releases. Thus retaining the old
+kernel/initramfs alone does not establish a matched old boot selection.
+Per-file hashes are in the private inventory; whole-module-tree integrity,
+offline backup readback and recovery boot have not been demonstrated.
+
+The practical recovery route is physical SD access with a card reader and a
+spare verified medium, plus a Linux-capable recovery environment for the ext4
+root/module files. Before a trial, preserve the original card, prepare a
+complete matched stock recovery set on the separate medium, and verify its
+actual stock boot, desktop and remote access. A person at the Pi must be able
+to select that medium if the guest-independent physical trial cannot boot.
+Neither a reader/spare card nor physical access was verified this session.
+Windows can edit the FAT selection file, as the
+[Pi configuration guide](https://www.raspberrypi.com/documentation/computers/config_txt.html)
+describes, but this alone does not recover the ext4 module set. Do not format,
+clone, change boot order or attempt tryboot until the exact media and operation
+are separately approved. The verified result here is retained component
+availability and the mismatch, **not a tested recovery mechanism**.
 
 These hashes identify current artifacts, not a tested rollback. A normal reboot
 is not a return to the running 6.18.50 baseline. Before any trial:
