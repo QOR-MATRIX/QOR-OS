@@ -499,8 +499,8 @@ production defect. Its raw evidence is retained.
 The result establishes a workload/capacity bottleneck for this software
 configuration, but does not identify which driver setup, resource allocation
 or drawing work is excessive. No production fix or regression test is justified
-yet. Next, capture a bounded call-stack profile of the first viewport frame in
-the same sandbox. If it is expected software rendering cost, the defensible
+at that checkpoint. The next step was a bounded call-stack profile in the same
+sandbox, recorded below. For expected software rendering cost, the defensible
 environment correction is to qualify a sufficiently fast isolated renderer
 with the original workload and timing gate. Do not prewarm acceptance, hide
 the viewport, inject callbacks, reduce quality or relax `times > 5`/600 ms.
@@ -521,6 +521,111 @@ Earlier session-09 restored all 1,414 original sources and the executable hash,
 then ran the full suite: 22 passes, the logging failure and one optional provider
 skip in 154.467 seconds. Build, hardening and aggregate/structured lint passed;
 470 samples stayed at or above 5,859 MiB. This remains earlier full-suite evidence.
+
+**Bounded first-frame profile at source `8f0f52a`, session-11.** The same Pi,
+commercial Qt 6.12.0, Mesa 26.2.6/LLVM 19.1.7, two llvmpipe workers, original
+1600 x 960 Studio window, private display/keyring and device/network fences
+remain. The native `q-pi-release` cache is RelWithDebInfo, not CMake Release.
+No packages, security settings, physical devices or production sources change.
+
+`perf` is absent; installed GNU gprofng 2.44 supplies timer-based stack sampling
+without repeatedly stopping all threads in GDB. The collector command uses
+`-p 10 -t 60s -F off -a off -S off -j off`: 10 ms CPU sampling, a 60-second
+collection ceiling, no child following, source/binary archiving, periodic
+resource samples or Java profiling. This ceiling does not replace the unchanged
+600 ms request, 1,800,000 ms watchdog, 5,400-second suite limit, 5,600-second
+outer limit or 7,200-second guard. Temporary test-only markers bracket the first
+`beforeSynchronizing`/`frameSwapped`; no callbacks are injected.
+
+The first `-y SIGUSR2` attempt produces **zero usable samples**, reports a
+pause/resume-handler conflict and a timer change, and slows the frame by 11.4%.
+It is preserved, not counted as a valid profile. A follow-up resolves the
+installed `collector_resume`/`collector_pause` API with `dlsym`, using `-y 34`.
+The latter option does not pause startup collection in the observed run.
+Therefore the unfiltered 10.460 CPU-seconds are **not** first-frame evidence.
+`gprofng display text -sample_select 2` selects the interval labelled
+`collector_resume` to `collector_pause(API)`: experiment time
+8.110021014-9.235382661 seconds, or 1.125362 seconds. The interval's function,
+call-tree, hot-address and thread reports are retained, alongside the full raw
+experiment and its six file hashes. Report generation reuses that experiment.
+
+| Observation | First after-recording-to-presentation interval | Process CPU in that interval | Render-thread CPU | Natural callbacks / logged repeats | Wait return from play start |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| API diagnostic binary, no profiler | 1,036.716 ms | 1,968.802 ms | 207.135 ms | 1 / 1 | 1,201 ms |
+| Same binary, API-controlled profiler | 1,114.708 ms | 2,054.427 ms | 281.525 ms | 1 / 1 | 1,286 ms |
+| Same binary, only `LP_NO_RAST=1` | 205.132 ms | 206.473 ms | 204.954 ms | 24 / 24 | 640 ms |
+| Same binary, Vulkan/lavapipe, full viewport | 929.079 ms | 1,666.013 ms | 0.325 ms | 1 / 1 | 1,280 ms |
+| Earlier session-10 viewport-opacity control | 207.230 ms | 224.684 ms | Not recorded | 20 / 20 | 639 ms |
+
+Times are observations, not repeated statistical benchmarks. CPU time sums
+across threads and can exceed elapsed time. The sampled first-frame interval
+is slightly wider than the table's after-recording interval. Compared with the
+same API binary without profiling, elapsed overhead is 77.992 ms (7.52%) and
+process CPU overhead 85.625 ms (4.35%). Resume/pause calls themselves take
+46/52 microseconds. The profiler still warns about blocked SIGPROF and a timer
+change; its raw log places the timer warning after the pause event. Qt QML's
+deleted JIT memory mapping is unavailable. These warnings remain limitations,
+not a clean-profiler claim.
+
+The selected interval contains 2.050 CPU-seconds of samples; independent
+collector resource counters show 2.070 CPU-seconds. Two sampled threads account
+for 0.880 seconds each, with 0.290 on the third. **81.95% of exclusive sampled
+CPU time has unresolved addresses**, so the profile alone cannot identify a
+dominant shader. Resolved stacks include `QRhi::endFrame` through Mesa Gallium
+to `LLVMGetPointerToGlobal`, `llvm::MCJIT::finalizeObject`, LLVM compilation
+passes, and a small Qt scene-graph pipeline-creation path. Those stacks prove
+some compilation/setup occurs; they do not explain the unresolved majority.
+
+The one-variable rasterization control resolves that broader uncertainty:
+disabling rasterization removes 831.584 ms (80.2%) of the first-frame interval
+and 1,762.329 ms (89.5%) of process CPU, while the render thread's own cost stays
+near 205-207 ms. The dominant delay is software drawing, consistent with the
+earlier viewport-suppressed control, rather than render-thread setup alone.
+The control leaves the original viewport and live scene present but omits
+pixels; it is **never acceptance**. The exact shader/pass and whether its work
+can safely be avoided remain unresolved. No logger, shader-cache or production
+rendering defect is established. Original-reference server callbacks follow
+commits by 10.077-10.548 ms; suppressed-raster callbacks take 7.042-8.103 ms.
+The display remains much smaller than the first-frame client cost.
+
+The alternative backend is tested separately with the installed
+`/usr/share/vulkan/icd.d/lvp_icd.json`, selected through `VK_DRIVER_FILES`, and
+`QSG_RHI_BACKEND=vulkan`. Inside the same sandbox, `vulkaninfo --summary`
+reports a CPU device, llvmpipe/LLVM 19.1.7, Mesa 26.2.6, Vulkan API 1.4.354;
+Qt logs confirm the Vulkan backend and the same software device. Vulkaninfo's
+X11 surface-info skip is recorded; the actual Qt Wayland swapchain works.
+Its shorter after-recording interval does not mean a faster complete wait:
+the wait returns at 1,280 ms with one callback. The original quality and two
+worker setting remain. No GPU acceleration or replacement acceptance is claimed.
+
+All 1,414 original sources and original Agent executable SHA-256
+`5e754f6ee300b52801b6833a46f7d72919e0ff22d496e792f95902b6824ebd10`
+are restored. The original focused logging/wall-clock run reports **3 passes,
+1 failure, 0 skips in 13.263 seconds**: `times > 5` is false with value `1`;
+the wall-clock wait passes. Build and 16-program hardening pass without
+compiler/licence diagnostics. All 503 native resource samples stay at or above
+6,394 MiB; the original coordinator and 3,072-MiB floor remain. The final lock
+is free and no QOR test workers remain. A transient SSH timeout before restore
+launch created no job; readback preceded the successful launch.
+
+No production change or new regression test is justified by these findings.
+Sanitizers and broader acceptance were not rerun; earlier failures and skips
+remain open. Next, use Mesa's generated-code symbol mapping in a bounded
+diagnostic to associate the unresolved hot addresses with shader work before
+selecting an image-preserving optimization. If the workload is unavoidable,
+qualify a faster isolated renderer against the original gate. The tested CPU
+Vulkan backend is insufficient; reducing quality, prewarming, suppressing
+pixels, injecting callbacks or relaxing assertions cannot qualify it.
+
+Profiler controls and limitations follow the installed tool's help and
+[GNU gprofng documentation](https://sourceware.org/binutils/docs/gprofng.html).
+The targeted control is documented by [Mesa](https://docs.mesa3d.org/envvars.html#lp-no-rast);
+the next symbol-mapping diagnostic is described in
+[Mesa's llvmpipe profiling guide](https://docs.mesa3d.org/drivers/llvmpipe.html#profiling).
+The alternative uses [Qt's supported backend selection](https://doc.qt.io/qt-6/qtquick-visualcanvas-scenegraph-renderer.html).
+Raw logs, configurations, markers, callback timestamps, selected stacks,
+overhead calculations and restoration receipts:
+`build/development-2026-11-15/session-11/` (ignored local evidence, not in a fresh clone).
 
 ### Earlier startup measurements
 

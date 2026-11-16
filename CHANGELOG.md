@@ -9,6 +9,17 @@ their changes since, and pulls of what is still shared, are recorded here.
 
 ## [Unreleased]
 
+- **The Agent first-frame investigation identifies software rasterization as the dominant cost.**
+  A bounded Pi call-stack profile retains unresolved-symbol and collector limits;
+  measured overhead is 7.5%. A diagnostic rasterization control reduces the
+  first-frame interval from 1,037 to 205 ms while render-thread CPU stays near
+  205-207 ms. It is not acceptance. Actual isolated Vulkan/lavapipe is available
+  but still delivers one callback. Original sources/executable are restored;
+  focused tests remain three passes, one failure and zero skips. No production
+  fix, quality, assertion or timing change is made. Build/hardening pass; broader
+  acceptance stays closed. Next, resolve hot addresses with Mesa's generated-code symbols.
+  Receipts: `build/development-2026-11-15/session-11/`.
+
 - **The Agent frame delay is isolated to Studio viewport rendering on the Pi software renderer.**
   Client render/CPU traces and matched display callbacks separate a 1,056 ms
   first-frame interval from 10.3-10.6 ms compositor callback latency. A temporary

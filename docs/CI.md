@@ -575,30 +575,32 @@ Windows Credential Manager. These local checks do not qualify hosted runners
 or clear skipped Qt jobs/core audit and failed Release readiness. Receipts:
 `build/development-2026-11-15/session-08/`.
 
-The following Agent pacing comparison at source `564f032` locates the dominant
-delay in Studio viewport rendering on llvmpipe. Its first play frame spends
-1,056 ms between render recording and presentation, using 1,991 ms of client
-CPU time across threads. The private display sends submitted-frame callbacks
-after 10.3-10.6 ms and uses about 10 ms of CPU time during the 1.2-second
-observation. Suppressing only viewport pixels in a temporary control yields
-20 natural logic callbacks instead of one during the same 600 ms request;
-all 20 exceptions are counted. That reduced workload is not acceptance.
-Immediate replay is confounded by pending scene deletion and establishes no
-cache cause. No production defect or fix is established.
+The first-frame profile at source `8f0f52a` and a targeted control identify
+software rasterization as the dominant cost on this isolated Pi. The original
+viewport takes 1,036.716 ms from render recording to presentation; disabling
+rasterization only for diagnosis reduces that to 205.132 ms, with render-thread
+CPU nearly unchanged at 207.135/204.954 ms. Callback counts rise from one to 24.
+The missing-pixels control is not acceptance. The 1.125-second profile interval
+contains 2.05 CPU-seconds; 81.95% of exclusive time lacks resolved symbols.
+Profiling adds about 7.5% to the frame interval. Warnings and the initial failed
+collector attempt are preserved; no particular shader defect or fix is proven.
 
-All 1,414 source hashes and the original Agent executable are restored.
-The original focused cases report three passes and one failure:
-`times > 5` fails with value `1`; the wall-clock case passes.
-Native build/hardening pass, with no compiler
-or licence diagnostics. The unchanged 3,072-MiB guard observes at least 6,359
-MiB available. Broader suites and sanitizers are not rerun: no production code
-changed and the focused failure remains open. Next, profile the first viewport
-frame's call stacks before selecting an optimization or qualifying a faster
-isolated renderer. Preserve 600 ms, `times > 5`, quality and worker limits.
-See the [controlled comparison](PERFORMANCE.md#qq-agent-callback-timing-2026-11-15-isolated-pi-software-rendering).
-Receipts: `build/development-2026-11-15/session-10/`.
+The supported Vulkan/lavapipe alternative is verified on the actual Pi with
+physical devices still hidden. It delivers one callback and returns from the
+600 ms request at 1,280 ms, so it does not resolve the gate. All 1,414 original
+sources and the executable hash are restored. The original focused tests report
+three passes, one failure (`times > 5`, value `1`) and zero skips in 13.263 s.
+Build and 16-program hardening pass; the native preset is RelWithDebInfo, not
+CMake Release. All 503 native samples stay at or above 6,394 MiB against the
+3,072-MiB floor. No production code, quality, callback requirement or timeout
+changes. Sanitizers and broader acceptance are not rerun while this failure
+remains open. Next, resolve hot addresses with Mesa's generated-code symbols before
+selecting an image-preserving optimization. A faster isolated renderer still
+requires the original gate; the tested Vulkan alternative is insufficient.
+See the [profile and controlled comparisons](PERFORMANCE.md#qq-agent-callback-timing-2026-11-15-isolated-pi-software-rendering).
+Receipts: `build/development-2026-11-15/session-11/`.
 
-The accepted test rebuild reproduces the passing proposal's binary hash, with
+The earlier accepted test rebuild reproduces its passing proposal's binary hash, with
 all 1,404 snapshot source hashes verified. Hardening reads 16 QQ programs and
 passes all of them; native QQ `all_qmllint` fails with 103 warnings. The Store
 Player case still exceeds its internal 60-second deadline with either render

@@ -528,8 +528,24 @@ failure is resolved. Session-10 adds client render-phase/CPU timestamps and
 matched Wayland frame requests, commits and callbacks. Its viewport-opacity
 control changes the draw workload only for diagnosis; it cannot qualify the
 original test. Immediate replay has pending scene-deletion interference, so it
-is not a clean shader-cache comparison. The next bounded profile must identify
-driver setup or drawing cost before a production optimization is justified.
+is not a clean shader-cache comparison. Session-11 uses the installed gprofng
+2.44 timer sampler at 10 ms, with a 60-second collector ceiling separate from
+the unchanged suite limits. Its initial signal-control attempt records no usable
+samples. The API-controlled attempt also collects startup; use the recorded
+resume/pause sample interval (`sample_select 2`), not the unfiltered totals, for
+first-frame attribution. Keep collector warnings, unresolved addresses, raw
+experiment hashes and the same-binary unprofiled overhead comparison.
+
+Mesa's diagnostic `LP_NO_RAST=1` separates rasterization from the remaining
+render-thread work; it suppresses pixels and must never enter acceptance or
+production defaults. The separate Vulkan/lavapipe probe uses the installed
+`lvp_icd.json` and `QSG_RHI_BACKEND=vulkan`, verifies the actual CPU device and
+Qt backend, and retains every existing device boundary. It is available but
+does not meet the callback gate. Both flags and every test overlay are removed
+before the final original focused run. The dominant cost is software drawing;
+the unresolved hot addresses need symbol mapping before a specific
+production optimization is justified. No new sanitizer/full-suite result is
+claimed for this documentation-only investigation.
 See the [measured callback timeline](PERFORMANCE.md#qq-agent-callback-timing-2026-11-15-isolated-pi-software-rendering).
 
 ### Pull ARQADE's fixtures and the one look from upstream
