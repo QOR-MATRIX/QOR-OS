@@ -9,6 +9,14 @@ their changes since, and pulls of what is still shared, are recorded here.
 
 ## [Unreleased]
 
+- **First-Play tracing separates Mesa cache startup cost from a persistent fence wait.**
+  The unchanged ES Agent cases still fail `times > 5` with three, with or without
+  a seeded cache. Phase/thread evidence narrows the wait without assigning a GPU
+  pass or treating unsupported timestamps as zero GPU time. Image outliers and
+  explicit visual criteria are reviewed; deterministic logging and early ES setup
+  remain proposals. Original artifacts, resource/timing gates and the independent
+  software failure are preserved. Receipts: `build/development-2026-11-16/session-02/`.
+
 - **The client-only ES diagnostic restores Studio's observed image, but not its frame gate.**
   Actual V3D/OpenGL ES 3.1 removes the shader mismatch without changing original
   source or executable bytes. Complete images are compared with a matched

@@ -638,6 +638,16 @@ and mark any record it supersedes or amends.
 | Service traffic | `qorctl watch`; `QT_LOGGING_RULES="qt.remoteobjects*=true"` |
 | Frame pacing | `qor-shell --benchmark 8 --benchmark-out bench.json` |
 
+The 16 November first-Play continuation adds process-local window-phase observers
+without rebuilding the original test. Separate dedicated client caches prove that
+Mesa cache reuse improves startup but leaves a roughly 508-ms DMA-fence wait in
+first Play and the original assertion failed. Qt GPU timestamps are unavailable
+on ES. Preserve the raw phase/thread evidence, setup refusals, visual outlier review
+and proposed supplemental test contract in `build/development-2026-11-16/session-02/`.
+The [phase profile](PERFORMANCE.md#first-play-phase-profile-2026-11-16) defines what
+is measured and the single next client-only trace; no broad suite or production
+change follows from these diagnostics alone.
+
 ## 7. Tooling reference
 
 | Tool | Purpose |

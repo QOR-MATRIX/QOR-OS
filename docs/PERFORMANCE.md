@@ -1264,3 +1264,192 @@ the ordered Prism milestones. It adds no dependency, kernel policy or Qt build.
 No native rendering benchmark or new performance-gain measurement ran in this
 implementation pass. Full OS/product checks, runner isolation, Q Pi and the
 single-download installer remain in the owner's existing order.
+
+## First-Play phase profile, 2026-11-16
+
+At `9357d3b`, a 20-minute window ran from 09:15:41 to 09:24:48 local time,
+closing after three focused executions. Temporary client observers reuse Qt's
+window synchronization/recording/swap signals and `playingChanged`, recording
+monotonic timestamps, process/thread CPU and thread IDs into an 8,192-event buffer.
+No graphics commands, frame requests or timers are added. Extended Quick 3D
+statistics are enabled in the observed runs and sampled before synchronization,
+while the GUI thread is blocked; values can describe an earlier frame. The original
+test executable and all assertions run unchanged with `-v2`. No source overlay,
+application rebuild or system configuration change is used.
+
+Actual context on every measured process: Broadcom V3D 7.1.10.2 / OpenGL ES 3.1,
+Mesa 26.2.6-1~bpo13+0~rpt2, Qt 6.12 OpenGL QRhi backend. RenderD128 remains the
+only exposed graphics node, with its existing identity/permissions and v3d driver.
+The same private EGLFS headless compositor runs at 1920x1080 without physical
+vsync; Studio is 1600x960. Private namespaces, audio/input/network/home/bus/keyring
+boundaries, 30 resident admission samples, 3,072-MiB guard, 5,400-second suite
+limit and 1,800,000-ms test watchdog remain. This compares clients on one compositor,
+not timing against the earlier software-compositor baseline.
+
+### Measurements and limits
+
+| Measurement | Fresh client cache, observer off | Fresh client cache, observer on | Seeded client cache, observer on |
+|---|---:|---:|---:|
+| Focused cases, pass/fail/skip | 3/1/0 | 3/1/0 | 3/1/0 |
+| Total test time | 29.820 s | 29.782 s | 6.265 s |
+| Window show to first swap | unobserved | 25.435 s | 1.793 s |
+| First frame after recording to swap, wall / render-thread CPU | unobserved | 23,795.162 / 23,313.795 ms | 519.492 / 22.180 ms |
+| First Play frame after recording to swap, wall / render-thread CPU | unobserved | 508.851 / 11.111 ms | 507.219 / 9.676 ms |
+| Whole-process sampled CPU | 26.82 s | 26.84 s | 3.17 s |
+| First-window QRhi lifetime pipeline creation | 415 ms | 435 ms | 97 ms |
+| First surface creation to callback | 25.461 s | 25.446 s | 1.805 s |
+| First request to callback | 11.425 ms | 11.109 ms | 11.625 ms |
+
+Cold means an empty **dedicated client disk cache**, separate from the compositor's
+cache. OS page-cache, GPU and thermal state were not reset. The warm comparison
+changes only that disk-cache seed: all 73 files, 2,326,167 bytes, are under
+`mesa_shader_cache` and hash-match the cold run's saved files. New private profiles
+and the same observer/library, binary and compositor configuration remain. The
+second wall-clock case shares its process/cache with the first case; it is not an
+independent cold-start sample. This identifies a cache-dependent startup cost,
+not the precise compiling shader or all driver internals.
+
+The first cold frame spends 69.396 ms in Qt synchronization and 1,112.188 ms from
+`beforeRendering` to main-pass recording. Most of its wall and CPU cost occurs
+after `afterRendering`, before `frameSwapped`. During first Play, the corresponding
+interval is instead predominantly waiting. Four of five cold first-Play samples
+show `QSGRenderThread` sleeping in `dma_fence_default_wait` (one reports `0`);
+the GUI thread sleeps in `futex_do_wait`. The warm trace retains the fence wait.
+Compositor sampled CPU is 0.03 s in each whole-process trace. These locate a
+client-side wait around submitted graphics work, but do **not** identify the
+originating EGL/GL call, fence owner, GPU pass or GPU execution duration. Low
+compositor CPU alone does not exclude its involvement in buffer/fence ownership.
+
+Qt's [window signals](https://doc.qt.io/qt-6/qquickwindow.html#afterRendering)
+separate command recording from submission; swap is not proof of physical scanout.
+Its [timestamp documentation](https://doc.qt.io/qt-6/qquickgraphicsconfiguration.html#setTimestamps)
+explicitly excludes OpenGL ES. Recorded zero GPU-time fields are unavailable data,
+not zero GPU work. QRhi's 435-ms pipeline counter cannot account for or assign
+the separate 23.8-second interval. No call-stack or per-pass GPU attribution is claimed.
+
+Observer event handlers account for 0.854 ms cold / 0.793 ms warm across 197/175
+events. This partial accounting includes double-counted marker time in statistic
+snapshots and excludes event-filter setup/dispatch and Qt's extended-statistics
+cost. The single cold on/off pair differs by -38 ms elapsed and +20 ms sampled CPU;
+it does not isolate profiler overhead from variance or establish a confidence bound.
+Common 100-ms process/thread sampling, Wayland tracing and `-v2` overhead remains
+unmeasured. No profile timing is promoted into an acceptance threshold.
+
+### Original assertions and callback accounting
+
+All three executions pass Studio opening, source/TypeError presence and
+`typeErrors == 1`, then fail unchanged `times > 5` with **3**. Playing-notice and
+cursor assertions below that failure are **unreached**, not passing or framework
+skips. Both wall-clock assertions pass. Each log retains two expected private-audio
+warnings and three QML TypeErrors; no shader or pipeline warning occurs.
+
+Each trace completes five Wayland **surface-frame** callbacks before failure,
+excluding display-sync callbacks. Subsequent request-to-callback latencies are
+5.575–5.974 ms across the three runs. Observed cold swaps after `playing=true`
+occur at 519.735, 530.809, 542.495 and 748.611 ms; warm swaps at 516.694, 528.009,
+539.989 and 681.998 ms. Four swaps are distinct from three QML error callbacks.
+Playing-true to playing-false spans 758.741/692.074 ms; this includes play/stop
+dispatch and is **not** a direct measurement of the wait-tool call. Natural-error
+emission times were not separately instrumented. All raw phase and wire timestamps
+are retained. The independent llvmpipe failure remains `times > 5` with 1.
+
+### Outlier inspection and proposed visual contract
+
+The sealed ES and matched llvmpipe full images are unchanged. New 3x nearest-neighbor
+inspection crops cover every one of the 195 pixels above eight channel levels;
+an amplified absolute-difference image and marked full image retain their positions.
+Of those pixels, 192 have a control-image 3x3 gradient of at least 8 (150 at least
+16). The other three differ by 9 and match nearby control values within 2–3 levels.
+Only 98/195 have a control pixel within one pixel and eight channel levels; **97
+do not**. Sphere/ring silhouettes and small coverage/shading differences are visible,
+without missing sky, environment lighting, objects or shadows in this fixture.
+This supports edge-localized differences, not a proof that every outlier is harmless
+or that the images are equivalent. Mean difference alone is insufficient.
+
+Proposed acceptance, requiring review before implementation:
+
+- Fix size, device scale, camera, geometry, light, labels, selection, animation
+  and readiness; compare the entire captured frame. Do not mask dynamic UI labels;
+  make them deterministic. Preserve raw images and a same-renderer reference.
+- Define sky, lit-material, ground/shadow and UI regions from the fixture. Require
+  every sky/ground reference pixel to differ by at most 8 per channel. Outside a
+  one-pixel reference-derived edge band, use the same maximum; a global mean cannot
+  waive a regional failure. Report maxima, counts, locations and connected regions.
+- Within the edge band, initially require a matching reference colour within one
+  pixel and eight levels, plus unchanged silhouettes/features. **The present 97
+  unmatched pixels do not satisfy this candidate criterion.** Inspect their coverage
+  and repeatability before proposing any alternative antialiasing metric; do not
+  fit a tolerance merely to make this pair pass.
+- Run three deterministic captures per renderer to assess repeatability, with
+  exact same-renderer goldens where stable and separately reviewed cross-renderer
+  limits. Validate the checker against missing-sky, disabled-light, missing-object
+  and shifted-geometry negative controls, then require full-image review.
+
+The existing missing-sky capture from session-13 is an offline negative control:
+all 153,000 pixels in the fixed sky region exceed 8 versus the matched control,
+maximum 231. Thus the proposed regional bound rejects that known defect. Other
+negative controls and repeatability checks are **not run**; no visual contract is
+implemented or declared passed. Previous toolbar/inspector differences also remain
+until the fixture is deterministic. No new image render was needed in this session.
+
+### Supplemental logging coverage and production recommendation
+
+Code review reconfirms `StudioLog::append` merges only the last identical text and
+level and advances its sequence on every repetition; `since` returns entries whose
+current sequence exceeds the cursor. QML exceptions are warning-level messages.
+The existing handler must be installed once, not recursively reinstalled.
+
+Recommend the previously designed inert-window/real-QML/MCP test as **additional**
+coverage: emit two identical errors, read `times=2`; emit one more and read the same
+entry with cumulative `times=3` and a newer cursor; a no-op read is empty with a
+stable cursor. Insert a real warning then emit three more identical errors. Two
+separate runs `[3,3]`, a retained intervening warning, six total errors, notices,
+order and correct incremental visibility must result. Do not sum cumulative counts
+across reads as if they were deltas. Use a stable QML source line and verify setup
+warnings before taking the initial cursor. Exercise the actual message handler and
+`log_read`, not direct appends. This protects capture, consecutive coalescing,
+warning interleaving and cursor semantics; it proves neither frame rate, Play
+responsiveness nor GPU image correctness. Retain the natural gate unchanged.
+No assertion/timeout/test-contract change is recommended as a means of passing it.
+
+The smallest production candidate remains an explicitly selected Pi/V3D startup
+surface-format initializer before application/context creation, with other renderer
+defaults preserved. It addresses the observed image defect only. Require supported
+selection and actual-context checks, unsupported-context failure coverage, the
+reviewed deterministic image suite above, and relevant Release/sanitizer/cross-path
+validation before adoption. Do not ship the diagnostic loader or treat warmed-cache
+behavior as a responsiveness fix. No production implementation is made here.
+
+### Restoration, refusals and next evidence
+
+All 1,414 original source hashes, Agent/Studio hashes and the pre-existing screenshot
+are verified intact. A fresh no-application observer-only process confirms the
+original default surface format (type 0/version 2.0); no loader variables persist,
+QOR workers are absent and both permanent locks are available. The software setup
+and sealed session-01/13 artifacts remain intact. All 250 native samples exceed
+3,072 MiB; minimum 6,718 MiB.
+
+Two setup attempts launched no test: an inherited old manifest was correctly
+refused, then private-profile moc could not discover the existing Qt licence
+service. The current 1,414-source manifest was reverified; code generation moved
+to the existing guarded host licence context without a bypass. The resulting
+library was reused byte-for-byte for both observed runs. A premature profile launch
+was refused while the reference lock was held; its qtlicd child drained normally
+over 23 samples, and the reference wrapper completed with zero exit status.
+An intermediate status message incorrectly called this a timeout and was corrected
+against the final receipt. No service configuration or manual stop was used.
+An offline analyzer's Windows text-decoding error was corrected by using UTF-8;
+it caused no test rerun. These receipts are retained, not presented as test passes.
+
+No application Release/sanitizer/full-suite/lint/hardening acceptance was run anew;
+the preserved cache remains RelWithDebInfo. Documentation hooks and hosted source
+checks are separate from device acceptance. PR #10 remains draft while required
+Qt/core-audit and other acceptance gates remain unmet.
+
+**Next concrete action:** use the available `/usr/bin/strace` in a bounded,
+client-only run alongside the same phase observer, tracing the relevant graphics
+ioctls and waits to identify the first-Play DMA fence and originating API boundary.
+Measure its perturbation and keep GPU-time attribution open without suitable data.
+Do not change compositor, security settings or natural-frame requirements.
+Receipts: `build/development-2026-11-16/session-02/`, especially `profile-analysis.json`,
+`derived.json`, `image-review.json` and raw logs under `from-pi/`/`final-from-pi/`.

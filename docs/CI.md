@@ -575,50 +575,43 @@ Windows Credential Manager. These local checks do not qualify hosted runners
 or clear skipped Qt jobs/core audit and failed Release readiness. Receipts:
 `build/development-2026-11-15/session-08/`.
 
-The 16 November client-only ES 3.1 diagnostic at source `8eda5ec` repairs the
-observed shader/image mismatch, but the unchanged Agent natural-frame gate still
-fails. A temporary process-local library calls Qt's surface-format API before
-application creation; no original source or executable is modified. The actual
-client is Broadcom V3D 7.1.10.2 / OpenGL ES 3.1, Mesa 26.2.6-1~bpo13+0~rpt2, using
-Qt 6.12's OpenGL rendering backend. The same private render-node-only compositor
-and device/security boundaries remain in place; no desktop, service, permission
-or established software configuration changes.
+The 16 November first-Play profile at source `9357d3b` separates a cache-dependent
+startup cost from a persistent synchronization stall. Actual clients remain
+Broadcom V3D 7.1.10.2 / OpenGL ES 3.1, Mesa 26.2.6-1~bpo13+0~rpt2, Qt 6.12 OpenGL
+backend, on the unchanged private render-node-only compositor. Original sources,
+binaries, test timing and assertions are unchanged; observers live in a temporary
+client library. No desktop, security, graphics or software-renderer configuration
+change was made.
 
-Original focused Agent cases: **3 passes, 1 failure, 0 skips, 29.713 seconds**.
-Source/TypeError presence and single-entry coalescing pass; `times > 5` fails with
-3. The later Playing-notice and cursor assertions are not reached. Wall-clock
-waiting passes. No shader-pipeline warnings occur; two private-audio warnings and
-the three intentional QML errors are retained. First surface to frame callback
-is 25.382 seconds, including startup; first request-to-callback is 10.614 ms.
-Five completed Wayland frame callbacks before failure are distinct from the
-three QML error callbacks. Observer overhead is unmeasured; this is not a direct
-comparison with the old software compositor's play-frame measurement.
+The fresh-cache reference, observed cold run and observed warm run each report
+**3 passes, 1 failure, 0 skips**: `times > 5` fails with 3; source/error presence,
+coalescing and wall-clock waiting pass. Later notice/cursor assertions are unreached.
+No shader/pipeline warning occurs. Cold startup from window show to first swap is
+25.435 s; seeding only the previous run's 73 Mesa shader-cache files reduces it to
+1.793 s. First Play's after-recording-to-swap interval remains 508.851/507.219 ms,
+with only 11.111/9.676 ms render-thread CPU. Thread samples show DMA-fence waits
+(waiting for submitted work) while the GUI thread waits on a futex (thread lock).
+The owning GPU pass, fence and API call remain unidentified; unsupported ES GPU
+timestamps cannot establish GPU execution time. Five Wayland surface callbacks
+before failure and four swaps during Play are distinct from three QML errors.
 
-Both original Studio image cases pass 3/0/0. Full 1600-by-960 captures on the same
-compositor show sky, environment lighting, objects, shadows, gizmo and UI in both
-ES/V3D and the matched desktop-GL llvmpipe control. Unaligned RGB comparison over
-the entire viewport gives mean absolute channel difference 0.062/255; 195 pixels
-exceed 8, with maximum 136 at object/ring edges. These descriptive values do not
-establish exact equivalence or an approved tolerance. Toolbar/inspector differences
-are also recorded; button/focus checks alone are not image qualification.
+The prior full-image outliers were inspected: 192/195 are at control-image local
+gradients of at least 8, but only 98 match a control pixel within one pixel and
+8 channel levels. No missing sky, lighting or geometry is visible in the compared
+fixture; the remaining 97 are not explained by that simple edge test. Explicit
+visual criteria and negative-control checks are proposed, not approved equivalence.
+Supplemental real-error/warning/cursor coverage and an early Pi ES initializer
+remain proposals. The natural-frame gate and independent llvmpipe failure stay open.
 
-Recommend supplemental deterministic real-QML-error coverage, including exact
-counts, cursors and warning-interleaved runs, while retaining the original natural
-gate unchanged. No test-contract or production change is implemented. An explicit
-Pi ES startup selection is a supported candidate for the image defect only; it
-needs deterministic image regressions and cross-path validation before adoption.
-Next, profile the first Play callbacks under verified ES to separate client
-synchronization/shader work from presentation waits; do not repeat broad suites.
-Software failure remains independently open (`times > 5` with 1 in its sealed run).
-
-All 1,414 original source hashes, both original executable hashes and the previous
-screenshot are preserved. The control verifies that the process-local format
-request is gone. All 168 native samples exceed 3,072 MiB, minimum 6,631 MiB; no
-QOR workers remain and the original lock is free. Only the diagnostic library was
-compiled, without warnings; no new application build, Release, sanitizer or broader
-acceptance is claimed. PR #10 stays draft while required gates remain unmet.
-See the [ES diagnostic and test proposal](PERFORMANCE.md#client-only-es-31-diagnostic-2026-11-16).
-Receipts: `build/development-2026-11-16/session-01/`; the session-13 seal is preserved.
+All 1,414 source hashes, both original binaries and the old screenshot are intact.
+All 250 native resource samples exceed 3,072 MiB, minimum 6,718 MiB. Two pre-test
+setup refusals and a transient busy-lock refusal are preserved; the reference
+helper drained normally. No new application Release, sanitizer or broad-suite
+acceptance is claimed. PR #10 stays draft; required hosted Qt/core-audit jobs remain
+unmet. Next, use a bounded client-only ioctl trace with the phase observer to locate
+the first-Play fence wait; do not warm caches to turn the gate green.
+See the [first-Play evidence and visual proposal](PERFORMANCE.md#first-play-phase-profile-2026-11-16).
+Receipts: `build/development-2026-11-16/session-02/`; session-01 remains sealed.
 
 The earlier accepted test rebuild reproduces its passing proposal's binary hash, with
 all 1,404 snapshot source hashes verified. Hardening reads 16 QQ programs and
