@@ -9,6 +9,14 @@ their changes since, and pulls of what is still shared, are recorded here.
 
 ## [Unreleased]
 
+- **Exact Pi kernel audit identifies a sleeping zero-timeout buffer poll.**
+  Loaded-module build IDs, original machine instructions and package-pinned
+  source show timeout zero becoming one timer tick before the graphics fence
+  wait. The installed newer kernel retains it; the upstream zero-poll correction
+  is identified for a separate backport/qualification proposal. No kernel,
+  production code, timing, assertion or acceptance result changes. Receipts:
+  `build/development-2026-11-16/session-05/`.
+
 - **Matching Mesa symbols identify the captured buffer-291 allocation probe.**
   An indexed draw submits work while requesting TSDA tile state and checking a
   cached buffer with timeout zero. Exact build-ID/checksum/range and original

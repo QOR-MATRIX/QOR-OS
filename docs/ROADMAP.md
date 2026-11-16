@@ -551,31 +551,34 @@ selected qualified checks on this PC; full product runtime checks still need
 an audio/keyring boundary, and GPU checks were not run. Current Windows receipts:
 `build/development-2026-11-15/session-08/`.
 
-The 16 November offline symbol continuation at source `c096c0b` resolves all
-17 captured Mesa addresses using an exact build-ID and debuglink-checksum match.
-The captured buffer-291 wait comes from an indexed draw (`glDrawElementsBaseVertex`)
-whose pre-draw job submission requests a `TSDA` tile-state buffer. Mesa probes
-the cached buffer with timeout zero; this probe returns `ETIME`, so successful
-reuse is not established. Original-binary disassembly confirms the allocation
-label and cache-probe call. The Studio pass and unique fence remain unknown.
+The 16 November read-only kernel audit at source `d79c6ab` explains why the
+captured buffer-cache probe sleeps. The running Pi kernel is
+`6.18.50+rpt-rpi-2712`; the V3D and DRM module files match their loaded build IDs.
+The actual V3D instructions convert timeout zero to one jiffy, a kernel timer
+tick, before the buffer fence wait. With `CONFIG_HZ=250`, that is a nominal
+4 ms timeout; timer rounding and scheduling can extend elapsed time. The exact
+package-declared kernel source corroborates the path into `schedule_timeout`.
+This identifies a kernel polling defect, not a measured breakdown of each wait
+or proof that the GPU finished. The unique fence and Studio pass remain unknown.
 
-The first GNU `addr2line` attempt crossed the 3,072-MiB guard at 2,992 MiB and
-was stopped. A bounded function-symbol-table reader resolves the same addresses
-without expanding DWARF data; its job's 72 samples stay at or above 7,232 MiB.
-The official Qt debug candidate is rejected: its actual ELF is x86-64 with a
-different build ID despite the ARM64 repository location. No running library,
-SDK, source, executable, screenshot, assertion or test deadline is changed.
+The installed but unbooted `6.18.60+rpt-rpi-2712` module has identical wait-function
+instructions and retains the defect. Upstream Linux commit `226666556a9b`
+preserves zero as a poll through `drm_timeout_rel_to_jiffies`; no fixed Pi package
+has been installed or qualified. Next: prepare a reviewable Pi-kernel backport
+candidate and busy-buffer regression plan using that correction, before any
+kernel installation or reboot. Do not change QOR's assertions or bypass waits.
 
-There are no new graphics/test executions or timing measurements. The sealed
-reference/observer results remain 3 passed, 1 failed, 0 skipped (`times > 5`
-with 3); ptrace's result with 1 remains perturbed. The independent llvmpipe
-failure and 97 unresolved image outliers stay open. Release, sanitizer, broader
-products and isolated CI acceptance are not rerun. Supplemental logging and
-early ES initialization remain proposals; the natural-frame gate is unchanged.
-Next: audit the exact running kernel's zero-timeout V3D WAIT_BO path to explain
-why a cache probe sleeps before selecting a production or environment correction.
-Keep PR #10 draft and hosted skips distinct from passes. Evidence:
-`build/development-2026-11-16/session-04/`; session-03 remains sealed.
+No graphics/test run, production source, executable, image, library, kernel,
+service or system setting changes. The audit uses the original resource guard;
+41 and 34 samples stay above the 3,072-MiB floor. The first job's module checks
+succeed but its header-only helper search has no match; that whole job is not
+reported as passing. The source lookup resolves the helper in the driver header.
+Sealed reference/observer results remain 3 passed, 1 failed, 0 skipped
+(`times > 5` with 3), with later notice/cursor assertions unreached. The independent
+llvmpipe failure and 97 unresolved image outliers stay open. Release, sanitizer,
+broader products and isolated CI acceptance are unrun in this continuation.
+PR #10 stays draft. Evidence: `build/development-2026-11-16/session-05/`;
+session-04 remains sealed.
 
 PR #10's next product gates include Agent callback timing, Player failures and remaining
 full-product and Windows runtime runs. The Wayland sanitizer leak, ARQADE diagnostics,

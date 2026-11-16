@@ -1,44 +1,45 @@
 # Where QOR OS stands
 
-For Andrew, 16 November 2026. Matching Mesa debug symbols now identify the
-graphics operation behind a captured first-Play buffer wait. The original
-natural-frame requirement still fails; no production fix is established.
+For Andrew, 16 November 2026. The exact running Pi graphics driver turns a
+zero-timeout buffer poll into a sleeping wait. This explains the captured cache
+probe's blocking behavior; correcting it has not yet been tested. The original
+natural-frame requirement still fails.
 
-The captured indexed draw, `glDrawElementsBaseVertex`, reaches Mesa's job
-submission and requests a TSDA tile-state buffer, temporary data for drawing
-tiles. Mesa checks whether cached buffer 291 is idle using timeout zero.
-That check returns a timeout; it does not prove the buffer was reused.
-The exact library's machine instructions confirm this allocation and probe.
-The Studio pass and individual graphics completion signal remain unknown.
+The running kernel, `6.18.50+rpt-rpi-2712`, and its package-declared source are
+identified. V3D, the Pi graphics driver, and DRM, Linux's graphics infrastructure,
+have matching loaded/file build identities. Machine instructions turn zero
+into one jiffy, a kernel timer tick. The configured tick is 4 ms; timer rounding
+and scheduling can make the elapsed delay longer. The source path reaches the
+sleeping fence wait, where a fence is a graphics completion signal.
 
-All 17 captured Mesa addresses now have matching function ranges. Mesa is the
-graphics driver; its debug file matches both build identity and checksum.
-Two first-frame stacks improve from 3 to 11 named frames out of 18. The Qt
-interface toolkit's candidate symbols are rejected: the downloaded file is
-x86-64, with a different identity, despite its ARM64 repository location.
+Mesa, the user-space graphics driver, intended to check whether cached buffer
+291 was idle for a tile-state allocation. One captured call spent 11.853 ms
+elapsed and 0.005 ms on CPU, then reported a timeout. The kernel audit explains
+why it can sleep; it does not identify the individual fence or divide that
+elapsed time precisely. Successful buffer reuse and the Studio pass are unknown.
 
-The first symbolizer exceeded the 3,072-MiB (mebibyte) memory guard at 2,992 MiB
-and was stopped. A smaller function-table reader completed the Mesa resolution;
-its job's 72 samples stayed at or above 7,232 MiB. No running library or SDK changed.
-All 1,414 source hashes, both original binaries and the prior image are intact.
-Locks are free and no QOR test worker remains.
+The installed newer `6.18.60` kernel's wait instructions retain the same defect.
+Upstream Linux correction `226666556a9b` preserves zero as a poll. No corrected
+Pi kernel is installed or qualified. Next: prepare a reviewable backport
+candidate and busy-buffer regression plan before any installation or reboot.
+No QOR production change or test-contract change is proposed to mask this bug.
 
-No test or graphics run occurred in this continuation. The sealed reference
-and lower-overhead observer each remain three passes, one failure, zero skips;
-`times > 5` fails with three. The system-call tracer recorded one and disturbed
-scheduling. Earlier measurements total 383.545 ms of waits on buffer 291, but
-only one of its calls has the resolved stack; do not assign every wait that stack.
-Error capture/coalescing and wall-clock waiting passed; later notice/cursor
-assertions were unreached. The separate software-renderer failure stays open.
+This continuation runs no graphics or product tests. The sealed reference and
+lower-overhead observer remain three passes, one failure, zero skips;
+`times > 5` fails with three. Error capture/coalescing and wall-clock waiting
+passed; later notice/cursor assertions were unreached. The separate software
+renderer failure and 97 unresolved image outliers stay open.
 
-The 97 unresolved image outliers, supplemental deterministic logging coverage
-and early Pi graphics initialization remain unresolved or proposed. No new
-image equivalence, Release, sanitizer or broader product acceptance is claimed.
+Both static audit jobs stay above the 3,072-MiB (mebibyte) resource floor.
+The first job's module checks succeed; a header-only search finds no helper,
+so the whole job is not called passed. The pinned driver source resolves it.
+All 1,414 original source hashes, both binaries and the prior image are intact.
+No kernel, library, service or system setting changes. Locks are free and no
+QOR worker remains. Supplemental logging and early graphics setup stay proposals.
 
-Next: audit the exact running kernel's zero-timeout V3D buffer-wait path to
-explain why a cache probe sleeps. PR #10 stays draft. Full products, Player frame
-rates, the earlier Wayland memory leak, ARQADE diagnostics, isolated CI (automated
+PR #10 stays draft. Release, sanitizer, full products, Player frame rates,
+the earlier Wayland memory leak, ARQADE diagnostics, isolated CI (automated
 integration checks), hardware and Q Pi image acceptance remain open. Required
 hosted Qt/core-audit jobs skipped and Release readiness failed at admission.
-Receipts: `build/development-2026-11-16/session-04/`; session-03 remains sealed.
+Receipts: `build/development-2026-11-16/session-05/`; session-04 remains sealed.
 Consolidation planning is separate.

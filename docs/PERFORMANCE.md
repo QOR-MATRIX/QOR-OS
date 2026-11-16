@@ -1738,3 +1738,120 @@ perturbed value 1 remains separate. Independent llvmpipe failure, 97 image
 outliers and the unimplemented deterministic-logging/early-ES proposals remain.
 PR #10 stays draft; documentation checks and hosted source checks cannot clear
 the failed product/required-isolation gates.
+
+## Exact running-kernel wait audit, 2026-11-16
+
+At `d79c6ab`, the read-only audit verifies session-04's 102-file seal, 14 clean
+Windows worktrees, six complete native checkouts, original guards/locks, no QOR
+workers and all 1,414 original source hashes plus binaries/image. The bounded
+investigation runs from 11:13:49 to 11:22:09 local, before its 11:33:49 cutoff.
+No graphics client, package installation, reboot, module reload, kernel tracing
+or system/security/service configuration change occurs. Receipts:
+`build/development-2026-11-16/session-05/`.
+
+### Exact running identity and compiled conversion
+
+The live release is `6.18.50+rpt-rpi-2712`, package `linux` version
+`1:6.18.50-1+rpt1`, built 11 September. Its installed changelog declares Linux
+commit `cff533aec2fa601846766b32ff57204e0a61bed7`. Live kernel build ID is
+`4d280647c3c1a9fb6fbd20827cd05bfe198d9c9f`. Copied module files, decompressed
+only inside the diagnostic directory, match their live sysfs build IDs:
+
+| Module | Loaded and file build ID |
+| --- | --- |
+| V3D | `d33271d9872dc6095701d0d70728a1c248ac8329` |
+| DRM | `f022aa446a2cb31c617ad4db3576620eb27c6639` |
+
+`kernel-inventory.json`, `kernel-detail.json`, collected `result.json` and ELF
+identity logs retain source versions, architecture, hashes and configuration.
+The actual V3D `v3d_wait_bo_ioctl` machine code loads timeout at `0x894`, calls
+`nsecs_to_jiffies64` at `0x898`, unconditionally adds one at `0x89c`, clamps it,
+and passes that value in `x3` to `drm_gem_dma_resv_wait` at `0x8c0`.
+There is **no zero-timeout bypass**. DRM preserves that argument and calls
+`dma_resv_wait_timeout` at `0x20894`; return zero becomes `-ETIME`.
+These are original, build-matched instructions, not a rebuilt approximation.
+
+### Why a poll sleeps
+
+The package-pinned [V3D helper](https://github.com/raspberrypi/linux/blob/cff533aec2fa601846766b32ff57204e0a61bed7/drivers/gpu/drm/v3d/v3d_drv.h#L541)
+adds one after nanoseconds-to-jiffies conversion. With the verified
+`CONFIG_HZ=250`, zero converts to zero and becomes **one jiffy**, nominally 4 ms.
+The [ioctl source](https://github.com/raspberrypi/linux/blob/cff533aec2fa601846766b32ff57204e0a61bed7/drivers/gpu/drm/v3d/v3d_bo.c#L276)
+matches the binary sequence. A zero original timeout remains zero after elapsed
+time accounting, so an expired wait returns `ETIME`, not `EAGAIN`.
+
+The [reservation wait](https://github.com/raspberrypi/linux/blob/cff533aec2fa601846766b32ff57204e0a61bed7/drivers/dma-buf/dma-resv.c#L678)
+iterates relevant fences and passes the positive timeout into
+`dma_fence_wait_timeout`. Its internal `timeout ? timeout : 1` initializes the
+success return convention; it does **not** turn a genuine zero argument into a
+positive fence timeout. The defect is the earlier V3D conversion.
+
+In the package-pinned [fence implementation](https://github.com/raspberrypi/linux/blob/cff533aec2fa601846766b32ff57204e0a61bed7/drivers/dma-buf/dma-fence.c#L501),
+the default wait returns immediately for zero when the fence is unsignaled.
+With the erroneous positive timeout it registers a completion callback, sets
+the task interruptible and calls `schedule_timeout`. V3D and scheduler-finished
+fence operation tables have no custom wait override in this source. This is the
+normal V3D completion path; the trace does not identify the specific fence
+context/sequence or rule out every imported fence type.
+
+[`schedule_timeout`](https://github.com/raspberrypi/linux/blob/cff533aec2fa601846766b32ff57204e0a61bed7/kernel/time/sleep_timeout.c)
+sets a jiffies-based timer and schedules the task away. The
+[timer wheel](https://github.com/raspberrypi/linux/blob/cff533aec2fa601846766b32ff57204e0a61bed7/kernel/time/timer.c#L524)
+rounds expiry upward to avoid firing early. Therefore one nominal 4 ms tick is
+not a promise of exactly 4 ms elapsed; tick phase, timer processing and runnable
+latency matter. The observed call982, 11.853003 ms elapsed and 0.005407 ms thread
+CPU followed by ETIME, is consistent with this blocking path. No kernel
+scheduler trace was taken: the exact wake-up time and division of that latency
+are **not measured**, and GPU duration is not inferred from low client CPU.
+
+This explains why Mesa's intended cache-idle poll can sleep before rejecting
+cached buffer291 for TSDA tile-state allocation. It does not establish the
+buffer's previous use, successful reuse, a unique fence, the Studio material/pass,
+or that all 50 waits share the one captured stack. It also does not prove that
+correcting the timeout alone will pass the unchanged natural-frame gate.
+
+### Available correction and limits
+
+The installed but unbooted `6.18.60+rpt-rpi-2712`, package version
+`1:6.18.60-1+rpt1`, declares source `0b41724521c9adf5399409d02aece6c1df0a4432`.
+A separate guarded static inspection finds **identical V3D wait-function
+instructions**, including unconditional addition of one. Booting that installed
+kernel is not a demonstrated correction and was not attempted.
+
+Upstream Linux [commit `226666556a9b`](https://github.com/torvalds/linux/commit/226666556a9b3b51f04f9dad83662e5b9c78a325)
+explicitly addresses this polling defect by using `drm_timeout_rel_to_jiffies`.
+The [helper at that revision](https://github.com/torvalds/linux/blob/226666556a9b3b51f04f9dad83662e5b9c78a325/drivers/gpu/drm/drm_timeout.c)
+returns zero before applying conversion/rounding; positive waits remain positive
+and bounded. Pinned source URLs, full-file hashes and bounded function excerpts
+are saved in `pinned-source.json` and `correction-source.json`. The source package
+declares the running revision and module disassembly corroborates the critical
+path; generic kernel functions were audited from source, not live stack samples
+or matching vmlinux debug-symbol disassembly.
+
+**Recommendation:** prepare a reviewable backport candidate for the supported
+Pi kernel using this upstream correction, including helper/header dependencies,
+build identity, original configuration and a rollback/qualification plan.
+Do not install or boot it as part of this audit. Regression coverage should
+exercise a valid busy buffer's zero-timeout ETIME poll, an idle buffer's success,
+positive timeout completion/expiry and interruption semantics; record elapsed
+time and kernel sleep evidence without redefining the QOR callback requirement.
+Only a separately authorized isolated candidate run can establish improvement.
+Then repeat the unchanged focused Agent test and matched full-image comparison;
+retain the software-renderer failure independently. No QOR workaround selected.
+
+### Outcomes and preservation
+
+The running-module job's four identity/disassembly substeps succeed. Its search
+of exported kernel headers has no helper match and exits 1, so the overall job
+is recorded incomplete, not passed. The helper lives in the pinned V3D driver
+header, resolved separately without repeating the job. Its 41 resource samples
+have minimum 7,349 MiB. The newer-module comparison completes with 34 samples,
+minimum 7,416 MiB. Both use the original heavy-job lock and 3,072-MiB floor.
+
+No new test, image-equivalence, Release, sanitizer, lint/hardening or broader
+acceptance result is claimed. Historical reference/observer remain 3 passed,
+1 failed, 0 skipped (`times > 5` value 3); error/coalescing and wall-clock checks
+passed, later notice/cursor checks unreached. The independent llvmpipe failure,
+97 image outliers, unavailable matching Qt symbols, full products and isolated
+CI remain open. PR #10 stays draft; hosted skipped Qt/core-audit gates are not
+passes. Original source, binaries, image and session-04 seal are preserved.

@@ -638,16 +638,16 @@ and mark any record it supersedes or amends.
 | Service traffic | `qorctl watch`; `QT_LOGGING_RULES="qt.remoteobjects*=true"` |
 | Frame pacing | `qor-shell --benchmark 8 --benchmark-out bench.json` |
 
-The 16 November offline continuation resolves captured Mesa function ranges
-using exact build IDs and debuglink checksums. The original binary corroborates
-an indexed draw's TSDA allocation and timeout-zero cache probe. GNU `addr2line`
-exceeds the memory guard on this large debug file; a bounded symbol-table reader
-avoids DWARF expansion. Reject the tested Qt archive's wrong architecture/build
-ID. The [symbol attribution](PERFORMANCE.md#matched-symbol-attribution-2026-11-16)
-records resolved frames, provenance, refusals and limits. No graphics rerun or
-library replacement occurs. Preserve the failed natural-frame gate and audit
-the exact kernel wait path before choosing a fix. Receipts:
-`build/development-2026-11-16/session-04/`.
+The 16 November read-only kernel continuation matches module files to live
+build IDs and audits the source commit declared by the running kernel package.
+The original V3D instructions convert timeout zero to one timer tick, explaining
+the sleeping Mesa cache probe. The installed newer module retains the same
+instructions. The [kernel audit](PERFORMANCE.md#exact-running-kernel-wait-audit-2026-11-16)
+records binary/source provenance, timer behavior, the upstream correction and
+remaining limits. No kernel change or graphics rerun occurs. Preserve the
+original natural-frame gate and prepare a reviewable backport/regression plan
+before installing or booting a candidate. Receipts:
+`build/development-2026-11-16/session-05/`.
 
 ## 7. Tooling reference
 
