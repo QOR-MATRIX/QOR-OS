@@ -588,12 +588,69 @@ The host package database, kernel and boot files are preserved. This is a
 read-only tool root, not a configured Debian installation or kernel-test pass.
 The original guard records 158 samples, minimum 7,214 MiB. The
 [builder lock and runbook](../image/README.md#private-builder-dependencies-provisioned)
-record the exact scope and reuse checks. All six control/corrected KUnit cases,
-full kernel build, kernel sanitizers and physical recovery remain unrun.
-Gameplay/software-renderer failures and image/Release/isolated-CI gates remain
-open; PR #10 stays draft. Next: verify the complete pinned source/config and
-build the isolated test kernel, then run the unchanged suites. Receipts:
+record the exact scope and reuse checks. Kernel tests and full kernel linkage
+were unrun in that dependency phase. Its receipts remain in
 `build/development-2026-11-16/session-08/`; session-07 remains sealed.
+
+Sessions-09/10 complete the pinned-source normal kernel regression in isolation.
+The control reproduces the busy zero-poll defect: one expected failed case and
+five passes; each of its 16 busy probes voluntarily sleeps once. The corrected
+kernel passes all six unchanged cases, with zero voluntary switches in those
+16 probes. Both runs have zero skips/timeouts and verified separate call-path
+traces. ARM64, 16-KiB pages, HZ250 and PREEMPT=y are retained. Both Images and
+their seven matched modules build with zero warnings after a shared, pinned
+two-line kernel-doc overlay; the V3D fix and regression assertions are unchanged.
+The read-only compiler extension preserves the stock ARM32 compatibility vDSO.
+An initial corrected guest exposed a stale copied control object; that failure
+is retained. The accepted build explicitly recompiles the changed object and
+records its different hash and disassembly before execution. Each final guest
+has 30 paused-VM resident admission samples before boot, within the unchanged
+300-second outer guest limit.
+The guarded build, review and guest stages record 702 samples, minimum 6,919 MiB, above
+3,072 MiB. This is a synthetic-fence kernel regression in a software-emulated
+guest, not a real GPU buffer, QOR frame-rate improvement or Pi installation.
+Kernel address/lock checking, production packaging, asynchronous completion/
+interruption integration and physical recovery remain pending. The original
+QOR gameplay/software failures, image outliers and Release/isolated-CI gates
+remain open. Next: run the corrected suite with kernel address and lock checking
+in a separate reviewed configuration. PR #10 stays draft. See the
+[normal guest results](../image/README.md#normal-isolated-kernel-regression-verified);
+receipts: `build/development-2026-11-16/session-10/`, preserving session-09.
+
+Session-11 separately verifies the unchanged six cases under Generic KASAN
+(kernel memory-error detection) and lockdep (lock dependency validation), with
+GCC outline, stack/vmalloc instrumentation and atomic-sleep checks. All six
+pass with zero skips/timeouts and zero voluntary switches in the 16 busy polls.
+Both handler/test objects contain ASan imports; the guest verifies runtime
+symbols and debug_locks=1 before/after the suite and before shutdown. The
+primary-only guest exits normally in 150.437 seconds within the same 300-second
+bound, including 30 paused-QEMU resident samples. Normal session-10 regression
+and traces remain separate evidence; no physical Pi kernel is booted here.
+
+The first debug build exposes a vendor USB missing-prototype error. A separate
+test-build overlay moves the existing exported allocator declaration outside
+its debug conditional; function bodies and debug allocation macros are unchanged.
+Warnings-as-errors and all diagnostic features stay enabled. Image and seven
+matched modules then link with zero warnings, within the original deadline.
+An optional KASAN function-graph rerun times out after a complete passing primary
+suite; that run stays incomplete. A primary-only loader initially has an unused
+tracing helper rejected by -Werror; removing only that unused helper permits
+the clean run. No timeout or test assertion is relaxed. The traced diagnostic
+remains unqualified; KASAN fault injection, lock torture, multicore stress and
+real GPU completion/interruption/lifetime integration remain unrun.
+
+The exact 37 config differences retain ARM64, 16-KiB pages, HZ250, PREEMPT=y,
+compatibility vDSO and FRAME_WARN=2048. Across preparation, failed/retried builds,
+guest attempts and read-only recovery inventory, 3930 samples have minimum
+6,934 MiB above the unchanged 3,072-MiB floor. No host package, boot file,
+loaded module or service changes. Complete stock module manifests are hashed;
+backup/media readback and an actual stock recovery boot remain unverified.
+The [physical qualification plan](../image/README.md#rollback-plan-distinguish-running-from-next-boot)
+requires a matched stock 6.18.50 recovery boot on independent media before any
+separately authorized production trial. Boot-selected 6.18.60 is not that recovery.
+Original Studio/software-renderer failures, 97 image outliers, hosted Qt isolation
+and Release/image acceptance remain open. PR #10 stays draft. Next: verify that
+stock recovery route physically. Receipts: `build/development-2026-11-16/session-11/`.
 
 PR #10's next product gates include Agent callback timing, Player failures and remaining
 full-product and Windows runtime runs. The Wayland sanitizer leak, ARQADE diagnostics,

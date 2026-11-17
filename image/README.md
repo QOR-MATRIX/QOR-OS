@@ -1387,6 +1387,8 @@ remain unchanged. See [the measured kernel defect](../docs/PERFORMANCE.md#exact-
 | [Test configuration](pi/kernel-wait-bo/kunit.config) | Overlay for a separate KUnit test kernel, never the production configuration. |
 | [Series](pi/kernel-wait-bo/series) | Review order; production uses patch 1 only. The negative control uses patch 2 only. |
 | [Builder dependency lock](pi/kernel-wait-bo/builder-lock.json) | Authorized private tool payloads, signed metadata and complete package/root hashes; not a kernel runtime result. |
+| [Compatibility extension lock](pi/kernel-wait-bo/builder-compat-lock.json) | Fifteen pinned payloads preserving the stock ARM32 compatibility vDSO, in a separate root copy. |
+| [Documentation overlay](pi/kernel-wait-bo/0003-test-build-document-chroma-siting.patch) | Two shared test-build parameter descriptions; separate from the production series. |
 
 Base: [Raspberry Pi Linux `cff533aec2fa601846766b32ff57204e0a61bed7`](https://github.com/raspberrypi/linux/tree/cff533aec2fa601846766b32ff57204e0a61bed7),
 declared by installed source package `linux` `1:6.18.50-1+rpt1` for running
@@ -1525,20 +1527,22 @@ Kernel sanitizer/lock checks follow only after the focused pair is valid.
 
 #### Regression review and actual run matrix
 
-All six cases are **not run** on both unpatched and patched kernels in
-session-07: prerequisites are unavailable. There is no KTAP output, runtime,
-case skip or test timeout to report. Do not convert blocked cases into passes
-or claim an observed negative-control failure. Session-06 object compilation
-is separate and was not repeated.
+Session-07 recorded all six cases as unrun because prerequisites were
+unavailable. Sessions-09/10 subsequently supply complete source, tools and
+normal isolated execution. The latest primary results below have zero skips
+and timeouts; the busy control failure is attributed to its unchanged
+voluntary-switch assertion. Session-06 object compilation remains separate
+historical evidence. The additional memory/lock configuration is reported
+separately in the final column; its optional traced diagnostic remains incomplete.
 
-| Case | Unpatched | Patched |
-| --- | --- | --- |
-| `wait_busy_poll_does_not_sleep` | Not run | Not run |
-| `wait_idle_poll_succeeds` | Not run | Not run |
-| `wait_busy_positive_expires` | Not run | Not run |
-| `wait_idle_positive_succeeds` | Not run | Not run |
-| `wait_invalid_padding_is_rejected` | Not run | Not run |
-| `wait_invalid_handle_is_rejected` | Not run | Not run |
+| Case | Normal unpatched | Normal patched | KASAN + lock primary |
+| --- | --- | --- | --- |
+| `wait_busy_poll_does_not_sleep` | Expected failure: sleeps | Pass | Pass |
+| `wait_idle_poll_succeeds` | Pass | Pass | Pass |
+| `wait_busy_positive_expires` | Pass | Pass | Pass |
+| `wait_idle_positive_succeeds` | Pass | Pass | Pass |
+| `wait_invalid_padding_is_rejected` | Pass | Pass | Pass |
+| `wait_invalid_handle_is_rejected` | Pass | Pass | Pass |
 
 Static review against the exact target confirms the fixture's handle refers
 to its private GEM object and the real WRITE fence is included by the READ
@@ -1635,6 +1639,163 @@ gates open. No new installation/reboot authorization is inferred.
 
 Receipts: `build/development-2026-11-16/session-08/`; session-07 remains sealed.
 
+#### Normal isolated kernel regression verified
+
+Session-09 acquires the complete pinned source, verifies Git tree
+`55236f568e96166b8d7ee11741392e5508427ff7` and passes `git fsck --full`.
+The installed source package names that commit; this is not a signed-commit
+claim or a bit-identical distribution-kernel reproduction. Its initial config
+resolution rejected loss of the stock ARM32 compatibility vDSO. The separately
+authorized [compatibility extension lock](pi/kernel-wait-bo/builder-compat-lock.json)
+records 15 additional pinned package payloads from the original signed index.
+Every inherited root entry is unchanged. The extended root has 16,943 entries,
+manifest SHA256 `e4598cdbaa759122bd5ac7dff011a39500371b6077cbc148d8a3407f11d3a6e7`.
+Mount it read-only; do not alter the original session-08 root. Session-10
+reverifies the complete extended-root content before each build.
+
+The first linked control is retained with two upstream kernel-doc warnings.
+Session-10 preserves that failure and creates separate source/output copies.
+The separately pinned [documentation overlay](pi/kernel-wait-bo/0003-test-build-document-chroma-siting.patch)
+adds only the two missing parameter descriptions in `drm_color_mgmt.c` to both
+test variants. It changes no function statement, test assertion or warning
+check, and is not part of the production series. Check its exact preimage,
+postimage and patch hashes in `manifest.json` before applying it.
+
+The source audit permits only each variant's original patch paths, the single
+test source and that common documentation file. Resolved configs retain ARM64,
+16-KiB pages, HZ250, PREEMPT=y, DRM_V3D=m and both compatibility-vDSO settings.
+The session-09 review covers 116 stock-to-test config differences, including
+103 newly explicit disabled test options; neither wait/preemption nor security
+paths are disabled. The two session-10 configs differ only in LOCALVERSION,
+with distinct recorded `6.18.50-v8-16k-qor-wait-control-s10+` and
+`6.18.50-v8-16k-qor-wait-patched-s10r1+` identities.
+The initial corrected guest fails because a preserved source timestamp allows
+the copied control object to remain newer than the changed source. Its source
+hash is corrected but object hash equals the control's; this run is rejected.
+The accepted corrected build uses another source/output copy, explicitly
+invalidates only its copied `v3d_bo.o`, verifies the compiler actually rebuilds
+it, and records its different object hash, compile command and disassembly.
+Both initial failures and the original control output are preserved.
+The compile collector initially rejects the actual `CC [M]` module tag because
+its matcher expected untagged `CC`. That collector failure is also retained.
+A separate guarded review requires exactly one tagged compile record and
+verifies the new source/object/command, complete artifacts and warning-free
+logs before guest execution. No kernel assertion or warning check is relaxed.
+Image and the seven-module V3D dependency closure build serially with zero
+warnings (`KCFLAGS=-Werror`; modules also use `W=1`). This is full test-kernel
+linkage, not full distribution module/device-tree packaging.
+
+Each matched kernel/initramfs boots in QEMU 10.0.13, `virt-10.0,gic-version=3`,
+TCG single-thread mode, version-pinned `max` CPU, one CPU and 1,024 MiB RAM.
+The namespace exposes no host boot/home, graphics/input/audio/KVM devices,
+desktop sockets, network interface beyond loopback or host disk. The guest
+reports actual AArch64 and 16,384-byte pages and loads only its matched module
+closure. No module is loaded into the live Pi.
+Each accepted guest starts paused and supplies 30 one-second resource samples
+with QEMU resident before QMP resumes the CPU. This pause is included in the
+unchanged 300-second guest limit. The first short unpaused runs are preserved
+but do not satisfy that explicit VM admission. An initial QMP connection fails
+before boot because the host socket path is too long; the corrected connection
+uses a held private-directory descriptor and a short `/proc/self/fd/` path.
+
+The original six-case control completes first: five passes and only the busy
+poll case fails, specifically its 16 voluntary-switch expectations. All polls
+return ETIME, consume zero remaining timeout and leave the real private fence
+unsignaled. Every control poll sleeps once. The corrected kernel passes all
+six unchanged cases, with zero voluntary switches in all 16 busy probes. Both
+primary runs have zero skips/timeouts. Their complete KTAP precedes separate
+function-graph reruns confirming the GEM/reservation/default-wait/scheduler
+path. Traced timings are not primary results or a QOR performance benchmark.
+
+The guarded build, review and guest stages record 702 samples, minimum 6,919 MiB above
+the unchanged 3,072-MiB floor. Every stage has 30 resident admission samples;
+Image/modules retain 7,200/1,800-second limits and the guest retains 300 seconds.
+Resources, complete commands/logs, raw artifact/config hashes, module dependencies
+and build identities are under
+`build/development-2026-11-16/session-10/`; earlier session-09 receipts are preserved.
+All elapsed timings are evidence, not new pass thresholds. The regression is
+synthetic-fence kernel coverage; real userspace dispatch, GPU completion while
+blocked, interruption/restart and lifetime remain integration gates. Kernel
+address/lock checking, production packaging and physical recovery remain pending.
+The original QOR failures and all image/Release/isolated-CI gates remain open.
+No installation, boot-selection change, live module load or reboot is authorized
+by this result. Next: a separately reviewed kernel address/lock-checking config.
+
+#### Isolated memory-error and lock checks
+
+The separate [diagnostic overlay](pi/kernel-wait-bo/kunit-kasan-lock.config)
+resolves to SHA256 `d03855d2ff067c1668f38eeac0298b0e926163bbb9d52de5339d26ac1a432bda`. Its 37 reviewed differences from the accepted
+normal config enable Generic KASAN with GCC outline/stack/vmalloc instrumentation,
+PROVE_LOCKING, DEBUG_LOCK_ALLOC and DEBUG_ATOMIC_SLEEP plus their default
+spin/mutex/rwsem/ww, RCU, stack-depot and IRQ tracking dependencies. ARM64,
+16-KiB pages, HZ250, PREEMPT=y, both compatibility-vDSO settings, DRM_V3D=m and
+FRAME_WARN=2048 are retained. This is a test-only config; KASAN self-tests/fault
+injection, KCSAN, lock torture and multicore stress are not enabled or claimed.
+See the upstream [KASAN](https://docs.kernel.org/dev-tools/kasan.html) and
+[lock validator](https://docs.kernel.org/locking/lockdep-design.html) references;
+the exact pinned-source configuration review is in session-11 receipts.
+
+The initial fresh build fails with
+`no previous prototype for 'DWC_SPINLOCK_ALLOC' [-Werror=missing-prototypes]`.
+The vendor source always defines/exports this allocator, while its header hides
+the declaration under debug spinlocks. The separate
+[declaration overlay](pi/kernel-wait-bo/0004-test-build-declare-dwc-spinlock-allocator.patch)
+moves that existing extern declaration outside the conditional. It changes no
+function statement, allocation macro or call site, and is not in the production
+series. Verify its pinned preimage/postimage and patch hashes in the manifest.
+The published patch omits redundant blank and tab-indented context lines so
+ordinary whitespace checks apply without an exception; LF apply verification reproduces
+the exact compiled header bytes. The original executed patch/hash is retained.
+The first Windows apply converted LF to CRLF; both raw/normalized hashes and a
+subsequent exact LF apply are recorded, rather than silently normalizing evidence.
+
+The failed source and compiler output remain intact. A new source copy adds
+only that audited header path; unchanged KASAN/config flags permit reuse of the
+failed diagnostic output. Its public DWC objects are hashed/preserved and
+invalidated before recompilation; no private signing key is opened or copied.
+The retry consumes the remaining original 7,200-second Image budget, not a new
+deadline. Image and seven matched modules then link with zero warnings under
+`KCFLAGS=-Werror -j1` and module `W=1`. Handler/test objects both contain ASan
+imports. Release: `6.18.50-v8-16k-qor-wait-kasan-lock-s11+`. This is test-kernel linkage, not a complete
+production module/device-tree package or a vendor-supported physical candidate.
+
+The first instrumented guest captures six passing primary cases, then reaches
+the unchanged 300-second bound during its optional function-graph rerun. Its
+primary module loads begin at 110.995 guest seconds and end at 114.995; diagnostic
+rerun starts at 239.181. Keep the complete primary, post-primary setup interval
+and partial traced rerun distinct. The overall traced attempt is incomplete,
+with one timeout, and is not used as a successful memory/lock acceptance run.
+An initial primary-only loader fails before boot on an unused tracing helper;
+that helper is removed without changing kernel/test code or warning flags.
+
+The final primary-only guest exits normally after **150.437 seconds**, within
+the same 300-second bound including thirty paused-QEMU resident samples. All six
+original cases pass, with zero skips/timeouts and zero voluntary switches in all
+sixteen busy polls. The guest verifies actual AArch64/16-KiB pages, ASan runtime
+symbols, and debug_locks=1 before/after the cases and before shutdown. No KASAN,
+lockdep, atomic-sleep or unexpected kernel warning is observed; fault/warning
+panic settings remain enabled. It runs one CPU/1,024 MiB with no host disk,
+external network, GPU/input/audio/KVM or desktop passthrough. The normal-session
+call-path traces remain separate; tracing under the combined diagnostics is
+not qualified. A clean focused run is not proof against unexercised faults.
+
+Session-11's 3930 build/guest/recovery resource samples have minimum
+6,934 MiB against the unchanged 3,072-MiB floor. The original guard, all
+limits, commands, resolved config/differences, module dependencies, artifact
+hashes, failures and address-redacted exports remain in
+`build/development-2026-11-16/session-11/`. Raw original/export hashes are distinct.
+The production patch and six-case source hashes remain unchanged. Zero busy/idle
+polling, positive expiry/already-signaled success, invalid padding and handle
+errors are covered. Positive completion while blocked, signal/restart,
+large/clamped inputs, residual ETIME-to-EAGAIN and real userspace/GPU lifetime
+remain explicit integration gaps; their code is reviewed unchanged.
+
+No physical Pi kernel is installed/booted, live module loaded, boot file changed
+or host package/service managed. Original QOR Studio/software failures and image
+outliers remain open. These native diagnostics establish neither hosted CI
+isolation, QOR application sanitizer acceptance, image acceptance nor Release
+readiness. The next physical prerequisite is the stock recovery proof below.
+
 #### Pre-install qualification sequence
 
 1. Use a new isolated kernel build environment with the original heavy-job
@@ -1662,11 +1823,16 @@ Receipts: `build/development-2026-11-16/session-08/`; session-07 remains sealed.
    compiler, kernel/module build IDs, dependency closure and artifact hashes.
    A changed object alone is insufficient. Stage modules under a private
    `INSTALL_MOD_PATH`, never `/lib/modules` on the live Pi.
+   Reusing an output cache requires content-based input review: invalidate each
+   changed input's cached object and verify its actual compiler invocation,
+   object hash and linked module. Preserved timestamps can otherwise retain an
+   older control object even when the new source hash is correct.
 4. In a disposable kernel-test VM, run only `v3d-wait-bo` first. Capture the
    unpatched busy-poll failure, then all six patched passes with no skips.
    Preserve errors and complete KTAP. Repeat the focused corrected tests with
    kernel address checking (KASAN) and lock checking in a separate test config;
-   record actual support, failures and skips. No such execution has occurred.
+   record actual support, failures and skips. Session-11 completes the focused
+   primary memory/lock run above; its optional traced attempt remains incomplete.
 5. After those gates and a verified recovery route, submit the exact candidate
    hashes/config, proposed boot selection and rollback target for installation
    approval. A custom build is still a trial, not vendor-supported acceptance.
@@ -1710,60 +1876,133 @@ whereas the old Pi 5 DTB is
 `a5165cb562035f479ea9f5a81cedf7b6596ea32a0598608c4dc3b77ada909c60`.
 The inspected V3D Pi 5 overlay matches both releases. Thus retaining the old
 kernel/initramfs alone does not establish a matched old boot selection.
-Per-file hashes are in the private inventory; whole-module-tree integrity,
-offline backup readback and recovery boot have not been demonstrated.
+Session-11 additionally hashes the complete installed module trees, retaining
+modes and symlink targets without following source/build links. This is a
+content inventory, not verification of a written backup. Offline destination
+readback and a stock recovery boot have not been demonstrated.
 
-The practical recovery route is physical SD access with a card reader and a
-spare verified medium, plus a Linux-capable recovery environment for the ext4
-root/module files. Before a trial, preserve the original card, prepare a
-complete matched stock recovery set on the separate medium, and verify its
-actual stock boot, desktop and remote access. A person at the Pi must be able
-to select that medium if the guest-independent physical trial cannot boot.
-Neither a reader/spare card nor physical access was verified this session.
-Windows can edit the FAT selection file, as the
-[Pi configuration guide](https://www.raspberrypi.com/documentation/computers/config_txt.html)
-describes, but this alone does not recover the ext4 module set. Do not format,
-clone, change boot order or attempt tryboot until the exact media and operation
-are separately approved. The verified result here is retained component
-availability and the mismatch, **not a tested recovery mechanism**.
+##### Physical qualification sequence: prepared, not executed
 
-These hashes identify current artifacts, not a tested rollback. A normal reboot
-is not a return to the running 6.18.50 baseline. Before any trial:
+The recovery target is the **working 6.18.50 state**, including its userspace
+and data, not merely today's boot selection files. Reinserting the original
+card after a power-off would normally select the unqualified 6.18.60 set.
+Neither that card nor a remote connection is a proven 6.18.50 recovery route.
+This plan does not authorize media writes, installation, module loading,
+boot-selection changes, a recovery drill or candidate boot.
 
-- Re-inventory at action time. Preserve the whole boot selection/config/include
-  chain, kernel, matching initramfs, DTBs/overlays and versioned module tree in
-  a private verified backup, including permissions. Keep credentials and any
-  private command-line data out of logs/repository. Do not overwrite or remove
-  either installed stock kernel. Verify that the recovery set is internally
-  matched; do not pair the older kernel with newer unreviewed device trees.
-- Prefer a separate recovery/test medium. Prove its selected stock kernel,
-  desktop, networking and remote access boot successfully **before** trialing
-  the candidate. Returning specifically to 6.18.50 requires that matched
-  recovery set and a verified boot; merely finding its files is insufficient.
-  Alternatively qualify stock 6.18.60 as a new baseline first, then rebase and
-  repeat the controlled comparison; do not call that a same-baseline rollback.
-- Stage candidate kernel, matching initramfs/device trees/overlays and modules
-  under unique names/directories on the test medium. Raspberry Pi's
-  [boot configuration documentation](https://www.raspberrypi.com/documentation/computers/config_txt.html)
-  describes separate OS prefixes and initramfs selection. Verify the complete
-  selected set: prefix fallback must not silently boot stock artifacts. An
-  optional one-shot tryboot route needs firmware/support and recovery testing;
-  it is not qualified here and cannot guarantee recovery from a hung kernel.
-- Arrange local console/media access and a person able to power-cycle/reselect
-  recovery media if networking fails. Do not depend solely on Tailscale or Pi
-  Connect for recovery from a nonbooting kernel. Define a bounded boot window
-  before starting; failure to regain access triggers the recovery procedure,
-  not another unattended retry.
+1. **Establish an independent stock recovery medium first.** A person at the
+   Pi must confirm console, power and physical media access, a working reader,
+   and separately identified recovery and trial media. Preserve the original
+   card offline. The person performs any whole-card/data backup with approved
+   imaging tools and private encrypted storage outside the repository; secrets
+   and private boot arguments never enter AI context, logs or Git. Record the
+   exact source/destination device identities before any separately approved
+   imaging or format operation. Two spare media (or an independently proven
+   equivalent recovery route) keep the verified stock medium intact during
+   the trial. Their existence and bootloader selection are unverified here.
 
-On trial failure or completion, preserve diagnostics, stop only the trial's
-workers, and return to the preverified recovery selection/media. If the trial
-cannot boot, recover offline from the other computer/console. Restore the exact
-recorded selection files rather than guessing settings. After boot, verify
-`uname -r`, page size, loaded-module build IDs, desktop/remote access and stock
-file hashes against the recovery receipt. Leave candidate files quarantined
-until review; removing them is not part of rollback. Record the actual result.
-No installation, backup-copy, boot selection, reboot or recovery drill was
-performed by this preparation.
+   Prepare a matched stock 6.18.50 set on the recovery medium: the retained
+   kernel, that release's initramfs, complete module tree, Pi 5 device tree,
+   overlays and compatible firmware/config/include chain, together with the
+   preserved baseline userspace/data. Do not pair the old kernel with the
+   normal 6.18.60 device tree. Pin every component's hash, mode and link target;
+   read back the written FAT and ext4 files from the destination, not the
+   source cache. Root selection must resolve to the recovery medium's own
+   filesystem; copied identifiers must not silently select another card.
+   Windows FAT editing alone cannot verify ext4 modules or root selection.
+
+   Under separate authorization, physically boot this **stock recovery**
+   medium before a candidate is present. Confirm actual
+   `6.18.50+rpt-rpi-2712`, 16,384-byte pages, live kernel/module build identities,
+   matched mounted root/boot media, display, desktop and authenticated remote
+   access. Run the unchanged focused Studio baseline and record the existing
+   failure rather than expecting it to disappear. Prove that the local person
+   can reselect this medium after a power cycle. Keep its successful receipt
+   and read-back image on an independent medium. If stock 6.18.50 cannot boot,
+   stop: qualifying stock 6.18.60 is a separately reviewed baseline migration
+   followed by renewed comparisons, not a rollback to the current baseline.
+
+2. **Produce and review a distinct production trial set.** Normal and memory/
+   lock test kernels are test artifacts, not physical installation candidates.
+   Build a new complete kernel/module/device-tree set from the pinned source
+   and stock configuration with production patch 1 only and a unique
+   LOCALVERSION; KUnit and test-only instrumentation stay off. Verify the
+   resolved config differs only as reviewed, retain warnings-as-errors, and
+   record actual kernelrelease, kernel/module build IDs, all artifact hashes,
+   dependency closure and matching initramfs. No such production packaging is
+   claimed by the focused seven-module guest builds.
+
+   After kernel test gates and recovery proof, present the exact artifact
+   manifest, named trial medium, selection-file diff, time budget and rollback
+   target for explicit installation/boot authorization. Stage only on a trial
+   copy, keeping the verified stock recovery medium and original card intact.
+   Use explicit, separately reviewed kernel/initramfs/device-tree selection;
+   audit the entire include/conditional and root-selection chain. Pi's
+   [configuration guide](https://www.raspberrypi.com/documentation/computers/config_txt.html)
+   explains OS prefixes and fallback; a filename alone does not prove selection.
+   Do not rely on tryboot or a watchdog until that mechanism itself has been
+   physically demonstrated. Never replace a live module or mix kernel releases.
+
+3. **Prove the trial actually booted before testing QOR.** Agree a five-minute
+   boot/access window before an authorized trial, with local console capture
+   and the recovery person present. Compare actual `uname -r` to the uniquely
+   built trial release, actual page size to 16,384, the live GNU kernel build ID
+   from `/sys/kernel/notes` to the built kernel, and loaded V3D/DRM note build
+   IDs to their matched staged modules. Verify module vermagic, mounted media,
+   selected config and file hashes. A new file on disk or a live SSH session
+   does not establish which kernel is running. Any mismatch, missing display
+   or failed access window stops the trial and invokes the stock recovery path.
+
+4. **Run the unchanged Studio/graphics checks in the existing private sandbox.**
+   Rehash the same 1,414 QOR inputs, Agent/Studio binaries, Qt/Mesa libraries,
+   private test keyring fixture and process-local ES diagnostic helper. Confirm
+   the actual V3D render-node identity, Qt OpenGL backend and OpenGL ES 3.1;
+   do not spoof versions or change product graphics defaults. Keep the private
+   compositor, one client cache policy, render-worker count, device/network/
+   desktop exclusions and resource guard identical to the stock comparison.
+   Only the identified render node is exposed; no primary display/input/audio
+   or KVM passthrough is added by this plan.
+
+   Reuse the exact session-01 `config-agent-es31.json` selection:
+   `logicThatThrowsInPlayIsInTheLog`, `aLongWaitLastsWhatItWasAskedFor`, `-v2`,
+   with its unchanged 5,400-second outer bound and existing Qt watchdog.
+   Preserve the 600-ms request, `typeErrors == 1`, `times > 5`, Playing notice
+   and advancing log cursor, plus the separate 1,500-ms wait floor. Require all
+   reached assertions, complete output, exits and skips; a later timing pass
+   alone cannot erase the original failure. First-run/cache conditions and
+   any diagnostic overhead are reported. The standalone software-renderer
+   failure remains separate and open until its own unchanged case passes.
+
+   Reuse `config-studio-es31.json` and the matched software control selection
+   `theStudioWearsTheOneLooksToolRegister`, preserving complete fresh PNGs.
+   Compare the whole frame and viewport at unchanged size/camera/layout, with
+   sky/environment lighting, materials, objects, shadows, gizmo and UI all
+   visible. Record GLSL/context errors, raw pixel/region differences and all
+   existing 97 unresolved outliers. Never mask, register, scale or replace the
+   screenshot to hide differences. The existing narrow UI assertion is not
+   whole-viewport acceptance; any new pixel tolerance requires prior review.
+   Retain the known missing-sky negative control and unexplained differences.
+   Keep graphics-image acceptance open until those criteria are independently
+   resolved. Real busy-buffer positive completion, signal/restart and lifetime
+   behavior also need actual userspace/GPU integration evidence.
+
+5. **Restore and verify the working state after success or failure.** Preserve
+   trial logs/images first, stop only its workers, and select the preverified
+   stock recovery medium locally. If the trial is unreachable, power-cycle
+   and recover with that medium/reader rather than retrying remotely. Restore
+   exact recorded stock selection and data state, not guessed config lines or
+   today's 6.18.60 selection. Verify live 6.18.50 kernel/module identities,
+   16-KiB pages, media selection, baseline file hashes, desktop/remote access
+   and original QOR binary/source/image state. Retain the quarantined trial
+   artifacts and failure evidence. Record an actual stock recovery boot as a
+   physical result; component availability or this plan is not that result.
+
+Physical verification still needed: local person/console and reader access,
+independent media, backup destination/readback, matched stock 6.18.50 boot,
+media/root selection, desktop/network recovery and the bounded trial/return.
+No physical result, production candidate, QOR Studio resolution or hardware
+acceptance is claimed here. The immediate physical prerequisite is a proven
+stock 6.18.50 recovery boot on a separate medium under specific authorization.
 
 #### Verified preparation, remaining gates
 
@@ -1775,13 +2014,13 @@ defines `CONFIG_KUNIT=1`; the installed config remains unchanged. There is no
 full link, KUnit execution, test-module load or bootable artifact. All 61 memory
 samples exceed the resource floor; minimum 7,153 MiB.
 
-Receipts: `build/development-2026-11-16/session-06/`. Full kernel build/link,
-unpatched/patched and KASAN kernel tests, busy hardware ioctl integration,
-recovery drill, original QOR focused test/images and all acceptance gates remain
-unrun in this preparation. PR #10 stays draft. Session-08 subsequently
-provisions and checks the private builder dependencies above. The next step
-is the complete pinned source/config build, then the original unpatched and
-patched KUnit runs before any installation proposal.
+Receipts: `build/development-2026-11-16/session-06/`. Those were preparation
+checks. Sessions-09/10 subsequently link and execute the normal isolated test
+kernels above. Session-11 separately completes the focused primary KASAN/lock
+run, preserving the incomplete traced diagnostic. Production packaging, busy
+hardware ioctl integration, physical recovery, original QOR focused test/images
+and acceptance gates remain pending. PR #10 stays draft. The next physical
+prerequisite is a verified stock 6.18.50 recovery boot; no trial is authorized.
 
 ## Private disposable VM lab
 

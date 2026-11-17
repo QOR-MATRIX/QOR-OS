@@ -9,6 +9,33 @@ their changes since, and pulls of what is still shared, are recorded here.
 
 ## [Unreleased]
 
+- **Verify the focused kernel regression with memory and lock checks.**
+  Run all six unchanged cases under Generic KASAN and lockdep in the private
+  guest: six pass, zero skips/timeouts, validators active throughout. Fix a
+  vendor debug-build declaration omission with a separate test-only overlay;
+  preserve warnings-as-errors, original flags, limits and failed evidence.
+  An optional traced attempt times out after its passing primary and remains
+  incomplete; the clean primary-only run uses the same 300-second bound.
+  Preserve boot/package/source state and prepare the explicit matched-stock
+  recovery/trial/return plan without executing it. Physical recovery, production
+  packaging, original Studio/software failures, image and Release gates remain
+  open; PR #10 stays draft. Receipts: session-11 under `build/development-2026-11-16/`.
+
+- **Verify the V3D zero-poll regression in isolated ARM64 test kernels.**
+  Preserve the earlier linked control and its two upstream documentation warnings.
+  A separate common comment-only overlay fixes those warnings without changing
+  the production backport, six regression assertions or warning check. Complete
+  pinned-source builds retain the stock wait/preemption/page-size configuration
+  and compatibility vDSO. The control reproduces 16 sleeping busy polls; the
+  corrected kernel passes all six cases with no poll sleeps, skips or timeout.
+  Reject an initial corrected guest that reused the cached control object;
+  explicitly recompile it and retain object/hash/disassembly evidence. Both
+  final guests have 30 paused-VM admission samples within the original limit,
+  and preserve complete primary KTAP and separate call-path diagnostics.
+  Host packages, running kernel and boot files are preserved. Kernel sanitizers,
+  hardware integration/recovery and QOR acceptance remain open. Receipts:
+  `build/development-2026-11-16/session-10/`; PR #10 stays draft.
+
 - **Keep the private builder's public archive provenance scannable.**
   Security scanning mistook one verified Debian package filename for a secret.
   Limit its exception to that exact archive line, manifest path and rule,

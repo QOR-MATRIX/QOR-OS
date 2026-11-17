@@ -1,49 +1,48 @@
 # Where QOR OS stands
 
-For Andrew, 16 November 2026. Authorized private builder dependencies are
-provisioned and their tool checks pass. The Pi's host packages and running
-kernel are unchanged. Kernel regression and product acceptance remain open.
+For Andrew, 16 November 2026. The focused Pi graphics regression passes in
+isolated normal and memory/lock test kernels. Physical Pi, QOR products,
+hosted integration checks and Release acceptance remain separate and open.
 
-The private 64-bit ARM tool root contains 218 pinned Debian packages. Signed
-metadata and every archive hash verify before payload extraction. No package
-installation script runs. The root is mounted read-only for work; it is not
-a configured Debian system. Its contents, permissions and links are recorded.
+The normal unpatched guest has five passes and the expected busy-poll failure:
+all 16 immediate checks sleep once. The corrected normal guest passes all six
+KUnit (Linux kernel unit) cases, with no voluntary scheduling in those polls.
 
-GCC 14.2.0 compiles, links and runs a small program with OpenSSL. bison/flex
-(parser generators) produce working compiled programs. QEMU 10.0.13 (the
-emulator) starts a paused ARM64 machine and exits normally. No kernel is
-provided to that emulator; this is not a successful kernel boot or test.
-The original guard records 158 samples, at least 7,214 MiB (mebibytes)
-available, above the unchanged 3,072-MiB floor. A separate content seal passes.
+The separate diagnostic configuration enables KASAN (kernel memory-error
+detection), lockdep (lock dependency validation) and atomic-sleep checks.
+Its primary run passes all six unchanged cases, with zero skips/timeouts,
+verified instrumentation/runtime symbols and lockdep active throughout.
+It exits in 150.437 seconds within the unchanged 300-second guest bound.
+The 37 reviewed config changes preserve 16-kibibyte pages, 250 timer ticks
+per second, original scheduling and 32-bit compatibility support.
 
-The reviewed two-line V3D (Pi graphics driver) backport still targets the
-running 6.18.50 source/configuration. It keeps zero as an immediate poll while
-preserving positive waits and errors. Its six KUnit (Linux kernel unit) cases
-are unchanged and remain unrun on both kernels. Earlier object compilation
-is separate evidence. Complete source/config preparation, kernel link,
-regression execution and kernel sanitizer checks remain to be done.
+The first debug build exposes a vendor USB declaration omission; a separate
+test-only overlay moves that existing declaration without changing functions
+or debug macros. Both kernel and seven modules then build without warnings.
+The two-line V3D (Pi graphics driver) fix and six regression cases are unchanged.
+An optional traced run times out after its complete passing primary; it remains
+incomplete. A clean primary-only rerun retains every memory/lock check and
+original bound. Unused loader-helper and compiler failures remain recorded.
+No kernel fault-injection, lock torture or multicore stress is claimed.
 
-Recovery inventory retains the stock kernel, initial-memory filesystem,
-modules and device trees. Normal boot files select 6.18.60 while 6.18.50 runs.
-Physical media access, backup readback and a stock recovery boot remain
-unverified. Nothing authorizes candidate installation, module loading or reboot.
+Across diagnostic preparation, failed/retried builds, guest attempts and stock
+inventory, 3930 resource samples stay at or above 6,934 MiB (mebibytes),
+above the unchanged 3,072-MiB floor. Original QOR source/binary/image, host
+package, running kernel and boot identities are checked at preservation.
+Complete stock module trees are hashed; no media or boot action occurs.
 
-All 1,414 original source hashes, Agent/Studio binaries and prior image are
-preserved at admission. The original gameplay result remains three passes,
-one failure and zero skips: `times > 5` is three; later notice/cursor checks
-were unreached. The software-renderer failure and 97 image outliers remain.
-No new QOR Release, sanitizer, product or image acceptance is claimed.
+The Pi still runs 6.18.50 while normal boot files select 6.18.60. Neither
+offline backup readback nor a stock recovery boot is verified. A matched
+6.18.50 recovery medium must boot before a separately approved production
+trial; full production packaging and real GPU integration are still pending.
+No candidate installation, physical boot or live module load is authorized.
 
-The first hosted security scan flags a verified public archive filename.
-An exact path/line exception has five passing local scanner checks; hosted
-verification remains separate. Windows refuses a history scan at 2,398 MiB,
-below the resource floor. No services are stopped to free memory.
+The original Studio result remains three passes and one failure (`times > 5`
+is three), with later notice/cursor assertions unreached. Its separate software
+failure and 97 image outliers stay open. Native kernel checks do not qualify
+application sanitizers, hosted CI (automated integration), images or Release.
+Pull request #10 stays draft; consolidation planning remains separate.
 
-Next: verify the complete pinned kernel source/config, build the isolated
-test kernel, then run the unchanged six-case control and corrected suite.
-PR #10 stays draft while required acceptance and isolated CI (automated
-integration checks) remain incomplete. Player frame rates, the earlier
-Wayland leak and ARQADE diagnostics remain open. Review the dependency lock
-and runbook in `image/README.md`; receipts:
-`build/development-2026-11-16/session-08/`. Session-07 remains sealed.
-Consolidation planning is separate.
+Next: physically verify a matched stock 6.18.50 recovery boot on independent
+media, under specific authorization. The canonical recovery/trial/return plan
+is in `image/README.md`; receipts: `build/development-2026-11-16/session-11/`.
