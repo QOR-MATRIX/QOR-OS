@@ -6,6 +6,7 @@
 // through a Behaviour that targets it (`onEntered`, `onExited`), or through its own signals.
 
 // Changed for QOR OS: volume and collider factories bind to their owning trigger.
+// Changed for QOR OS: typed trigger volumes preserve structural parents and optional QQ entity metadata.
 
 pragma ComponentBehavior: Bound
 
@@ -26,9 +27,12 @@ Node {
     property string form: "box"
 
     /// True while the scene this belongs to plays.
-    readonly property bool live: parent !== null && parent.playing === true
+    readonly property bool live: parent !== null && _parentValue("playing") === true
     /// The volume play made, or null.
     property Node physics: null
+
+    // A parent can be a Scene, Group or Prefab; each supplies the same playing state.
+    function _parentValue(field: string): var { return trigger.parent[field] }
 
     /// An entity came in, or left (null for something that is not an entity). A 2D player is heard by QQ's own measure
     /// at each step (Scene.tick, P3.11), the same in a replay; anything else, by PhysX.
@@ -38,18 +42,26 @@ Node {
     property var _qqInside: []
 
     /// How many bodies are inside now.
-    readonly property int inside: physics ? physics.collisionCount : 0
+    readonly property int inside: {
+        const volumeBody = physics as TriggerBody
+        return volumeBody ? volumeBody.collisionCount : 0
+    }
 
     function makeBody() {
         if (!live || physics)
             return
         // At the scene's top, following where the trigger is in the world: moved by logic, or with its group (P3.15).
-        const made = volume.createObject(SceneIO.sceneOf(trigger) ?? parent)
+        const made = volume.createObject(SceneIO.sceneOf(trigger) ?? parent) as TriggerBody
+        if (!made)
+            return
         made.collisionShapes = [(form === "sphere" ? ball : box).createObject(made)]
         physics = made
     }
     onLiveChanged: makeBody()
     Component.onCompleted: makeBody()
+
+    // QQ bodies optionally carry an entity; ordinary Qt physics bodies have no such property.
+    function _entityOf(body: var): QtObject { return body && body.entity !== undefined ? body.entity : null }
 
     Component {
         id: volume
@@ -57,8 +69,8 @@ Node {
             readonly property QtObject entity: trigger
             position: trigger.scenePosition
             rotation: trigger.sceneRotation
-            onBodyEntered: (body) => trigger.entered(body && body.entity !== undefined ? body.entity : null)
-            onBodyExited: (body) => trigger.exited(body && body.entity !== undefined ? body.entity : null)
+            onBodyEntered: (body) => trigger.entered(trigger._entityOf(body))
+            onBodyExited: (body) => trigger.exited(trigger._entityOf(body))
         }
     }
     Component {

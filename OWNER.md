@@ -1,36 +1,32 @@
 # Where QOR OS stands
 
-For Andrew, 13 November 2026. PR #9 is merged on main at `f4c9863`.
-The homepage correction is deployed and its public delivery is verified.
+For Andrew, 20 November 2026. The 30-file reviewed checkpoint is committed and
+pushed as `e781cf6` on `fix/native-play-clock-waits`. PR (pull request) #10 remains
+open/draft. At that checkpoint, hosted Lint, Security and Homepage checks pass; Build fails
+Release readiness because Windows/Linux Qt jobs skip. Their isolation gates
+remain unchanged. Thirteen other registered worktrees were verified clean.
 
-## Verified progress
+The next Qonsole source slice adds opt-in read-only snapshots of its own Raw
+Input (controller event) registration and focus gate. Fourteen Qt fixture results,
+two-program hardening and actual enabled/default-off controls pass. Ordinary
+Windows Enter/sample/Escape restores the accessible Home focus; both apps exit 0.
+Readback observes gamepad usage 1/5 at the requested window, but reports flags 0
+versus requested DEVNOTIFY 8192. Strict full-match remains false. Notification
+semantics, real USB input and reconnect are unqualified; no controller was
+impersonated or physical action requested. Full binary fingerprint/commands:
+`apps/qonsole/README.md`; evidence: `build/development-2026-11-20/session-08/`.
 
-Authenticated readback confirms that the existing Astra Matrix / qor hosting
-project builds QOR-MATRIX/QOR-OS/main/site with Node 24 and publishes only `dist`,
-the generated public folder. QORSYNC.DEV serves deployment
-`dpl_E41rwWtgMm8imti425U8YAkEaUMt`, built from the merged revision.
+The old `b474280e...` normal executable, `6de2f01d...` candidate and private
+staging remain preserved. The combined Python checkpoint passes 124 methods;
+the unwired Pi draft has no production profile or image acceptance. The premium
+C++/Qt Linux desktop, Prism, QQ Studio/Player, two stores, media and shared device
+editions remain the masterplan. Demiurge/QOR ID/Auth integration code, QPi device
+execution and recovery stay on hold. No erasure, kernel boot/install, deployment,
+console support or migration is authorized by these local checks.
 
-All 47 public files match the reviewed source or locked package bytes, including
-both HTML pages. Cloudflare no longer appends its analytics script. The delivered
-`no-transform` header forbids proxy edits; all six security headers, canonical
-links, the `www` redirect and seven private-file exclusions pass. The Vercel
-Analytics script is delivered successfully; dashboard collection was not exercised.
-
-The homepage build passes 36 content checks and six privacy/output tests with
-no failures or skips. The dependency audit reports no vulnerabilities. Homepage
-and history checks also pass on GitHub at the deployed revision. Native Qt CI
-(automated builds and tests) remains paused pending isolated workers, so the
-release-readiness check remains failed. No native source or core pin changed;
-the pin is still `6a4822d`.
-
-## Continuation
-
-The roadmap retains the earlier native creator/player journey result, four play
-failures and incomplete broader product qualification. Investigate those failures
-and finish the remaining suites; resolve upstream audits before extending the
-shell-to-core interface. These device checks were not rerun in this homepage session.
-No device image, package, network upgrade or release was published.
-
-Current hosting receipts are in `build/development-2026-11-13/session-09/`.
-Session-08 preserves the original proxy mismatch; session-07 preserves the native
-results. The roadmap remains the sole record of outstanding gates.
+Original Studio/software-renderer failures and 97 image outliers remain open.
+Historical kernel/recovery receipts are linked by `image/README.md`; they were
+not rerun. Linux/product, physical, clean-PC, distribution and Release gates are
+unverified. Next: finish the native flag/notification evidence, then coordinate
+real wired-controller testing; continue software-only work when external gates
+are unavailable, without weakening their assertions or resource limits.

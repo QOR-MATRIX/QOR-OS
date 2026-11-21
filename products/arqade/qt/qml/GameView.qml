@@ -26,6 +26,7 @@ import ARQADE
 // Changed for QOR OS: a controller's Back (View, Share) puts the game away too, since ARQADE has the controller to
 // itself in Prism and no Esc comes from it there. No game binds Back, and the game never hears it (ControllerBack).
 // Ever Rift, Darkveil and Bellwick, QOR OS's own (its QOR-0017), are played here too.
+// Changed for QOR OS: loaded-game bindings use playingScene, leaving the viewport scene to Qt.
 Item {
     id: view
 
@@ -55,7 +56,7 @@ Item {
     /// The run so far.
     readonly property alias record: run
     /// The scene playing, or null.
-    readonly property alias playing: play.scene
+    readonly property alias playing: play.playingScene
 
     /// The game has been put away, and the home should show.
     signal closed()
@@ -303,7 +304,7 @@ Item {
     Timer {
         interval: 1200
         repeat: true
-        running: view.arena !== "" && host.following !== "" && !host.finding && play.scene !== null
+        running: view.arena !== "" && host.following !== "" && !host.finding && play.playingScene !== null
         onTriggered: {
             if (host.polling)
                 return
@@ -317,7 +318,7 @@ Item {
     Timer {
         interval: 3000
         repeat: true
-        running: view.arena !== "" && host.listening && host.following === "" && !host.creating && play.scene !== null
+        running: view.arena !== "" && host.listening && host.following === "" && !host.creating && play.playingScene !== null
         onTriggered: view.server.refresh()
     }
 

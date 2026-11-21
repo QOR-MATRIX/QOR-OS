@@ -9,6 +9,574 @@ their changes since, and pulls of what is still shared, are recorded here.
 
 ## [Unreleased]
 
+- **Observe the running Qonsole input registration without controller emulation.**
+  An opt-in child-only diagnostic reads the process's own Raw Input registrations
+  and focus gate at startup/focus changes, with no timer or device output.
+  Strict matching rejects missing/duplicate/wrong-target/flag records. Fourteen
+  Qt results and enabled/default-off runtime controls pass. Actual readback shows
+  usage 1/5 and the requested window, but flags 0 versus requested DEVNOTIFY 8192;
+  exact flag qualification and physical/hot-plug behavior remain open.
+
+- **Draft an opt-in Pi image contract without production wiring.** A bounded
+  in-memory helper rejects non-arm64, ambiguous/wrong caller-selected profiles,
+  duplicate JSON fields and unavailable/malformed Prism authentication evidence.
+  It supplies no production profile or image probe. Sixteen helper and eighteen
+  unchanged generic validator tests pass; no image/hardware acceptance follows.
+
+- **Connect the standalone Windows Qonsole controller path in source.** Add a
+  foreground-only Raw Input reader for DS4 USB-shaped reports, reusing QOR's
+  existing parser and the launcher's semantic action seam. Cross/Circle/D-pad
+  mapping, neutral rearming and edge latching preserve keyboard behavior and
+  prevent inactive/held/duplicate activation. Bounded in-memory fixtures pass
+  11 Qt results. A separate helpers-OFF Release candidate builds and passes the
+  public Windows Enter/sample/Escape flow with restored accessible focus; its
+  SHA-256 is recorded in the Qonsole guide. The original standard executable
+  and prior evidence are preserved. Live Raw Input registration readback and
+  physical retest remain unverified; no controller acceptance is claimed.
+
+- **Build and verify a Qonsole-owned Windows executable.** Add an isolated
+  CMake/preset target using repository compiler/hardening rules and the existing
+  original QML resources, without the full stack or a new dependency. QML load
+  failure exits nonzero. The local verification-enabled Release binary passes
+  visible Home/sample/Back from an empty cwd with exact focus restored, a missing
+  QML negative control and PE hardening. Record its SHA-256 and scoped inputs;
+  preserve the Windows lock/RAM guard and all unrelated work. This is injected
+  Qt input, not physical hardware, distribution, Qt deployment or console proof.
+
+- **Record the working standalone Windows Qonsole slice and reconcile the roadmap.**
+  The original Qt Quick-only Home/local sample entry point runs without simulated
+  services; seven injected key/action cases and the visible Windows software smoke
+  have local evidence. A further unchanged-entry-window Home/sample/Back check
+  passes three Qt results and restores the identical Home card, using injected
+  keys. Preserve the premium C++/Qt desktop, QQ Studio/Prism, two
+  stores and media vision. Keep physical-controller and supported-route PS4/PS5
+  acceptance unverified; reported PS4 14.02 is not compatibility proof. Record
+  source provenance in the existing metadata draft, including logical destinations,
+  original/test-asset hashes, the exact Qt kit and verified Qt-host executable
+  hashes. Keep application version/identity/icon unset; no Qonsole EXE or compiled
+  resource is identified. Actual staging validation remains the next payload gate;
+  the documentation-only phase reruns no runtime or build.
+  Demiurge/QOR ID/Auth integration code and QPi/recovery remain on hold, with
+  earlier erasure permissions withdrawn. Retain prior edits and dated evidence.
+
+- **Record the stock Pi recovery check's pre-write blocker.** On 17 November,
+  reverify the running 6.18.50 versus boot-selected 6.18.60 state, stock module
+  manifests, original QOR inputs and draft PR #10. Identify the owner's SanDisk
+  spare through Windows metadata; its smaller capacity prevents a direct
+  whole-card clone. Raw inspection is denied and no suitable Pi reader/adapter
+  is available. Stop before erasure, boot-file changes or reboot. Recovery and
+  return remain untested; candidate installation/boot is unauthorized. Record
+  the outstanding preparation, backup and original-baseline return gates in
+  the canonical runbook. Receipts: `build/development-2026-11-17/session-01/`.
+
+- **Verify the focused kernel regression with memory and lock checks.**
+  Run all six unchanged cases under Generic KASAN and lockdep in the private
+  guest: six pass, zero skips/timeouts, validators active throughout. Fix a
+  vendor debug-build declaration omission with a separate test-only overlay;
+  preserve warnings-as-errors, original flags, limits and failed evidence.
+  An optional traced attempt times out after its passing primary and remains
+  incomplete; the clean primary-only run uses the same 300-second bound.
+  Preserve boot/package/source state and prepare the explicit matched-stock
+  recovery/trial/return plan without executing it. Physical recovery, production
+  packaging, original Studio/software failures, image and Release gates remain
+  open; PR #10 stays draft. Receipts: session-11 under `build/development-2026-11-16/`.
+
+- **Verify the V3D zero-poll regression in isolated ARM64 test kernels.**
+  Preserve the earlier linked control and its two upstream documentation warnings.
+  A separate common comment-only overlay fixes those warnings without changing
+  the production backport, six regression assertions or warning check. Complete
+  pinned-source builds retain the stock wait/preemption/page-size configuration
+  and compatibility vDSO. The control reproduces 16 sleeping busy polls; the
+  corrected kernel passes all six cases with no poll sleeps, skips or timeout.
+  Reject an initial corrected guest that reused the cached control object;
+  explicitly recompile it and retain object/hash/disassembly evidence. Both
+  final guests have 30 paused-VM admission samples within the original limit,
+  and preserve complete primary KTAP and separate call-path diagnostics.
+  Host packages, running kernel and boot files are preserved. Kernel sanitizers,
+  hardware integration/recovery and QOR acceptance remain open. Receipts:
+  `build/development-2026-11-16/session-10/`; PR #10 stays draft.
+
+- **Keep the private builder's public archive provenance scannable.**
+  Security scanning mistook one verified Debian package filename for a secret.
+  Limit its exception to that exact archive line, manifest path and rule,
+  including the scanner's URL-decoded form. Five real-scanner checks cover the
+  complete lock and rejected changes to the value, path, field and line.
+  Hosted Security runs those checks before scanning history; default detection
+  remains enabled. The initial failed hosted run is retained in session-08.
+
+- **Provision the authorized private ARM64 kernel-build dependencies.**
+  Lock 218 Debian package versions/hashes and signed metadata; extract payloads
+  only into the private root. Compiler/linker, parser generators and paused
+  QEMU startup checks pass under the original guard. Host packages, kernel,
+  boot files and regression assertions remain unchanged. No kernel is built
+  or booted; all six control/corrected cases remain unrun. The dependency lock
+  and runbook distinguish tool readiness from kernel/product acceptance.
+  Receipts: `build/development-2026-11-16/session-08/`; PR #10 stays draft.
+
+- **Qualify the kernel-test isolation mechanism and document exact blockers.**
+  A private namespace probe passes, but bison, flex, QEMU and the
+  complete pinned source are unavailable. All six control/corrected cases are
+  explicitly not run; no test or patch changes. The setup plan preserves the
+  exact wait/preemption configuration and loads the test module only in a guest.
+  SD recovery inventory finds retained matched stock components and a newer
+  normal device tree; physical recovery and boot remain unverified. No package,
+  kernel, boot configuration or service changes. Receipts: session-07 under
+  `build/development-2026-11-16/`; PR #10 remains draft.
+- **Prepare a Pi-kernel zero-poll backport, kernel regression and rollback plan.**
+  A pinned two-line V3D change preserves zero-timeout polling, with six separate
+  default-off KUnit cases. Patch/reverse and native object compilation pass;
+  full kernel build, kernel-test execution and installation remain pending.
+  The runbook records that next-boot files are 6.18.60 while 6.18.50 runs, and
+  requires verified recovery before a trial. No live kernel or QOR test contract
+  changes. Review artifacts: `image/pi/kernel-wait-bo/`; receipts: session-06
+  under `build/development-2026-11-16/`.
+
+- **Exact Pi kernel audit identifies a sleeping zero-timeout buffer poll.**
+  Loaded-module build IDs, original machine instructions and package-pinned
+  source show timeout zero becoming one timer tick before the graphics fence
+  wait. The installed newer kernel retains it; the upstream zero-poll correction
+  is identified for a separate backport/qualification proposal. No kernel,
+  production code, timing, assertion or acceptance result changes. Receipts:
+  `build/development-2026-11-16/session-05/`.
+
+- **Matching Mesa symbols identify the captured buffer-291 allocation probe.**
+  An indexed draw submits work while requesting TSDA tile state and checking a
+  cached buffer with timeout zero. Exact build-ID/checksum/range and original
+  machine-code evidence replace nearest-symbol guesses. The memory guard stops
+  the large DWARF reader; bounded symbol-table analysis succeeds. A mismatched
+  Qt debug archive is rejected. No running library, production/test contract or
+  acceptance result changes. Receipts: `build/development-2026-11-16/session-04/`.
+
+- **Client-only graphics tracing locates repeated V3D buffer waits in first Play.**
+  The unchanged Agent still fails its frame gate. A matched reference, bounded
+  system-call trace and lower-overhead ioctl observer separate tracer disturbance
+  from 491.838 ms of buffer waits within a 510.661-ms frame interval. Buffer 291
+  and its submission are identified; the unique fence, GL operation and Studio
+  pass remain unresolved without matching debug symbols. Original artifacts and
+  prior failures are preserved; no production/test-contract change or new Release,
+  sanitizer or image acceptance. Receipts: `build/development-2026-11-16/session-03/`.
+
+- **First-Play tracing separates Mesa cache startup cost from a persistent fence wait.**
+  The unchanged ES Agent cases still fail `times > 5` with three, with or without
+  a seeded cache. Phase/thread evidence narrows the wait without assigning a GPU
+  pass or treating unsupported timestamps as zero GPU time. Image outliers and
+  explicit visual criteria are reviewed; deterministic logging and early ES setup
+  remain proposals. Original artifacts, resource/timing gates and the independent
+  software failure are preserved. Receipts: `build/development-2026-11-16/session-02/`.
+
+- **The client-only ES diagnostic restores Studio's observed image, but not its frame gate.**
+  Actual V3D/OpenGL ES 3.1 removes the shader mismatch without changing original
+  source or executable bytes. Complete images are compared with a matched
+  llvmpipe control, retaining edge and UI differences. Focused Agent remains
+  three passes, one failure and zero skips: errors coalesce correctly, but
+  `times > 5` fails with three. Supplemental deterministic counting/interleaving
+  coverage and an explicit Pi graphics selection are proposals only. Natural
+  assertions, timing, the software failure and broader acceptance gates remain.
+  Receipts: `build/development-2026-11-16/session-01/`.
+
+- **Isolated V3D access is verified; Studio hardware qualification fails.**
+  The render-node-only sandbox reaches the Pi GPU without changing the desktop
+  or software configuration. The original client selects desktop OpenGL 3.1,
+  misses baked shader variants and loses its sky/environment lighting in a
+  matched image comparison. Focused Agent reports three passes, one failure and
+  zero skips; wall-clock waiting passes, logging fails before the repeat gate.
+  Button/focus checks pass on both clients but do not qualify the viewport.
+  Original sources, binaries, timing and assertions are preserved. The software
+  failure and broader gates remain open; deterministic logging coverage is
+  recommended as a supplement, not a replacement. No production fix is claimed.
+  Receipts: `build/development-2026-11-15/session-13/`.
+
+- **The bounded Agent follow-up resolves the sampled generated-code hotspot.**
+  Valid LLVM symbols map 1.86 of 1.87 unknown CPU-seconds to texture sampling and
+  fragment shading; ten invalid objects and collector warnings remain recorded.
+  Matched elapsed profiling overhead is 7.4%. A single Sun-shadow control does
+  not resolve the callback failure; no image-preserving fix is established.
+  The test-contract review proposes deterministic real-error logging coverage
+  alongside the unchanged natural-frame gate. Original sources/executable are
+  restored; focused results remain three passes, one failure and zero skips.
+  Build/hardening pass; broader acceptance remains closed. The V3D host node is
+  an unqualified renderer candidate, not acceleration evidence. No production,
+  assertion, timeout or quality change. Receipts: `build/development-2026-11-15/session-12/`.
+
+- **The Agent first-frame investigation identifies software rasterization as the dominant cost.**
+  A bounded Pi call-stack profile retains unresolved-symbol and collector limits;
+  measured overhead is 7.5%. A diagnostic rasterization control reduces the
+  first-frame interval from 1,037 to 205 ms while render-thread CPU stays near
+  205-207 ms. It is not acceptance. Actual isolated Vulkan/lavapipe is available
+  but still delivers one callback. Original sources/executable are restored;
+  focused tests remain three passes, one failure and zero skips. No production
+  fix, quality, assertion or timing change is made. Build/hardening pass; broader
+  acceptance stays closed. Next, resolve hot addresses with Mesa's generated-code symbols.
+  Receipts: `build/development-2026-11-15/session-11/`.
+
+- **The Agent frame delay is isolated to Studio viewport rendering on the Pi software renderer.**
+  Client render/CPU traces and matched display callbacks separate a 1,056 ms
+  first-frame interval from 10.3-10.6 ms compositor callback latency. A temporary
+  viewport-pixel control delivers 20 natural callbacks instead of one during
+  the same 600 ms request, with matching log counts; it is not acceptance.
+  Exact original source/executable restoration retains the focused failure.
+  No production fix, assertion, timing, quality or worker-limit change is made.
+  Broader acceptance stays closed pending the focused failure; first-frame
+  call-stack profiling is next. Receipts: `build/development-2026-11-15/session-10/`.
+
+- **The native Agent logging failure is traced to callback delivery during its unchanged wait.**
+  The original failure reproduces while the wall-clock wait case passes.
+  Two isolated Pi software traces find the scene and logic ready in 37 ms,
+  but only one natural logic-frame callback by the 600 ms wait's delayed return
+  at 1,221/1,197 ms. The exception reaches the log. Six explicit diagnostic
+  callbacks then produce one entry with seven total repetitions, confirming
+  capture and counting for the exercised path. Those callbacks are a positive
+  control, not an acceptance pass. No logger change is justified by this evidence;
+  the render/synchronization bottleneck remains to be profiled. The test's
+  600 ms request, `times > 5` assertion and standard suite limits are preserved.
+  After exact source/executable restoration, full Agent again passes 22 with
+  the same failure and one optional provider skip. Build, hardening and lint pass.
+  Receipts: `build/development-2026-11-15/session-09/`.
+
+- **Qualified Windows checks pass after memory recovery.** Source `5d1359e`
+  passes all 22 selected core suites, with one expected Windows desktop-entry
+  case skipped and nine GPU-labelled suites excluded. Core and QQ builds,
+  hardening for 33/15 programs and aggregate QML lint pass; the core retains its
+  known Rust dependency future-compatibility warning. All three QQ structured
+  lint reports also confirm zero warnings. Six QQ metadata tests and
+  six inert AgentPanel results pass. The original Windows lock, resident-worker
+  admission, continuous 3,072-MiB guard and existing test limits remain unchanged.
+  Full product runtime checks still require a qualified audio/keyring boundary;
+  this is local software evidence, not isolated CI or hardware acceptance.
+  Receipts, including corrected evidence-wrapper failures:
+  `build/development-2026-11-15/session-08/`.
+
+- **QQ Studio's Agent panel clears the final 18 QQ lint findings.**
+  An explicit accessor keeps the required structural controller interface and
+  follows its current object in bindings and actions. The inert regression
+  checks controller replacement, action receivers, state/model/usage updates,
+  plain-text refusal messages and clearing the key input. No provider, account
+  or real keychain is used by that regression. Six focused results pass before
+  the source change and under address/undefined-behavior sanitizers afterward,
+  with leak checking. Complete Agent passes 22 with its identical existing
+  log-timing failure and optional provider skip; complete Studio passes 29.
+  Native QQ aggregate lint and all three structured module commands now pass
+  with zero warnings. The creator journey passes in 131.581 seconds under
+  its original 300-second limit. Existing assertions, timing, isolation and
+  the 3,072-MiB floor are unchanged. Receipts: `build/development-2026-11-15/session-07/`.
+
+- **Normal QQ runtime lint resolves SpatialAudio's missing base-type dependency.**
+  The Qt 6.12.0 build uses a local tooling-metadata copy with the missing
+  `QtQuick3D` dependency, leaving the installed kit unchanged. Already-correct
+  metadata needs no override; incomplete, unexpected or unreviewed broken
+  metadata is refused. Six helper tests pass, valid spatial types resolve,
+  and invalid properties/types still fail. Both generated runtime lint targets
+  pass with zero warnings. At that checkpoint, Studio retained 18 findings
+  and kept the aggregate lint gate failed. The complete native scene suite passes
+  all 109 results normally and offscreen under address/undefined-behavior
+  sanitizers with leak checking; eight audio results pass. The creator journey
+  passes in 199.848 seconds under its unchanged 300-second limit. All eight
+  audited executables match the preceding validation byte for byte. Evidence:
+  `build/development-2026-11-15/session-06/`.
+
+- **Sprite motion rejects mismatched physics handles; 14 hidden runtime lint findings are removed.**
+  Sprite's three motion commands require an actual dynamic body as well as
+  dynamic mode. Ordinary nodes and static bodies now return false without a
+  script error; both cases fail against the original code. Music, Sprite and
+  TileMap retain their current parents' play, pause, replay and pixel-scale
+  behavior through direct structural access. Private Sprite factories use
+  their explicit physics base type. All 14 focused results pass after the
+  change; the complete scene suite passes 109 normally and offscreen under
+  address/undefined-behavior sanitizers with leak checking. Existing assertions
+  and approved gameplay timing are unchanged; the complete gameplay suite
+  passes all 58 results. Store launch passes three, and the packaged-game
+  creator journey passes in 201.365 seconds under its unchanged 300-second
+  limit. The existing Agent log-timing failure and Player's two 20-FPS-floor
+  failures remain; no assertion or timing boundary was relaxed.
+  Structured lint corrects the earlier console-only count: runtime findings
+  fall from 20 to six, with none added; Studio has 18 unchanged findings and
+  Player has none. A temporary metadata copy reproduces the six Qt SpatialAudio
+  dependency findings and preserves rejection of invalid properties and types.
+  After the source fixes, complete Runtime lint passes with that temporary
+  copy. Normal lint still fails with the installed metadata.
+  The installed SDK and lint policy are unchanged. Evidence:
+  `build/development-2026-11-15/session-04/`.
+
+- **QQ runtime parent state and TileMap collider types clear 12 lint findings.**
+  Emitter, Ground, InputAction, Prop, Sound and Spotlight read state through
+  their current parent's compatible interface. Existing boolean/truthiness
+  guards, input declarations, animation timing and sound replay suppression
+  remain intact. TileMap gives its private wall factory's result the concrete
+  StaticRigidBody type, retaining body and collider ownership. Eleven focused
+  results pass before and after the change; all 97 scene results pass normally
+  and offscreen under address/undefined-behavior sanitizers with leak checking.
+  Complete native gameplay passes all 58 results with its approved timing
+  boundaries and source unchanged. Store launch passes three, and the packaged-
+  game creator journey passes in 201.631 seconds under its 300-second limit.
+  The agent's prior log-timing failure and Player's two 20-FPS-floor failures
+  remain; no assertion or timing limit changed.
+  Six spatial-audio type-resolution findings remain, with none added.
+  Evidence is in `build/development-2026-11-15/session-03/`.
+
+- **QQ Behaviour preserves compatible logic and parent state while clearing 11 lint findings.**
+  Direct dynamic accessors retain its public object handles, current callback
+  receiver, prefab target lookup and frame-state guards across parent changes
+  and logic reloads. Both QQ Logic and compatible objects pass payload, target,
+  state, replacement and disposal coverage before and after the change. All
+  89 scene results pass normally and offscreen under address/undefined-behavior
+  sanitizers with leak checking; complete native gameplay passes all 58 results.
+  Store launch passes three, and the packaged-game creator journey passes in
+  201.377 seconds under its unchanged 300-second limit. The agent's prior
+  log-timing failure reproduces exactly; Player retains two FPS-floor failures
+  at 0.6 and 19.5 against 20, plus the unavailable-Landlock skip. The other
+  18 runtime lint findings remain unchanged. Existing assertions and approved
+  gameplay timing are preserved.
+  Evidence is in `build/development-2026-11-15/session-02/`.
+
+- **QQ Game preserves its dynamic scene interfaces while clearing 24 lint findings.**
+  Public scene and follower handles retain their object types and identity;
+  private accessors read the fields supplied by compatible scene nodes and 2D/3D
+  followers. New coverage checks live edits, follower replacement, camera state,
+  seed/recorder forwarding, host messages and release on both a QQ Scene and an
+  ordinary compatible 3D node, and rejects script errors and binding loops.
+  All 87 scene results pass normally and offscreen
+  under address/undefined-behavior sanitizers with leak checking; the complete
+  gameplay suite passes all 58 results with its approved timing boundaries.
+  Store launch passes three, and the packaged-game creator journey passes in
+  201.985 seconds under its original 300-second limit. The other 29 runtime lint
+  findings and both Player FPS failures remain. Separate traces of the unchanged
+  Player and agent show software-rendering and synchronization costs; they do
+  not replace the original acceptance measurements or relax their failures.
+  Evidence is in `build/development-2026-11-15/session-01/`.
+
+- **The complete native QQ suites and creator journeys are exercised.**
+  Gameplay passes 58 results with the approved timing boundaries; Studio passes
+  29, workspace 241, game builds 195, security lockdown 24, network confinement
+  three, Store launch three and publishing 11. The asset library passes 91 with
+  one optional benchmark skipped. The real Studio open/edit/save/build/packaged
+  launch journey passes. The separate Prism Library journey passes in 202.406
+  seconds under its original 300-second limit, using the test launcher and then
+  the real Player on a private display. Scene/world results are retained through
+  unchanged executable fingerprints. The agent timing failure, two Player
+  frame-rate failures, unavailable Landlock check and 53 unchanged lint findings
+  keep full qualification open. All runs retain the original native coordinator,
+  isolation, 3,072-MiB memory floor and standard suite limits. Receipts and
+  original failures are in `build/development-2026-11-14/session-15/`.
+
+- **The bundled QQ Player sky no longer prepares its lighting on every launch.**
+  The playground uses a precomputed Qt texture derived from its retained HDR
+  source, with source and output hashes in `dusk-lighting.json`. The guarded
+  native comparison produces identical pixels at 1280 by 720; its first frame
+  falls from 61.384 seconds to 0.762 seconds. The real Player then reaches its
+  first frame in 5.279 seconds and passes the first-frame capture, fixing both
+  original 60-second launch timeouts. Its complete suite records 13 passes,
+  two unchanged frame-rate failures (0.5 and 18.9 FPS against 20), and one
+  Landlock skip because the kernel lacks that confinement feature. Assertions,
+  deadlines, rendering quality and the original HDR source are preserved.
+  Evidence is in `build/development-2026-11-14/session-15/`.
+
+- **Orb Run's approved software timing change is applied.**
+  The original case still fails its five-second startup wait. A separate trace
+  observes the first ticks after 10.071 seconds of waiting and only 0.4 seconds of logic time
+  before the lantern's wall wait expires. The proposal admits software startup
+  separately and measures lantern reset, orb replacement and growth on their
+  logic clock. The complete case passes three Qt Test results in 184.714 seconds;
+  its build and hardening checks pass. GPU branches, predicates, tolerances,
+  input, music and pause waits are unchanged. The owner approved the exact
+  four-change proposal on 14 November; its source is now applied unchanged.
+  The native acceptance rebuild and hardening check pass, with the full source
+  manifest and executable matching the passing proposal. The case was not
+  rerun in that acceptance rebuild. Failures, the UTF-8 preparation correction,
+  patch and restoration receipts remain in `build/development-2026-11-14/session-13/`;
+  approval and integration receipts are in `session-14/` beside it. This accepts
+  the selected software functional case; full products and hardware remain open.
+
+- **Bundled sky lighting is precomputed, and native Store playback passes.**
+  QQ's World selects baked textures by the four colour values used by its
+  default and bundled scenes. Other colours retain procedural generation;
+  explicit sky images, exposure, rotation and rendering quality keep their
+  existing behavior. Checked-in EXR sources and a hash manifest accompany the
+  two KTX resources; normal builds embed them without running a baker. Both
+  palettes produce pixel-identical diagnostic captures. The native preset
+  builds without compiler/license diagnostics, all 85 scene results pass, and
+  the real Store-installed Player completes in 8.371 seconds under its unchanged
+  60-second deadline. All 11 world-rendering results pass; all 85 scene results
+  also pass under address/undefined-behavior sanitizers with leak checking.
+  Hardening accepts all 16 QQ programs and the sanitizer program. Runtime lint
+  retains exactly the previous 53 findings, with none added or removed. Evidence is in
+  `build/development-2026-11-14/session-12/`. Full product, Windows and hardware
+  acceptance remain separate gates.
+
+- **Direct Pi access and the precomputed-sky diagnostic now work.** Tailscale
+  connects the workstation to the native builder using its existing SSH key
+  and saved host identity. Qt's precomputed default sky reaches its first frame
+  in 0.774 seconds versus 61.529 seconds for the procedural path; both software
+  renders produce pixel-identical 1280-by-720 captures. The helper builds without
+  diagnostics, passes hardening, and both scenes lint without warnings. The
+  first helper attempt's component-loading failure and its bounded correction
+  are preserved in `build/development-2026-11-14/session-11/`, alongside the
+  retrieved earlier Pi traces. The original coordinator, 1,404 source hashes,
+  isolation and free lock are verified. That diagnostic preceded the production
+  integration and passing Store test above; Windows heavy checks remain below the
+  3,072-MiB floor.
+
+- **The native comparison isolates the sky-light startup cost.** Owner-provided
+  Raspberry Pi Connect output reports first frames at 0.474 seconds without the
+  procedural sky light probe and 61.054 seconds with it, on otherwise identical
+  minimal scenes. Both use llvmpipe and complete cleanly; source hashes match the
+  prepared scenes and the original coordinator is available afterward. A trial
+  using Qt's precomputed lighting, with timing and pixel comparisons, is prepared
+  in `build/development-2026-11-14/session-09/`; its later native result is recorded
+  above. Windows memory remains below the 3,072-MiB floor; local heavy
+  checks are not retried. No product change or passing Store test is claimed.
+
+- **The owner's native trace narrows the Store startup delay.** Through the Pi's
+  existing Raspberry Pi Connect shell, the diagnostic reports a first frame at
+  63.838 seconds and 62.791 seconds in Qt's reported swap stage. The output
+  records 1,404 verified source hashes, separate isolation namespaces, exit zero
+  and the original lock available afterward. Full artifacts remain on the Pi;
+  `build/development-2026-11-14/session-08/` preserves the owner-provided report
+  and a prepared minimal sky-light comparison. The swap timing alone does not
+  prove the cause. The unchanged 60-second Store gate remains open; no product
+  source, rendering quality, deadline or network configuration changed. Both
+  prepared scenes lint without warnings; local all-file hooks stop at 2,897 MiB
+  available, below the unchanged 3,072-MiB floor, and remain incomplete.
+
+- **The current QQ increment builds on Windows.** The complete serial build
+  has no compiler/license-client diagnostics; all 84 scene results pass and
+  hardening accepts 15 programs. The offscreen run retains font and hardware-audio
+  warnings, so its passes do not qualify Windows audio isolation. Runtime lint
+  still fails at 53 warnings. During that Windows run, the Pi's local hostname
+  was unreachable and no native job started. No runtime source,
+  rendering quality, deadline or network configuration changed. The original
+  collector's wrong executable-path error and separate reconciliation remain in
+  `build/development-2026-11-14/session-07/`. Full products and release acceptance
+  remain open.
+
+- **QQ makes its initial procedural sky once per colour batch.** Initial
+  construction now joins the queued colour updates instead of building the
+  same texture twice. A regression reproduces the duplicate construction and
+  checks colour values, ownership, later replacement and disposal. All 84 scene
+  results pass normally and offscreen under address/undefined-behavior
+  sanitizers with leak checking enabled; all 11 world-rendering results pass.
+  The full optimized native build has no compiler/license-client diagnostics,
+  and hardening passes 16 QQ programs plus the sanitizer program. Runtime lint
+  still fails at 53 warnings, unchanged. The Store test now waits for its timed-out
+  Player to exit before teardown, removing the running-process warning. Its
+  unchanged 60-second startup deadline still fails before and after the fix.
+  Separate diagnostics reach the first frame at 64.204/63.827 seconds and exit
+  cleanly; no startup improvement or Store acceptance is claimed. Current
+  evidence: `build/development-2026-11-14/session-06/`. Broader product, Windows,
+  Wayland sanitizer, isolated-CI, upstream-audit and hardware gates remain open.
+
+- **One canonical development repository is the owner's long-term direction.**
+  QOR-0028 records QOR OS, Q Pi, Demiurge Chain, ARQADE and associated systems
+  as the intended scope, with the current milestone first. Core ownership,
+  public/private access, licences, shared rules, launcher consumers and homepage
+  deployment require a separate evidence-based proposal. No source moves,
+  restructuring, visibility changes or earlier-decision supersession are
+  authorized; current boundaries remain in force.
+
+- **QQ's 2D Player updates only an actual QQ Sprite as its visual.** A matching
+  name on a lookalike node no longer moves that unrelated object, and another
+  entity no longer raises a script error. Named lookup and public property
+  types stay unchanged. Structural scene-clock access and the typed private
+  carrier factory preserve ownership, dimensions, pause/replay behavior and
+  deterministic movement. Seven new rows cover visuals, selection, activation,
+  interpolation, reparenting and detachment; two reproduce the original failures.
+  All 83 scene results pass in the optimized native build and offscreen under
+  address and undefined-behavior sanitizers with leak detection enabled. The
+  same four existing 2D gameplay/replay tests pass before and after the fix,
+  six results including setup/cleanup, with their source unchanged. Hardening
+  passes all 16 QQ programs and the sanitizer program. All 14 Player2D lint
+  findings are removed, none added; 53 runtime findings remain and the whole
+  lint gate still fails. Evidence: `build/development-2026-11-14/session-05/`.
+
+- **QQ's 3D Player moves only an actual character controller.** Its public
+  physics property stays a Node, but missing or incompatible bodies stop frame
+  updates and receive no movement or teleport commands. The private factory
+  checks its result as CharacterController before assigning and registering it.
+  Structural scene state, pause behavior, existing player selection and all
+  movement calculations are preserved. Seven new regression rows cover body
+  types, activation, ownership, reparenting and detachment; existing tests are
+  unchanged. The original runtime fails three of those rows after two test
+  import corrections. The optimized native build passes all 76 scene results
+  and six selected player/controller/trigger results, with hardening passing
+  16 programs. All 76 scene results also pass offscreen under address and
+  undefined-behavior sanitizers with leak detection enabled; that program
+  passes hardening. All nine Player lint findings are removed, none added;
+  67 runtime findings remain and the whole lint gate still fails. Evidence,
+  including initial fixture errors and the original runtime failures:
+  `build/development-2026-11-14/session-04/`.
+
+- **QQ triggers count only an actual trigger volume.** The public physics
+  property stays a Node, but collision counts and private factory results are
+  checked as TriggerBody. An ordinary node with a collisionCount property no
+  longer supplies a false count. Structural parent-state reads and optional
+  QQ entity callbacks retain their behavior. New regressions cover box/sphere
+  ownership, live edits, reparenting, detachment, strict activation, missing
+  volumes and entity/null callbacks; existing tests are unchanged.
+  The optimized native build passes all 69 scene results and six selected
+  trigger/group physics results, with hardening passing 16 programs. All seven
+  Trigger lint findings are removed and none added; 76 runtime findings remain.
+  The same 69 scene results also pass offscreen under address and
+  undefined-behavior sanitizers with leak detection enabled, and the sanitizer
+  test program passes hardening. Evidence: `build/development-2026-11-14/session-03/`.
+
+- **QQ's Shape motion commands check the actual physics body.** `push`,
+  `applyForce`, `setVelocity` and `setSpin` return false for a missing body,
+  an ordinary node or a mismatched static body, without raising a script error.
+  Their existing body-mode checks remain. The private factory uses the physics
+  base type before assigning collision shapes. Public properties are unchanged;
+  seven new test rows cover all four commands, with existing tests untouched.
+  The native optimized build passes all 65 scene results and seven selected
+  physics results, and hardening passes 16 programs. The five remaining Shape
+  lint findings are removed without adding any; 83 runtime findings remain.
+  All 65 scene results also pass offscreen under address and undefined-behavior
+  sanitizers with leak detection enabled; the test program passes hardening.
+  The following Git continuation restores the original Windows coordinator
+  byte-for-byte after idle-worker checks; all-file hooks and the complete
+  working-tree secret scan pass. Windows product builds remain unrun. Receipts:
+  `build/development-2026-11-14/session-02/` and `session-03/` beside it.
+
+- **QQ's shape factories keep their owning context.** Collision shapes and
+  static, dynamic and kinematic bodies bind to their owning Shape. Playing and
+  2D/3D state still come from the immediate parent through the same structural
+  property access used by Group and Prefab. A regression changes that state,
+  reparents and detaches a shape, checks its axis locks and verifies that a
+  truthy string does not start a body. Public fields, collision assertions and
+  test durations are unchanged. The final optimized native build passes 58 scene
+  results and seven selected physics results, without failures or skips.
+  Fourteen runtime lint findings are removed and none added; 88 remain, so the
+  lint gate still fails. All 58 scene results also pass offscreen under address
+  and undefined-behavior sanitizers with leak detection enabled. Hardening passes
+  all 16 QQ programs and the sanitizer test program.
+
+- **QQ keeps the loaded game separate from its viewport.** `Game.playingScene`
+  replaces the loaded-scene property that shadowed Qt's read-only `View3D.scene`.
+  The Player and ARQADE follow the new property, including arena polling and
+  the game-view alias. A regression checks loading, replacement and release
+  while preserving the viewport root; ARQADE checks its alias against the
+  loaded scene. The full native scene suite passes 57 results. The override
+  warning is removed; native QQ runtime lint still reports 102 warnings, and the Store
+  Player still exceeds its unchanged 60-second deadline.
+  Standalone viewport tests now own hidden windows and drain queued destruction.
+  All 57 scene results pass offscreen under address and undefined-behavior
+  sanitizers with leak checking enabled. Wayland retains a 96-byte allocation,
+  also reproduced by a numeric-only case; its sanitizer exit remains failed.
+  The full QQ rebuild is clean; all four affected playback functions and four
+  ARQADE game/arena caller functions pass. ARQADE's build/context warnings remain
+  recorded, and hardening passes the checked Release and sanitizer programs.
+
+- **Git reconciliation and native failure diagnosis, 13 November.** All 14 QOR
+  worktrees were clean at admission; stale remote-tracking refs were pruned and
+  already-integrated histories identified without discarding local checkpoints.
+  The upstream homepage handoff is pushed through `846d9ba`, and its duplicate
+  Analytics PR is closed. Four native QQ play failures reproduce with both render
+  loops. Diagnostics distinguish slow simulation and startup from missing logic.
+  The owner-approved six-wait patch uses the existing software physics clock
+  and passes the three contact cases; every outcome, tolerance and numeric
+  duration remains unchanged. GPU timing and release gates are unchanged.
+  The accepted native rebuild matches the passing proposal's binary; hardening
+  passes 16 programs. QML lint retains 103 warnings, Orb Run's later timer and
+  the Store Player deadline still fail, and a bounded lockdown probe is incomplete.
+  Isolated CI workers and the upstream SQLite audit remain unresolved.
+
 - **Hosting now reads QOR OS.** The existing Astra Matrix / qor project is
   connected to QOR-MATRIX/QOR-OS/main/site with the locked build and `dist` output.
   Its live alias serves the merged source; canonical links, redirects, security

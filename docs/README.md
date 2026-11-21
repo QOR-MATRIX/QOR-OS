@@ -16,12 +16,13 @@ apply. A document not indexed here (or a product's own README) is not current.
 | [../THIRD_PARTY_NOTICES.md](../THIRD_PARTY_NOTICES.md), [../LICENSE](../LICENSE) | read attribution and repository licensing; these do not prove a target-kit entitlement |
 | [../VISION.md](../VISION.md) | understand what QOR OS is and where it is going |
 | [ROADMAP.md](ROADMAP.md) | see what is done, what is next, and the release gates |
+| [Qonsole capability matrix](ROADMAP.md#alongside-the-phases--qonsole-device-edition), [source/run guide](../apps/qonsole/README.md) | distinguish the working standalone Windows UI from injected/physical input, staging prerequisites and unverified supported-route PS4/PS5 aspirations |
 | [release/](release/README.md) | act on each release gate: who must act, the next step, and the drafts for the owner's advisers (Qt, trademarks, terms and privacy, signing, the security review, sign-in) |
 | [decisions/](decisions/README.md) | read why decisions were made (QOR, QTOS and Demiurge records); propose new ones |
 | [UPSTREAM.md](UPSTREAM.md) | know what QOR OS shares with demiurge-chain (ARQADE's rules and runs, the one look, the QOR core), how it moves, and where the products came from |
 | [ARCHITECTURE.md](ARCHITECTURE.md) | understand how the code is organised and how the pieces talk |
 | [BUILDING.md](BUILDING.md) | set up the toolchain, build, run, deploy and troubleshoot |
-| [../image/README.md](../image/README.md) | Fedora image/lab evidence; Q Pi development preparation, first boot and hardware acceptance still required |
+| [../image/README.md](../image/README.md) | historical Fedora image/lab and QPi preparation evidence; QPi/recovery execution is on hold and no media write is currently approved |
 | [DEVELOPMENT.md](DEVELOPMENT.md) | follow conventions, use recipes (add a service, app or control), debug |
 | [CI.md](CI.md) | understand paused Qt jobs, isolated-runner prerequisites and the checks CI is configured to require |
 | [HOSTING.md](HOSTING.md) | verify the QOR OS repository, existing QOR Vercel project, build settings and canonical domain |
@@ -47,6 +48,15 @@ Image inputs are described by the image guide, including
 [installer attribution](../image/installer/ATTRIBUTION.md) and
 [Q Pi preparation metadata](../image/pi/preparation.json), which is planning data,
 not a builder configuration or acceptance receipt.
+The [Pi-kernel backport review](../image/README.md#pi-kernel-wait-bo-backport-review)
+indexes the pinned patch/test artifacts and pre-install rollback plan; they are
+not an installed kernel or a passing hardware result. The same runbook records
+the initial prerequisite block, subsequent authorized private dependency root
+and package lock, six regression cases and actual SD recovery inventory.
+Normal isolated regression and the focused primary memory/lock run subsequently
+complete; the optional traced diagnostic remains incomplete. The 17 November
+authorized stock-recovery continuation stops at reader/access and preparation
+gates before any write or reboot. Physical recovery/return remain untested.
 
 The products document themselves in their own READMEs:
 [QQ](../products/qq/README.md), its [samples](../products/qq/samples/README.md),

@@ -1,5 +1,7 @@
 # QQ, the QOR Engine
 
+<!-- Changed for QOR OS: precomputed shipped sky palettes, generation inputs and editable-colour fallback. -->
+
 <!-- Changed for QOR OS: current project-document links; on Linux the Studio keeps the provider's key in the Secret Service (QOR OS's QOR-0011); gamepads come from QOR OS's controller service, QOR.Input, in place of XInput; each project's workspace in the Studio; the asset library; literal game-screen labels and their owning component context; literal Agent status/key problems; project-file list bindings and layout; literal logic problem descriptions; typed statistics overlay; bound inspector field loaders and literal source filenames; bound Agent step rows; literal group-selector names; bound ground/slab and texture context; checked Player measurement output. -->
 
 An engine for virtual worlds and experiences, built on **Qt 6.12** under the owner's commercial licence
@@ -35,7 +37,10 @@ it; the QQ Player plays a scene on its own, natively and in a browser.
   platformer's hero or a top-down one, under the same input as everything else, carrying a Sprite as its look and
   saying what it is doing (`activity`) so logic plays the right frames; `respawn()` puts it back. Since P3.11 it moves
   by QQ's own kinematics, not PhysX. Shapes and sprites with bodies stay on the plane and turn only about its depth
-  axis. Sprite’s private collider and body factories bind to its owning instance; tests cover dynamic sprites landing on
+  axis. Shape's private collider and body factories bind to its owning instance. Its immediate parent's playing and view
+  state can come from a Scene, Group or Prefab; changes and reparenting update the live state and plane locks. A missing
+  parent or state does not make it live or lock it to the plane. Sprite’s private collider and body factories bind to its
+  owning instance; tests cover dynamic sprites landing on
   static and kinematic sprite floors, contact reports, plane locks and crisp/animated pixels.
 - **Steps, seeds and replay (P3.11, built 19 October 2026; ADR-105 decision 6):** play moves in ticks of 1/60 s,
   whatever the frame rate. Each frame's time is paid in whole ticks, at most eight a frame. Each tick takes the player's
@@ -293,6 +298,10 @@ own, Anthropic bills it directly, the panel says so before a key is given and sh
 holds no provider key and pays for no one's generation. Still to come in P3.3: its proof, a scene built from a
 description with no human edit, made by whoever runs it with their own key.
 
+The panel's required controller remains structurally compatible with DesignLoop and inert test controllers.
+Its accessor reads the current object for bindings and actions, including after replacement. A refused key submission
+still clears the password field and displays the problem as plain text; no new key storage or provider path is added.
+
 ## What is here
 
 | Path | What it is |
@@ -312,10 +321,312 @@ All five screen kinds bind their drawing Components to their own screen part's c
 them on the World's overlay. Text, sizing, fill, images and actions continue to refer to that instance; these drawings use
 no delegate model context. ScreenImage is ready only when its actual Image has finished loading; a malformed file is not ready.
 
+`Game.playingScene` is the loaded QQ scene, or null before loading and after release or failed startup.
+`Game.scene` is inherited from Qt's `View3D`: it is the viewport's own scene root and remains separate when a game
+loads, restarts or releases. The Player and ARQADE read `playingScene` for game state; hosts using the former
+loaded-scene property must use that name too.
+
+The public `playingScene` and `follow` handles remain `QtObject`s. SceneIO accepts compatible 3D scene nodes,
+and a follower can implement either the 2D or 3D interface. Game accesses their fields through private dynamic
+accessors, preserving object identity, live scene edits, follower replacement, camera tracking and host messages.
+It does not require the loaded object to have one generated QML class. The scene suite covers both a QQ Scene
+and a compatible ordinary 3D node, including startup seed/recorder forwarding and release. Script errors and binding
+loops fail this coverage; the accessors read the current handles directly without a separate cached binding.
+
+Shape's `push`, `applyForce`, `setVelocity` and `setSpin` require both the `dynamic` body mode and an actual
+`DynamicRigidBody`. A missing body, ordinary node or mismatched static body returns false without a script error.
+The public `physics` property remains a `Node`; the private body factory checks its result as `PhysicsBody` before
+assigning collision shapes. Static, kinematic and scenery modes still refuse these motion commands.
+
+Sprite's `push`, `applyForce` and `setVelocity` use the same actual-dynamic-body check while retaining the public
+`Node` handle and existing body-mode guard. Its private factory result is a `PhysicsBody`. Music, Sprite and TileMap
+read the immediate parent's compatible state directly, preserving strict play activation, truthy pause/replay flags,
+pixel-scale updates, reparenting and detachment. Sprite body identity, collider ownership and plane locks stay intact.
+
+Trigger's `inside` count reads an actual `TriggerBody`; a missing volume or another kind of node gives zero.
+Its public `physics` property remains a `Node`. Playing state still follows the immediate structural parent, including
+groups and prefabs. Enter/exit callbacks forward a body's optional QQ entity, or null when no entity is present.
+The private box and sphere colliders remain bound to their owning trigger as its scale changes.
+
+The 3D `Player` moves only an actual `CharacterController`. Its public `physics` property remains a `Node`, but
+missing or incompatible bodies stop its frame animation and receive no motion or teleport commands. Playing,
+pause, gravity and player selection still use the immediate parent's structural scene interface. The factory
+registers its owning player only when that parent has no selected player.
+
+Player2D keeps its named-entity lookup and public `QtObject` sprite property. Visual updates change position and
+facing only for an actual QQ `Sprite`; a lookalike node or another entity stays untouched. Missing names remain
+harmless. Its kinematic carrier, structural scene clock, player selection and deterministic movement are preserved.
+
 The Agent panel also shows supplied status, key-storage problems and messages literally. Markup in those strings stays
 text, including when the status changes during a run.
 
 ## Build, test, deploy
+
+QQ packages precomputed lighting for the two palettes authored in its bundled scenes: the World default (also used
+by Orb Run) and Ember Climb's colours. Selection compares all four colour values, including alpha; it does not depend
+on a game name or path. Other colour combinations keep the procedural sky and its batched updates. An explicit sky
+image still takes precedence, and exposure, orientation, skybox blur and all other rendering settings are unchanged.
+The runtime selects these same textures in the Studio, Player and ARQADE. Cross-platform validation is separate from
+their native ARM64 proof; this optimization does not make arbitrary edited palettes fast on a software renderer.
+
+`runtime/skies/manifest.json` records the inputs, Qt version, hashes and pixel comparisons for both baked textures.
+Their checked-in EXR source images preserve the procedural texture's half-float pixels; the KTX files are the runtime
+resources. The two KTX files total 33,546,472 bytes before Qt resource compression. No downloaded image is used.
+To rebuild an asset, use the installed commercial Qt 6.12 `balsam <source.exr> --outputPath <separate-output-folder>`
+inside the existing guarded software-rendering workflow. Review the output hash and compare rendered pixels against
+the procedural palette before replacing the KTX and updating its manifest and scene test. Normal application builds
+embed the reviewed KTX bytes and do not launch a baker or render on the build host. The EXR inputs and manifest are
+development inputs, not runtime resources. A future Qt or renderer change needs its own comparison.
+
+The 14 November integration builds all QQ targets through the native `q-pi-release` preset without compiler/license
+diagnostics. All 85 scene results pass, including palette selection, embedded texture hashes, colour and alpha edits,
+exposure, rotation and explicit-image precedence. The unchanged Store-installed Player suite passes three results in
+8.371 seconds under its original 60-second deadline; all 11 world-rendering results pass in 340.938 seconds. Hardening
+accepts all 16 QQ programs and the sanitizer program. All 85 scene results also pass offscreen under ASan/UBSan with
+leak checking enabled. Runtime lint still fails with exactly the previous 53 findings, none added or removed.
+Evidence: `build/development-2026-11-14/session-12/`. Windows heavy checks remain stopped below the 3,072-MiB floor;
+all-file hooks, full products and platform acceptance remain incomplete.
+
+The bundled Player playground also carries precomputed lighting for its explicit HDR sky. Its original `dusk.hdr`
+remains in `player/playground/assets/`; `dusk-lighting.json` records the original image's source licence, generator,
+hashes and pixel comparison. The scene uses `dusk.ktx`, embedded by the ordinary Player build. Other HDR images keep
+their existing loading path. The native comparison is pixel-identical and reaches its first frame in 0.762 seconds
+instead of 61.384 seconds. The real bundled Player reaches its first frame in 5.279 seconds and its first-frame
+capture passes. The complete Player suite still fails its unchanged 20-FPS floor at 0.5 FPS for the playground and
+18.9 FPS for Ember Climb; the kernel's unavailable Landlock check is skipped. These results do not accept real-time
+performance. Receipts are in `build/development-2026-11-14/session-15/`.
+
+The complete native suite continuation passes gameplay (58 results), lockdown
+(24), publishing (11), Player network confinement (three), Store launch (three),
+Studio (29), workspace (241) and game builds (195). The asset library passes 91
+with its optional benchmark skipped. The real Studio open/edit/save/build/launch
+journey passes. `first_journey` also passes in 202.406 seconds under its original
+300-second limit, including Prism's Library, rebuild and playing after removal
+of the source project. Prism uses a test launcher to record arguments; the real
+Player then runs those arguments on a private display. This does not prove the
+Player rendering inside Prism on hardware.
+
+The agent suite retains one short log-timing failure and its live-provider skip.
+The complete Player rerun retains two frame-rate failures and its unavailable
+Landlock skip. All 53 prior runtime lint warning lines remain. Assertions,
+rendering quality, the approved gameplay timing boundaries, private software
+isolation and the 3,072-MiB floor are unchanged. Scene/world results are retained
+through matching current binaries. Full QQ qualification is still open; exact
+commands, failures, skips and source/binary reconciliation are in session-15.
+
+The 15 November Game follow-up replaces implicit generic-object member access with dynamic accessors while keeping
+the public object handles. All 24 Game lint findings are removed; the other 29 warning lines are unchanged. Both
+scene variants pass live-edit, follower, camera, startup, host-message and release coverage. An initial candidate's
+intermediate bindings emitted transient null-property warnings despite passing value assertions; it was rejected.
+The strengthened test fails that candidate and passes the direct accessors without script warnings. All 87 scene
+results then pass normally and offscreen under ASan/UBSan with leak checking, and complete gameplay passes all 58.
+Store launch passes three results; the packaged-game creator journey passes in 201.985 seconds under its unchanged
+300-second limit, using the same separate Prism test-launcher and private-display Player steps described above.
+The full Player suite retains 13 passes, two FPS failures (0.5 and 18.9 against 20) and the unavailable-Landlock skip.
+Original assertions, rendering quality, approved timing boundaries and isolation remain unchanged. Evidence:
+`build/development-2026-11-15/session-01/`; full QQ and hardware qualification remain open.
+
+The next 15 November increment gives Behaviour direct accessors for its current parent and logic object. LogicFile's
+compatible-object contract, public handles, callback receivers, frame guards and prefab lookup remain intact. New
+coverage passes against both the original and changed Behaviour: QQ Logic and a compatible QtObject receive the
+same nested messages, step/frame arguments and target events, follow target/parent changes, and retire replaced
+logic. The test also rejects script errors and binding loops. All 89 scene results pass normally and offscreen
+under ASan/UBSan with leak checking. Exactly 11 Behaviour lint findings are removed; the remaining 18 lines are
+unchanged, so lint still fails. Complete native gameplay passes all 58 results with its approved timing boundaries
+and source unchanged. Store launch passes three, and the packaged-game journey passes in 201.377 seconds under
+its original 300-second limit, with the same separate Prism test-launcher and real Player steps. Agent records
+21 passes, the identical prior log-timing failure and one optional live-provider skip. Player records 13 passes,
+two FPS failures (0.6 and 19.5 against 20), and the unavailable-Landlock skip. Hardening passes 16 QQ programs
+and the sanitizer program. All 1,966 resource samples remain at or above 5,427 MiB available; isolation and the
+3,072-MiB floor are unchanged. Evidence: `build/development-2026-11-15/session-02/`.
+
+The next parent-state increment covers Emitter, Ground, InputAction, Prop, Sound and Spotlight with direct reads of
+their current parent's compatible interface. Strict boolean activation, truthy pause/replay guards, input declarations,
+Ground body identity, Prop's between-step pose and sound replay suppression are preserved across reparenting. TileMap's
+private factory result is typed as StaticRigidBody; tests retain collision-box geometry, identity and ownership.
+Eleven focused results pass before and after the change, and the complete scene suite passes 97 normally and
+offscreen under ASan/UBSan with leak checking. Twelve lint findings
+are removed with none added. The six remaining spatial-audio findings retain their messages, with one Sound location
+shifted by the edit; lint still fails. Evidence: `build/development-2026-11-15/session-03/`.
+Complete native gameplay also passes all 58 results with its approved timing boundaries and source unchanged,
+including particles, model animation, sound replay suppression, input rebinding and tiled collisions.
+Store launch passes three; the packaged-game creator journey passes in 201.631 seconds under its original
+300-second limit, including edit/rebuild and launch after removing the source project. Agent retains its identical
+log-timing failure (21 pass, one fail, one optional skip); Player retains the two 20-FPS-floor failures at 0.5 and
+19.7 FPS (13 pass, two fail, one Landlock skip). Hardening passes 16 QQ programs and the sanitizer program.
+All 1,997 resource samples stay at or above 5,329 MiB available; the original guard, isolation and limits are unchanged.
+
+The following structured-lint audit corrects the console-only remaining count: Runtime had 20 findings, including
+14 in Music, Sprite and TileMap omitted from its console output. Studio has 18 independent AgentPanel findings;
+Player has none. The 14 source findings are now removed, with six runtime and 18 Studio findings remaining.
+The new Sprite regressions reproduce script errors for ordinary and static physics handles; all 14 focused results
+pass after the fix. Existing scene assertions and approved gameplay source are unchanged. A temporary metadata copy
+with the missing QtQuick3D dependency clears only the six SpatialAudio findings while invalid properties and inherited
+property types still fail. No SDK or lint policy was changed. Evidence: `build/development-2026-11-15/session-04/`.
+After the source fixes, complete Runtime lint passes with the corrected copy. Normal lint remains failed against
+the unchanged installed metadata at that diagnostic checkpoint.
+The complete scene suite passes all 109 results normally and offscreen under ASan/UBSan with leak checking.
+Complete native gameplay passes all 58 results with no failures or skips, including music, sprite animation,
+tile-map rendering and collision coverage under the unchanged approved timing boundaries.
+Store launch passes three results; the packaged-game creator journey passes in 201.365 seconds under its original
+300-second limit, including edit/rebuild and playback after removing the source project. Agent retains the identical
+log-timing failure (21 pass, one fail, one optional provider skip). Player retains the two 20-FPS-floor failures at
+0.5 and 19.5 FPS (13 pass, two fail, one Landlock skip). No assertion, timing boundary or rendering setting changed.
+
+The following build integration supplies the proven SpatialAudio dependency through a local tooling-metadata copy,
+using `cmake/QorSpatialAudioMetadata.cmake`. It leaves the installed SDK and application import environment unchanged.
+Fixed SDK metadata needs no override; unexpected/incomplete metadata and unreviewed broken versions stop configuration.
+All six helper tests pass. The normal runtime console and JSON lint targets now pass with zero warnings; Player has
+none, while Studio's 18 findings retain their failing status. Valid spatial types resolve and invalid properties/types
+remain rejected. The complete native scene suite passes 109 results normally and offscreen under ASan/UBSan with
+leak checking; eight targeted audio results pass. The creator journey passes in 199.848 seconds under its original
+300-second limit. All eight audited executables match the preceding validation byte for byte; the full gameplay,
+Agent, Player and Store suites were not all rerun for this metadata increment. All 862 memory samples stay at or above
+6,588 MiB against the unchanged 3,072-MiB floor. Evidence: `build/development-2026-11-15/session-06/`.
+
+The following AgentPanel correction removes the remaining 18 Studio findings.
+An explicit accessor retains its required structural controller and reads the
+current object in bindings and actions. Native QQ `all_qmllint` now exits zero;
+Runtime, Player and Studio structured commands each report zero warnings.
+No diagnostic category, severity or source coverage changed. Six focused
+results pass against the unchanged panel before the correction and offscreen
+under ASan/UBSan afterward, with leak checking. Complete Agent passes 22 with
+the identical existing log-timing failure and optional provider skip; complete
+Studio passes 29. The packaged-game creator journey passes in 131.581 seconds
+under its original 300-second limit. All 1,351 validation samples stay at
+or above 5,835 MiB against the unchanged 3,072-MiB floor. Native compilation
+and hardening pass. Existing assertions, approved timing, the original guard
+and private namespaces are unchanged. Receipts: `build/development-2026-11-15/session-07/`.
+
+The 15 November Windows continuation at source `5d1359e` builds all QQ targets
+in `build/ci-products/qq`, commercial Qt 6.12.0/MSVC 2022, `Release`, serially
+with warnings as errors and no compiler/licence diagnostics. All 15 programs
+pass hardening; aggregate lint and all three structured module reports have
+zero warnings. Six metadata helper
+tests and six focused AgentPanel results pass. Those panel checks use inert
+controllers, private settings and offscreen software rendering, with no audio
+engine, keychain or provider calls. Full Windows product runtime suites still
+need a qualified audio/keyring boundary; `QOR_AUDIO_OUTPUT=null` does not isolate
+Qt Multimedia on Windows. The original coordinator, continuous 3,072-MiB guard,
+test assertions and deadlines remain unchanged. Exact selection, environment,
+output and corrected wrapper failures: `build/development-2026-11-15/session-08/`.
+
+The 16 November backport preparation at source `4937e1a` supplies a review
+candidate in `image/pi/kernel-wait-bo/`: a two-line V3D ioctl change preserves
+zero as a poll while leaving positive conversion and error accounting intact.
+It backports the zero-poll semantics of upstream Linux `226666556a9b`, without
+the shared-helper migration. Exact source/config and patch/preimage/postimage
+hashes are pinned. A separate, default-off patch adds six KUnit kernel tests.
+The busy-buffer case uses a real unsignaled fence and the actual ioctl/GEM wait
+path, checking voluntary scheduling rather than a fixed elapsed threshold.
+Its handle/device fixture is synthetic; it submits no GPU work.
+
+Patch application and exact reversal pass in a new isolated copy. Original and
+patched V3D objects plus the test object compile against the exact Pi 6.18.50
+headers with `W=1` and `-Werror`; disassembly confirms the zero bypass. These are
+object checks, not a linked kernel or executed KUnit suite. The running kernel
+has KUnit disabled; `bison`, `flex` and QEMU are absent. Full build, unpatched/
+patched KUnit execution, interruption/asynchronous completion integration and
+hardware qualification remain pending. No dependency is installed.
+
+The [backport and rollback runbook](../../image/README.md#pi-kernel-wait-bo-backport-review)
+records a critical recovery distinction: normal boot files already match
+6.18.60, while the Pi still runs 6.18.50. A reboot or restoring today's boot
+files is not a verified return to the running baseline. A tested recovery path
+is required before any candidate installation. No kernel, boot file, module,
+service, desktop setting, QOR source, executable or assertion changes.
+
+The guarded preparation's 61 samples stay at or above 7,153 MiB against the
+unchanged 3,072-MiB floor. Historical focused results remain 3 passed, 1 failed,
+0 skipped (`times > 5` with 3), later notice/cursor checks unreached. The
+independent llvmpipe failure and 97 image outliers remain open. No new product,
+Release, sanitizer or isolated-CI acceptance is claimed; PR #10 stays draft.
+The owner-authorized session-08 provisions 218 pinned Debian ARM64 dependency
+payloads in a private root. Signed metadata and all archive hashes verify;
+offline compiler/linker, bison/flex and paused QEMU startup checks pass.
+The host package database, kernel and boot files are preserved. This is a
+read-only tool root, not a configured Debian installation or kernel-test pass.
+The original guard records 158 samples, minimum 7,214 MiB. The
+[builder lock and runbook](../../image/README.md#private-builder-dependencies-provisioned)
+record the exact scope and reuse checks. All six control/corrected KUnit cases,
+full kernel build, kernel sanitizers and physical recovery remain unrun.
+Gameplay/software-renderer failures and image/Release/isolated-CI gates remain
+open; PR #10 stays draft. Next: verify the complete pinned source/config and
+build the isolated test kernel, then run the unchanged suites. Receipts:
+`build/development-2026-11-16/session-08/`; session-07 remains sealed.
+
+Earlier 14 November sky/startup follow-up: World queues its first procedural sky with the same colour-update batch used
+for later edits, so initial properties do not create the same texture twice. The regression checks construction
+count, final colours, ownership, replacement and disposal; it fails against the original World. All 84 scene results
+pass normally and offscreen under ASan/UBSan with leak detection enabled. All 11 world-rendering results pass, without
+failures/skips, in 1,229.256 seconds. The full optimized native build has no compiler/license-client diagnostics;
+hardening passes 16 QQ programs and the sanitizer program. Runtime lint still fails at the same 53 warnings.
+The Store test now waits for its own timed-out Player to exit before teardown. Its unchanged 60-second deadline
+failed before and after that change; separate diagnostics reached the first frame at 64.204/63.827 seconds and exited normally.
+Those longer diagnostics demonstrate neither a speedup nor Store acceptance. The original assertions, tolerances,
+deadlines and rendering settings remain. Evidence: `build/development-2026-11-14/session-06/`. Whole-product, Windows,
+hardware and isolated-CI acceptance, plus the older Orb/Wayland/ARQADE and upstream-audit gates, remain open.
+
+14 November Player2D follow-up: seven new rows cover valid and mismatched visuals, missing names, carrier ownership
+and dimensions, selection, strict activation, paused interpolation, replay state and parent changes. Two rows reproduce
+the original wrong-object mutation and script error. The full optimized native build has no compiler/license-client
+diagnostics. All 83 scene results pass normally and offscreen under ASan/UBSan with leak detection enabled. Four existing
+tiled-level, top-down, recorded-replay and 2D-trigger tests pass before and after the fix, six results per run with no
+failures/skips; their source, assertions, tolerances and durations are unchanged. Hardening passes all 16 QQ programs
+and the sanitizer program. All 14 Player2D lint findings are removed and none added; 53 runtime findings remain, so the
+whole lint gate still fails. The final audit verifies 1,404 native fingerprints, current build output, tested binaries
+and sanitizer instrumentation. Evidence: `build/development-2026-11-14/session-05/`. Broader product, hardware, isolated
+CI and the older Store/Orb, Wayland leak and ARQADE gates remain open and were not rerun for this increment.
+
+14 November 3D Player follow-up: seven new regression rows check actual, missing and incompatible controllers,
+strict activation, pause changes, selected-player ownership, reparenting and detachment. The original runtime
+fails the ordinary-node, static-body and trigger-body rows; two earlier test-fixture import errors are preserved
+separately. Existing tests and movement calculations remain unchanged. The complete native optimized build has
+no compiler/license-client diagnostics. All 76 scene results and six selected keyboard/controller/trigger results
+pass without failures/skips, and hardening passes 16 programs. The same 76 scene results pass offscreen under
+ASan/UBSan with leak detection enabled; its program passes hardening. All nine Player lint findings are removed
+without adding any; 67 runtime warnings remain, so the whole lint gate still fails. The final audit checks the
+1,404 native source fingerprints, current build cache, tested binaries and sanitizer instrumentation. The original
+coordinator and 3,072-MiB floor are unchanged. Evidence: `build/development-2026-11-14/session-04/`.
+Full product, hardware and isolated CI acceptance and the older Store/Orb, Wayland leak and ARQADE findings remain open.
+
+14 November Trigger follow-up: an ordinary node can no longer supply a false collision count. Four new scene results
+check both collider forms and their owning instance, live dimensions, parent changes, detachment, strict activation,
+missing volumes and optional entity callbacks. Existing tests remain unchanged. The full optimized native QQ build
+has no compiler/license-client diagnostics; all 69 scene results and six selected trigger/group physics results pass
+without failures/skips. Hardening passes 16 programs. Seven Trigger lint findings are removed and none added; 76 runtime
+warnings remain and the whole lint gate still fails. Original failures and passing results are preserved under
+`build/development-2026-11-14/session-03/`.
+All 69 scene results also pass offscreen under ASan/UBSan with leak detection enabled; its test program passes
+hardening. The prior Wayland leak and broader product/Store/Orb/ARQADE findings remain separate, unrerun gates.
+
+14 November motion-command follow-up: seven new rows check all four Shape motion commands against dynamic, static,
+kinematic, absent and mismatched bodies. The original runtime raises script errors for the two mismatched types;
+the corrected runtime passes all 65 scene results and seven selected physics results. The full native optimized build
+has no compiler/license-client diagnostics, and hardening passes all 16 QQ programs. The same 65 scene results pass
+offscreen under ASan/UBSan with leak detection enabled; its test program passes hardening. Five Shape lint findings
+are removed without adding any; 83 runtime warnings remain, so the lint gate still fails. The following Git continuation
+recovers the missing Windows coordinator byte-for-byte at its original path after idle-worker checks. Lock exclusion,
+child exit propagation, all-file hooks and the complete working-tree secret scan pass. Windows product builds remain
+unrun. The native coordinator and memory floor are unchanged. These are software-only checks; full product and hardware
+acceptance remain open. Recovery and Git receipts are in session-03 beside the native evidence.
+Receipts, including the original runtime failures and a corrected null-assignment test-fixture error:
+`build/development-2026-11-14/session-02/`.
+
+14 November Shape follow-up: private factories keep their owning context, and structural parent-state reads retain
+live updates and plane locks across reparenting and detachment. The final optimized native build passes all 58 scene
+results and seven selected physics results, with no failures or skips. Runtime lint removes 14 findings without adding
+any; 88 warnings remain and the gate still fails. Hardening passes all 16 QQ programs. The cache's actual CMake mode is
+`RelWithDebInfo`, despite `release` in its directory name. All 58 scene results also pass offscreen under ASan/UBSan with
+leak detection enabled; that test program passes hardening. These are isolated software checks, not full product or
+hardware acceptance. Receipts: `build/development-2026-11-14/session-01/`.
+
+13–14 November native scene follow-up: `Game.playingScene` separates the loaded game from the viewport root. The regression
+reproduces the old collision; the complete scene suite passes 57 results. Test-owned viewports have hidden window owners
+and drain queued destruction. All 57 results pass offscreen under ASan/UBSan with leak detection enabled; Wayland retains
+a 96-byte allocation also reproduced without a viewport, and still exits with failure. Runtime lint retains 102 warnings
+after removing the property override, and Store playback still exceeds its unchanged 60-second deadline. These are
+focused software results, not full product or graphics acceptance. Receipts: `build/development-2026-11-13/session-11/`.
 
 Latest Inspector batch, 5 November: selected kind/name/fields use the same dynamic metadata lookup as the optional
 editor dictionaries, preserving the public target interface, guards, writes and undo keys. Three existing real Studio

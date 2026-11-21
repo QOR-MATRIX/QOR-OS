@@ -1,5 +1,7 @@
 # ARQADE in the launcher (Qt)
 
+<!-- Changed for QOR OS: document the loaded-game property used by the game view and arena polling. -->
+
 ARQADE's app: the QOR Launcher's arcade, in Qt 6, C++20, Qt Quick and Qt Quick 3D. It is docked inside the launcher
 over its ARQADE screen, under the launcher's product host, as QOR Media is docked over the Library.
 Upstream ADR-102 and P7.19 in demiurge-chain's `docs/DIRECTION.md` record that launcher history;
@@ -20,6 +22,9 @@ against another person, on ARQADE's server. In QOR OS three more play here too: 
 (its QOR-0017).
 
 ## What it does
+
+The game view exposes QQ's loaded `Game.playingScene` through its `playing` alias. Arena polling stops when that
+loaded scene is released; Qt's inherited viewport `scene` is not the loaded game.
 
 - **Docks.** The launcher starts it with `--launcher-channel <name>` and a one-time token on its stdin. The app
   connects, says hello, and keeps one request waiting, `arqade.next`. The launcher answers that request with its next
@@ -106,6 +111,11 @@ with the core's halo). Six views that each built their own sky with Qt's `Proced
 with heap corruption, in three runs out of three. One shared image is stable.
 
 ## Build, test, run
+
+The 13–14 November native software follow-up passes the four game-view and arena-polling caller functions: six Qt results,
+no failures or skips. The tested program passes hardening. GuiPrivate/QML generator build diagnostics and a context warning
+on return to home remain recorded; this is focused caller evidence, not full product or warning-free acceptance. Receipts:
+`build/development-2026-11-13/session-11/`.
 
 It needs the owner's Qt 6.12 (`C:\Qt\6.12.0\msvc2022_64`, with Qt Quick 3D), MSVC 2022 and Ninja. CI has no licensed Qt,
 so these suites run on the owner's PC, as QOR Media's and QQ's do.

@@ -15,6 +15,20 @@ They are developed here since 29 October 2026
 ([QOR-0015](decisions/QOR-0015-the-products-are-developed-here.md)), and
 demiurge-chain's copies of them are frozen (its ADR-126).
 
+The owner now wants one canonical development repository for these systems
+([QOR-0028](decisions/QOR-0028-plan-one-canonical-development-repository.md)).
+That direction is accepted for planning only. The current milestone does not
+move code, change the core pin or alter the sharing rules below. A later proposal
+must reconcile public/private access and licences, core ownership, frozen
+launcher consumers, shared rules and deployment continuity before any cutover.
+
+**Current execution scope, 19 November 2026:** Demiurge/QOR ID/Auth integration
+remains a vision; new integration code and repository migration are **on hold**.
+Preserve the existing core pin, carried code, licences and sharing contracts.
+The standalone Windows Qonsole work does not implement account/authentication
+or move upstream code. [ROADMAP.md](ROADMAP.md#the-order-of-work) owns resumption
+and current priorities; historical commands/evidence below are not authorization.
+
 ## What is shared
 
 | Path (the same here and upstream) | What it is | How | Upstream record |

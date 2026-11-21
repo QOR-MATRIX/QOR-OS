@@ -28,11 +28,19 @@ and item-text privacy controls, zero failures/skips; this does not mean paused C
 ## What CI trusts
 
 **The workstation Qt-job pause remains in force pending runner isolation.** GitHub
-reported both registered runners offline and not busy on 13 November 2026. That
+reported both registered runners offline and not busy on 14 November 2026. Both
+isolation-enabling repository variables remain absent. That
 API observation does not inspect local services or prove isolation. Lint and Security are configured on hosted
 runners, including portable tooling tests. Qt application/build evidence must name
 the actual machine, revision, commands, failures and skips; registration or a fixture
 pass does not establish that a Qt CI job ran.
+
+The same session found no provisioning or proof folder for the proposed
+`qor-ci-vm` at its documented local locations. Its terminal has neither elevated
+administrator nor Hyper-V administrator access. This establishes missing local
+access/evidence, not an inventory of every VM. Qt CI stays disabled until a
+replacement passes the documented isolation proof. Receipts:
+`build/development-2026-11-14/session-06/`.
 
 No workflow builds or tests native ARM64 QOR applications. Portable tests may
 invoke `q-pi-release` to verify refusal before compiler/Qt execution; the Linux Qt
@@ -392,9 +400,9 @@ this Windows root result; the QQ and Linux metadata gates above remain failed.
 The product wrapper runs suites sequentially on first attempts and retries, overriding inherited CTest parallelism.
 This is checked with real CTest and stand-in suites that fail if they overlap; it does not prove product runtime behavior.
 
-Gameplay checks measure body movement against the existing game-clock helpers when rendering in software. The remaining
-physics/controller, trigger, impulse and Orb Run movement waits now use those helpers, retaining their durations, conditions
-and tolerances. Native waits retain their wall-clock behavior; UI opacity, music and pause controls keep their existing
+Gameplay checks measure body movement against the existing game-clock helpers when rendering in software. The
+physics/controller, trigger, impulse and Orb Run movement waits changed in that earlier snapshot use those helpers,
+retaining their durations, conditions and tolerances. GPU waits retain their wall-clock behavior; UI opacity, music and pause controls keep their existing
 waits. A virtual controller is removed even when its case returns early, so a failure cannot hold input in later cases.
 Earlier clean and component baselines each failed the same 11 play cases; that corrected full-suite snapshot passed
 53 cases. The 5 November Shape check runs full Scene (52 cases) and six physics functions (10 cases) per Release/sanitizer
@@ -402,6 +410,309 @@ build, zero failures/skips. Its group test uses existing physics helpers for lan
 and the frame helper for frame-driven raising. The original raising wait failed with both pre-change and candidate Shape
 sources; height and elapsed frame time agreed. GPU waits and all tolerances remain unchanged. This is functional evidence,
 not native graphics, sound or controller proof.
+
+The 13 November native ARM64 software recheck finds three contact/falling-trigger
+cases still waiting on wall time: only 325–409 ms of physics passed before their
+5–6-second deadlines. Orb Run's startup wait expires before its first frame.
+Both render loops reproduce all four failures. A six-wait physics-clock proposal
+passes the three contact cases in a separate overlay. The owner approved that
+exact six-wait patch, now applied; its source bytes match the tested overlay.
+This qualifies those cases in software and does not prove their real-time speed.
+GPU timing and the Player's frame-rate floor
+are unchanged. A separate first-frame probe advances Orb Run past startup but
+still fails its later lantern-idle timer wait; it is not a complete fix. Logs,
+source hashes and the patch are in
+`build/development-2026-11-13/session-10/`.
+
+The 14 November session-13 investigation still fails the original Orb startup
+assertion. Its diagnostic sees no ticks at the deadline and the first eight at
+10.071 seconds of waiting. Only 24 logic steps (0.4 seconds) pass before the later lantern
+wait expires. A separate four-change proposal passes the complete Orb case:
+three Qt Test results, no failures/skips, in 184.714 seconds. Software startup
+first admits a scene tick within 120 seconds, then retains the existing
+five-second assertion. The lantern, replacement-orb and growth checks use
+three/four/three seconds on the logic clock, bounded by 120/150/120 seconds on
+the wall. GPU branches retain the original waits; predicates, tolerances, music,
+sound cleanup, input and pause controls are unchanged. Build and hardening pass.
+The owner separately approved these exact four software changes on 14 November,
+as required by `AGENTS.md` section 7. Their applied source is byte-identical to
+the passing proposal. The acceptance rebuild and hardening pass; all 1,409 native
+source hashes and the rebuilt executable match the tested proposal. The case
+was not rerun for that identical rebuild. This accepts the selected software
+functional case; real-time, hardware and full-product acceptance remain open.
+The patch, original failure, diagnostics and pre-approval restoration evidence
+remain under `build/development-2026-11-14/session-13/`; approval and integration
+proof are in `session-14/` beside it. Other software exceptions retain their
+existing scope and status.
+
+The session-15 continuation runs complete, unfiltered QQ suites under the same
+native coordinator and private software display. Gameplay passes 58 results;
+lockdown 24, publishing 11, network confinement three, Store launch three,
+Studio 29, workspace 241 and game builds 195. Asset-library checks pass 91,
+with only their optional measurement skipped. The Studio creator journey passes.
+The separate `first_journey` passes in 202.406 seconds, including Prism's Library,
+rebuild and playing after the source project is removed. Its test launcher
+records Prism's arguments; the real Player then runs them on its private display,
+not inside a hardware-rendered Prism window. Its registered 300-second limit is
+retained; ordinary suites use 5,400 seconds and Qt functions retain 1,800,000 ms.
+
+The agent suite records 21 passed, one timing failure and one live-provider skip.
+A separate diagnostic demonstrates the error log working but not reaching its
+unchanged repetition threshold; its test changes were then restored. The basic
+render-loop comparison also fails.
+The Player's separate bundled HDR sky now uses pixel-identical precomputed
+lighting, fixing both launch timeouts. Its full rerun records 13 passed, two
+20-FPS-floor failures (0.5 and 18.9 FPS), and one unavailable-Landlock skip.
+No software-floor acceptance option or assertion change is used. Runtime lint
+still fails with exactly the same 53 warning lines. Build and hardening pass;
+all 16 QQ programs meet the hardening checks. Full QQ acceptance remains open.
+
+Final readback verifies all 1,412 native source files and 15 executables, including
+the unchanged scene/world binaries whose earlier complete passes are retained.
+Across the complete suites, 5,268 resource samples stay at or above 4,923 MiB.
+The original lock is free and no test worker remains. Windows stays below the
+3,072-MiB floor, so all-file hooks and local heavy checks remain incomplete.
+`build/development-2026-11-14/session-15/` retains commands, environments, sources,
+JUnit reports, failures, diagnostics, provenance and the final reconciliation.
+This is native software evidence; it does not qualify hardware, the Q Pi image,
+the other products or an isolated CI runner.
+
+The 15 November Game interface increment reruns complete scene (87), gameplay
+(58), Player and Store-launch (three) suites. Scene also passes all 87 offscreen
+under ASan/UBSan with leak checking. The packaged-game creator journey passes
+in 201.985 seconds under the registered 300-second limit. Player retains 13
+passes, two FPS failures (0.5 and 18.9 against 20), and the Landlock skip.
+All 24 Game lint findings are removed; the other 29 warning lines remain.
+The first candidate was rejected after log review found transient script errors;
+new coverage reproduces them and passes the corrected direct accessors. Fresh
+corrected-suite logs contain no Game script errors. No existing assertion,
+rendering quality, approved timing boundary, coordinator or isolation setting
+changes. Receipts: `build/development-2026-11-15/session-01/`. The agent timing,
+remaining lint, other-product, Windows, hardware and isolated-CI gates stay open.
+
+The subsequent Behaviour increment passes six focused results on both the
+original and changed runtime, then all 89 scene results normally and offscreen
+under ASan/UBSan with leak checking. Its 11 lint findings are removed, leaving
+18 unchanged warning lines and a failing lint gate. Existing scene assertions,
+approved gameplay timing, coordinator and isolation remain intact. Complete
+gameplay passes 58 results, Store launch three, and the packaged-game journey
+passes in 201.377 seconds under its original 300-second limit. Agent retains
+21 passes, its identical prior failure and one optional live-provider skip;
+Player retains 13 passes, two FPS failures (0.6 and 19.5 against 20) and the
+Landlock skip. Hardening passes all 16 QQ programs and the sanitizer program.
+The separate ARQADE diagnostic gate and all-file Windows checks remain open;
+neither was rerun for this increment. Receipts:
+`build/development-2026-11-15/session-02/`.
+
+The following parent-state and 2D runtime increments retain the approved
+gameplay source and all pre-existing scene assertions. The latest complete
+scene run passes 109 results normally and offscreen under ASan/UBSan with leak
+checking; gameplay passes 58 and Store launch three. The packaged-game creator
+journey passes in 201.365 seconds under its registered 300-second limit. Agent
+retains its identical log-timing failure (21 pass, one fail, one optional
+provider skip); Player retains its two 20-FPS-floor failures at 0.5 and 19.5
+(13 pass, two fail, one Landlock skip). All 16 QQ programs and the sanitizer
+program pass hardening; native builds emit no compiler/licence diagnostics.
+
+Structured output corrects the earlier console-only lint counts: Runtime had
+20 warnings despite printing six; Studio independently had 18. Fourteen runtime
+source findings are removed with none added, leaving six Runtime and 18 Studio
+warnings, and zero Player warnings. The six Runtime findings disappear with
+the missing SpatialAudio dependency added in a temporary metadata copy;
+complete Runtime lint then passes while invalid-property and invalid-type
+controls still fail. The installed SDK and normal lint gate are unchanged.
+No severity, source coverage, assertion or timing limit was relaxed.
+All 2,305 resource samples stay at or above 5,353 MiB available against the
+3,072-MiB floor. Receipts: `build/development-2026-11-15/session-03/` and
+`session-04/`; the LF-format patch export is in `session-04-export/`.
+These are native software results, not hosted Qt CI or hardware acceptance.
+The subsequent repository reconciliation runs all configured pre-commit hooks
+and the tracked-file credential scan successfully on a separate complete Pi
+checkout with the hash-pinned development requirements, the original native
+coordinator and the unchanged memory floor. Windows remains below its floor;
+this completes the repository-hook check without claiming a Windows product
+build. Exact tree and publication receipts are in
+`build/development-2026-11-15/session-05/`.
+
+The next increment integrates the SpatialAudio dependency correction through
+QQ's generated QML tooling import path, using only a build-local metadata
+copy. The normal runtime console and JSON lint targets pass with zero warnings;
+Player has none, while Studio's same 18 findings still fail the aggregate gate.
+Six helper tests and the real valid/invalid-property/type controls pass, as do
+all 109 native scene results normally and offscreen under ASan/UBSan with leak
+checking. Eight audio results pass; the creator journey passes in 199.848
+seconds under its original 300-second limit. All eight audited executables
+are byte-identical to the preceding validation, whose complete gameplay,
+Agent, Player and Store results remain scoped to that earlier run. All 862
+samples stay at or above 6,588 MiB against the unchanged 3,072-MiB floor.
+The installed SDK and application import environment remain unchanged. Receipts:
+`build/development-2026-11-15/session-06/`.
+
+The following AgentPanel correction removes the remaining 18 Studio findings.
+An explicit accessor retains its required structural controller and reads the
+current object in bindings and actions. Native QQ `all_qmllint` now exits zero;
+Runtime, Player and Studio structured commands each report zero warnings.
+No diagnostic category, severity or source coverage changed. Six focused
+results pass against the unchanged panel before the correction and offscreen
+under ASan/UBSan afterward, with leak checking. Complete Agent passes 22 with
+the identical existing log-timing failure and optional provider skip; complete
+Studio passes 29. The packaged-game creator journey passes in 131.581 seconds
+under its original 300-second limit. All 1,351 validation samples stay at
+or above 5,835 MiB against the unchanged 3,072-MiB floor. Native compilation
+and hardening pass. Existing assertions, approved timing, the original guard
+and private namespaces are unchanged. Receipts: `build/development-2026-11-15/session-07/`.
+
+On 15 November, the qualified Windows continuation at source `5d1359e` passes
+all 22 selected core suites with one expected desktop-entry case skip; nine
+GPU-labelled suites are excluded. Core and QQ builds pass, with the core's
+known Rust dependency warning retained. Hardening accepts 33/15 programs and
+aggregate QML lint reports zero warnings, confirmed by all three QQ structured
+module reports. Six metadata helper tests and six
+inert AgentPanel results pass under the original Windows coordinator and
+continuous 3,072-MiB guard. Full Windows product runtime suites remain unrun:
+offscreen rendering/private profiles do not isolate their audio devices or
+Windows Credential Manager. These local checks do not qualify hosted runners
+or clear skipped Qt jobs/core audit and failed Release readiness. Receipts:
+`build/development-2026-11-15/session-08/`.
+
+The 16 November backport preparation at source `4937e1a` supplies a review
+candidate in `image/pi/kernel-wait-bo/`: a two-line V3D ioctl change preserves
+zero as a poll while leaving positive conversion and error accounting intact.
+It backports the zero-poll semantics of upstream Linux `226666556a9b`, without
+the shared-helper migration. Exact source/config and patch/preimage/postimage
+hashes are pinned. A separate, default-off patch adds six KUnit kernel tests.
+The busy-buffer case uses a real unsignaled fence and the actual ioctl/GEM wait
+path, checking voluntary scheduling rather than a fixed elapsed threshold.
+Its handle/device fixture is synthetic; it submits no GPU work.
+
+Patch application and exact reversal pass in a new isolated copy. Original and
+patched V3D objects plus the test object compile against the exact Pi 6.18.50
+headers with `W=1` and `-Werror`; disassembly confirms the zero bypass. These are
+object checks, not a linked kernel or executed KUnit suite. The running kernel
+has KUnit disabled; `bison`, `flex` and QEMU are absent. Full build, unpatched/
+patched KUnit execution, interruption/asynchronous completion integration and
+hardware qualification remain pending. No dependency is installed.
+
+The [backport and rollback runbook](../image/README.md#pi-kernel-wait-bo-backport-review)
+records a critical recovery distinction: normal boot files already match
+6.18.60, while the Pi still runs 6.18.50. A reboot or restoring today's boot
+files is not a verified return to the running baseline. A tested recovery path
+is required before any candidate installation. No kernel, boot file, module,
+service, desktop setting, QOR source, executable or assertion changes.
+
+The guarded preparation's 61 samples stay at or above 7,153 MiB against the
+unchanged 3,072-MiB floor. Historical focused results remain 3 passed, 1 failed,
+0 skipped (`times > 5` with 3), later notice/cursor checks unreached. The
+independent llvmpipe failure and 97 image outliers remain open. No new product,
+Release, sanitizer or isolated-CI acceptance is claimed; PR #10 stays draft.
+The owner-authorized session-08 provisions 218 pinned Debian ARM64 dependency
+payloads in a private root. Signed metadata and all archive hashes verify;
+offline compiler/linker, bison/flex and paused QEMU startup checks pass.
+The host package database, kernel and boot files are preserved. This is a
+read-only tool root, not a configured Debian installation or kernel-test pass.
+The original guard records 158 samples, minimum 7,214 MiB. The
+[builder lock and runbook](../image/README.md#private-builder-dependencies-provisioned)
+record the exact scope and reuse checks. All six control/corrected KUnit cases,
+full kernel build, kernel sanitizers and physical recovery remain unrun.
+Gameplay/software-renderer failures and image/Release/isolated-CI gates remain
+open; PR #10 stays draft. Next: verify the complete pinned source/config and
+build the isolated test kernel, then run the unchanged suites. Receipts:
+`build/development-2026-11-16/session-08/`; session-07 remains sealed.
+
+The first session-08 hosted Security run (`43952473290`, commit `55f0ffd`)
+flags the verified public Debian archive filename in the dependency lock.
+The correction permits only that exact archive line (including its decoded
+epoch separator), manifest path and `generic-api-key` rule. Five real
+gitleaks 8.30.1 checks pass locally: the complete lock is accepted; changed
+value, path, field and additional same-line fields remain detectable.
+Security now runs these checks using its existing pinned scanner before
+the full-history scan. Missing/wrong scanner versions fail, never skip.
+The first failure is preserved. Windows history scanning was refused at
+2,398 MiB against the unchanged 3,072-MiB floor; this is not a scan pass.
+Native and hosted receipts remain distinct from kernel/product acceptance.
+
+The earlier accepted test rebuild reproduces its passing proposal's binary hash, with
+all 1,404 snapshot source hashes verified. Hardening reads 16 QQ programs and
+passes all of them; native QQ `all_qmllint` fails with 103 warnings. The Store
+Player case still exceeds its internal 60-second deadline with either render
+loop. The network-confinement suite passes three results without skips. The
+lockdown suite does not complete within a separate 300-second diagnostic budget;
+that bounded probe is not full-suite acceptance or a new standard timeout.
+
+The session-11 follow-up separates `Game.playingScene` from Qt's inherited
+viewport `scene`. The new regression fails on the original implementation and
+passes after the rename; the full scene suite passes 57 results without failures
+or skips. Runtime QML lint removes the property-override finding, retaining the
+other 102 warnings. The Store Player still exceeds 60 seconds. A separate
+300-second affected-play probe passes model startup and two contact cases before
+its aggregate budget expires during the prefab case; that batch is incomplete.
+Early isolated compilation logs also contain Qt license-client registration
+diagnostics: their zero compiler-warning count does not establish a clean build.
+Subsequent checks compile using the host's existing Qt license setup and keep
+test execution in private namespaces. Raw logs and scope corrections are in
+`build/development-2026-11-13/session-11/`.
+
+The sanitizer build verifies actual instrumented compiler commands and linked
+ASan/UBSan libraries. Its first scene run passes all 57 assertions but exits 1
+with 3,744 leaked bytes. Giving standalone viewport tests hidden window owners
+and draining queued destruction removes the viewport allocations. The complete
+offscreen scene run then passes 57 results and exits 0 with leak detection left
+enabled. Wayland still exits 1 with one 96-byte allocation in its hardware
+integration client; the same allocation appears in a numeric-only case that
+creates no viewport. No leak suppression or disabled leak checking was added.
+
+The ARQADE caller build completes compilation but retains two diagnostics: the
+configuration's GuiPrivate version warning and a QML generator warning about
+the namespaced server enum. Its generated metadata still exports
+`ARQADE/ArqadeServer 1.0`. Functional checks against that binary do not clear its
+warning gate; these diagnostics were not suppressed.
+
+The final full QQ build exits 0 without compiler or license-client diagnostics.
+Its current scene suite passes all 57 results. The four affected playback cases
+(imported-model startup and the three contact/trigger cases) complete in
+305.333 seconds: six Qt results including setup/cleanup, no failures or skips.
+Their assertions and internal durations are unchanged; the preceding 300-second
+diagnostic probe was too short for that combined batch.
+
+The four ARQADE caller functions also pass six Qt results in 255.637 seconds,
+including opening/leaving a game and match creation/opponent-join polling.
+A context warning during return to home remains in the log. Hardening passes
+16 QQ Release programs, the ARQADE test program and the sanitizer test program.
+The independent final audit verifies 1,404 source hashes, a current Release
+cache and the original lock available. Some outer-wrapper receipts retain exit
+1 because their temporary drain helper counted exited adopted children awaiting
+their parent's reap as active. That helper was corrected; command results and
+the independent audit are recorded separately, with the raw failures preserved.
+
+The 14 November Shape continuation verifies a 102-warning baseline. Binding its
+private factories to their owner removes 13 findings but exposes two parent-view
+type findings, reproducing the reason an earlier experiment was excluded. That
+intermediate candidate passes seven physics functions (11 Qt results) and all
+57 scene results. The final change uses Group/Prefab's existing structural
+parent-property pattern for playing/view state and adds a parent-state regression.
+It passes all 58 scene results, plus contact reporting, grouped motion and all
+three 2D plane-lock rows: seven physics results including setup/cleanup, no
+failures or skips, in 385.566 seconds. The new regression emits no QML warnings.
+
+The final full QQ build has zero compiler/license-client diagnostics, and
+hardening passes 16 programs. Runtime lint reports 88 warnings: 14 baseline
+findings removed, none added, with its gate still returning 1. Remaining findings
+are 82 missing properties, three imports and three unresolved types. The actual
+CMake configuration is `RelWithDebInfo` (optimized with debug information);
+earlier prose calling the `q-pi-qq-release/qq` cache "Release" is not evidence of
+a CMake `Release` configuration. No existing assertion, duration or tolerance
+changed. Commands, source comparisons, intermediate results and raw failures
+remain in `build/development-2026-11-14/session-01/`.
+
+The final sanitizer build also has zero compiler/license-client diagnostics.
+Its complete scene suite passes 58 results offscreen and exits 0, with leak
+detection enabled and no suppressions. The sanitizer test program passes
+hardening. The compiler commands for Shape's generated code and the scene test
+carry address/undefined-behavior instrumentation, and both sanitizer libraries
+are linked. The final audit verifies the native snapshot's 1,404 source hashes,
+a current QQ cache and the original lock available; both changed local code
+files match their tested native bytes. This does not clear the separately
+recorded Wayland leak or the remaining full-product and isolated-CI gates.
 
 **The variable was recorded unset and the Qt-job pause remains in force.** Once
 a runner is qualified and its product step is enabled, the harness runs each

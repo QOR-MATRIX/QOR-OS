@@ -12,6 +12,9 @@
 // Changed for QOR OS: physics/controller checks use those clocks too; a failed controller case still unplugs its virtual pad.
 // Changed for QOR OS: imported models cover window startup and empty, failed and repeated loads.
 // Changed for QOR OS: group motion uses the physics and frame clocks in software and reports failed waits.
+// Changed for QOR OS: contact and falling-trigger checks also wait on the existing software physics clock.
+// Changed for QOR OS: inspect the Game's loaded scene through playingScene.
+// Changed for QOR OS: Orb's software functional check admits startup and waits on the timers' own logic clock.
 
 #include <QDir>
 #include <QElapsedTimer>
@@ -279,6 +282,25 @@ struct Stage {
         QElapsedTimer guard;
         guard.start();
         while (guard.elapsed() < 30000 + 30 * ms && physicsClock() < until) {
+            if (done())
+                return true;
+            window->update();
+            QTest::qWait(4);
+        }
+        return done();
+    }
+
+    /// Wait for logic's result on its own clock in software; preserve the original wall deadline on a GPU.
+    bool logicUntil(QObject *logic, const std::function<bool()> &done, int ms)
+    {
+        if (!software)
+            return runUntil(done, ms);
+        if (!logic)
+            return false;
+        const double until = logic->property("elapsed").toDouble() * 1000 + ms;
+        QElapsedTimer guard;
+        guard.start();
+        while (guard.elapsed() < 30000 + 30 * ms && logic->property("elapsed").toDouble() * 1000 < until) {
             if (done())
                 return true;
             window->update();
@@ -917,9 +939,9 @@ private slots:
             QObject *logic = touch->property("logic").value<QObject *>();
             return logic ? logic->property("met").toString().split(QLatin1Char(';'), Qt::SkipEmptyParts) : QStringList();
         };
-        QVERIFY2(s.runUntil([&] { return met().contains(QStringLiteral("Plinth")); }, 6000), qPrintable(met().join(',')));
+        QVERIFY2(s.playUntil([&] { return met().contains(QStringLiteral("Plinth")); }, 6000), qPrintable(met().join(',')));
         // Once as they meet, not over and over while it rests there.
-        s.run(1500);
+        QVERIFY(s.play(1500));
         QVERIFY2(met().count(QStringLiteral("Plinth")) <= 3, qPrintable(met().join(',')));
         QVERIFY2(!met().contains(QStringLiteral("?")), qPrintable(met().join(',')));
     }
@@ -943,10 +965,10 @@ private slots:
             QObject *logic = watch->property("logic").value<QObject *>();
             return logic ? logic->property("log").toString() : QString();
         };
-        QVERIFY2(s.runUntil([&] { return log().contains(QStringLiteral("out:Ball;")); }, 6000), qPrintable(log()));
+        QVERIFY2(s.playUntil([&] { return log().contains(QStringLiteral("out:Ball;")); }, 6000), qPrintable(log()));
         QCOMPARE(log(), QStringLiteral("in:Ball;out:Ball;"));
         // Nothing collides with it: the ball fell through to the ground.
-        s.run(1000);
+        QVERIFY(s.play(1000));
         QVERIFY2(qAbs(s.where(QStringLiteral("Ball")).y() - 0.25f) < 0.05f,
                  qPrintable(QStringLiteral("ball at %1").arg(s.where(QStringLiteral("Ball")).y())));
         QCOMPARE(s.entity(QStringLiteral("Gate"))->property("inside").toInt(), 0);
@@ -1225,8 +1247,8 @@ private slots:
                                   Q_ARG(QVariant, QStringLiteral("Ring")));
         QCOMPARE(ring.value<QObject *>()->property("scenePosition").value<QVector3D>(), QVector3D(3, 1, 0));
         // The ball falls through the right one: counted there, nowhere else.
-        QVERIFY2(s.runUntil([&] { return counted(QStringLiteral("Right")) == 1; }, 5000), "the right hoop never counted");
-        s.run(300);
+        QVERIFY2(s.playUntil([&] { return counted(QStringLiteral("Right")) == 1; }, 5000), "the right hoop never counted");
+        QVERIFY(s.play(300));
         QCOMPARE(counted(QStringLiteral("Right")), 1);
         QCOMPARE(counted(QStringLiteral("Left")), 0);
         QCOMPARE(counted(QStringLiteral("Middle")), 0);
@@ -1280,6 +1302,9 @@ private slots:
         QObject *rules = s.entity(QStringLiteral("Rules"));
         auto logic = [rules] { return rules->property("logic").value<QObject *>(); };
         auto score = [&] { return logic() ? logic()->property("score").toInt() : -1; };
+        // Wait for the first scene tick before software functional checks. GPU startup keeps the original deadline.
+        if (s.software)
+            QVERIFY(s.runUntil([&] { return s.scene->property("ticks").toInt() > 0; }, 120000));
         QVERIFY2(s.runUntil([&] { return logic() && logic()->property("orbsOut").toInt() == 2; }, 5000),
                  qPrintable(rules->property("error").toString()));
         QCOMPARE(s.entity(QStringLiteral("Best"))->property("text").toString(), QStringLiteral("BEST 0"));
@@ -1369,13 +1394,13 @@ private slots:
         QCOMPARE(lantern->property("status").toInt(), 1);
         QCOMPARE(lantern->property("clips").toStringList(), (QStringList{QStringLiteral("idle"), QStringLiteral("flare")}));
         QCOMPARE(lantern->property("clip").toString(), QStringLiteral("flare"));
-        QVERIFY(s.runUntil([&] { return lantern->property("clip").toString() == QStringLiteral("idle"); }, 3000));
+        QVERIFY(s.logicUntil(logic(), [&] { return lantern->property("clip").toString() == QStringLiteral("idle"); }, 3000));
         QTRY_VERIFY(!s.entity(QStringLiteral("Orb 1")));  // taken away whole, glow and pickup
         QVERIFY(s.runUntil([&] { return !chime; }, 3000));
-        QVERIFY2(s.runUntil([&] { return s.entity(QStringLiteral("Orb 3")) != nullptr; }, 4000), "no new orb");
+        QVERIFY2(s.logicUntil(logic(), [&] { return s.entity(QStringLiteral("Orb 3")) != nullptr; }, 4000), "no new orb");
         // A new orb grows in to its full size.
         QObject *grown = partOf(QStringLiteral("Orb 3"), QStringLiteral("Glow"));
-        QVERIFY(s.runUntil([&] { return qAbs(grown->property("scale").value<QVector3D>().x() - 0.6f) < 1e-4f; }, 3000));
+        QVERIFY(s.logicUntil(logic(), [&] { return qAbs(grown->property("scale").value<QVector3D>().x() - 0.6f) < 1e-4f; }, 3000));
         QCOMPARE(logic()->property("orbsOut").toInt(), 2);
 
         // The boulder is rolled at the player, with a rumble from where it was.
@@ -1964,7 +1989,7 @@ private slots:
         auto *io = engine.singletonInstance<qq::SceneIO *>("QQ", "SceneIO");
         QVERIFY(io);
         QObject *model = nullptr;
-        for (const QVariant &e : io->entities(game->property("scene").value<QObject *>())) {
+        for (const QVariant &e : io->entities(game->property("playingScene").value<QObject *>())) {
             if (e.value<QObject *>()->property("name").toString() == QStringLiteral("First model"))
                 model = e.value<QObject *>();
         }

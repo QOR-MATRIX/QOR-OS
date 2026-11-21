@@ -5,6 +5,7 @@
 // as painted).
 
 // Changed for QOR OS: the slab keeps its owning ground context and the material names its ground's texture.
+// Changed for QOR OS: live state follows the current structural parent without narrowing its type.
 
 pragma ComponentBehavior: Bound
 
@@ -29,8 +30,10 @@ Model {
     property real imageSize: 1
 
     /// True while the scene this belongs to plays.
-    readonly property bool live: parent !== null && parent.playing === true
+    readonly property bool live: parent !== null && _parentValue("playing") === true
     property Node physics: null
+
+    function _parentValue(field: string): var { return ground.parent[field] }
 
     function makeBody() {
         if (live && !physics)

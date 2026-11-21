@@ -1,0 +1,111 @@
+{
+  "schema": 1,
+  "status": "normal-and-focused-memory-lock-regression-verified-not-installed-not-hardware-qualified",
+  "base": {
+    "repository": "https://github.com/raspberrypi/linux",
+    "commit": "cff533aec2fa601846766b32ff57204e0a61bed7",
+    "package": "linux",
+    "version": "1:6.18.50-1+rpt1",
+    "release": "6.18.50+rpt-rpi-2712",
+    "config_sha256": "8914d802785a04fbb68a00e88e90774db7aa2ec33b9fa1e28f3296be3ebbcff8"
+  },
+  "upstream_semantic_source": "226666556a9b3b51f04f9dad83662e5b9c78a325",
+  "scope": "Zero timeout only; original positive conversion, fence behavior and error accounting preserved. No shared-helper migration.",
+  "patch_format": "Unified zero context; verify exact preimages before git apply --unidiff-zero.",
+  "preimages": {
+    "drivers/gpu/drm/v3d/v3d_bo.c": "bc001e15c1506c8b96ad7c8ba249a734d8fb61a7a8b397ae6feb72059c8fb81d",
+    "drivers/gpu/drm/v3d/Kconfig": "73352b7712f2d81f9523bb552075bf14a7843e99518a8260887553cf20b3d788",
+    "drivers/gpu/drm/v3d/Makefile": "48f7715394f8b13e17b272e73db328d452d083a7dabb55130e7c5c612bb5e7c7"
+  },
+  "required_absent_paths": [
+    "drivers/gpu/drm/v3d/tests/v3d_wait_bo_test.c"
+  ],
+  "postimages": {
+    "drivers/gpu/drm/v3d/v3d_bo.c": "2a8113d9a807cc69ea14f19ab7b8973059e64b29a5fc4503f8f94fe7d64d0206",
+    "drivers/gpu/drm/v3d/Kconfig": "4065e2e1c5d8cccf37b8883deb27c7b6b23fc0a1f5b50176e606828e02692e92",
+    "drivers/gpu/drm/v3d/Makefile": "89d14d0d822bb3a7a1dba8310a9055862633ac0ae0ca6be1c454ae33fb2c9f59",
+    "drivers/gpu/drm/v3d/tests/v3d_wait_bo_test.c": "312ed95ff7548bce1ade49d963b4763359a04f70adfe3c04a84f17014d9dac3c"
+  },
+  "patches": {
+    "0001-v3d-preserve-zero-timeout-poll.patch": "5297e811590a5d559daf63f3d95543319068a0fbb29635d911d66267126df372",
+    "0002-v3d-wait-bo-kunit.patch": "89fd9f7ce747498c0729245154e564fa1c6169a55e6cfbcc6b3479875731c3c8"
+  },
+  "production_patch_count": 1,
+  "test_patch_count": 1,
+  "production_test_config": "CONFIG_DRM_V3D_KUNIT_TEST disabled",
+  "test_cases": 6,
+  "installation_authorized": false,
+  "reboot_authorized": false,
+  "validation": {
+    "patch_apply_and_exact_reverse": "passed on isolated copy",
+    "arm64_object_compilation": "baseline, patched v3d_bo and KUnit object passed with W=1 and -Werror against 6.18.50 headers",
+    "kunit_runtime": "Normal isolated ARM64/16-KiB guest: expected busy-poll control failure, other five pass; corrected all six pass; zero skips/timeouts. Kernel sanitizers remain unrun.",
+    "full_kernel_link_and_boot": "Both normal test Images and seven matched modules link without warnings and boot in isolated QEMU TCG guests after 30 paused-resident samples. Changed V3D object explicitly rebuilt after rejecting stale-cache failure. Production packaging and Pi boot unrun.",
+    "qor_focused_test_and_images": "not rerun",
+    "receipt": "build/development-2026-11-16/session-06/",
+    "normal_runtime_receipt": "build/development-2026-11-16/session-10/",
+    "kernel_memory_and_lock_checks": {
+      "status": "passed focused primary run; optional traced diagnostic incomplete",
+      "config": "kunit-kasan-lock.config",
+      "resolved_config_sha256": "d03855d2ff067c1668f38eeac0298b0e926163bbb9d52de5339d26ac1a432bda",
+      "reviewed_differences": 37,
+      "release": "6.18.50-v8-16k-qor-wait-kasan-lock-s11+",
+      "cases_passed": 6,
+      "skips": 0,
+      "timeouts": 0,
+      "busy_poll_voluntary_switches": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "runtime_asan_symbols_verified": true,
+      "lockdep_enabled_throughout": true,
+      "qemu_wall_seconds": 150.437,
+      "qemu_limit_seconds": 300,
+      "paused_resident_samples": 30,
+      "incomplete_traced_attempt_timeouts": 1,
+      "physical_candidate_boot": false,
+      "receipt": "build/development-2026-11-16/session-11/"
+    }
+  },
+  "test_build_documentation_overlay": {
+    "patch": "0003-test-build-document-chroma-siting.patch",
+    "sha256": "82484c7c3d2af1c6f9ccd94b17964f1cbcc150851bea407c9d6550aef29ad22e",
+    "path": "drivers/gpu/drm/drm_color_mgmt.c",
+    "preimage_sha256": "45ac54d0717b00cbbce285e8b839098b1b76119ab917857606bc5b9ca32dc723",
+    "postimage_sha256": "9311fdb7214ec85c3d008b3eff724b73064cc8b7c5210dc118c3ce180e9ef888",
+    "scope": "Two kernel-doc parameter descriptions only, applied identically to both isolated test builds. No executable code or production series change."
+  },
+  "test_builder_extension": {
+    "lock": "builder-compat-lock.json",
+    "sha256": "75e87253d07f1a7435318c836cfc5e9682efab8d86e852ed15f2a2d0a2e08527",
+    "root_manifest_sha256": "e4598cdbaa759122bd5ac7dff011a39500371b6077cbc148d8a3407f11d3a6e7",
+    "entries": 16943,
+    "additional_packages": 15,
+    "original_root_preserved": true
+  },
+  "diagnostic_build_declaration_overlay": {
+    "path": "drivers/usb/host/dwc_common_port/dwc_os.h",
+    "patch": "0004-test-build-declare-dwc-spinlock-allocator.patch",
+    "preimage_sha256": "d04f92479db49bbc7f2f6fa63c0ff093904153805dec9fe4cf0bd4057e5cf38a",
+    "postimage_sha256": "3354943d3ca7d94980177cf6d9a39560148fb4b423b5e5923030b035d66371d7",
+    "patch_sha256": "f3cf6de4b74e90b03c3a8291f7980894a2bb00d282eec5f51ecf4d072a6ef842",
+    "scope": "Move the existing extern declaration only; debug macro bodies/call sites, exported definition and production V3D patch are unchanged.",
+    "executed_patch_sha256": "5d40ce7de17718c401fe4af388fe127bfcdc458d786c93184182c2b0de9f5597",
+    "identical_patched_source_verified": true,
+    "production_series": false
+  }
+}

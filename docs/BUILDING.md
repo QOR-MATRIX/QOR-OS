@@ -12,6 +12,15 @@ QOR OS has two kinds of build:
 - **The products**: QQ, ARQADE and QOR Media, each built by its own script,
   as it was upstream ([§6](#6-the-products-qq-arqade-qor-media)).
 
+The [standalone Qonsole source UI](../apps/qonsole/README.md) also runs directly
+with the existing Windows Qt 6.12 `qml.exe`, without configuring/building the OS
+or loading simulated services. Its focused Qt key/action tests and visible
+software-rendered Windows smoke are recorded separately from native OS/product
+acceptance. Follow its source-payload/run instructions; dependency provenance
+and future staging requirements belong to the [canonical roadmap](ROADMAP.md#alongside-the-phases--qonsole-device-edition).
+No Linux/VM/resource retry, installation or device action follows from this route.
+QPi and Demiurge/QOR ID/Auth integration work remain on hold.
+
 Normal shell builds check the approved startup rendering against its original logo
 sources. The optional `qor_boot_payload` target stages the image's branding files
 inside this checkout's `build/`; it does not build a bootable image, install a theme
@@ -81,6 +90,133 @@ including the accepted private evidence and remaining device/release gates. Do n
 Qt kit in the VM or run an image/partitioning command against workstation disks.
 
 ### Q Pi preparation
+
+On 14 November, direct command access was restored across networks through
+Tailscale. The existing restricted SSH transport retains its saved key and
+strict host verification using `HostKeyAlias=qpi-builder.local` for the private
+network address. This is a verified connection to the existing builder, not
+first-boot provisioning or an image acceptance result. Session-10 connection
+receipts and session-11 execution evidence are under
+`build/development-2026-11-14/`; credentials and sign-in links are excluded.
+
+The native precomputed-sky diagnostic exports the default procedural texture
+through Qt 6.12's public API and bakes it with the installed Balsam tool. Its
+helper builds cleanly in a separate cache and passes hardening. Both minimal
+scenes pass QML lint without warnings and use llvmpipe in the existing private
+display/device/network namespaces. First-frame times are 61.529 seconds for
+procedural lighting and 0.774 seconds for precomputed lighting, with identical
+1280-by-720 image hashes and zero differing pixels. The original 30-sample
+resident admission and continuous 3,072-MiB guard are unchanged; 1,404 source
+hashes and the free lock afterward are verified. The initial component-loading
+failure and its local-URL/bounded-wait correction are both retained in
+`session-11/`. That diagnostic changed no production source and did not rerun
+the Store acceptance case; production integration follows below.
+
+The next native run embeds precomputed lighting for both palettes authored in
+the bundled scenes, matched by their four colour values. Edited colours retain
+procedural generation; explicit sky images retain precedence. The checked-in
+EXR inputs, KTX textures and manifest are described in the
+[QQ build guide](../products/qq/README.md#build-test-deploy). Normal application
+builds only embed the reviewed textures; they do not launch the baker.
+
+With `QOR_QT_DIR` set to the installed commercial ARM64 kit, `q-pi-release`
+configures and builds all QQ targets without compiler/license diagnostics.
+All 85 scene results and 11 world-rendering results pass; the unchanged
+Store-installed Player suite passes three results in 8.371 seconds under its
+original 60-second deadline. The `q-pi-asan` preset reuses the established
+sanitizer cache with its `RelWithDebInfo` build type; all 85 scene results pass
+offscreen with address/undefined-behavior sanitizers and leak checking enabled.
+Hardening accepts 16 QQ programs and the sanitizer program. Runtime lint still
+fails at exactly the previous 53 findings, with none added or removed. The first
+configure attempt's missing-kit-environment refusal is preserved alongside the
+corrected run in `build/development-2026-11-14/session-12/`. Final reconciliation
+verifies 1,409 native source hashes, all four test binaries, sanitizer linkage
+and the free original lock, with no remaining QOR workers. The 30-sample resident
+admission and continuous 3,072-MiB guard remain unchanged; the two integration
+runs stay above 5,537 MiB available. Windows heavy checks
+remain stopped at a 2,501-MiB snapshot; all-file hooks and full product, Windows,
+hardware and release acceptance remain incomplete.
+
+The next Orb Run investigation uses the same native preset and private software
+display. Its canonical case still fails startup; separate diagnostic and timing
+proposal builds are preserved under `build/development-2026-11-14/session-13/`.
+The complete revised proposal passes three Qt Test results in 184.714 seconds,
+with no compiler/license diagnostics and hardening passing 16 programs. It
+changes software wait semantics; [the CI guide](CI.md#what-linux-runs) gives the
+exact limits. The original test source and build were restored before approval.
+The owner subsequently approved the exact four-change proposal. Its applied
+source, complete 1,409-file native manifest and rebuilt executable match that
+passing run. The acceptance rebuild and hardening pass; the identical case was
+not rerun. Integration receipts are in `session-14/` beside the probe. An initial local UTF-8
+decoding error and the first proposal's remaining orb-replacement failure are
+preserved. Windows now measured 2,791 MiB available, so local heavy checks and
+all-file hooks remain incomplete; no unrelated services were changed.
+
+The subsequent complete QQ run finds the bundled Player's separate HDR sky
+still preparing its lighting during launch. Qt Balsam now precomputes that
+lighting under the same native coordinator and isolated software renderer.
+`products/qq/player/playground/assets/dusk-lighting.json` records its retained
+Apache-2.0 source image, generator and hashes. Normal builds embed `dusk.ktx`;
+they do not invoke the baker. The 1280-by-720 comparison is pixel-identical,
+with first frames at 61.384 seconds from the HDR and 0.762 seconds from KTX.
+The real Player's first frame is 5.279 seconds and its capture passes, resolving
+the two original 60-second launch timeouts. The full Player run still fails
+the unchanged 20-FPS floor at 0.5 and 18.9 FPS, with one unavailable-Landlock
+skip. These are functional startup results, not real-time or kernel-confinement
+acceptance. Original failures and the comparison are retained in
+`build/development-2026-11-14/session-15/`.
+
+That continuation completes all remaining native QQ suite attempts. Gameplay,
+lockdown, publishing, Player network confinement, Store launch, Studio, workspace
+and game builds pass completely; the asset library passes with its optional
+benchmark skipped. The real Studio creator journey passes, as does the separate
+Prism Library journey in 202.406 seconds under its unchanged 300-second limit.
+The latter records launch arguments with the test launcher, then runs the real
+Player on its private display. It does not prove hardware rendering in Prism.
+Ordinary suites retain 5,400-second limits and Qt functions 1,800,000 ms. Builds
+and hardening pass, but the agent's short log-timing check, the two Player frame
+rates, unavailable Landlock support and the same 53 lint findings prevent full
+QQ acceptance. Scene/world passes are retained by current binary fingerprints.
+The final reconciliation verifies 1,412 native source files and 15 executables;
+the original lock is free and no test worker remains. The complete suites never
+fall below 4,923 MiB available. Windows remains below 3,072 MiB, so local heavy
+checks and all-file hooks are still incomplete.
+
+The 15 November Game interface follow-up uses the same `q-pi-release` build,
+original coordinator, 30 resident-worker admission samples and continuous
+3,072-MiB guard. Public scene/follower handles stay generic; private dynamic
+accessors preserve compatible scene nodes. Baseline and candidate interface
+checks each pass seven results, then the complete scene suite passes all 87
+normally and under `q-pi-asan` offscreen with leak checking enabled. The latter
+retains its established `RelWithDebInfo` cache. The complete native gameplay
+suite also passes all 58 results under its unchanged standard limits. Store
+launch passes three, and the packaged-game creator journey passes in 201.985
+seconds under its registered 300-second limit. Player retains 13 passes, two
+FPS failures (0.5 and 18.9 against 20) and one unavailable-Landlock skip.
+All 24 Game lint findings are
+removed; the other 29 warning lines are unchanged, so lint remains a failed
+gate. No rendering quality, assertion or approved gameplay boundary changes.
+Diagnostic traces of the unchanged Player and agent concentrate cost in software
+rendering and synchronization; instrumentation timings do not replace ordinary
+acceptance results. Receipts are in `build/development-2026-11-15/session-01/`.
+The separate ARQADE caller rebuild exits zero but emits its existing Qt
+`GuiPrivate` compatibility warning. Its strict build gate fails and caller tests
+do not run; no diagnostic suppression or timing change is applied.
+
+The following Behaviour increment retains that coordinator, isolation and
+resource policy. Six focused results pass before and after the direct-accessor
+change, and all 89 scene results pass normally and under the same offscreen
+sanitizer configuration with leak checking. Eleven Behaviour lint findings
+are removed with none added; the other 18 warning lines remain. Existing
+gameplay sources, assertions and suite limits are unchanged. Complete gameplay
+passes 58, Store launch three, and the packaged-game journey passes in 201.377
+seconds under its 300-second limit. Agent reproduces its prior log-timing
+failure; Player retains both FPS-floor failures and the Landlock skip. The
+brief Tailscale outage interrupted the local polling queue; the original native
+guard and test process continued, and the queue resumed against that same run.
+All 1,966 resource samples stay at or above 5,427 MiB available. Final readback
+verifies 1,412 native sources, eight executables, no remaining test workers and
+the original lock free. The receipts are in `build/development-2026-11-15/session-02/`.
 
 Start with the canonical [Pi 5 bootstrap procedure](../image/README.md#pi-5-builder-bootstrap-before-q-pi):
 stock Raspberry Pi OS 64-bit Desktop Trixie establishes a possible native builder;
@@ -308,6 +444,34 @@ unverified; the stock builder's separately authorised SSH access is now observed
 ## 1. Prerequisites
 
 ### Windows (primary development platform)
+
+The 15 November qualified continuation at source `5d1359e` rebuilds QQ in
+`build/ci-products/qq` with commercial Qt 6.12.0, MSVC 2022, `Release`, warnings
+as errors and serial compilation. Compilation has no compiler/licence
+diagnostics, hardening passes all 15 programs and aggregate QML lint has zero
+warnings; Runtime, Player and Studio structured reports each confirm zero
+warnings. All six metadata helper tests and six focused AgentPanel results pass.
+The panel checks use inert controllers, a private profile, offscreen software
+rendering and bypassed adapter probing; they instantiate no audio engine and
+call no keychain or provider. Full product runtime suites remain unrun on this
+host because their device/keyring boundary is not qualified. The core's null
+audio switch does not disable [Qt Multimedia's Windows audio backend](https://raw.githubusercontent.com/qt/qtmultimedia/v6.12.0/src/multimedia/platform/qplatformaudiodevices.cpp).
+An initial wrapper used the wrong executable path; its corrected continuation
+passed, then exposed a tuple/list error in the result collector. Both wrapper
+failures and the actual zero-exit test output are preserved without repeating
+the passing test. Receipts: `build/development-2026-11-15/session-08/`.
+
+The 14 November local QQ continuation uses `build/ci-products/qq`, the commercial
+Qt 6.12.0 kit and MSVC 2022, with warnings as errors and serial compilation.
+All targets build without compiler/license-client diagnostics; all 84 scene
+results pass offscreen and hardening accepts all 15 programs. Runtime QML lint
+still fails at 53 warnings. The scene run's missing-font and hardware-audio
+warnings are preserved: `QOR_AUDIO_OUTPUT=null` does not isolate Qt Multimedia's
+Windows backend. Do not infer device isolation from offscreen rendering or that
+environment variable. Further runtime suites need a qualified audio boundary;
+the full Windows product harness was not run. Receipts and the correction to
+the evidence collector's assumed executable path are in
+`build/development-2026-11-14/session-07/`.
 
 | Tool | Version | Notes |
 |------|---------|-------|
@@ -697,15 +861,22 @@ development; on device, GPU buffer sharing is part of Phase 3.
 
 ## 4. Tests and lint
 
-On 13 November the current local tree configured/built with `ci-windows`, passed
-all 22 suites selected by `ctest --preset ci-windows -LE gpu --parallel 1`, passed
-hardening for 33 programs and reported zero QML lint warnings. The test harness
-used temporary profile/settings folders, offscreen software rendering, silent
-audio and virtual controllers. Rust's pinned `proc-macro-error2` 2.0.1
-future-compatibility warning remains: a successful build exit is not a
-warning-free result. Full GPU/product, native Linux OS and isolated-CI acceptance
-remain separate. Exact commands and receipts:
-`build/development-2026-11-13/session-01/`.
+On 15 November, source `5d1359e` configured/built with `ci-windows` and the
+required pinned QOR core. All 22 suites selected by
+`ctest --preset ci-windows -LE gpu --parallel 1` passed in 129.266 seconds;
+nine GPU-labelled suites were excluded. One desktop-entry case retains its
+expected Windows skip. The image-decoder errors come from the passing malformed
+preview checks. Hardening passes all 33 programs and QML lint reports zero
+warnings. Temporary profile/settings folders, offscreen software rendering,
+the core's null audio output and virtual controllers isolate this selection.
+Rust's pinned `proc-macro-error2` 2.0.1 future-compatibility warning remains:
+the successful build is not warning-free. All 550 core resource samples stay
+at or above 3,422 MiB against the unchanged 3,072-MiB floor. The original Windows
+coordinator holds its real lock throughout, with 30 resident-worker admission
+samples and continuous monitoring. Full GPU/product, native Linux OS and
+isolated-CI acceptance remain separate. Current receipts:
+`build/development-2026-11-15/session-08/`; the preceding 13 November run remains
+in `build/development-2026-11-13/session-01/`.
 
 ```powershell
 ctest --preset ci-windows                           # all suites in this build
@@ -739,6 +910,147 @@ file retain their hashes. This is diagnosis, without a correction installed or c
 whole QQ failed at 142 console/167 structured warnings at that checkpoint, before later source cleanup.
 The command records and controls are in
 `build/autonomous-2026-11-04/spatial-runtime-diagnostic-verified.json`; this clears no runtime or hardware gate.
+
+The 15 November native Pi reproduction confirms that the one-line metadata-copy correction removes exactly six
+SpatialAudio findings and still rejects unknown properties and invalid inherited property types. The installed SDK
+and generated response files stay unchanged. Structured output also exposes findings omitted from console output:
+QQ Runtime had 20 warnings despite six printed lines, and Studio independently had 18. The subsequent Music/Sprite/
+TileMap correction removes 14 runtime findings, leaving six runtime and 18 Studio findings; Player has none.
+After those source fixes, the corrected temporary copy makes the complete Runtime lint command return zero with
+zero warnings; the invalid-property and invalid-type controls still fail. Normal lint still uses the unchanged SDK
+and fails at that diagnostic checkpoint.
+Do not use console line counts as the complete lint result. Run each module's `qqruntime_qmllint_json`,
+`qq-player_qmllint_json` and `qqstudio_qmllint_json` target separately and inspect its JSON; an aggregate target can
+stop at the first failing module. Preserve every return code and diagnostic severity. Qt documents the
+[module dependencies used by tooling](https://doc.qt.io/qt-6/qt-add-qml-module.html#module-dependencies)
+and [structured lint output](https://doc.qt.io/qt-6/qtqml-tooling-qmllint.html#scripting).
+Native receipts and controls: `build/development-2026-11-15/session-04/`.
+
+The subsequent build integration uses `cmake/QorSpatialAudioMetadata.cmake` from QQ's runtime CMake file. It copies
+only `qmldir` and `plugins.qmltypes` beneath that runtime's build directory, adds the missing dependency to the
+local `qmldir`, and supplies the directory through Qt's documented `IMPORT_PATH` argument. The installed kit,
+diagnostic severities and application import environment are unchanged. A kit already declaring the dependency
+uses its original metadata. Incomplete metadata, unexpected module/base types and an unreviewed version still
+missing the dependency stop configuration instead of silently applying the workaround.
+The generated `qqruntime_qmllint` and `qqruntime_qmllint_json` targets both pass with zero warnings on the native Pi;
+Player remains clean and Studio's 18 findings still fail the aggregate target. Six helper tests and real valid/
+invalid-property/type controls pass. This is a build-tool correction, not Windows deployment or device acceptance.
+Receipts: `build/development-2026-11-15/session-06/`.
+
+The following AgentPanel correction removes the remaining 18 Studio findings.
+An explicit accessor retains its required structural controller and reads the
+current object in bindings and actions. Native QQ `all_qmllint` now exits zero;
+Runtime, Player and Studio structured commands each report zero warnings.
+No diagnostic category, severity or source coverage changed. Six focused
+results pass against the unchanged panel before the correction and offscreen
+under ASan/UBSan afterward, with leak checking. Complete Agent passes 22 with
+the identical existing log-timing failure and optional provider skip; complete
+Studio passes 29. The packaged-game creator journey passes in 131.581 seconds
+under its original 300-second limit. All 1,351 validation samples stay at
+or above 5,835 MiB against the unchanged 3,072-MiB floor. Native compilation
+and hardening pass. Existing assertions, approved timing, the original guard
+and private namespaces are unchanged. Receipts: `build/development-2026-11-15/session-07/`.
+
+The 16 November backport preparation at source `4937e1a` supplies a review
+candidate in `image/pi/kernel-wait-bo/`: a two-line V3D ioctl change preserves
+zero as a poll while leaving positive conversion and error accounting intact.
+It backports the zero-poll semantics of upstream Linux `226666556a9b`, without
+the shared-helper migration. Exact source/config and patch/preimage/postimage
+hashes are pinned. A separate, default-off patch adds six KUnit kernel tests.
+The busy-buffer case uses a real unsignaled fence and the actual ioctl/GEM wait
+path, checking voluntary scheduling rather than a fixed elapsed threshold.
+Its handle/device fixture is synthetic; it submits no GPU work.
+
+Patch application and exact reversal pass in a new isolated copy. Original and
+patched V3D objects plus the test object compile against the exact Pi 6.18.50
+headers with `W=1` and `-Werror`; disassembly confirms the zero bypass. These are
+object checks, not a linked kernel or executed KUnit suite. The running kernel
+has KUnit disabled; `bison`, `flex` and QEMU are absent. Full build, unpatched/
+patched KUnit execution, interruption/asynchronous completion integration and
+hardware qualification remain pending. No dependency is installed.
+
+The [backport and rollback runbook](../image/README.md#pi-kernel-wait-bo-backport-review)
+records a critical recovery distinction: normal boot files already match
+6.18.60, while the Pi still runs 6.18.50. A reboot or restoring today's boot
+files is not a verified return to the running baseline. A tested recovery path
+is required before any candidate installation. No kernel, boot file, module,
+service, desktop setting, QOR source, executable or assertion changes.
+
+The guarded preparation's 61 samples stay at or above 7,153 MiB against the
+unchanged 3,072-MiB floor. Historical focused results remain 3 passed, 1 failed,
+0 skipped (`times > 5` with 3), later notice/cursor checks unreached. The
+independent llvmpipe failure and 97 image outliers remain open. No new product,
+Release, sanitizer or isolated-CI acceptance is claimed; PR #10 stays draft.
+The owner-authorized session-08 provisions 218 pinned Debian ARM64 dependency
+payloads in a private root. Signed metadata and all archive hashes verify;
+offline compiler/linker, bison/flex and paused QEMU startup checks pass.
+The host package database, kernel and boot files are preserved. This is a
+read-only tool root, not a configured Debian installation or kernel-test pass.
+The original guard records 158 samples, minimum 7,214 MiB. The
+[builder lock and runbook](../image/README.md#private-builder-dependencies-provisioned)
+record the exact scope and reuse checks. Kernel tests and full kernel linkage
+were unrun in that dependency phase. Its receipts remain in
+`build/development-2026-11-16/session-08/`; session-07 remains sealed.
+
+Sessions-09/10 complete the pinned-source normal kernel regression in isolation.
+The control reproduces the busy zero-poll defect: one expected failed case and
+five passes; each of its 16 busy probes voluntarily sleeps once. The corrected
+kernel passes all six unchanged cases, with zero voluntary switches in those
+16 probes. Both runs have zero skips/timeouts and verified separate call-path
+traces. ARM64, 16-KiB pages, HZ250 and PREEMPT=y are retained. Both Images and
+their seven matched modules build with zero warnings after a shared, pinned
+two-line kernel-doc overlay; the V3D fix and regression assertions are unchanged.
+The read-only compiler extension preserves the stock ARM32 compatibility vDSO.
+An initial corrected guest exposed a stale copied control object; that failure
+is retained. The accepted build explicitly recompiles the changed object and
+records its different hash and disassembly before execution. Each final guest
+has 30 paused-VM resident admission samples before boot, within the unchanged
+300-second outer guest limit.
+The guarded build, review and guest stages record 702 samples, minimum 6,919 MiB, above
+3,072 MiB. This is a synthetic-fence kernel regression in a software-emulated
+guest, not a real GPU buffer, QOR frame-rate improvement or Pi installation.
+Kernel address/lock checking, production packaging, asynchronous completion/
+interruption integration and physical recovery remain pending. The original
+QOR gameplay/software failures, image outliers and Release/isolated-CI gates
+remain open. Next: run the corrected suite with kernel address and lock checking
+in a separate reviewed configuration. PR #10 stays draft. See the
+[normal guest results](../image/README.md#normal-isolated-kernel-regression-verified);
+receipts: `build/development-2026-11-16/session-10/`, preserving session-09.
+
+Session-11 separately verifies the unchanged six cases under Generic KASAN
+(kernel memory-error detection) and lockdep (lock dependency validation), with
+GCC outline, stack/vmalloc instrumentation and atomic-sleep checks. All six
+pass with zero skips/timeouts and zero voluntary switches in the 16 busy polls.
+Both handler/test objects contain ASan imports; the guest verifies runtime
+symbols and debug_locks=1 before/after the suite and before shutdown. The
+primary-only guest exits normally in 150.437 seconds within the same 300-second
+bound, including 30 paused-QEMU resident samples. Normal session-10 regression
+and traces remain separate evidence; no physical Pi kernel is booted here.
+
+The first debug build exposes a vendor USB missing-prototype error. A separate
+test-build overlay moves the existing exported allocator declaration outside
+its debug conditional; function bodies and debug allocation macros are unchanged.
+Warnings-as-errors and all diagnostic features stay enabled. Image and seven
+matched modules then link with zero warnings, within the original deadline.
+An optional KASAN function-graph rerun times out after a complete passing primary
+suite; that run stays incomplete. A primary-only loader initially has an unused
+tracing helper rejected by -Werror; removing only that unused helper permits
+the clean run. No timeout or test assertion is relaxed. The traced diagnostic
+remains unqualified; KASAN fault injection, lock torture, multicore stress and
+real GPU completion/interruption/lifetime integration remain unrun.
+
+The exact 37 config differences retain ARM64, 16-KiB pages, HZ250, PREEMPT=y,
+compatibility vDSO and FRAME_WARN=2048. Across preparation, failed/retried builds,
+guest attempts and read-only recovery inventory, 3930 samples have minimum
+6,934 MiB above the unchanged 3,072-MiB floor. No host package, boot file,
+loaded module or service changes. Complete stock module manifests are hashed;
+backup/media readback and an actual stock recovery boot remain unverified.
+The [physical qualification plan](../image/README.md#rollback-plan-distinguish-running-from-next-boot)
+requires a matched stock 6.18.50 recovery boot on independent media before any
+separately authorized production trial. Boot-selected 6.18.60 is not that recovery.
+Original Studio/software-renderer failures, 97 image outliers, hosted Qt isolation
+and Release/image acceptance remain open. PR #10 stays draft. Next: verify that
+stock recovery route physically. Receipts: `build/development-2026-11-16/session-11/`.
 
 The selected collector check also runs in the existing Windows kit without showing a window or using a graphics
 card. Use `ci-windows`, leaving a running `windows-release` shell alone:

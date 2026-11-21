@@ -8,6 +8,8 @@
 // scene again from its file.
 
 // Changed for QOR OS: failed scene startup is reported and its loaded object is discarded before retry.
+// Changed for QOR OS: the loaded playingScene does not override View3D.scene.
+// Changed for QOR OS: scene and follower fields use their dynamic interfaces, keeping the public object handles.
 
 import QtQuick
 import QtQuick3D
@@ -20,18 +22,23 @@ World {
     property url file
 
     /// The scene playing, or null; and why there is none, if there is not.
-    property QtObject scene: null
+    property QtObject playingScene: null
     property string problem: ""
     property var entityList: []
 
     /// True once the scene plays and every model in it has loaded or failed: the first frame of the game proper.
-    readonly property bool settled: scene !== null && entityList.every(e => e.kind !== "Prop" || e.status !== Prop.Empty)
+    readonly property bool settled: playingScene !== null && entityList.every(e => e.kind !== "Prop" || e.status !== Prop.Empty)
     /// The models that failed to load, each "name: why". The game plays without them, so the Player reports them
     /// rather than stopping; a game that settles with one missing is not the game its creator made.
     readonly property list<string> unloaded: entityList.filter(e => e.kind === "Prop" && e.status === Prop.Failed)
                                                        .map(e => e.name + ": " + e.errorString)
 
-    readonly property QtObject follow: scene ? scene.player : null
+    // SceneIO accepts compatible scene nodes; followers may be 2D or 3D. Their fields belong to those
+    // dynamic interfaces, while the public handles keep their QObject identity and lifetime tracking.
+    // Read the current object directly so no second property binding can lag during a scene change.
+    function _sceneState(): var { return playingScene }
+    function _followerState(): var { return follow }
+    readonly property QtObject follow: playingScene ? _sceneState().player : null
 
     // The eye with no player: on a sphere around the middle of the scene.
     property real yaw: 25
@@ -39,38 +46,38 @@ World {
     property real distance: 10
     property vector3d middle: Qt.vector3d(0, 1, 0)
 
-    eye: follow ? follow.eye : Qt.vector3d(
+    eye: follow ? _followerState().eye : Qt.vector3d(
         middle.x + distance * Math.cos(pitch * Math.PI / 180) * Math.sin(yaw * Math.PI / 180),
         middle.y + distance * Math.sin(pitch * Math.PI / 180),
         middle.z + distance * Math.cos(pitch * Math.PI / 180) * Math.cos(yaw * Math.PI / 180))
     // Flat, the eye on the player stops at the level's edges (Scene.keptInView); with no player, it looks from the
     // ground up.
-    target: follow ? (flat ? scene.keptInView(follow.lookAt, width / (2 * magnification), height / (2 * magnification))
-                           : follow.lookAt)
+    target: follow ? (flat ? _sceneState().keptInView(_followerState().lookAt, width / (2 * magnification), height / (2 * magnification))
+                           : _followerState().lookAt)
                    : flat ? Qt.vector3d(0, viewHeight / 2, 0) : middle
 
-    flat: scene ? scene.view === "2d" : false
-    pixelsPerUnit: scene ? scene.pixelsPerUnit : 16
-    viewHeight: scene ? scene.viewHeight : 12
-    pixelArt: scene ? scene.pixelArt : true
+    flat: playingScene ? _sceneState().view === "2d" : false
+    pixelsPerUnit: playingScene ? _sceneState().pixelsPerUnit : 16
+    viewHeight: playingScene ? _sceneState().viewHeight : 12
+    pixelArt: playingScene ? _sceneState().pixelArt : true
 
     hearing: true
-    exposure: scene ? scene.exposure : 1
-    bloom: scene ? scene.bloom : true
-    skyLight: scene ? scene.skyLight : 0.75
-    skyTop: scene ? scene.skyTop : "#0b1430"
-    skyHorizon: scene ? scene.skyHorizon : "#c7623a"
-    groundHorizon: scene ? scene.groundHorizon : "#2a1a1a"
-    groundBottom: scene ? scene.groundBottom : "#07080c"
-    sky: scene && String(scene.sky) !== "" ? SceneIO.resolvedUrl(scene, scene.sky) : ""
-    skyTurn: scene ? scene.skyTurn : 0
+    exposure: playingScene ? _sceneState().exposure : 1
+    bloom: playingScene ? _sceneState().bloom : true
+    skyLight: playingScene ? _sceneState().skyLight : 0.75
+    skyTop: playingScene ? _sceneState().skyTop : "#0b1430"
+    skyHorizon: playingScene ? _sceneState().skyHorizon : "#c7623a"
+    groundHorizon: playingScene ? _sceneState().groundHorizon : "#2a1a1a"
+    groundBottom: playingScene ? _sceneState().groundBottom : "#07080c"
+    sky: playingScene && String(_sceneState().sky) !== "" ? SceneIO.resolvedUrl(playingScene, _sceneState().sky) : ""
+    skyTurn: playingScene ? _sceneState().skyTurn : 0
 
     /// The game asked its host something (ADR-117): a JSON value. Whoever hosts the game answers with tell().
     signal asked(var message)
     /// Tell the game something (ADR-117): a JSON value its logic hears at the next tick (Logic.onTold). False if it was
     /// refused (not playing, not JSON, larger than 16 KiB, or too many waiting).
     function tell(message) {
-        return scene ? scene.tell(message) : false
+        return playingScene ? _sceneState().tell(message) : false
     }
 
     /// A seed for this play, in place of the scene's (P3.11: the Player's --seed, a run ARQADE starts); 0 keeps the scene's.
@@ -78,13 +85,15 @@ World {
     /// What keeps the run (a RunRecord: the Player's --record), or null.
     property QtObject recorder: null
 
+    function _loadScene(): var { return SceneIO.load(file, holder) }
+
     function restart() {
-        if (scene)
-            SceneIO.discard(scene)
-        scene = null
+        if (playingScene)
+            SceneIO.discard(playingScene)
+        playingScene = null
         entityList = []
         Input.release()
-        const next = SceneIO.load(file, holder)
+        const next = _loadScene()
         if (!next) {
             problem = SceneIO.lastError
             return false
@@ -96,11 +105,11 @@ World {
             next.asked.connect(game.asked)
             next.playing = true
             problem = ""
-            scene = next
+            playingScene = next
             entityList = SceneIO.entities(next)
             return true
         } catch (error) {
-            scene = null
+            playingScene = null
             entityList = []
             SceneIO.discard(next)
             problem = qsTr("This scene could not start.")
@@ -110,9 +119,9 @@ World {
 
     /// Put the scene away in a safe order (its bodies before their world): what the player does as it quits.
     function release() {
-        if (scene)
-            SceneIO.discard(scene)
-        scene = null
+        if (playingScene)
+            SceneIO.discard(playingScene)
+        playingScene = null
         entityList = []
     }
 

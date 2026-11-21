@@ -1,0 +1,79 @@
+{
+  "SPDX-License-Identifier": "LicenseRef-QOR-OS-Proprietary",
+  "format": 1,
+  "origin": "QOR-authored World and bundled scene palettes; no downloaded image",
+  "qt_version": "6.12.0",
+  "generator": "QtQuick3D.Helpers ProceduralSkyTextureData, then Qt Balsam",
+  "balsam_sha256": "78b16c4f31d6473ce02f8cc1d688cc7e2cdff84d1f33a864b79328dbbee521de",
+  "export": "Uncompressed scanline EXR preserving 1024x512 RGBA16F half words; rows reversed for the Qt EXR loader",
+  "baker_renderer": "Mesa llvmpipe LLVM 19.1.7; Mesa 26.2.6; OpenGL 4.6",
+  "output": {
+    "container": "KTX1",
+    "format": "RGBA16F",
+    "face_size": 512,
+    "faces": 6,
+    "mip_levels": 6
+  },
+  "rebuild": "Run the installed Qt 6.12 balsam on each checked-in EXR into a separate output directory under the existing guarded software-rendering workflow. Review output hashes and pixel comparisons before replacing a texture.",
+  "scope": "The two palettes authored in the bundled QQ scenes plus the World default; all other colours remain procedural.",
+  "palettes": [
+    {
+      "name": "default",
+      "colors": {
+        "skyTop": "#0b1430",
+        "skyHorizon": "#c7623a",
+        "groundHorizon": "#2a1a1a",
+        "groundBottom": "#07080c"
+      },
+      "sunLatitude": 18,
+      "sunLongitude": 210,
+      "source": "default.exr",
+      "texture": "default.ktx",
+      "source_sha256": "bf13841ffc5a54b65eb0e2034b2e28c774f7a268d57801adec14d28ff2061ad5",
+      "texture_sha256": "5ea4c877f220890665c20a8b1c2045c0142885eeaa01260ae10b9e201b1ce097",
+      "raw_texture_data_sha256": "84b8e354ca8b9e4cf88fd199446db17e5c542743286edcfe41801e63e54a0764",
+      "pixel_comparison": {
+        "changed_pixels": 0,
+        "exactly_equal": true,
+        "height": 720,
+        "max_channel_difference": 0,
+        "mean_absolute_channel_difference": 0,
+        "nonuniform_reference": true,
+        "width": 1280
+      },
+      "first_frame_ms": {
+        "procedural": 61529.0,
+        "precomputed": 774.0
+      }
+    },
+    {
+      "name": "ember-climb",
+      "colors": {
+        "skyTop": "#120d1f",
+        "skyHorizon": "#3a1630",
+        "groundHorizon": "#0a0710",
+        "groundBottom": "#07080c"
+      },
+      "sunLatitude": 18,
+      "sunLongitude": 210,
+      "source": "ember-climb.exr",
+      "texture": "ember-climb.ktx",
+      "source_sha256": "1430013d3cd17b3119d204eb389643d5a1ecbb001c6306a2e0bad865db9e6281",
+      "texture_sha256": "a9900cb3f246c8dceb1daaf7174563b304d191741b3174292e58f52c29ff1858",
+      "raw_texture_data_sha256": "06e69d0f38ad3aee1c92919d0c353f0c625e355cbed4b10fa4f2792b23de88f0",
+      "pixel_comparison": {
+        "changed_pixels": 0,
+        "exactly_equal": true,
+        "height": 720,
+        "max_channel_difference": 0,
+        "mean_absolute_channel_difference": 0,
+        "nonuniform_reference": true,
+        "width": 1280
+      },
+      "first_frame_ms": {
+        "procedural": 61294.0,
+        "precomputed": 768.0
+      }
+    }
+  ]
+}

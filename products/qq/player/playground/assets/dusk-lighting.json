@@ -1,0 +1,36 @@
+{
+  "SPDX-License-Identifier": "LicenseRef-QOR-OS-Proprietary",
+  "format": 1,
+  "origin": "Lighting precomputed from the carried playground HDR image; original image retained",
+  "source": "dusk.hdr",
+  "source_license": "Apache-2.0",
+  "source_inventory": "LICENSES/from-demiurge-chain.txt",
+  "source_sha256": "0fea2785e0da153163f48b169b0297649006393cc36c79d7aef14ebedd53bfff",
+  "texture": "dusk.ktx",
+  "texture_sha256": "762a60b1b99988e2b48d28deb6d62d22531bce3899d272e9eafa8048e624d7b7",
+  "qt_version": "6.12.0",
+  "generator": "Qt Balsam",
+  "balsam_sha256": "78b16c4f31d6473ce02f8cc1d688cc7e2cdff84d1f33a864b79328dbbee521de",
+  "output": {
+    "container": "KTX1",
+    "format": "RGBA16F",
+    "face_size": 512,
+    "faces": 6,
+    "mip_levels": 6
+  },
+  "baker_renderer": "Mesa llvmpipe LLVM 19.1.7; Mesa 26.2.6; OpenGL 4.6",
+  "rebuild": "Run the installed Qt 6.12 balsam on dusk.hdr into a separate guarded software-rendering output folder. Verify pixel equivalence before replacing dusk.ktx.",
+  "pixel_comparison": {
+    "changed_pixels": 0,
+    "exactly_equal": true,
+    "height": 720,
+    "max_channel_difference": 0,
+    "mean_absolute_channel_difference": 0,
+    "nonuniform_reference": true,
+    "width": 1280
+  },
+  "diagnostic_first_frame_ms": {
+    "dusk-hdr": 61384.0,
+    "dusk-precomputed": 762.0
+  }
+}

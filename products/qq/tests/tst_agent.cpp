@@ -14,6 +14,7 @@
 
 // Changed for QOR OS: inert step rows verify the actual agent panel's model bindings and literal text.
 // Changed for QOR OS: body and tool rows retain their startup application and mono font choices.
+// Changed for QOR OS: panel bindings and actions follow the current controller without retaining supplied keys.
 
 #include <QColor>
 #include <QDir>
@@ -428,6 +429,119 @@ private slots:
         QCOMPARE(label(later)->property("textFormat").toInt(), int(Qt::PlainText));
         QCOMPARE(label(later)->property("font").value<QFont>().pixelSize(), 12);
         QCOMPARE(label(later)->property("font").value<QFont>().family(), look->mono());
+    }
+
+    void agentPanelFollowsItsCurrentController()
+    {
+        // Structural stand-ins exercise the real panel without a provider, account, network or keychain.
+        QQuickWindow window;
+        QQmlEngine engine;
+        QQmlComponent state(&engine);
+        state.setData(R"(import QtQml
+QtObject {
+    property bool running: false
+    property bool hasKey: false
+    property bool canUndo: false
+    property string status: ""
+    property var steps: []
+    property var usage: ({})
+    property int starts: 0
+    property int stops: 0
+    property int undos: 0
+    property int forgets: 0
+    property int receivedLength: 0
+    property string lastBrief: ""
+    function start(brief) { this.starts += 1; this.lastBrief = brief; this.running = true }
+    function stop() { this.stops += 1; this.running = false; this.canUndo = true }
+    function undo() { this.undos += 1; this.canUndo = false }
+    function forgetKey() { this.forgets += 1; this.hasKey = false }
+    function setKey(value) { this.receivedLength = value.length; return "<b>Fixture refusal</b>" }
+})", QUrl());
+        std::unique_ptr<QObject> original(state.create());
+        std::unique_ptr<QObject> current(state.create());
+        QVERIFY2(original && current, qPrintable(state.errorString()));
+        QQmlComponent component(&engine);
+        component.loadFromModule(QStringLiteral("QQ.Studio"), QStringLiteral("AgentPanel"));
+        std::unique_ptr<QObject> panel(component.createWithInitialProperties(
+            {{QStringLiteral("designer"), QVariant::fromValue(original.get())}}));
+        QVERIFY2(panel, qPrintable(component.errorString()));
+        auto *root = qobject_cast<QQuickItem *>(panel.get());
+        QVERIFY(root);
+        root->setParentItem(window.contentItem());
+        root->setSize(QSizeF(520, 800));
+        window.resize(520, 800);
+        window.show();
+        QVERIFY(QTest::qWaitForWindowExposed(&window));
+        auto *context = QQmlEngine::contextForObject(panel.get());
+        QVERIFY(context);
+        auto *key = panel->findChild<QObject *>(QStringLiteral("agentKey"));
+        auto *brief = panel->findChild<QObject *>(QStringLiteral("agentBrief"));
+        auto *start = panel->findChild<QObject *>(QStringLiteral("agentStart"));
+        auto *status = panel->findChild<QObject *>(QStringLiteral("agentStatus"));
+        auto *usage = panel->findChild<QObject *>(QStringLiteral("agentUsage"));
+        auto *steps = context->objectForName(QStringLiteral("steps"));
+        auto *problem = context->objectForName(QStringLiteral("keyProblem"));
+        auto button = [&](const QString &text) -> QObject * {
+            for (auto *child : panel->findChildren<QObject *>())
+                if (child->metaObject()->indexOfSignal("clicked()") >= 0 && child->property("text").toString() == text)
+                    return child;
+            return nullptr;
+        };
+        auto *keep = button(QStringLiteral("Keep it in the keychain"));
+        auto *stop = button(QStringLiteral("Stop"));
+        auto *undo = button(QStringLiteral("Undo the run"));
+        auto *forget = button(QStringLiteral("Forget the key"));
+        QVERIFY(key && brief && start && status && usage && steps && problem && keep && stop && undo && forget);
+        QVERIFY(!start->property("enabled").toBool());
+        QVERIFY(key->property("visible").toBool());
+        QVERIFY(!usage->property("visible").toBool());
+
+        QVERIFY(current->setProperty("hasKey", true));
+        QVERIFY(current->setProperty("status", QStringLiteral("<i>Current controller</i>")));
+        QVERIFY(panel->setProperty("designer", QVariant::fromValue(current.get())));
+        QVERIFY(original->setProperty("status", QStringLiteral("Detached controller")));
+        QCOMPARE(status->property("text").toString(), QStringLiteral("<i>Current controller</i>"));
+        QCOMPARE(status->property("textFormat").toInt(), int(Qt::PlainText));
+        QVERIFY(!key->property("visible").toBool());
+        QVERIFY(brief->setProperty("text", QStringLiteral("A fixture game")));
+        QVERIFY(start->property("enabled").toBool());
+        QVERIFY(QMetaObject::invokeMethod(start, "clicked"));
+        QCOMPARE(current->property("starts").toInt(), 1);
+        QCOMPARE(current->property("lastBrief").toString(), QStringLiteral("A fixture game"));
+        QVERIFY(!brief->property("enabled").toBool());
+        QVERIFY(!start->property("enabled").toBool());
+        QVERIFY(stop->property("visible").toBool());
+        QVERIFY(!forget->property("visible").toBool());
+        QVERIFY(QMetaObject::invokeMethod(stop, "clicked"));
+        QCOMPARE(current->property("stops").toInt(), 1);
+        QVERIFY(brief->property("enabled").toBool());
+        QVERIFY(undo->property("visible").toBool());
+        QVERIFY(QMetaObject::invokeMethod(undo, "clicked"));
+        QCOMPARE(current->property("undos").toInt(), 1);
+        QVERIFY(!undo->property("visible").toBool());
+        QVERIFY(current->setProperty("steps", QVariantList{QVariantMap{{QStringLiteral("kind"), QStringLiteral("said")},
+            {QStringLiteral("text"), QStringLiteral("Fixture answer")}, {QStringLiteral("image"), QString()},
+            {QStringLiteral("failed"), false}}}));
+        QTRY_COMPARE(steps->property("count").toInt(), 1);
+        QVERIFY(current->setProperty("usage", QVariantMap{{QStringLiteral("answers"), 2}, {QStringLiteral("input"), 10},
+            {QStringLiteral("output"), 5}, {QStringLiteral("cacheRead"), 0}, {QStringLiteral("cacheWrite"), 0}}));
+        QVERIFY(usage->property("visible").toBool());
+        QVERIFY(usage->property("text").toString().contains(QStringLiteral("in 2 answers.")));
+        QVERIFY(forget->property("visible").toBool());
+        QVERIFY(QMetaObject::invokeMethod(forget, "clicked"));
+        QCOMPARE(current->property("forgets").toInt(), 1);
+        QVERIFY(key->property("visible").toBool());
+        QVERIFY(!keep->property("enabled").toBool());
+        QVERIFY(key->setProperty("text", QStringLiteral("fixture-only-input")));
+        QVERIFY(keep->property("enabled").toBool());
+        QVERIFY(QMetaObject::invokeMethod(keep, "clicked"));
+        QCOMPARE(current->property("receivedLength").toInt(), 18);
+        QVERIFY(key->property("text").toString().isEmpty());
+        QVERIFY(!keep->property("enabled").toBool());
+        QCOMPARE(problem->property("text").toString(), QStringLiteral("<b>Fixture refusal</b>"));
+        QCOMPARE(problem->property("textFormat").toInt(), int(Qt::PlainText));
+        for (const char *counter : {"starts", "stops", "undos", "forgets", "receivedLength"})
+            QCOMPARE(original->property(counter).toInt(), 0);
     }
 
     // ── the protocol ──

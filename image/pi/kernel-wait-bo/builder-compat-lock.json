@@ -1,0 +1,509 @@
+{
+  "schema": 1,
+  "base_builder_root_manifest_sha256": "8137474007a4117efa8b866a2cb7ff4c223b01970f1206d92f42ac429ed43582",
+  "base_package_manifest_sha256": "12bf9ce8fa81340e452d3c2d6c1c568498eef387eda8ba63abd8d52288c417b2",
+  "requested": [
+    "gcc-arm-linux-gnueabihf=4:14.2.0-1",
+    "gcc-14-arm-linux-gnueabihf=14.2.0-19cross1"
+  ],
+  "additional_packages": [
+    {
+      "Package": "binutils-arm-linux-gnueabihf",
+      "Version": "2.44-3",
+      "Architecture": "arm64",
+      "Filename": "pool/main/b/binutils/binutils-arm-linux-gnueabihf_2.44-3_arm64.deb",
+      "Size": "1356960",
+      "SHA256": "897da82dc8d4aae272ea410ed14f718968e913fc5b9e549890d3bd4c779765f0",
+      "Installed-Size": "7164",
+      "uri": "https://deb.debian.org/debian/pool/main/b/binutils/binutils-arm-linux-gnueabihf_2.44-3_arm64.deb",
+      "archive": "binutils-arm-linux-gnueabihf_2.44-3_arm64.deb"
+    },
+    {
+      "Package": "gcc-14-arm-linux-gnueabihf-base",
+      "Version": "14.2.0-19cross1",
+      "Architecture": "arm64",
+      "Filename": "pool/main/g/gcc-14-cross/gcc-14-arm-linux-gnueabihf-base_14.2.0-19cross1_arm64.deb",
+      "Size": "49640",
+      "SHA256": "64e6d4c2d6286596903646d305ee46ada6f894fe0fa5eedfe23746ca887d1a4e",
+      "Installed-Size": "112",
+      "uri": "https://deb.debian.org/debian/pool/main/g/gcc-14-cross/gcc-14-arm-linux-gnueabihf-base_14.2.0-19cross1_arm64.deb",
+      "archive": "gcc-14-arm-linux-gnueabihf-base_14.2.0-19cross1_arm64.deb"
+    },
+    {
+      "Package": "cpp-14-arm-linux-gnueabihf",
+      "Version": "14.2.0-19cross1",
+      "Architecture": "arm64",
+      "Filename": "pool/main/g/gcc-14-cross/cpp-14-arm-linux-gnueabihf_14.2.0-19cross1_arm64.deb",
+      "Size": "9312396",
+      "SHA256": "2813d259e5bb38b641b8251944201a45dc8120d965638e7b01d5735d13c3dbac",
+      "Installed-Size": "30194",
+      "uri": "https://deb.debian.org/debian/pool/main/g/gcc-14-cross/cpp-14-arm-linux-gnueabihf_14.2.0-19cross1_arm64.deb",
+      "archive": "cpp-14-arm-linux-gnueabihf_14.2.0-19cross1_arm64.deb"
+    },
+    {
+      "Package": "cpp-arm-linux-gnueabihf",
+      "Version": "4:14.2.0-1",
+      "Architecture": "arm64",
+      "Filename": "pool/main/g/gcc-defaults/cpp-arm-linux-gnueabihf_14.2.0-1_arm64.deb",
+      "Size": "4856",
+      "SHA256": "f2ca961be81ef2dab2517280ecc9691b20f5c9d5a2a76e4061fcedfdf89de1f0",
+      "Installed-Size": "17",
+      "uri": "https://deb.debian.org/debian/pool/main/g/gcc-defaults/cpp-arm-linux-gnueabihf_14.2.0-1_arm64.deb",
+      "archive": "cpp-arm-linux-gnueabihf_4%3a14.2.0-1_arm64.deb"
+    },
+    {
+      "Package": "gcc-14-cross-base",
+      "Version": "14.2.0-19cross1",
+      "Architecture": "all",
+      "Filename": "pool/main/g/gcc-14-cross/gcc-14-cross-base_14.2.0-19cross1_all.deb",
+      "Size": "44884",
+      "SHA256": "a6c277ad0961c1e69bebd2509151733961ea49bb53ff64aa1dac72b5929babf0",
+      "Installed-Size": "105",
+      "uri": "https://deb.debian.org/debian/pool/main/g/gcc-14-cross/gcc-14-cross-base_14.2.0-19cross1_all.deb",
+      "archive": "gcc-14-cross-base_14.2.0-19cross1_all.deb"
+    },
+    {
+      "Package": "libc6-armhf-cross",
+      "Version": "2.41-11cross1",
+      "Architecture": "all",
+      "Filename": "pool/main/c/cross-toolchain-base/libc6-armhf-cross_2.41-11cross1_all.deb",
+      "Size": "921804",
+      "SHA256": "fa9bcf96a12d15a2e47396c31b3203e107a04baf25e324ecf008931c09320074",
+      "Installed-Size": null,
+      "uri": "https://deb.debian.org/debian/pool/main/c/cross-toolchain-base/libc6-armhf-cross_2.41-11cross1_all.deb",
+      "archive": "libc6-armhf-cross_2.41-11cross1_all.deb"
+    },
+    {
+      "Package": "libgcc-s1-armhf-cross",
+      "Version": "14.2.0-19cross1",
+      "Architecture": "all",
+      "Filename": "pool/main/g/gcc-14-cross/libgcc-s1-armhf-cross_14.2.0-19cross1_all.deb",
+      "Size": "36924",
+      "SHA256": "7cbb781db348bffeac4dbd94896ea933b6fad50aeb7744c660fee72b05f9f4b8",
+      "Installed-Size": "179",
+      "uri": "https://deb.debian.org/debian/pool/main/g/gcc-14-cross/libgcc-s1-armhf-cross_14.2.0-19cross1_all.deb",
+      "archive": "libgcc-s1-armhf-cross_14.2.0-19cross1_all.deb"
+    },
+    {
+      "Package": "libgomp1-armhf-cross",
+      "Version": "14.2.0-19cross1",
+      "Architecture": "all",
+      "Filename": "pool/main/g/gcc-14-cross/libgomp1-armhf-cross_14.2.0-19cross1_all.deb",
+      "Size": "108872",
+      "SHA256": "c6978a6fdbd3d7d3fc4d79ac9a1089e639ac9deb309a1146a13f69c260f71478",
+      "Installed-Size": "269",
+      "uri": "https://deb.debian.org/debian/pool/main/g/gcc-14-cross/libgomp1-armhf-cross_14.2.0-19cross1_all.deb",
+      "archive": "libgomp1-armhf-cross_14.2.0-19cross1_all.deb"
+    },
+    {
+      "Package": "libatomic1-armhf-cross",
+      "Version": "14.2.0-19cross1",
+      "Architecture": "all",
+      "Filename": "pool/main/g/gcc-14-cross/libatomic1-armhf-cross_14.2.0-19cross1_all.deb",
+      "Size": "6936",
+      "SHA256": "111fa95ee5b5f699b24631a2366c49f07ec445bf8a4559393581d1ebf26b7db6",
+      "Installed-Size": "76",
+      "uri": "https://deb.debian.org/debian/pool/main/g/gcc-14-cross/libatomic1-armhf-cross_14.2.0-19cross1_all.deb",
+      "archive": "libatomic1-armhf-cross_14.2.0-19cross1_all.deb"
+    },
+    {
+      "Package": "libasan8-armhf-cross",
+      "Version": "14.2.0-19cross1",
+      "Architecture": "all",
+      "Filename": "pool/main/g/gcc-14-cross/libasan8-armhf-cross_14.2.0-19cross1_all.deb",
+      "Size": "2571084",
+      "SHA256": "05c8ac4ea02a35eb9751a569eaaf47cb9583fbf267b8e9e1d9955390813a8514",
+      "Installed-Size": "9481",
+      "uri": "https://deb.debian.org/debian/pool/main/g/gcc-14-cross/libasan8-armhf-cross_14.2.0-19cross1_all.deb",
+      "archive": "libasan8-armhf-cross_14.2.0-19cross1_all.deb"
+    },
+    {
+      "Package": "libstdc++6-armhf-cross",
+      "Version": "14.2.0-19cross1",
+      "Architecture": "all",
+      "Filename": "pool/main/g/gcc-14-cross/libstdc++6-armhf-cross_14.2.0-19cross1_all.deb",
+      "Size": "559012",
+      "SHA256": "adb763a300749cb6df94ec702a95977b820dbee17e1e7595b89bf7edf191de46",
+      "Installed-Size": "1691",
+      "uri": "https://deb.debian.org/debian/pool/main/g/gcc-14-cross/libstdc%2b%2b6-armhf-cross_14.2.0-19cross1_all.deb",
+      "archive": "libstdc++6-armhf-cross_14.2.0-19cross1_all.deb"
+    },
+    {
+      "Package": "libubsan1-armhf-cross",
+      "Version": "14.2.0-19cross1",
+      "Architecture": "all",
+      "Filename": "pool/main/g/gcc-14-cross/libubsan1-armhf-cross_14.2.0-19cross1_all.deb",
+      "Size": "1038432",
+      "SHA256": "2ccd83bcbde97c5d47ad89bb1ce74c23b7b2268cd58c57805b520f9e7e851032",
+      "Installed-Size": "3097",
+      "uri": "https://deb.debian.org/debian/pool/main/g/gcc-14-cross/libubsan1-armhf-cross_14.2.0-19cross1_all.deb",
+      "archive": "libubsan1-armhf-cross_14.2.0-19cross1_all.deb"
+    },
+    {
+      "Package": "libgcc-14-dev-armhf-cross",
+      "Version": "14.2.0-19cross1",
+      "Architecture": "all",
+      "Filename": "pool/main/g/gcc-14-cross/libgcc-14-dev-armhf-cross_14.2.0-19cross1_all.deb",
+      "Size": "768456",
+      "SHA256": "f55933295979b017f7e94755396b95cf9fd59042f8c630ced39183dbe6711eaf",
+      "Installed-Size": "6097",
+      "uri": "https://deb.debian.org/debian/pool/main/g/gcc-14-cross/libgcc-14-dev-armhf-cross_14.2.0-19cross1_all.deb",
+      "archive": "libgcc-14-dev-armhf-cross_14.2.0-19cross1_all.deb"
+    },
+    {
+      "Package": "gcc-14-arm-linux-gnueabihf",
+      "Version": "14.2.0-19cross1",
+      "Architecture": "arm64",
+      "Filename": "pool/main/g/gcc-14-cross/gcc-14-arm-linux-gnueabihf_14.2.0-19cross1_arm64.deb",
+      "Size": "17650656",
+      "SHA256": "08859000d336225a5f6927360529b515230162253be11ad0bb7d4e9a18fd0e81",
+      "Installed-Size": "62922",
+      "uri": "https://deb.debian.org/debian/pool/main/g/gcc-14-cross/gcc-14-arm-linux-gnueabihf_14.2.0-19cross1_arm64.deb",
+      "archive": "gcc-14-arm-linux-gnueabihf_14.2.0-19cross1_arm64.deb"
+    },
+    {
+      "Package": "gcc-arm-linux-gnueabihf",
+      "Version": "4:14.2.0-1",
+      "Architecture": "arm64",
+      "Filename": "pool/main/g/gcc-defaults/gcc-arm-linux-gnueabihf_14.2.0-1_arm64.deb",
+      "Size": "1452",
+      "SHA256": "7729f9112b9aacdcd0d638d4b2b1e0f7248199ff04595291b3078394fd6cc858",
+      "Installed-Size": "23",
+      "uri": "https://deb.debian.org/debian/pool/main/g/gcc-defaults/gcc-arm-linux-gnueabihf_14.2.0-1_arm64.deb",
+      "archive": "gcc-arm-linux-gnueabihf_4%3a14.2.0-1_arm64.deb"
+    }
+  ],
+  "resolved_closure": [
+    {
+      "Package": "binutils-common",
+      "Version": "2.44-3",
+      "Architecture": "arm64",
+      "Filename": "pool/main/b/binutils/binutils-common_2.44-3_arm64.deb",
+      "Size": "2508772",
+      "Installed-Size": "16098",
+      "SHA256": "f2d6b7d0b5521c4c90fc105e32819cd5268c1aa69104173b3fb856595f898249",
+      "uri": "https://deb.debian.org/debian/pool/main/b/binutils/binutils-common_2.44-3_arm64.deb",
+      "archive": "binutils-common_2.44-3_arm64.deb"
+    },
+    {
+      "Package": "gcc-14-base",
+      "Version": "14.2.0-19",
+      "Architecture": "arm64",
+      "Filename": "pool/main/g/gcc-14/gcc-14-base_14.2.0-19_arm64.deb",
+      "Size": "49444",
+      "Installed-Size": "112",
+      "SHA256": "34ee90679b018c0e64234747a4c4c0ae6b7f63541115037465a8627c2dfbc594",
+      "uri": "https://deb.debian.org/debian/pool/main/g/gcc-14/gcc-14-base_14.2.0-19_arm64.deb",
+      "archive": "gcc-14-base_14.2.0-19_arm64.deb"
+    },
+    {
+      "Package": "libgcc-s1",
+      "Version": "14.2.0-19",
+      "Architecture": "arm64",
+      "Filename": "pool/main/g/gcc-14/libgcc-s1_14.2.0-19_arm64.deb",
+      "Size": "54104",
+      "Installed-Size": "148",
+      "SHA256": "1108bc87879833d6d9a145f22a4a15cddb34e065b4b5f4b97bee586adbac2851",
+      "uri": "https://deb.debian.org/debian/pool/main/g/gcc-14/libgcc-s1_14.2.0-19_arm64.deb",
+      "archive": "libgcc-s1_14.2.0-19_arm64.deb"
+    },
+    {
+      "Package": "libc6",
+      "Version": "2.41-12+deb13u4",
+      "Architecture": "arm64",
+      "Filename": "pool/main/g/glibc/libc6_2.41-12+deb13u4_arm64.deb",
+      "Size": "2483572",
+      "Installed-Size": "23769",
+      "SHA256": "8784eda966b189c777a384dac5ce009e8fc9b52d006926c5a013e7fa8aa688cc",
+      "uri": "https://deb.debian.org/debian/pool/main/g/glibc/libc6_2.41-12%2bdeb13u4_arm64.deb",
+      "archive": "libc6_2.41-12+deb13u4_arm64.deb"
+    },
+    {
+      "Package": "libjansson4",
+      "Version": "2.14-2+b3",
+      "Architecture": "arm64",
+      "Filename": "pool/main/j/jansson/libjansson4_2.14-2+b3_arm64.deb",
+      "Size": "39228",
+      "Installed-Size": "108",
+      "SHA256": "7938472b1ddfa8b0c8f58d5f44406ae7a77a342dbb502a02f6bf292b4f853ab0",
+      "uri": "https://deb.debian.org/debian/pool/main/j/jansson/libjansson4_2.14-2%2bb3_arm64.deb",
+      "archive": "libjansson4_2.14-2+b3_arm64.deb"
+    },
+    {
+      "Package": "libsframe1",
+      "Version": "2.44-3",
+      "Architecture": "arm64",
+      "Filename": "pool/main/b/binutils/libsframe1_2.44-3_arm64.deb",
+      "Size": "77772",
+      "Installed-Size": "146",
+      "SHA256": "d4a90764fa79858347aaa3197bc4489404f005d9cdbea9b2ec75a607ea5ff518",
+      "uri": "https://deb.debian.org/debian/pool/main/b/binutils/libsframe1_2.44-3_arm64.deb",
+      "archive": "libsframe1_2.44-3_arm64.deb"
+    },
+    {
+      "Package": "libzstd1",
+      "Version": "1.5.7+dfsg-1",
+      "Architecture": "arm64",
+      "Filename": "pool/main/libz/libzstd/libzstd1_1.5.7+dfsg-1_arm64.deb",
+      "Size": "266052",
+      "Installed-Size": "748",
+      "SHA256": "924540bd59fdbfa77a0604360efdaca54411a43daf11c7e002a3c64791b67448",
+      "uri": "https://deb.debian.org/debian/pool/main/libz/libzstd/libzstd1_1.5.7%2bdfsg-1_arm64.deb",
+      "archive": "libzstd1_1.5.7+dfsg-1_arm64.deb"
+    },
+    {
+      "Package": "zlib1g",
+      "Version": "1:1.3.dfsg+really1.3.1-1+b1",
+      "Architecture": "arm64",
+      "Filename": "pool/main/z/zlib/zlib1g_1.3.dfsg+really1.3.1-1+b1_arm64.deb",
+      "Size": "85116",
+      "Installed-Size": "181",
+      "SHA256": "209aa5cf671e97b9eb0410844fa6df4cae2e75b0c72e7802ab6c8ece13e6ddef",
+      "uri": "https://deb.debian.org/debian/pool/main/z/zlib/zlib1g_1.3.dfsg%2breally1.3.1-1%2bb1_arm64.deb",
+      "archive": "zlib1g_1%3a1.3.dfsg+really1.3.1-1+b1_arm64.deb"
+    },
+    {
+      "Package": "binutils-arm-linux-gnueabihf",
+      "Version": "2.44-3",
+      "Architecture": "arm64",
+      "Filename": "pool/main/b/binutils/binutils-arm-linux-gnueabihf_2.44-3_arm64.deb",
+      "Size": "1356960",
+      "SHA256": "897da82dc8d4aae272ea410ed14f718968e913fc5b9e549890d3bd4c779765f0",
+      "Installed-Size": "7164",
+      "uri": "https://deb.debian.org/debian/pool/main/b/binutils/binutils-arm-linux-gnueabihf_2.44-3_arm64.deb",
+      "archive": "binutils-arm-linux-gnueabihf_2.44-3_arm64.deb"
+    },
+    {
+      "Package": "gcc-14-arm-linux-gnueabihf-base",
+      "Version": "14.2.0-19cross1",
+      "Architecture": "arm64",
+      "Filename": "pool/main/g/gcc-14-cross/gcc-14-arm-linux-gnueabihf-base_14.2.0-19cross1_arm64.deb",
+      "Size": "49640",
+      "SHA256": "64e6d4c2d6286596903646d305ee46ada6f894fe0fa5eedfe23746ca887d1a4e",
+      "Installed-Size": "112",
+      "uri": "https://deb.debian.org/debian/pool/main/g/gcc-14-cross/gcc-14-arm-linux-gnueabihf-base_14.2.0-19cross1_arm64.deb",
+      "archive": "gcc-14-arm-linux-gnueabihf-base_14.2.0-19cross1_arm64.deb"
+    },
+    {
+      "Package": "libgmp10",
+      "Version": "2:6.3.0+dfsg-3",
+      "Architecture": "arm64",
+      "Filename": "pool/main/g/gmp/libgmp10_6.3.0+dfsg-3_arm64.deb",
+      "Size": "535088",
+      "Installed-Size": "846",
+      "SHA256": "a27bbc27f119161ea9702c8dd66f54131cdf0d2ca73000f50ea91ef2fdfef0fb",
+      "uri": "https://deb.debian.org/debian/pool/main/g/gmp/libgmp10_6.3.0%2bdfsg-3_arm64.deb",
+      "archive": "libgmp10_2%3a6.3.0+dfsg-3_arm64.deb"
+    },
+    {
+      "Package": "libisl23",
+      "Version": "0.27-1",
+      "Architecture": "arm64",
+      "Filename": "pool/main/i/isl/libisl23_0.27-1_arm64.deb",
+      "Size": "600836",
+      "Installed-Size": "2427",
+      "SHA256": "21c490db3fa5f0a517c55090a199334da6164589772ebd922dff1e569c78515d",
+      "uri": "https://deb.debian.org/debian/pool/main/i/isl/libisl23_0.27-1_arm64.deb",
+      "archive": "libisl23_0.27-1_arm64.deb"
+    },
+    {
+      "Package": "libmpfr6",
+      "Version": "4.2.2-1",
+      "Architecture": "arm64",
+      "Filename": "pool/main/m/mpfr4/libmpfr6_4.2.2-1_arm64.deb",
+      "Size": "685000",
+      "Installed-Size": "1192",
+      "SHA256": "628a4ef58cc6815880f72e9d3953984a379a017e4042bc575f1fcbf3954d79ac",
+      "uri": "https://deb.debian.org/debian/pool/main/m/mpfr4/libmpfr6_4.2.2-1_arm64.deb",
+      "archive": "libmpfr6_4.2.2-1_arm64.deb"
+    },
+    {
+      "Package": "libmpc3",
+      "Version": "1.3.1-1+b3",
+      "Architecture": "arm64",
+      "Filename": "pool/main/m/mpclib3/libmpc3_1.3.1-1+b3_arm64.deb",
+      "Size": "50480",
+      "Installed-Size": "150",
+      "SHA256": "d4cfe026a624e51641c80ef2af77387185714f62f3b5c87035e62d9ed8d9eec1",
+      "uri": "https://deb.debian.org/debian/pool/main/m/mpclib3/libmpc3_1.3.1-1%2bb3_arm64.deb",
+      "archive": "libmpc3_1.3.1-1+b3_arm64.deb"
+    },
+    {
+      "Package": "cpp-14-arm-linux-gnueabihf",
+      "Version": "14.2.0-19cross1",
+      "Architecture": "arm64",
+      "Filename": "pool/main/g/gcc-14-cross/cpp-14-arm-linux-gnueabihf_14.2.0-19cross1_arm64.deb",
+      "Size": "9312396",
+      "SHA256": "2813d259e5bb38b641b8251944201a45dc8120d965638e7b01d5735d13c3dbac",
+      "Installed-Size": "30194",
+      "uri": "https://deb.debian.org/debian/pool/main/g/gcc-14-cross/cpp-14-arm-linux-gnueabihf_14.2.0-19cross1_arm64.deb",
+      "archive": "cpp-14-arm-linux-gnueabihf_14.2.0-19cross1_arm64.deb"
+    },
+    {
+      "Package": "cpp-arm-linux-gnueabihf",
+      "Version": "4:14.2.0-1",
+      "Architecture": "arm64",
+      "Filename": "pool/main/g/gcc-defaults/cpp-arm-linux-gnueabihf_14.2.0-1_arm64.deb",
+      "Size": "4856",
+      "SHA256": "f2ca961be81ef2dab2517280ecc9691b20f5c9d5a2a76e4061fcedfdf89de1f0",
+      "Installed-Size": "17",
+      "uri": "https://deb.debian.org/debian/pool/main/g/gcc-defaults/cpp-arm-linux-gnueabihf_14.2.0-1_arm64.deb",
+      "archive": "cpp-arm-linux-gnueabihf_4%3a14.2.0-1_arm64.deb"
+    },
+    {
+      "Package": "libstdc++6",
+      "Version": "14.2.0-19",
+      "Architecture": "arm64",
+      "Filename": "pool/main/g/gcc-14/libstdc++6_14.2.0-19_arm64.deb",
+      "Size": "637536",
+      "Installed-Size": "3022",
+      "SHA256": "6669b0c52a2e7c6af9adfdabce3ff6e286065cdfbc7b85280862b5f799daebee",
+      "uri": "https://deb.debian.org/debian/pool/main/g/gcc-14/libstdc%2b%2b6_14.2.0-19_arm64.deb",
+      "archive": "libstdc++6_14.2.0-19_arm64.deb"
+    },
+    {
+      "Package": "libcc1-0",
+      "Version": "14.2.0-19",
+      "Architecture": "arm64",
+      "Filename": "pool/main/g/gcc-14/libcc1-0_14.2.0-19_arm64.deb",
+      "Size": "42164",
+      "Installed-Size": "208",
+      "SHA256": "f5e390b5fd65432b820afa403a61ab4d6286948fc07ca3aacb4d230a81f5c9a5",
+      "uri": "https://deb.debian.org/debian/pool/main/g/gcc-14/libcc1-0_14.2.0-19_arm64.deb",
+      "archive": "libcc1-0_14.2.0-19_arm64.deb"
+    },
+    {
+      "Package": "gcc-14-cross-base",
+      "Version": "14.2.0-19cross1",
+      "Architecture": "all",
+      "Filename": "pool/main/g/gcc-14-cross/gcc-14-cross-base_14.2.0-19cross1_all.deb",
+      "Size": "44884",
+      "SHA256": "a6c277ad0961c1e69bebd2509151733961ea49bb53ff64aa1dac72b5929babf0",
+      "Installed-Size": "105",
+      "uri": "https://deb.debian.org/debian/pool/main/g/gcc-14-cross/gcc-14-cross-base_14.2.0-19cross1_all.deb",
+      "archive": "gcc-14-cross-base_14.2.0-19cross1_all.deb"
+    },
+    {
+      "Package": "libc6-armhf-cross",
+      "Version": "2.41-11cross1",
+      "Architecture": "all",
+      "Filename": "pool/main/c/cross-toolchain-base/libc6-armhf-cross_2.41-11cross1_all.deb",
+      "Size": "921804",
+      "SHA256": "fa9bcf96a12d15a2e47396c31b3203e107a04baf25e324ecf008931c09320074",
+      "Installed-Size": null,
+      "uri": "https://deb.debian.org/debian/pool/main/c/cross-toolchain-base/libc6-armhf-cross_2.41-11cross1_all.deb",
+      "archive": "libc6-armhf-cross_2.41-11cross1_all.deb"
+    },
+    {
+      "Package": "libgcc-s1-armhf-cross",
+      "Version": "14.2.0-19cross1",
+      "Architecture": "all",
+      "Filename": "pool/main/g/gcc-14-cross/libgcc-s1-armhf-cross_14.2.0-19cross1_all.deb",
+      "Size": "36924",
+      "SHA256": "7cbb781db348bffeac4dbd94896ea933b6fad50aeb7744c660fee72b05f9f4b8",
+      "Installed-Size": "179",
+      "uri": "https://deb.debian.org/debian/pool/main/g/gcc-14-cross/libgcc-s1-armhf-cross_14.2.0-19cross1_all.deb",
+      "archive": "libgcc-s1-armhf-cross_14.2.0-19cross1_all.deb"
+    },
+    {
+      "Package": "libgomp1-armhf-cross",
+      "Version": "14.2.0-19cross1",
+      "Architecture": "all",
+      "Filename": "pool/main/g/gcc-14-cross/libgomp1-armhf-cross_14.2.0-19cross1_all.deb",
+      "Size": "108872",
+      "SHA256": "c6978a6fdbd3d7d3fc4d79ac9a1089e639ac9deb309a1146a13f69c260f71478",
+      "Installed-Size": "269",
+      "uri": "https://deb.debian.org/debian/pool/main/g/gcc-14-cross/libgomp1-armhf-cross_14.2.0-19cross1_all.deb",
+      "archive": "libgomp1-armhf-cross_14.2.0-19cross1_all.deb"
+    },
+    {
+      "Package": "libatomic1-armhf-cross",
+      "Version": "14.2.0-19cross1",
+      "Architecture": "all",
+      "Filename": "pool/main/g/gcc-14-cross/libatomic1-armhf-cross_14.2.0-19cross1_all.deb",
+      "Size": "6936",
+      "SHA256": "111fa95ee5b5f699b24631a2366c49f07ec445bf8a4559393581d1ebf26b7db6",
+      "Installed-Size": "76",
+      "uri": "https://deb.debian.org/debian/pool/main/g/gcc-14-cross/libatomic1-armhf-cross_14.2.0-19cross1_all.deb",
+      "archive": "libatomic1-armhf-cross_14.2.0-19cross1_all.deb"
+    },
+    {
+      "Package": "libasan8-armhf-cross",
+      "Version": "14.2.0-19cross1",
+      "Architecture": "all",
+      "Filename": "pool/main/g/gcc-14-cross/libasan8-armhf-cross_14.2.0-19cross1_all.deb",
+      "Size": "2571084",
+      "SHA256": "05c8ac4ea02a35eb9751a569eaaf47cb9583fbf267b8e9e1d9955390813a8514",
+      "Installed-Size": "9481",
+      "uri": "https://deb.debian.org/debian/pool/main/g/gcc-14-cross/libasan8-armhf-cross_14.2.0-19cross1_all.deb",
+      "archive": "libasan8-armhf-cross_14.2.0-19cross1_all.deb"
+    },
+    {
+      "Package": "libstdc++6-armhf-cross",
+      "Version": "14.2.0-19cross1",
+      "Architecture": "all",
+      "Filename": "pool/main/g/gcc-14-cross/libstdc++6-armhf-cross_14.2.0-19cross1_all.deb",
+      "Size": "559012",
+      "SHA256": "adb763a300749cb6df94ec702a95977b820dbee17e1e7595b89bf7edf191de46",
+      "Installed-Size": "1691",
+      "uri": "https://deb.debian.org/debian/pool/main/g/gcc-14-cross/libstdc%2b%2b6-armhf-cross_14.2.0-19cross1_all.deb",
+      "archive": "libstdc++6-armhf-cross_14.2.0-19cross1_all.deb"
+    },
+    {
+      "Package": "libubsan1-armhf-cross",
+      "Version": "14.2.0-19cross1",
+      "Architecture": "all",
+      "Filename": "pool/main/g/gcc-14-cross/libubsan1-armhf-cross_14.2.0-19cross1_all.deb",
+      "Size": "1038432",
+      "SHA256": "2ccd83bcbde97c5d47ad89bb1ce74c23b7b2268cd58c57805b520f9e7e851032",
+      "Installed-Size": "3097",
+      "uri": "https://deb.debian.org/debian/pool/main/g/gcc-14-cross/libubsan1-armhf-cross_14.2.0-19cross1_all.deb",
+      "archive": "libubsan1-armhf-cross_14.2.0-19cross1_all.deb"
+    },
+    {
+      "Package": "libgcc-14-dev-armhf-cross",
+      "Version": "14.2.0-19cross1",
+      "Architecture": "all",
+      "Filename": "pool/main/g/gcc-14-cross/libgcc-14-dev-armhf-cross_14.2.0-19cross1_all.deb",
+      "Size": "768456",
+      "SHA256": "f55933295979b017f7e94755396b95cf9fd59042f8c630ced39183dbe6711eaf",
+      "Installed-Size": "6097",
+      "uri": "https://deb.debian.org/debian/pool/main/g/gcc-14-cross/libgcc-14-dev-armhf-cross_14.2.0-19cross1_all.deb",
+      "archive": "libgcc-14-dev-armhf-cross_14.2.0-19cross1_all.deb"
+    },
+    {
+      "Package": "gcc-14-arm-linux-gnueabihf",
+      "Version": "14.2.0-19cross1",
+      "Architecture": "arm64",
+      "Filename": "pool/main/g/gcc-14-cross/gcc-14-arm-linux-gnueabihf_14.2.0-19cross1_arm64.deb",
+      "Size": "17650656",
+      "SHA256": "08859000d336225a5f6927360529b515230162253be11ad0bb7d4e9a18fd0e81",
+      "Installed-Size": "62922",
+      "uri": "https://deb.debian.org/debian/pool/main/g/gcc-14-cross/gcc-14-arm-linux-gnueabihf_14.2.0-19cross1_arm64.deb",
+      "archive": "gcc-14-arm-linux-gnueabihf_14.2.0-19cross1_arm64.deb"
+    },
+    {
+      "Package": "gcc-arm-linux-gnueabihf",
+      "Version": "4:14.2.0-1",
+      "Architecture": "arm64",
+      "Filename": "pool/main/g/gcc-defaults/gcc-arm-linux-gnueabihf_14.2.0-1_arm64.deb",
+      "Size": "1452",
+      "SHA256": "7729f9112b9aacdcd0d638d4b2b1e0f7248199ff04595291b3078394fd6cc858",
+      "Installed-Size": "23",
+      "uri": "https://deb.debian.org/debian/pool/main/g/gcc-defaults/gcc-arm-linux-gnueabihf_14.2.0-1_arm64.deb",
+      "archive": "gcc-arm-linux-gnueabihf_4%3a14.2.0-1_arm64.deb"
+    }
+  ],
+  "signed_index_hashes": {
+    "deb.debian.org_debian_dists_trixie_InRelease": "0584fba32e13e0ab8285fb16c27adea1ec03a73669c18702821094fd6ca86675",
+    "lock": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "deb.debian.org_debian_dists_trixie_main_binary-arm64_Packages": "f97011263173eaccb1a215a28a6ec7ba1f6e5cebd8bb68e8fa0475b1d4021161"
+  },
+  "valid_signatures": [
+    "[GNUPG:] VALIDSIG 4CB50190207B4758A3F73A796ED0E7B82643E131 2026-09-12 1789199778 0 4 0 1 8 01 B8B80B5B623EAB6AD8775C45B7C5D7D6350947F8",
+    "[GNUPG:] VALIDSIG B8E5F13176D2A7A75220028078DBA3BC47EF2265 2026-09-12 1789199779 0 4 0 1 8 01 04B54C3CDCA79751B16BC6B5225629DF75B188BD",
+    "[GNUPG:] VALIDSIG 41587F7DB8C774BCCF131416762F67A0B2C39DE4 2026-09-12 1789199867 0 4 0 22 8 01 41587F7DB8C774BCCF131416762F67A0B2C39DE4"
+  ],
+  "maintainer_scripts_executed": false,
+  "host_install": false
+}

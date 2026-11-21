@@ -6,6 +6,7 @@
 // Changed for QOR OS: the body material's id is distinct from Model.skin.
 
 // Changed for QOR OS: the private character controller binds to its owning player.
+// Changed for QOR OS: motion checks the controller type and keeps the structural scene-state interface.
 
 pragma ComponentBehavior: Bound
 
@@ -29,7 +30,7 @@ Node {
     property real jumpHeight: 1.2
 
     /// True while the scene this belongs to plays.
-    readonly property bool live: parent !== null && parent.playing === true
+    readonly property bool live: parent !== null && _parentState().playing === true
     /// The character controller play made, or null.
     property Node physics: null
 
@@ -53,16 +54,25 @@ Node {
     property bool jumpHeld: false
     property vector3d start
 
+    // A scene supplies playing, paused, gravity and player without requiring a particular parent class.
+    function _parentState(): var {
+        return player.parent
+    }
+
     function makeBody() {
         if (!live || physics)
             return
         start = position.plus(Qt.vector3d(0, halfHeight, 0))
-        physics = character.createObject(parent, {
+        const body = character.createObject(parent, {
             position: start,
             eulerRotation: Qt.vector3d(0, eulerRotation.y, 0)
-        })
-        if (!parent.player)
-            parent.player = player
+        }) as CharacterController
+        if (!body)
+            return
+        physics = body
+        const scene = _parentState()
+        if (!scene.player)
+            scene.player = player
     }
     onLiveChanged: makeBody()
     Component.onCompleted: makeBody()
@@ -81,11 +91,13 @@ Node {
     }
 
     FrameAnimation {
-        running: player.live && player.physics !== null && !player.parent.paused
+        running: player.live && (player.physics as CharacterController) !== null && !player._parentState().paused
         onTriggered: {
-            const body = player.physics
+            const body = player.physics as CharacterController
+            if (!body)
+                return
             const dt = Math.min(frameTime, 0.05)
-            const g = player.parent.gravity
+            const g = player._parentState().gravity
             const pointer = Input.takePointer()
 
             body.eulerRotation.y -= Input.look.x * 150 * dt + pointer.x * 0.25

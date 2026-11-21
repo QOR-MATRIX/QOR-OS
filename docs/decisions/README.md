@@ -37,6 +37,7 @@ record supersedes it, and both say so.
 | [QOR-0025](QOR-0025-q-pi-development-edition.md) | Q Pi: supported Pi desktop/login and native QOR applications first; scoped development exception, no simulator; 2D Studio and remote builds later | Accepted for local preparation 2026-11-09; no image/hardware accepted |
 | [QOR-0026](QOR-0026-qorsync-is-the-public-domain.md) | QORSYNC.DEV and approved service subdomains; accurate source links, retired public hosts removed, identity/provenance retained | Accepted 2026-11-13; source checks do not prove live deployment |
 | [QOR-0027](QOR-0027-the-homepage-lives-in-qor-os.md) | QOR-MATRIX/QOR-OS owns `site/`; existing Astra Matrix / qor builds `main` with QORSYNC.DEV canonical. Network/core ownership stays upstream | Accepted 2026-11-13; supersedes QOR-0002 decision 4 for the homepage |
+| [QOR-0028](QOR-0028-plan-one-canonical-development-repository.md) | Plan one canonical development repository for QOR OS, Q Pi, Demiurge Chain, ARQADE and associated systems after the current milestone is reviewable; preserve existing boundaries pending a separate migration decision | Accepted for planning only 2026-11-14; no migration authorized, no earlier decision superseded |
 
 ## QTOS (inherited)
 

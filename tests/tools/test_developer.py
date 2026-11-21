@@ -85,6 +85,28 @@ class DeveloperTest(unittest.TestCase):
         self.assertNotIn("\x1b", output)
         self.assertEqual(errors, "")
 
+    def test_a_directory_cannot_be_reported_as_a_markdown_guide(self):
+        guide = self.root / "docs/guide.md"
+        guide.unlink()
+        guide.mkdir()
+        for args in (["list", "--json"], ["show", "example", "--json"], ["check", "--json"]):
+            with self.subTest(args=args):
+                code, output, errors = self.invoke(args)
+                self.assertEqual(code, 2)
+                result = json.loads(output)
+                self.assertFalse(result["ok"])
+                self.assertEqual(result["error"]["code"], "reference")
+                self.assertEqual(errors, "")
+
+    def test_source_directories_remain_valid_beside_regular_guides(self):
+        (self.root / "sdk/source").mkdir()
+        self.data["entries"][0]["sources"] = ["sdk/source"]
+        self.write()
+        code, output, errors = self.invoke(["check", "--json"])
+        self.assertEqual(code, 0)
+        self.assertTrue(json.loads(output)["ok"])
+        self.assertEqual(errors, "")
+
     def test_output_is_deterministic_and_sorted(self):
         second = copy.deepcopy(self.data["entries"][0])
         second["id"] = "aaa"

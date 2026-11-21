@@ -6,6 +6,11 @@
 # place of XInput.
 # Changed for QOR OS: the watchdog, and Qt's private QML API for refusing what opens outside (QOR-0018).
 # Changed for QOR OS: declare the Qt Quick 3D module that owns the C++ base types exposed by QQ.
+# Changed for QOR OS: package the precomputed lighting for the shipped sky palettes.
+# Changed for QOR OS: correct the SpatialAudio base-type dependency in build-local tooling metadata.
+
+include("${CMAKE_CURRENT_LIST_DIR}/../../../cmake/QorSpatialAudioMetadata.cmake")
+qor_spatial_audio_metadata_import_path(qor_spatial_audio_import_path)
 
 qt_add_library(qqruntime STATIC)
 
@@ -13,6 +18,7 @@ qt_add_qml_module(qqruntime
     URI QQ
     VERSION 1.0
     DEPENDENCIES QtQuick3D
+    IMPORT_PATH ${qor_spatial_audio_import_path}
     QML_FILES
         World.qml
         Scene.qml
@@ -44,6 +50,8 @@ qt_add_qml_module(qqruntime
         Logic.qml
         Game.qml
     RESOURCES
+        skies/default.ktx
+        skies/ember-climb.ktx
         # A Shape's pictured surface (P3.14), beside Shape.qml, which names them relative to itself.
         shaders/surface.vert
         shaders/surface.frag

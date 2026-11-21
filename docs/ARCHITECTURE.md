@@ -10,12 +10,34 @@ with Node 24 by the existing Astra Matrix / qor Vercel project from QOR OS `main
 is public output. Device binaries, repository files and dependency directories
 are excluded. The network and pinned core stay upstream; see [HOSTING.md](HOSTING.md).
 
-**Q Pi development edition.** [QOR-0025](decisions/QOR-0025-q-pi-development-edition.md)
+**Standalone Qonsole source UI.** `apps/qonsole/Main.qml` opens an original Qt
+Quick-only Window using `Launcher.qml`, with a local sample and discrete input
+actions. `apps/qonsole/main.cpp` now supplies a dedicated C++/Qt host via the
+independent CMake subproject, embedding the original QML module as resources.
+Its local verification build uses installed Qt DLLs, with no deployment rule.
+It imports no QOR services, core or simulated shell. The Windows host source
+adds foreground-only Raw Input for original DS4 USB-shaped reports, reusing the
+project's PlayStation parser and dispatching semantic actions without HID output
+or controller/keyboard emulation. Its isolated fixtures pass, and a separate
+normal Release candidate builds and passes the public Windows keyboard/focus
+flow. Default-off registration diagnostics now observe the process's own gamepad
+usage/window and active-gate states. Reported flags 0 differ from requested
+DEVNOTIFY 8192, so exact-flag matching stays false. Notification semantics,
+actual controller delivery and physical retest remain unverified. The owner's Cross failure in the
+preserved old EXE remains open. Keyboard/visible evidence stays separate from
+controller, full lifecycle, clean-PC and console acceptance.
+This small source entry point complements the premium C++/Qt stack. Shared
+services/apps/data/interfaces and parity across editions remain the goal; the
+[canonical capability matrix](ROADMAP.md#alongside-the-phases--qonsole-device-edition)
+owns readiness. Demiurge/QOR ID/Auth integration code is on hold; its current
+ownership and core pin are unchanged.
+
+**Q Pi development edition — execution on hold.** [QOR-0025](decisions/QOR-0025-q-pi-development-edition.md)
 scopes a Pi 5 ARM64 exception: a maintained Raspberry Pi OS desktop and real base
 login host native QOR application processes. It supplies no Prism authentication,
 simulator or simulated device services. Existing embedded shell applications are
 not automatically standalone apps; QQ still imports Quick 3D even for 2D content.
-Native ARM64 application builds and selected software suites now pass; no Pi image
+Recorded native ARM64 application builds and selected software suites passed; no Pi image
 or physical-device acceptance is established. The Fedora full-device recipe and its
 authentication guard are unchanged. See [the preparation and first-boot plan](../image/README.md#q-pi-development-edition).
 
@@ -424,6 +446,17 @@ paths they had there, and are developed here since
 with demiurge-chain, where ARQADE's server judges runs by them. Each product
 is its own CMake project. `tools/dev/products.ps1` calls its Windows `build.ps1`;
 `tools/dev/products.sh` configures and tests it in the isolated Linux harness.
+
+QQ's `World` selects packaged, precomputed lighting when all four sky colours
+match either palette authored in its bundled scenes. The default also serves
+Orb Run; the other serves Ember Climb. Selection is by colours, so any world
+using those values shares the same path. Other colours retain procedural sky
+generation and batched edits, and explicit sky images retain precedence.
+Exposure, rotation, skybox blur and rendering quality are unchanged. The KTX
+textures are embedded in QQ's shared runtime; their source EXR images and
+generation hashes are kept in `products/qq/runtime/skies/`. They are generated
+explicitly under the existing native resource/isolation procedure, not rendered
+as an implicit part of a host build. See [QQ's build notes](../products/qq/README.md#build-test-deploy).
 
 | Product | Path | Targets | Suites |
 |---------|------|---------|--------|

@@ -1,5 +1,12 @@
 # image — the QOR OS image (Phase 3)
 
+**Execution hold, 19 November 2026:** QPi and physical recovery remain on hold.
+This document preserves historical plans and evidence, not permission to run
+them. Earlier media/erasure permissions were withdrawn; no current target write
+is approved. Resumption and any device-specific action require a new decision.
+The [canonical roadmap](../docs/ROADMAP.md#the-order-of-work) records current
+Windows Qonsole work; a userspace launcher is not firmware or an image result.
+
 > **Recorded private x86-64 VM evidence (7–8 November 2026):** an ISO booted
 > automatically through the branded UEFI menu into the live OS. Private stock
 > installation, actual installer UI reboot and media-free welcome persistence passed
@@ -31,9 +38,23 @@ accessibility, visual quality and measured performance remain acceptance criteri
 The owner will supply storage when builds and the installation plan are ready.
 No physical-media write, formatting or replacement is authorised in this increment.
 Older card observations and scoped authorisations below remain historical; they
-do not select or approve a current target. Q Pi work resumes alongside QOR OS only
-after the preceding milestones pass. This paragraph records requirements, not a
+do not select or approve a current target. QPi stays on hold even if preceding
+milestones pass, until explicitly resumed. This paragraph records requirements, not a
 feasibility conclusion or a change to the accepted base-image decisions.
+
+## Unwired Pi image contract draft
+
+`tools/image/pi_image_contract.py` is a pure synthetic validator, not an accepted
+profile, image recipe or production integration. It requires explicit boolean
+opt-in, a separate caller-owned expected profile label, exact `arm64` metadata
+and successful Prism probe output with `development:false` and
+`authentication:true`. Bounded JSON parsing rejects duplicate/ambiguous fields.
+The label in its tests is deliberately a fixture. The existing generic checker,
+Containerfile and CMake profiles are unchanged; no Pi architecture guard is wired
+into production. The helper checks declarations, not origin/freshness, actual ELF
+architecture, board/firmware, login, boot or recovery. Sixteen helper tests plus
+all eighteen generic validator methods pass. Receipt:
+`build/development-2026-11-20/session-05/`. Device execution remains on hold.
 
 ## Q Pi development edition
 
@@ -113,11 +134,11 @@ Disk 2, Generic Mass-Storage, **128177930240 bytes** (about 119.4 GiB), MBR,
 `D:` BOOT/FAT32 and an unlettered partition. This owner-supplied observation is
 identification only; neither the filesystem label nor that layout identifies
 its OS, contents, health or Pi 5 bootability. This continuation did not rescan or
-mount it. **The owner's 10 November update authorises this Samsung card as the
+mount it. **The owner's historical 10 November update authorized this Samsung card as the
 eventual Q Pi image target, including erasure of its old Kali/data, once the image
-and first-boot plan are ready.** That replaces the earlier blanket no-card-write
-scope only for this eventual Q Pi image. It does not authorise a stock bootstrap
-image, standalone formatting, credentials, provisioning or security/access changes.
+and first-boot plan are ready; that permission has since been withdrawn.** It
+provides no current authority for a QPi image, stock bootstrap, standalone
+formatting, credentials, provisioning or security/access changes.
 The [action-time write gates](#authorised-q-pi-target-and-action-time-write-gates)
 still apply; no Q Pi image is ready and this session performed no media write.
 The separately established stock builder does not prove which physical card is
@@ -132,8 +153,8 @@ an output image onto its backing block device. Separate scratch storage is
 needed only when measured capacity, I/O reliability or performance is inadequate;
 a second boot card is not required merely to inspect or compile on the Pi.
 For later Q Pi boot testing, spare boot media preserves the working builder and
-is the least disruptive option. The owner has authorised eventual Q Pi reuse
-of the Samsung card and discard of its old Kali/data. If a separately approved
+is the least disruptive option in the historical plan. The earlier eventual QPi
+reuse/old-data erasure approval is withdrawn. If a newly and specifically approved
 bootstrap later uses that card, preserve its QOR source/evidence and necessary
 builder recovery material in a verified **off-card** location before replacement.
 Reusing a builder's card requires shutdown followed by an external writer (or a separately qualified alternate
@@ -147,7 +168,7 @@ only after its image integration and exact bootstrap/access actions are authoris
 USB/HDMI is optional recovery. If an existing
 approved card already boots suitable Trixie, inspect it before considering any
 reimage. For stock bootstrap, an unidentified existing OS remains a stop condition,
-not permission to replace it; this does not revoke the scoped eventual Q Pi write.
+not permission to replace it. No current eventual QPi write is approved.
 Read-only inventory may proceed over verified, scoped SSH or a local console once
 access is authorised; bootstrap setup, package installation and image generation are
 different actions.
@@ -1368,6 +1389,738 @@ as well as online. Test interrupted setup, three reboots with persistent state
 and a 30-minute workload/idle check with measured resource use. Record failures
 and unavailable features. No ARM64 build, image assembly, static image validation,
 Pi boot or hardware test has passed yet. The existing VM proof below is separate.
+
+### Pi kernel WAIT_BO backport review
+
+This is a source review candidate, prepared 16 November at QOR commit `4937e1a`.
+It is not a bootable kernel, an installed fix, vendor qualification or Q Pi
+acceptance. Preparation authorizes no installation, module loading or reboot.
+The artifact manifest is [pi/kernel-wait-bo/manifest.json](pi/kernel-wait-bo/manifest.json).
+The original frame deadline/assertion and separate software-renderer failure
+remain unchanged. See [the measured kernel defect](../docs/PERFORMANCE.md#exact-running-kernel-wait-audit-2026-11-16).
+
+#### Review contents and provenance
+
+| Artifact | Purpose |
+| --- | --- |
+| [Patch 1](pi/kernel-wait-bo/0001-v3d-preserve-zero-timeout-poll.patch) | Two-line production change: zero remains a poll; positive conversion and subsequent handling stay unchanged. |
+| [Patch 2](pi/kernel-wait-bo/0002-v3d-wait-bo-kunit.patch) | Separate, default-off kernel regression with six cases. |
+| [Test configuration](pi/kernel-wait-bo/kunit.config) | Overlay for a separate KUnit test kernel, never the production configuration. |
+| [Series](pi/kernel-wait-bo/series) | Review order; production uses patch 1 only. The negative control uses patch 2 only. |
+| [Builder dependency lock](pi/kernel-wait-bo/builder-lock.json) | Authorized private tool payloads, signed metadata and complete package/root hashes; not a kernel runtime result. |
+| [Compatibility extension lock](pi/kernel-wait-bo/builder-compat-lock.json) | Fifteen pinned payloads preserving the stock ARM32 compatibility vDSO, in a separate root copy. |
+| [Documentation overlay](pi/kernel-wait-bo/0003-test-build-document-chroma-siting.patch) | Two shared test-build parameter descriptions; separate from the production series. |
+
+Base: [Raspberry Pi Linux `cff533aec2fa601846766b32ff57204e0a61bed7`](https://github.com/raspberrypi/linux/tree/cff533aec2fa601846766b32ff57204e0a61bed7),
+declared by installed source package `linux` `1:6.18.50-1+rpt1` for running
+`6.18.50+rpt-rpi-2712`. Config SHA256:
+`8914d802785a04fbb68a00e88e90774db7aa2ec33b9fa1e28f3296be3ebbcff8`.
+Compiler observed: Debian GCC 14.2.0-19, AArch64; pages 16 KiB; timer `HZ=250`.
+
+The fix is a deliberately narrow semantic backport of upstream Linux
+[`226666556a9b`](https://github.com/torvalds/linux/commit/226666556a9b3b51f04f9dad83662e5b9c78a325).
+It bypasses the existing conversion only for zero. It does not copy the shared
+helper migration or its separate overflow changes, so it requires no new DRM
+core symbol/header. Review positive timeout behavior against the unchanged
+helper and elapsed/error branches. The kernel changes retain GPL licensing;
+the new kernel test is GPL-2.0-only. Nothing here changes the QOR product licence.
+
+The two patches have zero context. **Exact preimage and patch hash checks are
+mandatory**, not optional offset matching. In a new, clean kernel checkout,
+verify the full HEAD equals the manifest's base commit, all listed preimage
+SHA256 values match, all required-absent paths are absent, and both patch hashes
+match. Refuse any mismatch. Then use `git apply --check --unidiff-zero` before
+applying the selected patches with `git apply --unidiff-zero`. After the full
+test series, verify every postimage hash. For production, only `v3d_bo.c` changes;
+the Kconfig/Makefile/test source additions are not production prerequisites.
+
+Keep the full vendor source/package provenance when producing a kernel: the
+small hash-matched source fixture used for object checks is not a complete
+source/package reproduction. Downloaded build dependencies must have reviewed
+repository signatures, immutable versions and hashes before use. No dependency
+installation or full kernel download occurred in this preparation.
+
+#### What the regression protects
+
+The main KUnit case supplies a private GEM object, a synthetic handle table and
+a real unsignaled DMA fence. It calls the actual `v3d_wait_bo_ioctl`, GEM lookup,
+reservation iterator and default waiter. Sixteen zero-timeout probes must return
+ETIME, leave the fence unsignaled and cause no voluntary context switch in the
+calling task. Elapsed nanoseconds are evidence only, not a new speed threshold.
+Involuntary preemption has a separate counter. An unpatched kernel is expected
+to expose its timed sleep; this negative control must actually run before the
+test is accepted as demonstrated regression coverage.
+
+The remaining cases cover an idle zero poll, busy positive expiry, already
+signaled positive success, invalid padding and invalid handle. All six names
+must appear in complete KTAP results. Missing, skipped, aborted or unexecuted
+cases are not passes. The fixture performs no GPU work and does not test real
+userspace ioctl dispatch, hardware buffer allocation or pixels. Separate
+integration checks must exercise a valid busy V3D buffer, positive completion
+while blocked, interruption/restart and buffer lifetime. Already-signaled
+success is not asynchronous-completion coverage.
+
+#### Isolated builder qualification: blocked on prerequisites
+
+Read-only qualification at QOR commit `645e35f` (16 November, session-07)
+reconfirms the exact running source/config identities above. GCC 14.2.0-19,
+binutils 2.44-3, make 4.4.1-2, bc, OpenSSL development headers, pahole, cpio
+and dynamic BusyBox are installed. **bison, flex and QEMU are not.**
+libelf-dev is also absent; whether it is needed must follow the final build features, not a generic dependency list.
+The stock config has `DEBUG_INFO_NONE=y`, with no enabled OBJTOOL/BTF option.
+The known source fixture contains selected files only; `/usr/src` supplies
+headers/kbuild, not a complete pinned kernel source tree. Windows has none of
+the checked ARM64 compiler/QEMU/parser tools on PATH and no running WSL
+distribution. No stopped environment is started as a workaround.
+
+Existing bubblewrap 0.12.0 and unprivileged user namespaces work. A bounded
+probe creates private process/network/mount namespaces, drops capabilities,
+binds tools read-only and writes only an ephemeral private work directory.
+The probe confirms absence of `/boot`, the user's home, DRM/input/audio/KVM
+devices and desktop sockets; only loopback exists in its network namespace.
+This qualifies the namespace mechanism, **not a complete builder or VM**.
+No dependency download/install, package-index refresh, host setting, service,
+kernel/module load or Pi reboot occurs. Admission reports 7,281 MiB available
+against the unchanged 3,072-MiB floor; these are inventory snapshots, not
+sustained admission with a kernel compiler or VM resident.
+
+Unprivileged `apt-get --simulate --no-install-recommends install bison flex
+qemu-system-arm` against existing metadata reports **13 additions, zero
+upgrades/removals**. Adding libelf-dev would make 15 additions. Neither
+simulation installs anything. Observed candidate versions:
+
+| Missing prerequisite | Candidate from existing metadata |
+| --- | --- |
+| bison | `2:3.8.2+dfsg-1+b2` |
+| flex | `2.6.4-8.2+b4` |
+| libelf-dev (conditional build dependency) | `0.192-4` |
+| qemu-system-arm | `1:10.0.13+ds-0+deb13u1` |
+
+This simulation describes the current Pi's dependency delta, not the complete
+closure of a fresh root filesystem. Metadata versions/hashes are recorded,
+but package bytes, signature chains and a frozen builder root are not yet
+verified. Do not turn the simulation into a host install command.
+
+The minimal proposed setup is an **owner-authorized private ARM64 Debian
+Trixie builder root** under a new QOR `build/` directory. Provision bison, flex
+and qemu-system-arm with their complete signed, version/hash-pinned closure,
+with GCC 14.2.0-19 and the existing build prerequisites. Add libelf-dev only
+if the reviewed build requires it. Do not run package scripts against the
+host root. Verify the root's dependency closure and
+tool versions; mount it read-only for builds, exposing only dedicated source,
+output and evidence paths. No host home, boot, device or service passthrough.
+Keep provisioning separate from the offline build/test namespace. A reviewed
+builder image with the same verified contents is an alternative, not an
+already available or approved artifact.
+
+After provisioning, acquire and verify the complete pinned source and vendor
+package provenance. Retain `/boot/config-6.18.50+rpt-rpi-2712` by its pinned
+hash; use separate unpatched/test-patch-only and corrected/two-patch trees.
+Preserve ARM64, 16-KiB pages, HZ250 and `CONFIG_PREEMPT=y` in both. Review
+every `olddefconfig` difference; test-only KUnit and unique local versions are
+explicit differences from the stock config, never an exact-stock-config claim.
+Keep `DRM_V3D=m`: the current test overlay links the suite into `v3d.ko`, so
+booting a kernel alone does **not** execute it. A private initramfs must carry
+that kernel's module dependency closure, a verified userspace loader and its
+runtime libraries, and load V3D inside the guest. Confirm the suite actually
+appears in KTAP before interpreting results. Do not load it on the live Pi.
+
+Use a disposable ARM64 QEMU `virt` guest with software emulation (TCG), one
+CPU and initially 1,024 MiB guest RAM, no network, graphics, audio, host disk
+or KVM passthrough. Pin the available machine/CPU model after inspecting the
+installed QEMU; verify support for 16-KiB pages by actual guest boot. PL011
+serial, GIC, initramfs and ELF support are present in the observed stock
+config; this is not proof the complete config boots on `virt`. No Pi firmware
+or hardware is emulated/qualified by this test. The
+[QEMU platform documentation](https://www.qemu.org/docs/master/system/arm/virt.html)
+describes this distinction. Record any necessary guest-only config differences
+and apply them identically to both controls; stop for review if they affect
+the wait/preemption path. Do not switch to an unrelated default KUnit config.
+
+The outer original heavy coordinator owns serial compilation and the VM.
+Require 30 one-second resident admission samples and continuous 3,072-MiB
+headroom; a snapshot cannot reserve it. Size source/output/package scratch
+before starting. Record fixed build/guest time limits before execution; a
+timeout is an incomplete run, never the expected defect. Preserve complete
+console/KTAP, command/config/tool hashes, elapsed time, memory/CPU samples and
+exit/timeout status. The first control must complete before running the patch.
+Kernel sanitizer/lock checks follow only after the focused pair is valid.
+
+#### Regression review and actual run matrix
+
+Session-07 recorded all six cases as unrun because prerequisites were
+unavailable. Sessions-09/10 subsequently supply complete source, tools and
+normal isolated execution. The latest primary results below have zero skips
+and timeouts; the busy control failure is attributed to its unchanged
+voluntary-switch assertion. Session-06 object compilation remains separate
+historical evidence. The additional memory/lock configuration is reported
+separately in the final column; its optional traced diagnostic remains incomplete.
+
+| Case | Normal unpatched | Normal patched | KASAN + lock primary |
+| --- | --- | --- | --- |
+| `wait_busy_poll_does_not_sleep` | Expected failure: sleeps | Pass | Pass |
+| `wait_idle_poll_succeeds` | Pass | Pass | Pass |
+| `wait_busy_positive_expires` | Pass | Pass | Pass |
+| `wait_idle_positive_succeeds` | Pass | Pass | Pass |
+| `wait_invalid_padding_is_rejected` | Pass | Pass | Pass |
+| `wait_invalid_handle_is_rejected` | Pass | Pass | Pass |
+
+Static review against the exact target confirms the fixture's handle refers
+to its private GEM object and the real WRITE fence is included by the READ
+reservation query used by `wait_all=true`. The unsignaled fence is not filtered
+out. Its absent `enable_signaling` callback does not signal it automatically;
+its absent custom waiter selects `dma_fence_default_wait`. The original zero
+converts to one jiffy and reaches `schedule_timeout`; the patch keeps zero and
+returns busy without that sleep. The voluntary-switch samples bracket only the
+handler, excluding KUnit logging. Keep PREEMPT, HZ and page size unchanged:
+voluntary-preemption configurations can introduce unrelated scheduling into
+`might_sleep`. This path review supports the fixture but does not execute it.
+
+Only the busy-poll case is expected to distinguish old/new code. Accept its
+negative control only if setup succeeds, the fence stays unsignaled, every
+poll returns ETIME with remaining timeout zero, and the failure is specifically
+the voluntary-switch assertion. Other failures, warnings, allocation errors,
+missing cases, module-load errors or guest timeouts invalidate that conclusion.
+If attribution remains uncertain, capture one guest-only scheduler/call-path
+trace before changing any code; do not relax the assertion. Expect the other
+five cases to pass on both versions, but no such result is claimed yet.
+
+The production patch still changes only the zero conversion. Positive
+rounding/clamping, interruptible waits, remaining-time subtraction and
+ETIME-to-EAGAIN handling are identical. Padding fails before waiting; invalid
+handles return EINVAL; negative restart errors propagate through the unchanged
+handler. Fence completion error status is not newly interpreted. Existing
+coverage includes positive expiry and already-signaled success, **not**
+completion while blocked, restart signals, large/clamped timeouts or raw
+userspace dispatch. Those remain explicit integration/review gaps. No patch,
+test assertion, timeout or product behavior changes in session-07.
+
+Evidence: `build/development-2026-11-16/session-07/`, especially
+`builder-recovery-inventory.json`, `sandbox-qualification.json`,
+`fence-path-source.json` and `regression-results.json`. Session-06 is preserved.
+
+#### Private builder dependencies provisioned
+
+The owner authorized private dependency provisioning after session-07.
+Session-08 at QOR source `6c8cf83` supplies a tool payload root at
+`/home/qpi/qor-prism-current-20261112/build/native-kernel-builder-20261116-session08/rootfs`.
+The [builder lock](pi/kernel-wait-bo/builder-lock.json) records all 218 package
+versions, archive paths, sizes and SHA256 values, trust metadata, the target
+kernel/config identities and the root-content manifest hash. The dependency
+blocker is resolved **for these tool checks**, not for full kernel acceptance.
+
+APT uses a new private configuration, empty package status, metadata, cache
+and log directories. Host configuration hooks and package state are excluded.
+Fresh Debian Trixie metadata is verified with the existing public archive
+keyring; independent gpgv verification accepts three signatures and the
+uncompressed ARM64 Packages hash matches the signed Release. The complete
+resolved dependency set is pinned before download, and all 218 archive hashes
+and sizes match before extraction. Downloads total 151,333,672 bytes.
+
+Only payload extraction runs, inside a namespace with network disabled and
+only the private root writable. No package maintainer script runs on either
+host or private root. This is a kernel build tool root, **not a configured
+Debian installation**; dpkg's package database and service setup are not
+claimed complete. A recorded private `cc -> gcc` alias supplies the one needed
+compiler alias absent without maintainer scripts. The host package-status
+hash is unchanged; bison, flex and QEMU remain absent from the host PATH.
+See Debian's [extraction semantics](https://manpages.debian.org/trixie/dpkg/dpkg-deb.1.en.html).
+
+All 11 provisioning/check commands pass. In the read-only root, with only
+private work/tmp/proc/dev writable and no external network or host boot/home/
+graphics/input/audio/KVM/desktop access, the following checks pass:
+
+- GCC/G++ 14.2.0-19 identification; C compile/link/run with `-Wall -Wextra
+  -Werror`, including OpenSSL linkage; serial make 4.4.1 execution.
+- bison 3.8.2 and flex 2.6.4 generate sources that compile without warnings
+  and run with the expected results; Python 3.13.5 is available.
+- QEMU 10.0.13 enumerates `virt-10.0` and ARM CPUs, then starts a one-CPU,
+  1,024-MiB TCG machine paused before execution and exits normally. No kernel,
+  firmware or guest image is provided. This proves emulator startup, not
+  16-KiB guest boot, runtime resource qualification or any KUnit case.
+
+The original heavy coordinator protects provisioning: 158 samples, minimum
+7,214 MiB, with the unchanged 3,072-MiB floor and 30 resident admission samples.
+A separate guarded seal records 16,632 file/directory/symlink entries and
+695,276,361 regular-file bytes; 32 samples, minimum 7,438 MiB. Root modes,
+symlink targets and file hashes are preserved under the native job directory.
+Verify that manifest before reuse and mount the root read-only; only a new,
+separate output tree is writable. Do not mutate this root with apt/dpkg.
+Future dependencies need a new reviewed lock/root, preserving this evidence.
+
+No kernel source/config, backport, test assertion, timeout, host package,
+boot file, loaded module, desktop or service changes. **All six unpatched and
+patched KUnit cases remain unrun**; session-06 object compilation remains
+separate evidence. The authorization here has provisioned dependencies only.
+Next: acquire/verify the complete pinned kernel source and vendor provenance,
+resolve the exact config plus test overlay, and build the isolated test kernel
+before running the unchanged control and corrected suites. Keep the separate
+kernel sanitizer, physical recovery, QOR Release/ASan, image and isolated-CI
+gates open. No new installation/reboot authorization is inferred.
+
+Receipts: `build/development-2026-11-16/session-08/`; session-07 remains sealed.
+
+#### Normal isolated kernel regression verified
+
+Session-09 acquires the complete pinned source, verifies Git tree
+`55236f568e96166b8d7ee11741392e5508427ff7` and passes `git fsck --full`.
+The installed source package names that commit; this is not a signed-commit
+claim or a bit-identical distribution-kernel reproduction. Its initial config
+resolution rejected loss of the stock ARM32 compatibility vDSO. The separately
+authorized [compatibility extension lock](pi/kernel-wait-bo/builder-compat-lock.json)
+records 15 additional pinned package payloads from the original signed index.
+Every inherited root entry is unchanged. The extended root has 16,943 entries,
+manifest SHA256 `e4598cdbaa759122bd5ac7dff011a39500371b6077cbc148d8a3407f11d3a6e7`.
+Mount it read-only; do not alter the original session-08 root. Session-10
+reverifies the complete extended-root content before each build.
+
+The first linked control is retained with two upstream kernel-doc warnings.
+Session-10 preserves that failure and creates separate source/output copies.
+The separately pinned [documentation overlay](pi/kernel-wait-bo/0003-test-build-document-chroma-siting.patch)
+adds only the two missing parameter descriptions in `drm_color_mgmt.c` to both
+test variants. It changes no function statement, test assertion or warning
+check, and is not part of the production series. Check its exact preimage,
+postimage and patch hashes in `manifest.json` before applying it.
+
+The source audit permits only each variant's original patch paths, the single
+test source and that common documentation file. Resolved configs retain ARM64,
+16-KiB pages, HZ250, PREEMPT=y, DRM_V3D=m and both compatibility-vDSO settings.
+The session-09 review covers 116 stock-to-test config differences, including
+103 newly explicit disabled test options; neither wait/preemption nor security
+paths are disabled. The two session-10 configs differ only in LOCALVERSION,
+with distinct recorded `6.18.50-v8-16k-qor-wait-control-s10+` and
+`6.18.50-v8-16k-qor-wait-patched-s10r1+` identities.
+The initial corrected guest fails because a preserved source timestamp allows
+the copied control object to remain newer than the changed source. Its source
+hash is corrected but object hash equals the control's; this run is rejected.
+The accepted corrected build uses another source/output copy, explicitly
+invalidates only its copied `v3d_bo.o`, verifies the compiler actually rebuilds
+it, and records its different object hash, compile command and disassembly.
+Both initial failures and the original control output are preserved.
+The compile collector initially rejects the actual `CC [M]` module tag because
+its matcher expected untagged `CC`. That collector failure is also retained.
+A separate guarded review requires exactly one tagged compile record and
+verifies the new source/object/command, complete artifacts and warning-free
+logs before guest execution. No kernel assertion or warning check is relaxed.
+Image and the seven-module V3D dependency closure build serially with zero
+warnings (`KCFLAGS=-Werror`; modules also use `W=1`). This is full test-kernel
+linkage, not full distribution module/device-tree packaging.
+
+Each matched kernel/initramfs boots in QEMU 10.0.13, `virt-10.0,gic-version=3`,
+TCG single-thread mode, version-pinned `max` CPU, one CPU and 1,024 MiB RAM.
+The namespace exposes no host boot/home, graphics/input/audio/KVM devices,
+desktop sockets, network interface beyond loopback or host disk. The guest
+reports actual AArch64 and 16,384-byte pages and loads only its matched module
+closure. No module is loaded into the live Pi.
+Each accepted guest starts paused and supplies 30 one-second resource samples
+with QEMU resident before QMP resumes the CPU. This pause is included in the
+unchanged 300-second guest limit. The first short unpaused runs are preserved
+but do not satisfy that explicit VM admission. An initial QMP connection fails
+before boot because the host socket path is too long; the corrected connection
+uses a held private-directory descriptor and a short `/proc/self/fd/` path.
+
+The original six-case control completes first: five passes and only the busy
+poll case fails, specifically its 16 voluntary-switch expectations. All polls
+return ETIME, consume zero remaining timeout and leave the real private fence
+unsignaled. Every control poll sleeps once. The corrected kernel passes all
+six unchanged cases, with zero voluntary switches in all 16 busy probes. Both
+primary runs have zero skips/timeouts. Their complete KTAP precedes separate
+function-graph reruns confirming the GEM/reservation/default-wait/scheduler
+path. Traced timings are not primary results or a QOR performance benchmark.
+
+The guarded build, review and guest stages record 702 samples, minimum 6,919 MiB above
+the unchanged 3,072-MiB floor. Every stage has 30 resident admission samples;
+Image/modules retain 7,200/1,800-second limits and the guest retains 300 seconds.
+Resources, complete commands/logs, raw artifact/config hashes, module dependencies
+and build identities are under
+`build/development-2026-11-16/session-10/`; earlier session-09 receipts are preserved.
+All elapsed timings are evidence, not new pass thresholds. The regression is
+synthetic-fence kernel coverage; real userspace dispatch, GPU completion while
+blocked, interruption/restart and lifetime remain integration gates. Kernel
+address/lock checking, production packaging and physical recovery remain pending.
+The original QOR failures and all image/Release/isolated-CI gates remain open.
+No installation, boot-selection change, live module load or reboot is authorized
+by this result. Next: a separately reviewed kernel address/lock-checking config.
+
+#### Isolated memory-error and lock checks
+
+The separate [diagnostic overlay](pi/kernel-wait-bo/kunit-kasan-lock.config)
+resolves to SHA256 `d03855d2ff067c1668f38eeac0298b0e926163bbb9d52de5339d26ac1a432bda`. Its 37 reviewed differences from the accepted
+normal config enable Generic KASAN with GCC outline/stack/vmalloc instrumentation,
+PROVE_LOCKING, DEBUG_LOCK_ALLOC and DEBUG_ATOMIC_SLEEP plus their default
+spin/mutex/rwsem/ww, RCU, stack-depot and IRQ tracking dependencies. ARM64,
+16-KiB pages, HZ250, PREEMPT=y, both compatibility-vDSO settings, DRM_V3D=m and
+FRAME_WARN=2048 are retained. This is a test-only config; KASAN self-tests/fault
+injection, KCSAN, lock torture and multicore stress are not enabled or claimed.
+See the upstream [KASAN](https://docs.kernel.org/dev-tools/kasan.html) and
+[lock validator](https://docs.kernel.org/locking/lockdep-design.html) references;
+the exact pinned-source configuration review is in session-11 receipts.
+
+The initial fresh build fails with
+`no previous prototype for 'DWC_SPINLOCK_ALLOC' [-Werror=missing-prototypes]`.
+The vendor source always defines/exports this allocator, while its header hides
+the declaration under debug spinlocks. The separate
+[declaration overlay](pi/kernel-wait-bo/0004-test-build-declare-dwc-spinlock-allocator.patch)
+moves that existing extern declaration outside the conditional. It changes no
+function statement, allocation macro or call site, and is not in the production
+series. Verify its pinned preimage/postimage and patch hashes in the manifest.
+The published patch omits redundant blank and tab-indented context lines so
+ordinary whitespace checks apply without an exception; LF apply verification reproduces
+the exact compiled header bytes. The original executed patch/hash is retained.
+The first Windows apply converted LF to CRLF; both raw/normalized hashes and a
+subsequent exact LF apply are recorded, rather than silently normalizing evidence.
+
+The failed source and compiler output remain intact. A new source copy adds
+only that audited header path; unchanged KASAN/config flags permit reuse of the
+failed diagnostic output. Its public DWC objects are hashed/preserved and
+invalidated before recompilation; no private signing key is opened or copied.
+The retry consumes the remaining original 7,200-second Image budget, not a new
+deadline. Image and seven matched modules then link with zero warnings under
+`KCFLAGS=-Werror -j1` and module `W=1`. Handler/test objects both contain ASan
+imports. Release: `6.18.50-v8-16k-qor-wait-kasan-lock-s11+`. This is test-kernel linkage, not a complete
+production module/device-tree package or a vendor-supported physical candidate.
+
+The first instrumented guest captures six passing primary cases, then reaches
+the unchanged 300-second bound during its optional function-graph rerun. Its
+primary module loads begin at 110.995 guest seconds and end at 114.995; diagnostic
+rerun starts at 239.181. Keep the complete primary, post-primary setup interval
+and partial traced rerun distinct. The overall traced attempt is incomplete,
+with one timeout, and is not used as a successful memory/lock acceptance run.
+An initial primary-only loader fails before boot on an unused tracing helper;
+that helper is removed without changing kernel/test code or warning flags.
+
+The final primary-only guest exits normally after **150.437 seconds**, within
+the same 300-second bound including thirty paused-QEMU resident samples. All six
+original cases pass, with zero skips/timeouts and zero voluntary switches in all
+sixteen busy polls. The guest verifies actual AArch64/16-KiB pages, ASan runtime
+symbols, and debug_locks=1 before/after the cases and before shutdown. No KASAN,
+lockdep, atomic-sleep or unexpected kernel warning is observed; fault/warning
+panic settings remain enabled. It runs one CPU/1,024 MiB with no host disk,
+external network, GPU/input/audio/KVM or desktop passthrough. The normal-session
+call-path traces remain separate; tracing under the combined diagnostics is
+not qualified. A clean focused run is not proof against unexercised faults.
+
+Session-11's 3930 build/guest/recovery resource samples have minimum
+6,934 MiB against the unchanged 3,072-MiB floor. The original guard, all
+limits, commands, resolved config/differences, module dependencies, artifact
+hashes, failures and address-redacted exports remain in
+`build/development-2026-11-16/session-11/`. Raw original/export hashes are distinct.
+The production patch and six-case source hashes remain unchanged. Zero busy/idle
+polling, positive expiry/already-signaled success, invalid padding and handle
+errors are covered. Positive completion while blocked, signal/restart,
+large/clamped inputs, residual ETIME-to-EAGAIN and real userspace/GPU lifetime
+remain explicit integration gaps; their code is reviewed unchanged.
+
+No physical Pi kernel is installed/booted, live module loaded, boot file changed
+or host package/service managed. Original QOR Studio/software failures and image
+outliers remain open. These native diagnostics establish neither hosted CI
+isolation, QOR application sanitizer acceptance, image acceptance nor Release
+readiness. The next physical prerequisite is the stock recovery proof below.
+
+#### Pre-install qualification sequence
+
+1. Use a new isolated kernel build environment with the original heavy-job
+   coordinator and `tools/image/vm_resources.py`: one job, serial compilation,
+   sustained resident admission and at least 3,072 MiB available throughout.
+   Keep all outputs under a new `build/` receipt. Never stop unrelated work.
+   The live Pi has KUnit off; session-08 supplies the isolated tool payload
+   root above. Verify its lock/content manifest and repeat resident admission
+   with the actual build/guest worker. Its tool checks are not a full kernel
+   build or guest qualification. Do not enable KUnit or load a test module in
+   the current desktop kernel as a workaround.
+2. Prepare three separate source/output trees from the pinned base: unpatched
+   control plus patch 2; corrected test plus patches 1 and 2; production plus
+   patch 1 only. Copy the verified 16-KiB configuration into each output tree.
+   Give each a distinct `LOCALVERSION`, preserving the base suffix and adding
+   a clearly recorded trial suffix. Check the resulting `kernelrelease` differs
+   from every installed release. Do not predict it from a filename. The Pi
+   [kernel build guide](https://www.raspberrypi.com/documentation/computers/linux_kernel.html)
+   documents the 2712 configuration and distinct kernel versions.
+3. Run `olddefconfig` in the separate output directory, inspect every config
+   change, and refuse an unintended page-size, graphics, security or service
+   change. Production has the original config apart from the unique version;
+   test changes include the explicit KUnit overlay. Build/link kernel, modules
+   and device trees with `-j1`, warnings reviewed, and record source/config,
+   compiler, kernel/module build IDs, dependency closure and artifact hashes.
+   A changed object alone is insufficient. Stage modules under a private
+   `INSTALL_MOD_PATH`, never `/lib/modules` on the live Pi.
+   Reusing an output cache requires content-based input review: invalidate each
+   changed input's cached object and verify its actual compiler invocation,
+   object hash and linked module. Preserved timestamps can otherwise retain an
+   older control object even when the new source hash is correct.
+4. In a disposable kernel-test VM, run only `v3d-wait-bo` first. Capture the
+   unpatched busy-poll failure, then all six patched passes with no skips.
+   Preserve errors and complete KTAP. Repeat the focused corrected tests with
+   kernel address checking (KASAN) and lock checking in a separate test config;
+   record actual support, failures and skips. Session-11 completes the focused
+   primary memory/lock run above; its optional traced attempt remains incomplete.
+5. After those gates and a verified recovery route, submit the exact candidate
+   hashes/config, proposed boot selection and rollback target for installation
+   approval. A custom build is still a trial, not vendor-supported acceptance.
+   Do not replace a loaded `v3d.ko`, unload the desktop driver or mix modules from
+   different kernel releases.
+6. Following separately authorized candidate boot, verify actual release,
+   module identities, 16-KiB pages and V3D/ES/Qt backend again. Run the unchanged
+   focused Agent test in the existing render-node-only sandbox. Compare matched
+   callback/phase data and complete images; retain the 97 unresolved outliers.
+   Keep compositor/cache conditions constant and disclose kernel/config changes.
+   Qualify real ioctl completion/interruption/lifetime behavior. Resume QOR
+   Release, sanitizer and broader gates only on actual focused resolution.
+   Restore the recorded baseline after the bounded trial; preserve all evidence.
+
+#### Rollback plan: distinguish running from next boot
+
+Read-only inventory finds `auto_initramfs=1`, `arm_64bit=1`, no explicit kernel
+override, and no `tryboot.txt` or `autoboot.txt`. Current normal firmware files
+match **6.18.60**, although **6.18.50 is running**:
+
+| Preserved file | SHA256 |
+| --- | --- |
+| `/boot/firmware/config.txt` | `90a446821551a9df109ec1a77a79f6518fe974517d982d371c5e9efd6bbc98c3` |
+| `kernel_2712.img` / 6.18.60 vmlinuz | `f5b98801c4ec2eef5fbc2f4261a353d642d4a059e31231f418434ef2fffcc83d` |
+| `initramfs_2712` / 6.18.60 initrd | `f921995b146241c8c25111031a000af30bdbf4a6f1c6bbbbdfef55b7a8eb091e` |
+| `/boot/vmlinuz-6.18.50+rpt-rpi-2712` | `154f0ea1e14bb1075077dfd1bdc63c1502bc0b17b0354628d515b4fbd3a4198d` |
+| `/boot/initrd.img-6.18.50+rpt-rpi-2712` | `063222c943130886b15020c8e736e2c9d7418342f847f13fb8a805d31d0a3e7b` |
+
+Session-07 verifies this actual machine is a **Raspberry Pi 5 Model B Rev 1.1**,
+booting from SD: `/dev/mmcblk0p1` is FAT at `/boot/firmware` and `p2` is the
+ext4 root. The current user can read but not write the boot directory. Firmware
+reports `57db150d`, built 5 November 2025; bootloader properties are retained.
+These observations do not prove tryboot, watchdog recovery or media access.
+
+Both stock initramfs listings contain only their respective module release.
+The old package retains 411 readable DTB/overlay files under
+`/usr/lib/modules/6.18.50+rpt-rpi-2712/dtb/`; the new one retains 415.
+The normal Pi 5 DTB matches 6.18.60 (SHA256
+`03ce4742452ad52e3e8ec2259a0c705b496970e2b75e6e0b4e5446475ea1b926`),
+whereas the old Pi 5 DTB is
+`a5165cb562035f479ea9f5a81cedf7b6596ea32a0598608c4dc3b77ada909c60`.
+The inspected V3D Pi 5 overlay matches both releases. Thus retaining the old
+kernel/initramfs alone does not establish a matched old boot selection.
+Session-11 additionally hashes the complete installed module trees, retaining
+modes and symlink targets without following source/build links. This is a
+content inventory, not verification of a written backup. Offline destination
+readback and a stock recovery boot have not been demonstrated.
+
+##### 17 November stock-recovery admission: blocked before writes
+
+The owner authorizes the **stock recovery-boot check**, confirms physical power,
+storage, display and keyboard access, and explicitly excludes candidate
+installation/boot. This does not approve erasing a device, changing the original
+system card or changing persistent boot order. Session-11's 256-file evidence
+seal verifies unchanged; no kernel/application test is rerun in this inspection.
+
+Fresh read-only observations retain the mismatch above. The active system is
+`6.18.50+rpt-rpi-2712`, 16,384-byte pages, kernel build ID
+`4d280647c3c1a9fb6fbd20827cd05bfe198d9c9f`, on `/dev/mmcblk0`
+(128,177,930,240 bytes; card name `ED2S5`, serial `0xe4826800`). Partition 1,
+`bootfs`, supplies `/boot/firmware`; partition 2, `rootfs`, supplies `/`.
+`cmdline.txt` selects `root=PARTUUID=b5f892c7-02`. Its SHA256 is
+`02e954841e6379cdabb74b088c78808c7e3349d62c4979a148e7650badc1eb84`.
+All five kernel/initramfs/config hashes in the table above and both Pi 5
+device-tree hashes are unchanged. The two complete stock module manifests
+still match all 2,748/2,759 entries, including modes and links. The original
+1,414 QOR inputs, Agent/Studio binaries, saved image and package database match.
+No QOR workers run; both original coordinator locks are available. Native
+memory is 7,285 MiB at inspection, not a reservation or future job admission.
+
+The owner identifies the spare as **SanDisk 128 GB**. After connection to
+Windows, the previously absent device appears as `\\.\PhysicalDrive2`, USB
+`Generic Mass-Storage`, 127,865,454,592 bytes (512-byte sectors). The reader
+exposes no card serial or more specific model. Existing GPT partitions are:
+
+- partition 1: 7,260,600,320 bytes at offset 32,768, Windows `D:`;
+- partition 2: 5,031,936 bytes at offset 7,260,633,088, EFI system type;
+- partition 3: 307,200 bytes at offset 7,265,665,024, Windows `E:`.
+
+Windows does not recognize the mounted filesystem contents. A bounded
+read-only raw open is refused with `PermissionError`, errno 13; zero device
+bytes are read. Do not infer a distribution or empty card from that layout.
+The owner confirms no suitable USB-A reader/adapter is available to attach it
+to the running Pi without disturbing power. The SSH account's `sudo -n true`
+probe exits 1; Windows is not elevated. No password is requested or logged.
+No device-write approval is requested while contents and execution path remain
+unknown. Any later whole-card preparation proposal must explicitly explain that
+it erases this spare's GPT, all three partitions, files and remaining contents;
+the fresh identity must be reconfirmed at the actual write. It is **298 MiB
+smaller** than the original system card, so a raw whole-card clone cannot fit.
+Do not shrink or repartition the original to work around that limit.
+
+Root reports 56,737,787,904 used bytes; a consistent preserved-userspace/data
+copy and destination readback have not been established. Windows reports only
+680,108,032 bytes free on C: and 30,899,167,232 on X: at this snapshot, less than
+the used root bytes or a complete 128,177,930,240-byte raw source image.
+Compression, a live copy or retained source files are not a demonstrated backup.
+No backup, target filesystem or write recipe is prepared by this inspection.
+
+EEPROM still reports `BOOT_ORDER=0xf461`; its
+[documented right-to-left modes](https://www.raspberrypi.com/documentation/computers/raspberry-pi.html#BOOT_ORDER)
+mean SD, NVMe, USB mass storage, then restart. No order is changed or fallback
+proved. Firmware reports the current SD boot; HDMI is connected and a local
+Wayland session is active. Those facts and the owner's physical-access statement
+do not prove a future recovery desktop, working input or remote access after boot.
+
+**Stop result:** no media write, shutdown, reboot, persistent boot-order change,
+boot-file edit, candidate installation/enabling or live module load occurs.
+The original authenticated 6.18.50 environment remains running; it is not a
+successful restoration. Reinserting its unchanged card would normally select
+6.18.60. Before any shutdown, present a concrete way to return to the original
+working baseline under the original-media restriction. If that needs original
+selection-file edits, show their exact diff, backup/readback and restore checks
+and obtain specific authorization first. An independent stock copy alone does
+not prove return to the original card. Never assume remote SSH can repair a Pi
+that failed to start, or use this uncertainty to try a different kernel.
+
+Next: obtain a usable reader connection for read-only spare identification.
+Then finish the exact-media erasure proposal, consistent backup/destination
+readback and 6.18.50 return procedure before approval/write or reboot. The
+existing boot/validation/failure sequence below remains prepared, not executed;
+its first gate is not met. Original Studio/software failures, 97 image outliers,
+required hosted Qt/core jobs and Release/image acceptance remain open. PR #10
+is freshly confirmed open/draft at `ad43d08`. Commands, hashes, access-probe
+failures, owner observations and limitations are retained under
+`build/development-2026-11-17/session-01/`.
+
+##### Physical qualification sequence: prepared, not executed
+
+The recovery target is the **working 6.18.50 state**, including its userspace
+and data, not merely today's boot selection files. Reinserting the original
+card after a power-off would normally select the unqualified 6.18.60 set.
+Neither that card nor a remote connection is a proven 6.18.50 recovery route.
+This plan does not authorize media writes, installation, module loading,
+boot-selection changes, a recovery drill or candidate boot.
+
+1. **Establish an independent stock recovery medium first.** A person at the
+   Pi must confirm console, power and physical media access, a working reader,
+   and separately identified recovery and trial media. Preserve the original
+   card offline. The person performs any whole-card/data backup with approved
+   imaging tools and private encrypted storage outside the repository; secrets
+   and private boot arguments never enter AI context, logs or Git. Record the
+   exact source/destination device identities before any separately approved
+   imaging or format operation. Two spare media (or an independently proven
+   equivalent recovery route) keep the verified stock medium intact during
+   the trial. Their existence and bootloader selection are unverified here.
+
+   Prepare a matched stock 6.18.50 set on the recovery medium: the retained
+   kernel, that release's initramfs, complete module tree, Pi 5 device tree,
+   overlays and compatible firmware/config/include chain, together with the
+   preserved baseline userspace/data. Do not pair the old kernel with the
+   normal 6.18.60 device tree. Pin every component's hash, mode and link target;
+   read back the written FAT and ext4 files from the destination, not the
+   source cache. Root selection must resolve to the recovery medium's own
+   filesystem; copied identifiers must not silently select another card.
+   Windows FAT editing alone cannot verify ext4 modules or root selection.
+
+   Under separate authorization, physically boot this **stock recovery**
+   medium before a candidate is present. Confirm actual
+   `6.18.50+rpt-rpi-2712`, 16,384-byte pages, live kernel/module build identities,
+   matched mounted root/boot media, display, desktop and authenticated remote
+   access. Run the unchanged focused Studio baseline and record the existing
+   failure rather than expecting it to disappear. Prove that the local person
+   can reselect this medium after a power cycle. Keep its successful receipt
+   and read-back image on an independent medium. If stock 6.18.50 cannot boot,
+   stop: qualifying stock 6.18.60 is a separately reviewed baseline migration
+   followed by renewed comparisons, not a rollback to the current baseline.
+
+2. **Produce and review a distinct production trial set.** Normal and memory/
+   lock test kernels are test artifacts, not physical installation candidates.
+   Build a new complete kernel/module/device-tree set from the pinned source
+   and stock configuration with production patch 1 only and a unique
+   LOCALVERSION; KUnit and test-only instrumentation stay off. Verify the
+   resolved config differs only as reviewed, retain warnings-as-errors, and
+   record actual kernelrelease, kernel/module build IDs, all artifact hashes,
+   dependency closure and matching initramfs. No such production packaging is
+   claimed by the focused seven-module guest builds.
+
+   After kernel test gates and recovery proof, present the exact artifact
+   manifest, named trial medium, selection-file diff, time budget and rollback
+   target for explicit installation/boot authorization. Stage only on a trial
+   copy, keeping the verified stock recovery medium and original card intact.
+   Use explicit, separately reviewed kernel/initramfs/device-tree selection;
+   audit the entire include/conditional and root-selection chain. Pi's
+   [configuration guide](https://www.raspberrypi.com/documentation/computers/config_txt.html)
+   explains OS prefixes and fallback; a filename alone does not prove selection.
+   Do not rely on tryboot or a watchdog until that mechanism itself has been
+   physically demonstrated. Never replace a live module or mix kernel releases.
+
+3. **Prove the trial actually booted before testing QOR.** Agree a five-minute
+   boot/access window before an authorized trial, with local console capture
+   and the recovery person present. Compare actual `uname -r` to the uniquely
+   built trial release, actual page size to 16,384, the live GNU kernel build ID
+   from `/sys/kernel/notes` to the built kernel, and loaded V3D/DRM note build
+   IDs to their matched staged modules. Verify module vermagic, mounted media,
+   selected config and file hashes. A new file on disk or a live SSH session
+   does not establish which kernel is running. Any mismatch, missing display
+   or failed access window stops the trial and invokes the stock recovery path.
+
+4. **Run the unchanged Studio/graphics checks in the existing private sandbox.**
+   Rehash the same 1,414 QOR inputs, Agent/Studio binaries, Qt/Mesa libraries,
+   private test keyring fixture and process-local ES diagnostic helper. Confirm
+   the actual V3D render-node identity, Qt OpenGL backend and OpenGL ES 3.1;
+   do not spoof versions or change product graphics defaults. Keep the private
+   compositor, one client cache policy, render-worker count, device/network/
+   desktop exclusions and resource guard identical to the stock comparison.
+   Only the identified render node is exposed; no primary display/input/audio
+   or KVM passthrough is added by this plan.
+
+   Reuse the exact session-01 `config-agent-es31.json` selection:
+   `logicThatThrowsInPlayIsInTheLog`, `aLongWaitLastsWhatItWasAskedFor`, `-v2`,
+   with its unchanged 5,400-second outer bound and existing Qt watchdog.
+   Preserve the 600-ms request, `typeErrors == 1`, `times > 5`, Playing notice
+   and advancing log cursor, plus the separate 1,500-ms wait floor. Require all
+   reached assertions, complete output, exits and skips; a later timing pass
+   alone cannot erase the original failure. First-run/cache conditions and
+   any diagnostic overhead are reported. The standalone software-renderer
+   failure remains separate and open until its own unchanged case passes.
+
+   Reuse `config-studio-es31.json` and the matched software control selection
+   `theStudioWearsTheOneLooksToolRegister`, preserving complete fresh PNGs.
+   Compare the whole frame and viewport at unchanged size/camera/layout, with
+   sky/environment lighting, materials, objects, shadows, gizmo and UI all
+   visible. Record GLSL/context errors, raw pixel/region differences and all
+   existing 97 unresolved outliers. Never mask, register, scale or replace the
+   screenshot to hide differences. The existing narrow UI assertion is not
+   whole-viewport acceptance; any new pixel tolerance requires prior review.
+   Retain the known missing-sky negative control and unexplained differences.
+   Keep graphics-image acceptance open until those criteria are independently
+   resolved. Real busy-buffer positive completion, signal/restart and lifetime
+   behavior also need actual userspace/GPU integration evidence.
+
+5. **Restore and verify the working state after success or failure.** Preserve
+   trial logs/images first, stop only its workers, and select the preverified
+   stock recovery medium locally. If the trial is unreachable, power-cycle
+   and recover with that medium/reader rather than retrying remotely. Restore
+   exact recorded stock selection and data state, not guessed config lines or
+   today's 6.18.60 selection. Verify live 6.18.50 kernel/module identities,
+   16-KiB pages, media selection, baseline file hashes, desktop/remote access
+   and original QOR binary/source/image state. Retain the quarantined trial
+   artifacts and failure evidence. Record an actual stock recovery boot as a
+   physical result; component availability or this plan is not that result.
+
+Physical verification still needed: local person/console and reader access,
+independent media, backup destination/readback, matched stock 6.18.50 boot,
+media/root selection, desktop/network recovery and the bounded trial/return.
+No physical result, production candidate, QOR Studio resolution or hardware
+acceptance is claimed here. The immediate physical prerequisite is a proven
+stock 6.18.50 recovery boot on a separate medium under specific authorization.
+
+#### Verified preparation, remaining gates
+
+The native guarded job passes both patch checks/applications, verifies patched
+hashes, compiles original and changed `v3d_bo.o` plus the KUnit object with `W=1`
+and `-Werror`, inspects the compiled zero bypass, then reverses both patches and
+verifies exact original hashes. For the test object only, the compile command
+defines `CONFIG_KUNIT=1`; the installed config remains unchanged. There is no
+full link, KUnit execution, test-module load or bootable artifact. All 61 memory
+samples exceed the resource floor; minimum 7,153 MiB.
+
+Receipts: `build/development-2026-11-16/session-06/`. Those were preparation
+checks. Sessions-09/10 subsequently link and execute the normal isolated test
+kernels above. Session-11 separately completes the focused primary KASAN/lock
+run, preserving the incomplete traced diagnostic. Production packaging, busy
+hardware ioctl integration, physical recovery, original QOR focused test/images
+and acceptance gates remain pending. PR #10 stays draft. The next physical
+prerequisite is a verified stock 6.18.50 recovery boot; no trial is authorized.
 
 ## Private disposable VM lab
 

@@ -1,0 +1,254 @@
+SPDX-License-Identifier: GPL-2.0-only
+Subject: [PATCH 2/2] drm/v3d: add isolated busy-buffer WAIT_BO KUnit coverage
+
+Test-only companion; CONFIG_DRM_V3D_KUNIT_TEST defaults off.
+Runs the real ioctl/GEM/reservation/default-fence path with a synthetic handle
+and unsignaled fence, and checks voluntary scheduling instead of a wall-time
+threshold. It is not GPU or QOR acceptance. Runtime execution is still required.
+Apply only after checking the pinned preimages, with --unidiff-zero.
+
+--- a/drivers/gpu/drm/v3d/Kconfig
++++ b/drivers/gpu/drm/v3d/Kconfig
+@@ -13,0 +14,9 @@
++
++config DRM_V3D_KUNIT_TEST
++	bool "KUnit tests for V3D buffer waits"
++	depends on DRM_V3D && KUNIT=y
++	default n
++	help
++	  Exercise the WAIT_BO ioctl with a private GEM object and a
++	  controllable fence. No GPU work is submitted. Intended only for
++	  a separate test kernel; leave disabled in the production candidate.
+--- a/drivers/gpu/drm/v3d/Makefile
++++ b/drivers/gpu/drm/v3d/Makefile
+@@ -21,0 +22,2 @@
++v3d-$(CONFIG_DRM_V3D_KUNIT_TEST) += tests/v3d_wait_bo_test.o
++
+--- /dev/null
++++ b/drivers/gpu/drm/v3d/tests/v3d_wait_bo_test.c
+@@ -0,0 +1,225 @@
++// SPDX-License-Identifier: GPL-2.0-only
++/* QOR OS regression for the V3D WAIT_BO zero-timeout backport. */
++
++#include <kunit/test.h>
++#include <linux/dma-fence.h>
++#include <linux/dma-resv.h>
++#include <linux/ktime.h>
++#include <linux/sched.h>
++#include <linux/slab.h>
++#include <drm/drm_device.h>
++#include <drm/drm_drv.h>
++#include <drm/drm_file.h>
++#include <drm/drm_gem.h>
++
++#include "../v3d_drv.h"
++
++/* No GPU, MMIO, userspace fd or registered DRM device is needed. The real
++ * ioctl handler, GEM lookup, reservation iterator and default fence wait run.
++ * Only the device, handle table and completion producer are synthetic.
++ */
++struct wait_test_fence {
++	struct dma_fence base;
++	spinlock_t lock;
++};
++
++struct wait_test {
++	struct drm_device dev;
++	struct drm_file file;
++	struct drm_gem_object *obj;
++	struct dma_fence *fence;
++	u32 handle;
++};
++
++static const struct drm_driver wait_test_driver = {
++	.driver_features = DRIVER_GEM,
++};
++
++static const char *wait_test_fence_name(struct dma_fence *fence)
++{
++	return "v3d-wait-bo-test";
++}
++
++static const struct dma_fence_ops wait_test_fence_ops = {
++	.get_driver_name = wait_test_fence_name,
++	.get_timeline_name = wait_test_fence_name,
++	/* No custom wait: exercise the real default waiter. */
++};
++
++static void wait_test_free_object(struct drm_gem_object *obj)
++{
++	/* This private test object has no mmap offset, pages or exported dma-buf. */
++	drm_gem_private_object_fini(obj);
++	kfree(obj);
++}
++
++static const struct drm_gem_object_funcs wait_test_object_funcs = {
++	.free = wait_test_free_object,
++};
++
++static int wait_test_init(struct kunit *test)
++{
++	struct wait_test_fence *fence;
++	struct wait_test *ctx;
++	int ret;
++
++	ctx = kunit_kzalloc(test, sizeof(*ctx), GFP_KERNEL);
++	if (!ctx)
++		return -ENOMEM;
++	test->priv = ctx;
++	ctx->dev.driver = &wait_test_driver;
++	spin_lock_init(&ctx->file.table_lock);
++	idr_init_base(&ctx->file.object_idr, 1);
++	ctx->obj = kzalloc(sizeof(*ctx->obj), GFP_KERNEL);
++	if (!ctx->obj) {
++		ret = -ENOMEM;
++		goto destroy_idr;
++	}
++	drm_gem_private_object_init(&ctx->dev, ctx->obj, PAGE_SIZE);
++	ctx->obj->funcs = &wait_test_object_funcs;
++	fence = kzalloc(sizeof(*fence), GFP_KERNEL);
++	if (!fence) {
++		ret = -ENOMEM;
++		goto put_object;
++	}
++	spin_lock_init(&fence->lock);
++	dma_fence_init(&fence->base, &wait_test_fence_ops, &fence->lock,
++		       dma_fence_context_alloc(1), 1);
++	ctx->fence = &fence->base;
++	ret = dma_resv_lock(ctx->obj->resv, NULL);
++	if (ret)
++		goto put_fence;
++	ret = dma_resv_reserve_fences(ctx->obj->resv, 1);
++	if (!ret)
++		dma_resv_add_fence(ctx->obj->resv, ctx->fence, DMA_RESV_USAGE_WRITE);
++	dma_resv_unlock(ctx->obj->resv);
++	if (ret)
++		goto put_fence;
++	/* The initial object reference owns this isolated lookup-table entry.
++	 * No drm_gem_handle_create/delete lifecycle is being simulated.
++	 */
++	ret = idr_alloc(&ctx->file.object_idr, ctx->obj, 1, 2, GFP_KERNEL);
++	if (ret < 0)
++		goto put_fence;
++	ctx->handle = ret;
++	return 0;
++
++put_fence:
++	dma_fence_signal(ctx->fence);
++	dma_fence_put(ctx->fence);
++put_object:
++	drm_gem_object_put(ctx->obj);
++destroy_idr:
++	idr_destroy(&ctx->file.object_idr);
++	return ret;
++}
++
++static void wait_test_exit(struct kunit *test)
++{
++	struct wait_test *ctx = test->priv;
++
++	dma_fence_signal(ctx->fence);
++	idr_remove(&ctx->file.object_idr, ctx->handle);
++	idr_destroy(&ctx->file.object_idr);
++	drm_gem_object_put(ctx->obj);
++	dma_fence_put(ctx->fence);
++}
++
++static void wait_busy_poll_does_not_sleep(struct kunit *test)
++{
++	struct wait_test *ctx = test->priv;
++	unsigned long before, after;
++	ktime_t start;
++	s64 elapsed;
++	int i, ret;
++
++	/* The fence cannot signal during these calls. Repeated polling models
++	 * Mesa's cache check without relying on GPU speed or an elapsed cutoff.
++	 * Involuntary CPU preemption is not counted by nvcsw.
++	 */
++	for (i = 0; i < 16; i++) {
++		struct drm_v3d_wait_bo args = { .handle = ctx->handle };
++
++		KUNIT_ASSERT_FALSE(test, dma_fence_is_signaled(ctx->fence));
++		start = ktime_get();
++		before = current->nvcsw;
++		ret = v3d_wait_bo_ioctl(&ctx->dev, &args, &ctx->file);
++		after = current->nvcsw;
++		elapsed = ktime_to_ns(ktime_sub(ktime_get(), start));
++		KUNIT_EXPECT_EQ(test, ret, -ETIME);
++		KUNIT_EXPECT_EQ(test, args.timeout_ns, 0ULL);
++		KUNIT_EXPECT_FALSE(test, dma_fence_is_signaled(ctx->fence));
++		KUNIT_EXPECT_EQ_MSG(test, after, before,
++				    "poll %d blocked: %lld ns, %lu voluntary switches",
++				    i, elapsed, after - before);
++		kunit_info(test, "poll %d: %lld ns, %lu voluntary switches\n",
++			   i, elapsed, after - before);
++	}
++}
++
++static void wait_idle_poll_succeeds(struct kunit *test)
++{
++	struct wait_test *ctx = test->priv;
++	struct drm_v3d_wait_bo args = { .handle = ctx->handle };
++
++	dma_fence_signal(ctx->fence);
++	KUNIT_EXPECT_EQ(test, v3d_wait_bo_ioctl(&ctx->dev, &args, &ctx->file), 0);
++	KUNIT_EXPECT_EQ(test, args.timeout_ns, 0ULL);
++}
++
++static void wait_busy_positive_expires(struct kunit *test)
++{
++	struct wait_test *ctx = test->priv;
++	struct drm_v3d_wait_bo args = { .handle = ctx->handle, .timeout_ns = 1 };
++
++	KUNIT_EXPECT_EQ(test, v3d_wait_bo_ioctl(&ctx->dev, &args, &ctx->file), -ETIME);
++	KUNIT_EXPECT_EQ(test, args.timeout_ns, 0ULL);
++	KUNIT_EXPECT_FALSE(test, dma_fence_is_signaled(ctx->fence));
++}
++
++static void wait_idle_positive_succeeds(struct kunit *test)
++{
++	struct wait_test *ctx = test->priv;
++	struct drm_v3d_wait_bo args = { .handle = ctx->handle,
++				      .timeout_ns = NSEC_PER_SEC };
++
++	dma_fence_signal(ctx->fence);
++	KUNIT_EXPECT_EQ(test, v3d_wait_bo_ioctl(&ctx->dev, &args, &ctx->file), 0);
++	KUNIT_EXPECT_LE(test, args.timeout_ns, (u64)NSEC_PER_SEC);
++}
++
++static void wait_invalid_padding_is_rejected(struct kunit *test)
++{
++	struct wait_test *ctx = test->priv;
++	struct drm_v3d_wait_bo args = { .handle = ctx->handle, .pad = 1 };
++
++	KUNIT_EXPECT_EQ(test, v3d_wait_bo_ioctl(&ctx->dev, &args, &ctx->file), -EINVAL);
++	KUNIT_EXPECT_FALSE(test, dma_fence_is_signaled(ctx->fence));
++}
++
++static void wait_invalid_handle_is_rejected(struct kunit *test)
++{
++	struct wait_test *ctx = test->priv;
++	struct drm_v3d_wait_bo args = { .handle = ctx->handle + 1 };
++
++	KUNIT_EXPECT_EQ(test, v3d_wait_bo_ioctl(&ctx->dev, &args, &ctx->file), -EINVAL);
++}
++
++static struct kunit_case wait_test_cases[] = {
++	KUNIT_CASE(wait_busy_poll_does_not_sleep),
++	KUNIT_CASE(wait_idle_poll_succeeds),
++	KUNIT_CASE(wait_busy_positive_expires),
++	KUNIT_CASE(wait_idle_positive_succeeds),
++	KUNIT_CASE(wait_invalid_padding_is_rejected),
++	KUNIT_CASE(wait_invalid_handle_is_rejected),
++	{}
++};
++
++static struct kunit_suite wait_test_suite = {
++	.name = "v3d-wait-bo",
++	.init = wait_test_init,
++	.exit = wait_test_exit,
++	.test_cases = wait_test_cases,
++};
++
++kunit_test_suite(wait_test_suite);

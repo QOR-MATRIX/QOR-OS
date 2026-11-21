@@ -1,3 +1,4 @@
+// Changed for QOR OS: precomputed lighting preserves the bundled HDR sky without preparing it on each launch.
 import QQ
 
 Scene {
@@ -6,7 +7,7 @@ Scene {
     skyHorizon: "#c7623a"
     groundHorizon: "#2a1a1a"
     groundBottom: "#07080c"
-    sky: "../assets/dusk.hdr"
+    sky: "../assets/dusk.ktx"
     skyTurn: 0
     skyLight: 0.75
     exposure: 1

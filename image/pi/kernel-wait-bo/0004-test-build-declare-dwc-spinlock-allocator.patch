@@ -1,0 +1,18 @@
+SPDX-License-Identifier: GPL-2.0-only
+Subject: [PATCH] test-build: declare the exported DWC allocator with debug locks
+
+The pinned vendor source defines and exports DWC_SPINLOCK_ALLOC even with
+CONFIG_DEBUG_SPINLOCK. Move its existing declaration outside the conditional;
+leave call-site debug allocation macros and all function statements unchanged.
+Separate isolated diagnostic build overlay, not part of the production series.
+
+--- a/drivers/usb/host/dwc_common_port/dwc_os.h
++++ b/drivers/usb/host/dwc_common_port/dwc_os.h
+@@ -1046,2 +1046,3 @@
+  * makes it falsely think recursive locking occurs. */
++extern dwc_spinlock_t *DWC_SPINLOCK_ALLOC(void);
+ #if defined(DWC_LINUX) && defined(CONFIG_DEBUG_SPINLOCK)
+@@ -1054,3 +1055,2 @@
+ #else
+-extern dwc_spinlock_t *DWC_SPINLOCK_ALLOC(void);
+ #define dwc_spinlock_alloc(_ctx_) DWC_SPINLOCK_ALLOC()

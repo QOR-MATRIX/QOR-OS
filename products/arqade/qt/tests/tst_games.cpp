@@ -1,3 +1,4 @@
+// Changed for QOR OS: inspect QQ Game's loaded playingScene without shadowing its viewport scene.
 // ARQADE's games rebuilt in QQ (P7.20, ADR-102 decision 2), played in ARQADE's window by QQ's runtime. Each game's card
 // opens it in place of the home, and it is played as a person plays it, by the mouse on its screen buttons, the
 // keyboard and the gamepad:
@@ -501,7 +502,7 @@ class TestGames : public QObject
 
     QQuickItem *home() const { return window->findChild<QQuickItem *>(QStringLiteral("home")); }
     QQuickItem *game() const { return window->findChild<QQuickItem *>(QStringLiteral("game")); }
-    QObject *scene() const { return game() ? game()->property("scene").value<QObject *>() : nullptr; }
+    QObject *scene() const { return game() ? game()->property("playingScene").value<QObject *>() : nullptr; }
 
     // The game's logic: the Behaviour of its name, and what it holds.
     QObject *logic() const
@@ -629,6 +630,9 @@ class TestGames : public QObject
         QTRY_VERIFY2_WITH_TIMEOUT(game()->property("settled").toBool(),
                                   qPrintable(game()->property("problem").toString() + '\n' + warnings.join('\n')), 15000);
         QCOMPARE(game()->property("problem").toString(), QString());
+        QVERIFY(scene());
+        QCOMPARE(game()->parentItem()->property("playing").value<QObject *>(), scene());
+        QVERIFY(scene() != game()->property("scene").value<QObject *>());
         QCOMPARE(QUrl(game()->property("file").toUrl()), file);
         QTRY_VERIFY(logic());
         if (drawnInSoftware())

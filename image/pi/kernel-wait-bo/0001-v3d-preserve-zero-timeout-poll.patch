@@ -1,0 +1,17 @@
+SPDX-License-Identifier: GPL-2.0-only
+Subject: [PATCH 1/2] drm/v3d: preserve zero-timeout WAIT_BO polling
+
+Semantic backport of upstream 226666556a9b3b51f04f9dad83662e5b9c78a325.
+Base: Raspberry Pi linux cff533aec2fa601846766b32ff57204e0a61bed7.
+Keep positive timeout conversion and all error/accounting paths unchanged.
+The shared-helper migration and unrelated overflow change are not backported.
+Apply only after checking the pinned preimage hashes, with --unidiff-zero.
+This is a review candidate, not a vendor-approved or installed kernel.
+
+--- a/drivers/gpu/drm/v3d/v3d_bo.c
++++ b/drivers/gpu/drm/v3d/v3d_bo.c
+@@ -283,2 +283,2 @@
+-	unsigned long timeout_jiffies =
+-		nsecs_to_jiffies_timeout(args->timeout_ns);
++	unsigned long timeout_jiffies = args->timeout_ns ?
++		nsecs_to_jiffies_timeout(args->timeout_ns) : 0;

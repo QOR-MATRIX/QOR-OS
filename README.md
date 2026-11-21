@@ -23,6 +23,13 @@ QOR OS is a Linux operating system in development, targeting an experience drawn
 compositor and shell, the design system, the system services, the game engine
 and its studio, the arcade, the media player and the account system are all
 QOR OS's intended stack; the account service and full device integration remain unfinished.
+The [standalone Qonsole Windows slice](apps/qonsole/README.md) now runs Home and an
+original local sample with the installed Qt runtime; injected input is not a real
+controller or console pass. Qonsole and QPi are editions of one QOR OS with shared
+interfaces as the goal, not separate forks. The premium C++/Qt desktop and developer
+ecosystem remain the vision. Demiurge/QOR ID/Auth integration code and QPi work are
+on hold; [the canonical roadmap](docs/ROADMAP.md#alongside-the-phases--qonsole-device-edition)
+owns the capability matrix, next staging step and supported-route-only PS4/PS5 aspirations.
 It joins two projects
 ([QOR-0002](docs/decisions/QOR-0002-one-repository-from-qtos-and-demiurge.md)):
 
@@ -165,9 +172,14 @@ Linux, driven by a controller. See [docs/ROADMAP.md](docs/ROADMAP.md).
 Qt CI jobs remain paused pending runner isolation; historical green jobs are not
 current readiness. The private x86-64 VM installation/reboot evidence is separate
 from full device acceptance. Native ARM64 development builds and selected software
-checks now pass on the Pi, including the core-enabled OS and focused QQ suites.
-The Rust dependency warning, full product/sanitizer checks and physical-device
-acceptance remain open; no bootable Pi image is accepted. [OWNER.md](OWNER.md) gives the current handoff and
+checks now pass on the Pi, including the core-enabled OS, complete QQ gameplay,
+security, Studio, workspace and game-build suites, and creator journeys. The
+latest scene suite also passes with memory/undefined-behavior sanitizers and
+leak checking. Native QQ lint now passes with zero warnings across Runtime,
+Player and Studio. These are scoped software results: Agent logging and Player
+frame-rate failures, the Rust dependency warning, other product/Windows checks
+and physical-device acceptance remain open. No bootable
+Pi image is accepted. [OWNER.md](OWNER.md) gives the current handoff and
 [image/README.md](image/README.md) keeps the exact evidence and remaining gates.
 
 ## License

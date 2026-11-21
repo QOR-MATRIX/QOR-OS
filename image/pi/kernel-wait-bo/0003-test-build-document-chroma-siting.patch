@@ -1,0 +1,11 @@
+--- a/drivers/gpu/drm/drm_color_mgmt.c
++++ b/drivers/gpu/drm/drm_color_mgmt.c
+@@ -597,6 +597,8 @@
+ /**
+  * drm_plane_create_chroma_siting_properties - chroma siting related plane properties
+  * @plane: plane object
++ * @default_chroma_siting_h: default horizontal chroma siting
++ * @default_chroma_siting_v: default vertical chroma siting
+  *
+  * Create and attach plane specific CHROMA_SITING
+  * properties to @plane.

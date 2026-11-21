@@ -3,6 +3,7 @@
 
 // Changed for QOR OS: startup problems, including supplied filenames, stay literal text.
 // Changed for QOR OS: scene and follower labels read their properties across their different types.
+// Changed for QOR OS: the game exposes its loaded scene separately from the viewport scene.
 
 import QtQuick
 import QtQuick3D
@@ -23,7 +24,7 @@ Window {
     height: 720
     visible: true
     color: "#07080c"
-    title: (game.scene ? entityValue(game.scene, "name") : "QQ") + " — QQ Player"
+    title: (game.playingScene ? entityValue(game.playingScene, "name") : "QQ") + " — QQ Player"
 
     /// What a capture or a measurement waits for: the game's first frame proper.
     readonly property bool settled: game.settled
@@ -40,7 +41,7 @@ Window {
     }
 
     /// The game's scene playing, for the Player's own code (a record's end).
-    readonly property QtObject playing: game.scene
+    readonly property QtObject playing: game.playingScene
 
     function release() { game.release() }
 

@@ -138,7 +138,7 @@ def load_catalog(root: Path = ROOT) -> tuple[list[dict], dict]:
             string_list(entry["prerequisites"], 8, 320)
             for reference in string_list(entry["docs"], 8, 320):
                 require(reference.partition("#")[0].endswith(".md"), "reference")
-                local_target(root, reference)
+                require(stat.S_ISREG(local_target(root, reference).lstat().st_mode), "reference")
                 local.add(reference)
             for reference in string_list(entry["sources"], 12, 320):
                 if entry["repository"] == "QOR-MATRIX/qor-os":

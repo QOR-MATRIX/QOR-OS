@@ -12,6 +12,7 @@ import sys
 import tempfile
 import textwrap
 import unittest
+import xml.etree.ElementTree as ElementTree
 
 _SCRIPT = pathlib.Path(__file__).resolve().parents[2] / "tools" / "dev" / "products-report.py"
 _spec = importlib.util.spec_from_file_location("products_report", _SCRIPT)
@@ -61,6 +62,15 @@ def record(passed=(), notrun=(), skipped=(), **failed):
         <Measurement><Value>the output, cut short</Value></Measurement></Results></Test>"""
         for name, (code, value) in failed.items())
     return f"""<?xml version="1.0" encoding="UTF-8"?><Site Name="x"><Testing><TestList><Test>./tests/any</Test></TestList>{tests}</Testing></Site>"""
+
+
+def duplicate_record(first, second, name="tst_world"):
+    root = ElementTree.Element("Site")
+    testing = ElementTree.SubElement(root, "Testing")
+    for status in (first, second):
+        xml = record([name]) if status == "passed" else record(**{name: ("Failed", "1")})
+        testing.append(ElementTree.fromstring(xml).find("Testing/Test"))
+    return ElementTree.tostring(root, encoding="unicode")
 
 
 PASSING = suite(1, "tst_world", "PASS   : TstWorld::initTestCase()", "PASS   : TstWorld::oneCase()", totals=(2, 0, 0))
@@ -172,6 +182,16 @@ class ReadingTheLog(unittest.TestCase):
 
 
 class ReadingTheRecord(unittest.TestCase):
+    def test_duplicate_suite_names_make_the_record_unreadable(self):
+        for first, second in (("failed", "passed"), ("passed", "failed"), ("passed", "passed")):
+            with self.subTest(first=first, second=second):
+                self.assertIsNone(report.read_record(duplicate_record(first, second)))
+
+    def test_unique_passing_and_failed_records_remain_readable(self):
+        self.assertEqual(report.read_record(record(["tst_world"])), {"tst_world": report.Ending("passed")})
+        self.assertEqual(report.read_record(record(tst_world=("Failed", "1"))),
+                         {"tst_world": report.Ending("failed", "Failed", "1")})
+
     def test_every_suite_is_read_with_how_it_ended(self):
         endings = report.read_record(record(passed=["tst_world"], notrun=["tst_gone"], tst_player=("Failed", "1"), tst_agent=("Subprocess aborted", "0")))
         self.assertEqual(endings, {"tst_world": report.Ending("passed"), "tst_gone": report.Ending("notrun", completion="Unable to find executable"),
@@ -190,6 +210,21 @@ class ReadingTheRecord(unittest.TestCase):
 class TheFloor(unittest.TestCase):
     def stands(self, log, passed=(), notrun=(), skipped=(), **failed):
         return report.only_the_floor_failed(report.read_suites(log), report.read_record(record(passed, notrun, skipped, **failed)))
+
+    def test_duplicate_suite_records_cannot_qualify_the_floor(self):
+        endings = report.read_record(duplicate_record("passed", "failed", "tst_player"))
+        self.assertFalse(report.only_the_floor_failed(report.read_suites(FLOOR), endings))
+
+    def test_duplicate_log_suites_cannot_qualify_the_floor(self):
+        for order, log in (("before", PASSING + PASSING + FLOOR), ("around", PASSING + FLOOR + PASSING),
+                           ("after", FLOOR + PASSING + PASSING)):
+            with self.subTest(order=order):
+                self.assertFalse(self.stands(log, ["tst_world"], **FAILED_ONE))
+
+    def test_unique_log_suites_still_allow_only_the_floor(self):
+        for order, log in (("before", PASSING + FLOOR), ("after", FLOOR + PASSING)):
+            with self.subTest(order=order):
+                self.assertTrue(self.stands(log, ["tst_world"], **FAILED_ONE))
 
     def test_a_suite_that_is_not_qt_test_and_passed_does_not_stop_it(self):
         self.assertTrue(self.stands(FLOOR + JOURNEY, ["first_journey"], **FAILED_ONE))
@@ -294,6 +329,11 @@ class PassedRun(unittest.TestCase):
     def passed(self, log, xml):
         return report.passed_run(report.read_suites(log), report.read_record(xml) if xml is not None else None)
 
+    def test_duplicate_suite_records_cannot_pass_a_run(self):
+        for first, second in (("failed", "passed"), ("passed", "failed"), ("passed", "passed")):
+            with self.subTest(first=first, second=second):
+                self.assertFalse(self.passed(PASSING, duplicate_record(first, second)))
+
     def test_complete_matching_evidence_passes(self):
         self.assertTrue(self.passed(PASSING, record(["tst_world"])))
         self.assertTrue(self.passed(SKIPPING, record(["tst_agent"])))
@@ -321,6 +361,11 @@ class PassedRun(unittest.TestCase):
 class PassedAgain(unittest.TestCase):
     def again(self, names, xml):
         return report.passed_again(names, report.read_record(xml))
+
+    def test_duplicate_suite_records_cannot_pass_a_retry(self):
+        for first, second in (("failed", "passed"), ("passed", "failed"), ("passed", "passed")):
+            with self.subTest(first=first, second=second):
+                self.assertFalse(self.again(["tst_world"], duplicate_record(first, second)))
 
     def test_each_suite_it_was_to_run_passed(self):
         self.assertTrue(self.again(["tst_flaky"], record(["tst_flaky"])))
@@ -350,6 +395,41 @@ class TheProgram(unittest.TestCase):
         if xml is not None:
             (testing / tag / "Test.xml").write_text(xml, encoding="utf-8")
         return made.name
+
+    def test_duplicate_xml_records_are_refused_by_acceptance_modes(self):
+        for arguments, name, log in ((("--passed",), "tst_world", PASSING),
+                                     (("--passed-again", "tst_world"), "tst_world", PASSING),
+                                     (("--only-the-floor",), "tst_player", FLOOR)):
+            for first, second in (("failed", "passed"), ("passed", "failed"), ("passed", "passed")):
+                with self.subTest(mode=arguments[0], first=first, second=second):
+                    folder = self.folder(log, duplicate_record(first, second, name))
+                    self.assertEqual(report.main([*arguments, folder]), 1)
+
+    def test_duplicate_log_suites_are_refused_by_acceptance_modes(self):
+        passing = record(["tst_world"])
+        floor = record(["tst_world"], **FAILED_ONE)
+        cases = (
+            (("--passed",), "repeated", PASSING + PASSING, passing),
+            (("--passed-again", "tst_world"), "repeated", PASSING + PASSING, passing),
+            (("--only-the-floor",), "before", PASSING + PASSING + FLOOR, floor),
+            (("--only-the-floor",), "around", PASSING + FLOOR + PASSING, floor),
+            (("--only-the-floor",), "after", FLOOR + PASSING + PASSING, floor),
+        )
+        for arguments, order, log, xml in cases:
+            with self.subTest(mode=arguments[0], order=order):
+                self.assertEqual(report.main([*arguments, self.folder(log, xml)]), 1)
+
+    def test_unique_evidence_is_accepted_by_acceptance_modes(self):
+        cases = (
+            (("--passed",), PASSING, record(["tst_world"])),
+            (("--passed-again", "tst_world"), PASSING, record(["tst_world"])),
+            (("--only-the-floor",), FLOOR, record(**FAILED_ONE)),
+            (("--only-the-floor",), PASSING + FLOOR, record(["tst_world"], **FAILED_ONE)),
+            (("--only-the-floor",), FLOOR + PASSING, record(["tst_world"], **FAILED_ONE)),
+        )
+        for number, (arguments, log, xml) in enumerate(cases):
+            with self.subTest(mode=arguments[0], case=number):
+                self.assertEqual(report.main([*arguments, self.folder(log, xml)]), 0)
 
     def test_it_answers_by_its_exit_code(self):
         self.assertEqual(report.main(["--only-the-floor", self.folder(FLOOR, record(**FAILED_ONE))]), 0)
