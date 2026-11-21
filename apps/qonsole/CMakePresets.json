@@ -1,0 +1,27 @@
+{
+  "version": 6,
+  "cmakeMinimumRequired": { "major": 3, "minor": 27, "patch": 0 },
+  "configurePresets": [
+    {
+      "name": "windows-verify",
+      "displayName": "Qonsole only · Windows local verification",
+      "cmakeExecutable": "C:/Qt/Tools/CMake_64/bin/cmake.exe",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/../../build/qonsole-windows",
+      "condition": { "type": "equals", "lhs": "${hostSystemName}", "rhs": "Windows" },
+      "architecture": { "value": "x64", "strategy": "external" },
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "CMAKE_CXX_COMPILER": "cl",
+        "CMAKE_MAKE_PROGRAM": "C:/Qt/Tools/Ninja/ninja.exe",
+        "CMAKE_PREFIX_PATH": "C:/Qt/6.12.0/msvc2022_64",
+        "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
+        "QOR_WARNINGS_AS_ERRORS": "ON",
+        "QOR_QONSOLE_VERIFICATION": "ON"
+      }
+    }
+  ],
+  "buildPresets": [
+    { "name": "windows-verify", "configurePreset": "windows-verify", "targets": ["qor-qonsole"], "jobs": 1 }
+  ]
+}

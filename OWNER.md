@@ -1,48 +1,33 @@
 # Where QOR OS stands
 
-For Andrew, 16 November 2026. The focused Pi graphics regression passes in
-isolated normal and memory/lock test kernels. Physical Pi, QOR products,
-hosted integration checks and Release acceptance remain separate and open.
+For Andrew, 20 November 2026. On `fix/native-play-clock-waits`, the standalone
+Windows Qonsole controller candidate builds in Release with verification helpers
+OFF. Its SHA-256 (file fingerprint) is `6de2f01d...`; the full value and commands
+are in `apps/qonsole/README.md`. Eleven Qt fixture results and two-program
+hardening pass. Ordinary Windows keyboard Home/sample/Back restores the same
+accessible focus ID; the native foreground process is observed. Live Raw Input
+(controller event) registration readback and physical input remain unverified.
+The old `b474280e...` executable and private staging are preserved. Receipt:
+`build/development-2026-11-20/session-06/`.
 
-The normal unpatched guest has five passes and the expected busy-poll failure:
-all 16 immediate checks sleep once. The corrected normal guest passes all six
-KUnit (Linux kernel unit) cases, with no voluntary scheduling in those polls.
+The Pi image contract helper is an unwired draft with no production profile.
+Its sixteen synthetic tests and eighteen generic validator tests pass. The
+combined scoped Python checkpoint passes 124 methods without failures/skips;
+CMake/CTest integration is excluded. No Linux, image or hardware pass follows.
 
-The separate diagnostic configuration enables KASAN (kernel memory-error
-detection), lockdep (lock dependency validation) and atomic-sleep checks.
-Its primary run passes all six unchanged cases, with zero skips/timeouts,
-verified instrumentation/runtime symbols and lockdep active throughout.
-It exits in 150.437 seconds within the unchanged 300-second guest bound.
-The 37 reviewed config changes preserve 16-kibibyte pages, 250 timer ticks
-per second, original scheduling and 32-bit compatibility support.
+The canonical roadmap preserves one universal QOR OS: premium C++/Qt desktop,
+Prism, QQ Studio/Player, developer tools, two stores, media and device editions.
+Demiurge/QOR ID/Auth integration code, QPi device execution and recovery remain
+on hold. No media erasure, candidate-kernel installation/boot or console support
+is authorized or established. Original Studio/software-renderer failures and
+97 image outliers remain open. Historical kernel/rollback evidence stays under
+`image/README.md` and `build/development-2026-11-17/session-01/`; it was not rerun.
 
-The first debug build exposes a vendor USB declaration omission; a separate
-test-only overlay moves that existing declaration without changing functions
-or debug macros. Both kernel and seven modules then build without warnings.
-The two-line V3D (Pi graphics driver) fix and six regression cases are unchanged.
-An optional traced run times out after its complete passing primary; it remains
-incomplete. A clean primary-only rerun retains every memory/lock check and
-original bound. Unused loader-helper and compiler failures remain recorded.
-No kernel fault-injection, lock torture or multicore stress is claimed.
+PR (pull request) #10 is verified open/draft. The branch matches its remote before
+this checkpoint; thirteen other registered worktrees are clean. Qt CI (hosted
+build/test automation) remains paused for isolation, and required Linux/Release
+acceptance stays unverified. No publication/deployment or migration is implied.
 
-Across diagnostic preparation, failed/retried builds, guest attempts and stock
-inventory, 3930 resource samples stay at or above 6,934 MiB (mebibytes),
-above the unchanged 3,072-MiB floor. Original QOR source/binary/image, host
-package, running kernel and boot identities are checked at preservation.
-Complete stock module trees are hashed; no media or boot action occurs.
-
-The Pi still runs 6.18.50 while normal boot files select 6.18.60. Neither
-offline backup readback nor a stock recovery boot is verified. A matched
-6.18.50 recovery medium must boot before a separately approved production
-trial; full production packaging and real GPU integration are still pending.
-No candidate installation, physical boot or live module load is authorized.
-
-The original Studio result remains three passes and one failure (`times > 5`
-is three), with later notice/cursor assertions unreached. Its separate software
-failure and 97 image outliers stay open. Native kernel checks do not qualify
-application sanitizers, hosted CI (automated integration), images or Release.
-Pull request #10 stays draft; consolidation planning remains separate.
-
-Next: physically verify a matched stock 6.18.50 recovery boot on independent
-media, under specific authorization. The canonical recovery/trial/return plan
-is in `image/README.md`; receipts: `build/development-2026-11-16/session-11/`.
+Next: commit/push the reviewed source and handoff, then advance native-input
+observability without physical input or weakened resource/isolation gates.
+Current review/check receipts: `build/development-2026-11-20/session-07/`.

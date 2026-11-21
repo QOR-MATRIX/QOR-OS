@@ -16,6 +16,25 @@ products ([UPSTREAM.md](UPSTREAM.md)).
 
 ## The order of work
 
+**Current execution scope, 20 November 2026:** the working
+[standalone Windows Qonsole slice](#alongside-the-phases--qonsole-device-edition),
+normal Release executable and read-only runtime dependency preview are recorded
+here. A private two-placement relocation retry passes on this developer host;
+only isolated test copies exist. A separate helpers-OFF controller candidate now
+builds and passes public Windows keyboard/focus checks; live registration and
+physical input remain unverified. The Pi image contract helper is an unwired
+synthetic draft, with no production profile or image acceptance. Next qualify the
+candidate's native input evidence; clean-Windows and distribution prerequisites
+remain separate. Preserve the premium
+C++/Qt desktop and developer ecosystem: Prism, QQ Studio/Player, ARQADE, separate
+Creator/Player stores and media. The small QML launcher is an additional entry
+point, not a replacement for that vision. Demiurge/QOR ID/Auth integration remains
+a vision with new integration code and migration **on hold**; existing pins and
+ownership contracts are unchanged. **QPi and physical recovery are on hold.**
+Dated work below is evidence, not permission to restart either lane. No Linux/VM
+or resource retry is part of this Windows increment. PR #10 stays draft; original
+Studio/software-renderer failures and required CI/Release gates remain open.
+
 The owner's 14 November direction is one canonical development repository for
 QOR OS, Q Pi, Demiurge Chain, ARQADE and associated systems
 ([QOR-0028](decisions/QOR-0028-plan-one-canonical-development-repository.md)).
@@ -652,6 +671,20 @@ Original Studio/software-renderer failures, 97 image outliers, hosted Qt isolati
 and Release/image acceptance remain open. PR #10 stays draft. Next: verify that
 stock recovery route physically. Receipts: `build/development-2026-11-16/session-11/`.
 
+On 17 November the authorized stock-recovery continuation stops before writes
+or reboot. Physical access is confirmed, but no suitable Pi reader/adapter is
+available. Windows identifies the SanDisk 128-GB spare as a 127,865,454,592-byte
+USB device with three existing partitions; raw inspection is denied, so its
+contents and erasure approval remain unresolved. It is 298 MiB smaller than the
+running system card, preventing a direct whole-card clone. Both stock module
+manifests and the 1,414 QOR inputs match the previous receipt. The original
+6.18.50 session remains running; recovery boot and restoration are not tested.
+Before any shutdown, review how to return to 6.18.50 without an unauthorized
+change to the original card, whose current boot files select 6.18.60. Candidate
+installation/boot remains unauthorized. Next: obtain a usable reader connection
+for read-only spare identification, then review the specific write, backup and
+return plan. Receipts: `build/development-2026-11-17/session-01/`.
+
 PR #10's next product gates include Agent callback timing, Player failures and remaining
 full-product and Windows runtime runs. The Wayland sanitizer leak, ARQADE diagnostics,
 upstream dependency audit and isolated Qt CI remain open. Focused scene/rendering
@@ -1250,6 +1283,227 @@ ideas from what is implemented or verified. It is checked on: two-project switch
 outside edits, offline use, keyboard and scaling, and rendered Markdown and PDF with long text and non-ASCII. Documents survive
 updates. It claims no universal certification. A calculator can follow as a small independent piece.
 
+## Alongside the phases · Qonsole device edition
+
+Qonsole and QPi are device editions of **one universal QOR OS**, not OS forks.
+The goal is shared core services, apps, user data and interfaces, with a
+controller-first Qonsole shell and device-specific adapters and packaging.
+Feature parity is a long-term goal tracked by the capability matrix below;
+neither a shared name nor one platform's pass establishes another's support.
+The desktop, developer tools, QQ Studio/Prism, two stores and media retain their
+full scope. Account/authentication integration and QPi remain on hold as above.
+
+- [x] **Working Windows source artifact, 19 November:**
+  [`apps/qonsole/Main.qml`](../apps/qonsole/Main.qml) and
+  [`Launcher.qml`](../apps/qonsole/Launcher.qml) run with the existing commercial
+  Qt 6.12.0 tools, independently of simulated services. Visible Home, an original
+  bundled geometric sample, confirm/back and Home-card focus restoration work.
+  Seven Qt key/action-fixture cases passed (nine Qt results including setup/cleanup,
+  no failures/skips/final warnings); the Windows-QPA software-rendered entry-window
+  smoke captures Home/Sample, returns Home and exits 0. A further native Windows
+  check in session-08 uses injected Qt keys on the unchanged entry Window:
+  `openSample` → `samplePage` → the identical `openSample` item, index 0, with
+  fresh frame counts 2 → 4 → 5; one flow plus setup/cleanup passes (three Qt
+  results, 104 ms, no failures/skips/warnings). Windows baseline: Windows 11 Pro
+  Insider Preview 10.0.29708, 64-bit, PowerShell 7.7.0, Qt/QtTest 6.12.0 x86-64
+  MSVC 2022 release, Windows QPA and software rendering. Exact dirty-source/tool
+  hashes and evidence: `build/development-2026-11-19/session-07/` and
+  `build/development-2026-11-19/session-08/`. This is a QML source payload using
+  an installed runtime, not a packaged executable or a real
+  controller result. Do not duplicate this implementation.
+- [x] **Documentation-only payload provenance phase, after the working artifact.**
+  Reconcile the existing session-08 `staging-metadata-draft.json` in place; no
+  second manifest or version is created. It records source/notice paths and
+  proposed relative destinations, sizes, SHA-256, declared licences and the
+  tested base `ad43d08` plus actual uncommitted two-file identity. Source-set
+  SHA-256 is `73aae8a5ca05312ce0d606dc2da3ffe2480e4f1b14d9d7603b475fb730400f35`;
+  its canonical encoding is specified in the draft. The original sample is
+  inline content in `Launcher.qml`, not a separate asset or compiled resource.
+  That phase's verified artifact was loose QML: no Qonsole EXE/QRC or product
+  executable hash was then available. Hashes of the previously verified
+  `qml.exe` launch host and `qmltestrunner.exe` match the receipts; they are Qt
+  hosts, not Qonsole binaries. The kit is `C:/Qt/6.12.0/msvc2022_64`; local metadata
+  includes both debug and release, while the retained QtTest banner is shared
+  release/MSVC 2022/x86-64. No application CMake preset/build type applied to that source-only phase.
+  Original source, five existing OFL font/notice test inputs and Qt-owned runtime
+  resource metadata are distinguished. Native font identity and the complete
+  embedded Qt-resource/dependency inventory remain unknown. Version, application
+  identity and icon remain unset. This phase checks documentation/metadata only;
+  it ran no launcher, tests, compiler or packager. Session-09 records consistency
+  and preservation evidence; prior Windows injected-input results remain prior
+  evidence, not physical-controller or console acceptance.
+- [x] **Dedicated Windows executable, local verification only.** The isolated
+  `apps/qonsole` CMake subproject reuses repository compiler/hardening rules and
+  embeds the unchanged original QML under `qrc:/qt/qml/QOR/Qonsole/`. Build only
+  `qor-qonsole`, serially, with the installed Qt 6.12.0 kit; no full-stack build,
+  download or runtime deployment. Session-10 records CMake 3.30.5, Ninja 1.12.1,
+  MSVC 19.44.35228.0, Release, warnings-as-errors and local verification ON (the
+  option defaults OFF; session-10 did not separately qualify that configuration).
+  The exact 42,496-byte executable SHA-256 is
+  `a3a4943bb14ac904ef0279790be50b881de64a174b1d3b5c3d18fe69c59ea3c2`.
+  From an empty working directory it shows Qonsole identity and the real bundled
+  Home/sample/Back flow; injected Qt events restore the identical Home item,
+  index 0, frames 1 → 2 → 3, exit 0. A genuine missing-QML control exits 1;
+  one PE program passes hardening. Initial source-mode host hashes are not this
+  product binary's identity. Existing Windows coordinator and 3,072-MiB floor
+  stayed enforced; minimum resident observation was 4,646 MiB. A log decoding
+  helper failure was corrected offline using Windows ACP, with no rebuild or
+  positive replay. Qt reports optional Vulkan headers absent; software rendering
+  alone was tested. This clears no distribution, real-controller or console gate.
+- [x] **Normal Windows Release, verification OFF, 20 November.** Session-11
+  uses a separate build directory and explicit `QOR_QONSOLE_VERIFICATION=OFF`;
+  cache, five compile records, Ninja graph and actual dependencies exclude
+  verification helpers. The 22,528-byte executable SHA-256 is
+  `b474280e7d2e74e6b5500e5f3853771444ded9b3c677292cc6fe09ee9fb34097`.
+  Build: 18 steps, no compiler warnings; one PE program passes hardening.
+  From an empty working directory, external Windows SendInput Return/Escape
+  shows Qonsole Home → bundled sample → Home, restoring focused AutomationId
+  `QGuiApplication.Main_QMLTYPE_0.openSample`; exit 0. This is the public keyboard
+  path, not the internal verifier. Native object-instance identity is unverified:
+  the external API exposes neither QObject pointer nor UIA RuntimeId. No OFF
+  load-failure negative was induced. Installed Qt/software rendering were used;
+  this is developer-host evidence, not a clean-Windows or physical-controller pass.
+- [x] **Read-only Windows runtime dependency audit, 20 November.** The exact
+  normal executable hash and OFF cache were rechecked without rebuilding or
+  launching it. Matching Qt 6.12.0 `windeployqt --dry-run --json --release`
+  with source `--qmldir` scan proposes 176 files: 17 Qt libraries, 31 plugins,
+  14 QML files, 109 translations and five non-Qt companions. Independent source
+  scanning finds QtQuick, QtQml, QML, QtQml.Models and QtQml.WorkerScript;
+  `platforms/qwindows.dll` is proposed. PE imports for the EXE and 56 preview
+  DLLs are recorded; all observed Qt DLL names occur in the preview. The broad
+  defaults include tooling/optional plugins and are not a minimal payload or
+  feature claim. The VC runtime preview is an installer, not app-local DLLs;
+  this developer host has newer VC DLLs. Qt Core imports `icuuc.dll`, present
+  in this host's System32 but not supplied by the preview. The build-tree
+  `qt.conf` contains an absolute workspace QML path, so relocation is unproven.
+  Source hashes/mappings, non-Qt imports and gaps reconcile the existing
+  session-08 staging draft. Qt's dry-run created one empty preview root; no
+  files were copied. Its exit 0 and the investigated supervisor directory
+  assertion failure are both retained. Evidence:
+  `build/development-2026-11-20/session-01/`. No runtime/distribution pass follows.
+- [ ] **Clean Windows runtime validation.** First review the selected runtime,
+  plugin/QML/notice inventory and applicable Qt/Microsoft/other distribution
+  terms, without assuming rights from this preview. Choose the supported
+  Windows x64 baseline and VC-runtime prerequisite/delivery approach; confirm
+  ICU/UCRT availability. Separately authorize fresh staging and a clean host
+  without Qt/developer tooling. Preserve the exact normal EXE hash; record final
+  payload hashes and loaded module paths, with no C:/Qt or workspace dependency.
+  Resolve relative plugin/QML lookup rather than copying the absolute build-tree
+  `qt.conf` unchanged. First repeat the Windows/software-rendered public-keyboard
+  Home/sample/Back flow from an empty working directory, visible identity,
+  restored focused AutomationId, logs/captures and normal exit. Missing imports,
+  plugin/QML errors or unexpected development-path loads fail this gate. Exact
+  native object-instance identity and default GPU behavior remain separate
+  unverified limits. This is an unrun gate, not staging, installation or host
+  provisioning authorization.
+  The separately requested private two-location relocation probe on 20 November
+  stopped at its single admission check: 2,572 MiB available versus the unchanged
+  3,072-MiB floor. Exact normal EXE and prior inventory hashes matched. No runtime
+  files were copied, payload folders created or application launched. Relative
+  configuration precedence/resolution, loaded modules at Home/sample and public
+  keyboard/focus checks in both locations remain unrun. Existing RCC inputs show
+  no embedded qt.conf entry but do not prove actual executable config precedence.
+  No resource retry or service change occurred. Resume only in an admitted
+  Windows slot; this is not a clean-PC pass. Receipt:
+  `build/development-2026-11-20/session-02/`.
+  Its one authorized retry subsequently passes 30 sustained admission samples,
+  minimum 7,087 MiB; the original lock and live 3,072-MiB floor remain enforced
+  through both serial instances (254 observations, minimum 5,891 MiB).
+  Exact unchanged helpers-OFF EXE copies run in two distinct private directories
+  with nine Qt libraries, five platform/QML plugin DLLs and five module
+  descriptors from the matching installed kit. The 19-file subset is not a
+  minimal shipping list; 157 preview candidates, including installer/SDK/tool/
+  redistributable and unselected/uncertain optional files, are excluded. Each
+  child's PATH is Windows-only, with no developer Qt/QML/plugin environment.
+  Relative qt6.conf paths take effect over conflicting adjacent qt.conf values;
+  real traces load Main/Launcher from embedded resources and qwindows/QtQuick
+  from the corresponding private directories. No source/build import path is
+  observed. Both visible public Windows-key Home/sample/Back flows restore the
+  same focused AutomationId and exit 0. Four native Get-Process module snapshots
+  have 101 modules each: nine staged Qt libraries, qwindows/QtQuick plugins and
+  expected Windows-system locations, with no dev-kit or unrelated paths.
+  System32 provides VC 14.51.36247.0, UCRT and ICU 72.1.0.4; this is not a clean-PC
+  prerequisite pass. Native object-instance identity, exhaustive load tracing,
+  other rendering/lifecycle paths and distribution rights remain unverified.
+  Original builds, binary, inventory and refusal evidence are preserved.
+  Scoped result: `build/development-2026-11-20/session-02/retry-01/`.
+- [ ] **Validation and format-independent staging, not package creation.**
+  Retain notices for any selected assets; do not implicitly bundle the OFL fonts
+  in `kit/fonts`, which are offscreen test inputs. Native Windows fonts are
+  platform inputs. The draft retains its earlier loose-source proposal and now
+  records the executable plus generated RCC mappings; only private runtime
+  test copies have been staged. Normal Release/OFF passes the recorded developer-host flow;
+  final Qt dependency/notice closure, clean-Windows runtime validation and
+  applicable distribution rights remain unqualified. The preview's installed
+  source hashes do not establish final staged bytes or redistribution rights.
+  A future manifest must name schema version, display title (`QOR OS · Qonsole`),
+  explicitly chosen application version, identity and icon selection, relative entry point,
+  file hashes/sizes/licences, Qt/runtime/plugin requirements and selected platform
+  adapters. Application version/package identity are presently unassigned.
+  Validate missing/changed/duplicate files and unsafe paths before staging to a
+  fresh directory. The inventory-only draft is not staging approval; manifest
+  validation, actual staging, complete dependency closure and redistribution
+  rights remain open. This step
+  is independent of any console package format or signing.
+- [ ] **Windows DS4 input source correction, physical retest pending.** The
+  owner reports Wireless Controller OK and button-2 press/release in Windows,
+  but a foreground Cross press did not open the focused sample in the exact
+  preserved helpers-OFF `b474280e...` EXE; Circle was not tested. Source tracing
+  confirms that executable has no native adapter, while the existing QOR parser
+  already maps Cross/Circle correctly. The new foreground-only Raw Input path
+  uses that parser and the existing QML action seam. It performs no HID output,
+  consumes no keyboard events, requires neutral after activation and one fresh
+  press edge, merges known device masks and bounds batches before dispatch.
+  Nine private fixture functions pass (11 Qt results, no failures/skips/warnings)
+  and normal host/reader objects compile under /WX. No system/virtual controller
+  was impersonated, native reader instantiated, or new app linked/launched.
+  Keyboard/QML sources and the verified binary/private placements remain intact.
+  Candidate link, real Raw Input registration/delivery, actual USB timing,
+  inactive/held behavior and Circle/reconnect need a separate physical session.
+  Receipt: `build/development-2026-11-20/session-03/`. This clears no physical,
+  clean-PC, Linux, console, CI or Release gate.
+  A separate helpers-OFF Release candidate attempt in session-04 passed 30
+  admission observations (minimum 3,143 MiB), then stopped configuration at
+  3,066 MiB under the unchanged 3,072-MiB live guard. Its owned job ended; no
+  build, tests, candidate launch or retry followed. Original binary, private
+  placements and adapter source remain unchanged. Registration/foreground and
+  ordinary-keyboard candidate checks remain unrun; the read-only diagnostic
+  proposal is unapplied. Next is a separately coordinated admitted build slot.
+  Receipt: `build/development-2026-11-20/session-04/`.
+  The separately authorized single retry in session-06 succeeds: a fresh Release,
+  helpers-OFF candidate `6de2f01d...` builds serially, passes eleven fixture results
+  and two-program hardening, launches visibly and passes public Enter/sample/
+  Escape with the same accessible Open sample ID. Its native foreground PID is
+  observed; registration readback and real USB input are unverified. Admission
+  minimum 4,000 MiB and live minimum 3,627 exceed the unchanged 3,072 floor.
+  Original binary, private staging and all pending edits remain preserved.
+  Receipt: `build/development-2026-11-20/session-06/`.
+- [ ] **First complete controller milestone: standard Linux**, separately with
+  wired DualShock 4 and wired DualSense. Navigate Play/Media/Settings without a
+  keyboard; launch an original game, move/interact, use the cooperative QOR overlay
+  to resume and return Home with focus restored. Repeat launch/return ten times,
+  exercise failed launch and game crash, disconnect/reconnect without stuck input
+  or hidden focus, and record host/Qt/controller versions, logs and visual evidence
+  for each controller. The current tile page is not that game/overlay milestone.
+  Offscreen checks and injected keys cannot replace a real controller and display.
+  This remains planned; no Linux/device execution is authorized by this update.
+- [ ] **PS4 and PS5 aspirations:** establish feasibility only through officially
+  supported platform/deployment routes and applicable rights. No supported target
+  runtime/adapter, console executable or console acceptance is established here.
+  The owner-reported PS4 system version **14.02** is context, not verified
+  compatibility or permission. Linux DualSense support is not native PS5 support.
+  Firmware replacement, exploits/jailbreaks, signing bypass and circumvention are
+  outside this work. Console HDMI capture below is a different feature.
+
+| Device/capability | Current evidence | Remaining gate |
+|-------------------|------------------|----------------|
+| Windows Qonsole UI/executable | Source/ON history retained; normal Release/OFF public-key flow and two private placements pass with restored AutomationId, relative config and four native module snapshots; static preview retained | Clean-PC prerequisites/runtime; final selected dependency/notice inventory and rights; distribution staging validation; native instance identity/full launcher lifecycle |
+| Windows wired DualShock 4 / DualSense | Owner reports DS4/button-2 recognized but Cross fails in preserved b474280e standard EXE; Circle untested. DS4 reader/action source, 11 fixture results and normal helpers-OFF candidate build/public keyboard pass recorded; no controller emulated | Live registration evidence and separately coordinated physical Cross/Circle/D-pad, inactive/held/reconnect checks; DualSense remains unqualified |
+| Standard Linux, wired DualShock 4 | Not run for Qonsole | Complete independent controller/game/overlay milestone above |
+| Standard Linux, wired DualSense | Not run for Qonsole | Same milestone, separate evidence; no native PS5 inference |
+| PS4 / PS5 native target | Feasibility unverified; PS4 14.02 is user-reported only | Officially supported route, rights, runtime/adapters and actual target evidence |
+| QPi | Historical native checks retained; execution on hold | Explicit resumption, recovery and existing software/image/hardware gates |
+
 ## Alongside the phases · Console capture
 
 Proposed ([QOR-0021](decisions/QOR-0021-projects-engines-and-two-stores.md), decision 9), not in 1.0, and after native-Linux
@@ -1364,10 +1618,12 @@ this increment. [Image guidance](../image/README.md) holds the requirements.
 
 ### Q Pi development edition
 
-**Reopened by the owner on 13 November alongside QOR OS.** Continue from the
-native application evidence under the existing qualification gates. The earlier
-hold is superseded; image composition, hardware acceptance and publication still
-have their own prerequisites.
+**On hold, 19 November 2026.** The 13 November reopening and native results below
+are historical; the current owner direction parks QPi and physical recovery.
+No device/media write, remote work, native retry or image work is authorized.
+Earlier erasure permissions were withdrawn; lifting this hold would not itself
+approve a device write. Recovery, application/image qualification, hardware
+acceptance and publication retain their separate gates.
 
 [QOR-0025](decisions/QOR-0025-q-pi-development-edition.md) scopes Pi 5 ARM64,
 8 GB RAM and 128 GB nominal storage. The reviewed preparation and read-only
@@ -1500,10 +1756,11 @@ evidence; no Q Pi image has been built or accepted.
   Pi login/desktop, native QOR apps and local development tools; no simulator.
 - [ ] After the [action-time write gates](../image/README.md#authorised-q-pi-target-and-action-time-write-gates), prove Pi boot, hardware graphics,
   Wi-Fi/Bluetooth/input, secure provisioning, local project save/build, offline
-  behavior and persistence across three reboots. The owner authorises eventual
-  Q Pi image writing to the identified Samsung EVO 128-GB card, including its old
-  Kali/data erasure. Fresh device/image checks, erasure confirmation and write
-  verification remain required; stock bootstrap and access/provisioning are separate.
+  behavior and persistence across three reboots. The earlier eventual Samsung
+  EVO 128-GB card/old-data erasure authorization is historical and withdrawn.
+  Fresh device-specific approval, device/image checks, erasure confirmation and
+  write verification would be required; stock bootstrap and access/provisioning
+  remain separate. QPi is on hold.
   Other devices/installations remain untouched. No write has occurred.
 - [ ] Later: split QQ's 2D editing/runtime dependencies from Quick 3D/Physics and
   measure the Pi path; qualify optional user-controlled remote heavy builds.

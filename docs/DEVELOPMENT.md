@@ -18,6 +18,14 @@ prerequisites and action boundaries to an agent without launching that tool.
 `check --json` validates catalogue structure and references offline. These need
 Python 3.12 only; they do not qualify a build environment or grant execution rights.
 
+For the independent [Qonsole source slice](../apps/qonsole/README.md), the installed
+Qt 6.12 tools can load its actual Qt Quick component without an OS configure/build.
+Keep those injected-key/action fixtures separate from real controller evidence;
+the visible Window smoke is not a full product/isolation or console pass.
+The [roadmap](ROADMAP.md#alongside-the-phases--qonsole-device-edition) owns its
+next provenance/staging gate. QPi and new Demiurge/QOR ID/Auth integration code
+are on hold; do not use their historical recipes as current execution authority.
+
 On the owner's Windows machine, use `ci-windows` for changes while the
 `windows-release` shell may be running. Never kill or relink that shell.
 Configure explicitly when needed; automatic IDE configure/build remains disabled.

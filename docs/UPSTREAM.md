@@ -22,6 +22,13 @@ move code, change the core pin or alter the sharing rules below. A later proposa
 must reconcile public/private access and licences, core ownership, frozen
 launcher consumers, shared rules and deployment continuity before any cutover.
 
+**Current execution scope, 19 November 2026:** Demiurge/QOR ID/Auth integration
+remains a vision; new integration code and repository migration are **on hold**.
+Preserve the existing core pin, carried code, licences and sharing contracts.
+The standalone Windows Qonsole work does not implement account/authentication
+or move upstream code. [ROADMAP.md](ROADMAP.md#the-order-of-work) owns resumption
+and current priorities; historical commands/evidence below are not authorization.
+
 ## What is shared
 
 | Path (the same here and upstream) | What it is | How | Upstream record |

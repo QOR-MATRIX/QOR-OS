@@ -31,6 +31,20 @@
 8. **Secure and boring underneath.** Signed boot, whole-image updates with rollback, sandboxed games and apps, a vault
    that keeps keys outside every app, and system prompts drawn by the compositor so nothing can fake them.
 
+### Device editions and current execution scope
+
+Qonsole and QPi are device editions of one universal QOR OS, sharing services,
+apps, data and interfaces as the goal. They do not replace the premium C++/Qt
+desktop and developer ecosystem: Prism, QQ Studio/Player, ARQADE, separate Creator
+and Player stores, and media remain central. A controller-first Qonsole interface
+and device-specific packaging do not imply feature parity or a supported console
+runtime. The [roadmap's capability matrix](docs/ROADMAP.md#alongside-the-phases--qonsole-device-edition)
+separates the working Windows QML source UI from physical controller, Linux and
+PS4/PS5 evidence. Console aspirations use officially supported routes only.
+Demiurge/QOR ID/Auth integration remains a vision with new integration code on
+hold; QPi execution is also on hold. These are execution boundaries, not claims
+that the existing pinned code or historical evidence disappeared.
+
 ### Who it serves
 
 | Person | What QOR OS gives them |

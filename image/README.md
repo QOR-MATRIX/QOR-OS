@@ -1,5 +1,12 @@
 # image — the QOR OS image (Phase 3)
 
+**Execution hold, 19 November 2026:** QPi and physical recovery remain on hold.
+This document preserves historical plans and evidence, not permission to run
+them. Earlier media/erasure permissions were withdrawn; no current target write
+is approved. Resumption and any device-specific action require a new decision.
+The [canonical roadmap](../docs/ROADMAP.md#the-order-of-work) records current
+Windows Qonsole work; a userspace launcher is not firmware or an image result.
+
 > **Recorded private x86-64 VM evidence (7–8 November 2026):** an ISO booted
 > automatically through the branded UEFI menu into the live OS. Private stock
 > installation, actual installer UI reboot and media-free welcome persistence passed
@@ -31,9 +38,23 @@ accessibility, visual quality and measured performance remain acceptance criteri
 The owner will supply storage when builds and the installation plan are ready.
 No physical-media write, formatting or replacement is authorised in this increment.
 Older card observations and scoped authorisations below remain historical; they
-do not select or approve a current target. Q Pi work resumes alongside QOR OS only
-after the preceding milestones pass. This paragraph records requirements, not a
+do not select or approve a current target. QPi stays on hold even if preceding
+milestones pass, until explicitly resumed. This paragraph records requirements, not a
 feasibility conclusion or a change to the accepted base-image decisions.
+
+## Unwired Pi image contract draft
+
+`tools/image/pi_image_contract.py` is a pure synthetic validator, not an accepted
+profile, image recipe or production integration. It requires explicit boolean
+opt-in, a separate caller-owned expected profile label, exact `arm64` metadata
+and successful Prism probe output with `development:false` and
+`authentication:true`. Bounded JSON parsing rejects duplicate/ambiguous fields.
+The label in its tests is deliberately a fixture. The existing generic checker,
+Containerfile and CMake profiles are unchanged; no Pi architecture guard is wired
+into production. The helper checks declarations, not origin/freshness, actual ELF
+architecture, board/firmware, login, boot or recovery. Sixteen helper tests plus
+all eighteen generic validator methods pass. Receipt:
+`build/development-2026-11-20/session-05/`. Device execution remains on hold.
 
 ## Q Pi development edition
 
@@ -113,11 +134,11 @@ Disk 2, Generic Mass-Storage, **128177930240 bytes** (about 119.4 GiB), MBR,
 `D:` BOOT/FAT32 and an unlettered partition. This owner-supplied observation is
 identification only; neither the filesystem label nor that layout identifies
 its OS, contents, health or Pi 5 bootability. This continuation did not rescan or
-mount it. **The owner's 10 November update authorises this Samsung card as the
+mount it. **The owner's historical 10 November update authorized this Samsung card as the
 eventual Q Pi image target, including erasure of its old Kali/data, once the image
-and first-boot plan are ready.** That replaces the earlier blanket no-card-write
-scope only for this eventual Q Pi image. It does not authorise a stock bootstrap
-image, standalone formatting, credentials, provisioning or security/access changes.
+and first-boot plan are ready; that permission has since been withdrawn.** It
+provides no current authority for a QPi image, stock bootstrap, standalone
+formatting, credentials, provisioning or security/access changes.
 The [action-time write gates](#authorised-q-pi-target-and-action-time-write-gates)
 still apply; no Q Pi image is ready and this session performed no media write.
 The separately established stock builder does not prove which physical card is
@@ -132,8 +153,8 @@ an output image onto its backing block device. Separate scratch storage is
 needed only when measured capacity, I/O reliability or performance is inadequate;
 a second boot card is not required merely to inspect or compile on the Pi.
 For later Q Pi boot testing, spare boot media preserves the working builder and
-is the least disruptive option. The owner has authorised eventual Q Pi reuse
-of the Samsung card and discard of its old Kali/data. If a separately approved
+is the least disruptive option in the historical plan. The earlier eventual QPi
+reuse/old-data erasure approval is withdrawn. If a newly and specifically approved
 bootstrap later uses that card, preserve its QOR source/evidence and necessary
 builder recovery material in a verified **off-card** location before replacement.
 Reusing a builder's card requires shutdown followed by an external writer (or a separately qualified alternate
@@ -147,7 +168,7 @@ only after its image integration and exact bootstrap/access actions are authoris
 USB/HDMI is optional recovery. If an existing
 approved card already boots suitable Trixie, inspect it before considering any
 reimage. For stock bootstrap, an unidentified existing OS remains a stop condition,
-not permission to replace it; this does not revoke the scoped eventual Q Pi write.
+not permission to replace it. No current eventual QPi write is approved.
 Read-only inventory may proceed over verified, scoped SSH or a local console once
 access is authorised; bootstrap setup, package installation and image generation are
 different actions.
@@ -1880,6 +1901,85 @@ Session-11 additionally hashes the complete installed module trees, retaining
 modes and symlink targets without following source/build links. This is a
 content inventory, not verification of a written backup. Offline destination
 readback and a stock recovery boot have not been demonstrated.
+
+##### 17 November stock-recovery admission: blocked before writes
+
+The owner authorizes the **stock recovery-boot check**, confirms physical power,
+storage, display and keyboard access, and explicitly excludes candidate
+installation/boot. This does not approve erasing a device, changing the original
+system card or changing persistent boot order. Session-11's 256-file evidence
+seal verifies unchanged; no kernel/application test is rerun in this inspection.
+
+Fresh read-only observations retain the mismatch above. The active system is
+`6.18.50+rpt-rpi-2712`, 16,384-byte pages, kernel build ID
+`4d280647c3c1a9fb6fbd20827cd05bfe198d9c9f`, on `/dev/mmcblk0`
+(128,177,930,240 bytes; card name `ED2S5`, serial `0xe4826800`). Partition 1,
+`bootfs`, supplies `/boot/firmware`; partition 2, `rootfs`, supplies `/`.
+`cmdline.txt` selects `root=PARTUUID=b5f892c7-02`. Its SHA256 is
+`02e954841e6379cdabb74b088c78808c7e3349d62c4979a148e7650badc1eb84`.
+All five kernel/initramfs/config hashes in the table above and both Pi 5
+device-tree hashes are unchanged. The two complete stock module manifests
+still match all 2,748/2,759 entries, including modes and links. The original
+1,414 QOR inputs, Agent/Studio binaries, saved image and package database match.
+No QOR workers run; both original coordinator locks are available. Native
+memory is 7,285 MiB at inspection, not a reservation or future job admission.
+
+The owner identifies the spare as **SanDisk 128 GB**. After connection to
+Windows, the previously absent device appears as `\\.\PhysicalDrive2`, USB
+`Generic Mass-Storage`, 127,865,454,592 bytes (512-byte sectors). The reader
+exposes no card serial or more specific model. Existing GPT partitions are:
+
+- partition 1: 7,260,600,320 bytes at offset 32,768, Windows `D:`;
+- partition 2: 5,031,936 bytes at offset 7,260,633,088, EFI system type;
+- partition 3: 307,200 bytes at offset 7,265,665,024, Windows `E:`.
+
+Windows does not recognize the mounted filesystem contents. A bounded
+read-only raw open is refused with `PermissionError`, errno 13; zero device
+bytes are read. Do not infer a distribution or empty card from that layout.
+The owner confirms no suitable USB-A reader/adapter is available to attach it
+to the running Pi without disturbing power. The SSH account's `sudo -n true`
+probe exits 1; Windows is not elevated. No password is requested or logged.
+No device-write approval is requested while contents and execution path remain
+unknown. Any later whole-card preparation proposal must explicitly explain that
+it erases this spare's GPT, all three partitions, files and remaining contents;
+the fresh identity must be reconfirmed at the actual write. It is **298 MiB
+smaller** than the original system card, so a raw whole-card clone cannot fit.
+Do not shrink or repartition the original to work around that limit.
+
+Root reports 56,737,787,904 used bytes; a consistent preserved-userspace/data
+copy and destination readback have not been established. Windows reports only
+680,108,032 bytes free on C: and 30,899,167,232 on X: at this snapshot, less than
+the used root bytes or a complete 128,177,930,240-byte raw source image.
+Compression, a live copy or retained source files are not a demonstrated backup.
+No backup, target filesystem or write recipe is prepared by this inspection.
+
+EEPROM still reports `BOOT_ORDER=0xf461`; its
+[documented right-to-left modes](https://www.raspberrypi.com/documentation/computers/raspberry-pi.html#BOOT_ORDER)
+mean SD, NVMe, USB mass storage, then restart. No order is changed or fallback
+proved. Firmware reports the current SD boot; HDMI is connected and a local
+Wayland session is active. Those facts and the owner's physical-access statement
+do not prove a future recovery desktop, working input or remote access after boot.
+
+**Stop result:** no media write, shutdown, reboot, persistent boot-order change,
+boot-file edit, candidate installation/enabling or live module load occurs.
+The original authenticated 6.18.50 environment remains running; it is not a
+successful restoration. Reinserting its unchanged card would normally select
+6.18.60. Before any shutdown, present a concrete way to return to the original
+working baseline under the original-media restriction. If that needs original
+selection-file edits, show their exact diff, backup/readback and restore checks
+and obtain specific authorization first. An independent stock copy alone does
+not prove return to the original card. Never assume remote SSH can repair a Pi
+that failed to start, or use this uncertainty to try a different kernel.
+
+Next: obtain a usable reader connection for read-only spare identification.
+Then finish the exact-media erasure proposal, consistent backup/destination
+readback and 6.18.50 return procedure before approval/write or reboot. The
+existing boot/validation/failure sequence below remains prepared, not executed;
+its first gate is not met. Original Studio/software failures, 97 image outliers,
+required hosted Qt/core jobs and Release/image acceptance remain open. PR #10
+is freshly confirmed open/draft at `ad43d08`. Commands, hashes, access-probe
+failures, owner observations and limitations are retained under
+`build/development-2026-11-17/session-01/`.
 
 ##### Physical qualification sequence: prepared, not executed
 

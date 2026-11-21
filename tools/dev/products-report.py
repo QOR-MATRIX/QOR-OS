@@ -106,7 +106,7 @@ def read_suites(log):
 
 
 def read_record(record):
-    """How each suite of the run ended, by name, from the text of CTest's record. None if the record cannot be read."""
+    """How each suite ended, by name, from CTest's record. None if the record is unreadable or has duplicate suite names."""
     try:
         root = ElementTree.fromstring(record)
     except ElementTree.ParseError:
@@ -115,9 +115,12 @@ def read_record(record):
     for test in root.iter("Test"):
         if test.get("Status") is None:
             continue
+        name = test.findtext("Name", "")
+        if name in endings:
+            return None
         measured = {item.get("name"): item.findtext("Value", "") for item in test.iter("NamedMeasurement")}
-        endings[test.findtext("Name", "")] = Ending(test.get("Status"), measured.get("Exit Code", ""), measured.get("Exit Value", ""),
-                                                    measured.get("Completion Status", ""))
+        endings[name] = Ending(test.get("Status"), measured.get("Exit Code", ""), measured.get("Exit Value", ""),
+                               measured.get("Completion Status", ""))
     return endings
 
 
@@ -172,7 +175,7 @@ def report(suites, endings=None):
 def only_the_floor_failed(suites, endings):
     """Whether what went wrong was that check alone: tst_player the only suite that did not pass, ended normally, with a
     Player drawn in software and drawing. The log and the record must be of one run, or a partial log could lean on an old record."""
-    if endings is None or not_passed(endings) != [FLOOR_SUITE] or set(endings) != {suite.name for suite in suites}:
+    if endings is None or len(suites) != len(endings) or not_passed(endings) != [FLOOR_SUITE] or set(endings) != {suite.name for suite in suites}:
         return False
     if not all(ended_as_it_said(suite, endings) for suite in suites):
         return False

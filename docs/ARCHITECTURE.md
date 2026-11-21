@@ -10,12 +10,32 @@ with Node 24 by the existing Astra Matrix / qor Vercel project from QOR OS `main
 is public output. Device binaries, repository files and dependency directories
 are excluded. The network and pinned core stay upstream; see [HOSTING.md](HOSTING.md).
 
-**Q Pi development edition.** [QOR-0025](decisions/QOR-0025-q-pi-development-edition.md)
+**Standalone Qonsole source UI.** `apps/qonsole/Main.qml` opens an original Qt
+Quick-only Window using `Launcher.qml`, with a local sample and discrete input
+actions. `apps/qonsole/main.cpp` now supplies a dedicated C++/Qt host via the
+independent CMake subproject, embedding the original QML module as resources.
+Its local verification build uses installed Qt DLLs, with no deployment rule.
+It imports no QOR services, core or simulated shell. The Windows host source
+adds foreground-only Raw Input for original DS4 USB-shaped reports, reusing the
+project's PlayStation parser and dispatching semantic actions without HID output
+or controller/keyboard emulation. Its isolated fixtures pass, and a separate
+normal Release candidate builds and passes the public Windows keyboard/focus
+flow. Native foreground ownership is observed; actual Raw Input registration
+readback and physical retest remain unverified. The owner's Cross failure in the
+preserved old EXE remains open. Keyboard/visible evidence stays separate from
+controller, full lifecycle, clean-PC and console acceptance.
+This small source entry point complements the premium C++/Qt stack. Shared
+services/apps/data/interfaces and parity across editions remain the goal; the
+[canonical capability matrix](ROADMAP.md#alongside-the-phases--qonsole-device-edition)
+owns readiness. Demiurge/QOR ID/Auth integration code is on hold; its current
+ownership and core pin are unchanged.
+
+**Q Pi development edition — execution on hold.** [QOR-0025](decisions/QOR-0025-q-pi-development-edition.md)
 scopes a Pi 5 ARM64 exception: a maintained Raspberry Pi OS desktop and real base
 login host native QOR application processes. It supplies no Prism authentication,
 simulator or simulated device services. Existing embedded shell applications are
 not automatically standalone apps; QQ still imports Quick 3D even for 2D content.
-Native ARM64 application builds and selected software suites now pass; no Pi image
+Recorded native ARM64 application builds and selected software suites passed; no Pi image
 or physical-device acceptance is established. The Fedora full-device recipe and its
 authentication guard are unchanged. See [the preparation and first-boot plan](../image/README.md#q-pi-development-edition).
 

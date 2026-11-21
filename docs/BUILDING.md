@@ -12,6 +12,15 @@ QOR OS has two kinds of build:
 - **The products**: QQ, ARQADE and QOR Media, each built by its own script,
   as it was upstream ([§6](#6-the-products-qq-arqade-qor-media)).
 
+The [standalone Qonsole source UI](../apps/qonsole/README.md) also runs directly
+with the existing Windows Qt 6.12 `qml.exe`, without configuring/building the OS
+or loading simulated services. Its focused Qt key/action tests and visible
+software-rendered Windows smoke are recorded separately from native OS/product
+acceptance. Follow its source-payload/run instructions; dependency provenance
+and future staging requirements belong to the [canonical roadmap](ROADMAP.md#alongside-the-phases--qonsole-device-edition).
+No Linux/VM/resource retry, installation or device action follows from this route.
+QPi and Demiurge/QOR ID/Auth integration work remain on hold.
+
 Normal shell builds check the approved startup rendering against its original logo
 sources. The optional `qor_boot_payload` target stages the image's branding files
 inside this checkout's `build/`; it does not build a bootable image, install a theme

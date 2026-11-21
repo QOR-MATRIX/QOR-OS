@@ -9,6 +9,58 @@ their changes since, and pulls of what is still shared, are recorded here.
 
 ## [Unreleased]
 
+- **Draft an opt-in Pi image contract without production wiring.** A bounded
+  in-memory helper rejects non-arm64, ambiguous/wrong caller-selected profiles,
+  duplicate JSON fields and unavailable/malformed Prism authentication evidence.
+  It supplies no production profile or image probe. Sixteen helper and eighteen
+  unchanged generic validator tests pass; no image/hardware acceptance follows.
+
+- **Connect the standalone Windows Qonsole controller path in source.** Add a
+  foreground-only Raw Input reader for DS4 USB-shaped reports, reusing QOR's
+  existing parser and the launcher's semantic action seam. Cross/Circle/D-pad
+  mapping, neutral rearming and edge latching preserve keyboard behavior and
+  prevent inactive/held/duplicate activation. Bounded in-memory fixtures pass
+  11 Qt results. A separate helpers-OFF Release candidate builds and passes the
+  public Windows Enter/sample/Escape flow with restored accessible focus; its
+  SHA-256 is recorded in the Qonsole guide. The original standard executable
+  and prior evidence are preserved. Live Raw Input registration readback and
+  physical retest remain unverified; no controller acceptance is claimed.
+
+- **Build and verify a Qonsole-owned Windows executable.** Add an isolated
+  CMake/preset target using repository compiler/hardening rules and the existing
+  original QML resources, without the full stack or a new dependency. QML load
+  failure exits nonzero. The local verification-enabled Release binary passes
+  visible Home/sample/Back from an empty cwd with exact focus restored, a missing
+  QML negative control and PE hardening. Record its SHA-256 and scoped inputs;
+  preserve the Windows lock/RAM guard and all unrelated work. This is injected
+  Qt input, not physical hardware, distribution, Qt deployment or console proof.
+
+- **Record the working standalone Windows Qonsole slice and reconcile the roadmap.**
+  The original Qt Quick-only Home/local sample entry point runs without simulated
+  services; seven injected key/action cases and the visible Windows software smoke
+  have local evidence. A further unchanged-entry-window Home/sample/Back check
+  passes three Qt results and restores the identical Home card, using injected
+  keys. Preserve the premium C++/Qt desktop, QQ Studio/Prism, two
+  stores and media vision. Keep physical-controller and supported-route PS4/PS5
+  acceptance unverified; reported PS4 14.02 is not compatibility proof. Record
+  source provenance in the existing metadata draft, including logical destinations,
+  original/test-asset hashes, the exact Qt kit and verified Qt-host executable
+  hashes. Keep application version/identity/icon unset; no Qonsole EXE or compiled
+  resource is identified. Actual staging validation remains the next payload gate;
+  the documentation-only phase reruns no runtime or build.
+  Demiurge/QOR ID/Auth integration code and QPi/recovery remain on hold, with
+  earlier erasure permissions withdrawn. Retain prior edits and dated evidence.
+
+- **Record the stock Pi recovery check's pre-write blocker.** On 17 November,
+  reverify the running 6.18.50 versus boot-selected 6.18.60 state, stock module
+  manifests, original QOR inputs and draft PR #10. Identify the owner's SanDisk
+  spare through Windows metadata; its smaller capacity prevents a direct
+  whole-card clone. Raw inspection is denied and no suitable Pi reader/adapter
+  is available. Stop before erasure, boot-file changes or reboot. Recovery and
+  return remain untested; candidate installation/boot is unauthorized. Record
+  the outstanding preparation, backup and original-baseline return gates in
+  the canonical runbook. Receipts: `build/development-2026-11-17/session-01/`.
+
 - **Verify the focused kernel regression with memory and lock checks.**
   Run all six unchanged cases under Generic KASAN and lockdep in the private
   guest: six pass, zero skips/timeouts, validators active throughout. Fix a
