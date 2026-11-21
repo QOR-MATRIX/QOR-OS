@@ -9,9 +9,14 @@
 
 #include "controlleractions.h"
 #include "controllerinput_windows.h"
+#include "controllerregistration.h"
 
 #include <QtCore/QCoreApplication>
+#include <QtCore/QDebug>
 #include <QtCore/QHash>
+#include <QtCore/QJsonArray>
+#include <QtCore/QJsonDocument>
+#include <QtCore/QJsonObject>
 #include <QtCore/QPointer>
 #include <QtGui/QGuiApplication>
 #include <QtQuick/QQuickWindow>
@@ -19,6 +24,8 @@
 #include <cstddef>
 #include <utility>
 #include <vector>
+
+using namespace Qt::StringLiterals;
 
 namespace qor::qonsole {
 
@@ -30,11 +37,57 @@ struct WindowsControllerInput::State
     bool registered = false;
     QHash<HANDLE, quint32> buttons;
     ControllerActions actions;
+    qint64 observations = 0;
 
     bool active() const
     {
         return window && window->isActive() && window->isVisible()
                && QGuiApplication::applicationState() == Qt::ApplicationActive;
+    }
+
+    void reportRegistration()
+    {
+        if (qEnvironmentVariable("QOR_QONSOLE_INPUT_DIAGNOSTICS") != QStringLiteral("1"))
+            return;
+        UINT count = 0;
+        bool readback = false;
+        QList<ControllerRegistration> devices;
+        if (GetRegisteredRawInputDevices(nullptr, &count, sizeof(RAWINPUTDEVICE)) == 0 && count <= 64) {
+            std::vector<RAWINPUTDEVICE> buffer(count);
+            const UINT read = count ? GetRegisteredRawInputDevices(buffer.data(), &count, sizeof(RAWINPUTDEVICE)) : 0;
+            if (read != UINT(-1) && read <= buffer.size()) {
+                readback = true;
+                for (UINT i = 0; i < read; ++i) {
+                    const auto &device = buffer[i];
+                    devices.append({ device.usUsagePage, device.usUsage, device.dwFlags,
+                                     reinterpret_cast<quintptr>(device.hwndTarget) });
+                }
+            }
+        }
+        const ControllerRegistration request { 0x01, 0x05, RIDEV_DEVNOTIFY, reinterpret_cast<quintptr>(hwnd) };
+        QJsonArray relevant;
+        for (const auto &device : devices) {
+            if (device.page == 0x01 && (device.usage == 0x04 || device.usage == 0x05)) {
+                relevant.append(QJsonObject { { u"page"_s, device.page },
+                                              { u"usage"_s, device.usage },
+                                              { u"flags"_s, qint64(device.flags) },
+                                              { u"target"_s, QString::number(device.target, 16) } });
+            }
+        }
+        const QJsonObject report { { u"schema"_s, 1 },
+                                   { u"sequence"_s, ++observations },
+                                   { u"pid"_s, QCoreApplication::applicationPid() },
+                                   { u"readbackSucceeded"_s, readback },
+                                   { u"registrationMatchesRequest"_s,
+                                     registrationMatchesRequest(devices, request, readback) },
+                                   { u"requestedPage"_s, request.page },
+                                   { u"requestedUsage"_s, request.usage },
+                                   { u"requestedFlags"_s, qint64(request.flags) },
+                                   { u"requestedTarget"_s, QString::number(request.target, 16) },
+                                   { u"registrations"_s, relevant },
+                                   { u"activeGate"_s, active() },
+                                   { u"foregroundTarget"_s, GetForegroundWindow() == hwnd } };
+        qInfo().noquote() << "QONSOLE_INPUT_STATUS" << QJsonDocument(report).toJson(QJsonDocument::Compact);
     }
 };
 
@@ -48,17 +101,20 @@ WindowsControllerInput::WindowsControllerInput(QQuickWindow *window, QObject *la
     RAWINPUTDEVICE device { 0x01, 0x05, RIDEV_DEVNOTIFY, m_state->hwnd };
     if (!RegisterRawInputDevices(&device, 1, sizeof(device))) {
         qWarning("Qonsole could not register foreground controller input");
+        m_state->reportRegistration();
         return;
     }
     m_state->registered = true;
     const auto reset = [this] {
         m_state->buttons.clear();
         m_state->actions.reset();
+        m_state->reportRegistration();
     };
     connect(window, &QWindow::activeChanged, this, reset);
     connect(window, &QWindow::visibleChanged, this, reset);
     connect(qGuiApp, &QGuiApplication::applicationStateChanged, this, reset);
     QCoreApplication::instance()->installNativeEventFilter(this);
+    m_state->reportRegistration();
 }
 
 WindowsControllerInput::~WindowsControllerInput()

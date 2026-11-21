@@ -14,7 +14,7 @@ qt_standard_project_setup(REQUIRES 6.12)
 qt_add_executable(qor-qonsole WIN32 main.cpp)
 target_link_libraries(qor-qonsole PRIVATE Qt6::Quick qor::compiler_settings)
 if(WIN32)
-    target_sources(qor-qonsole PRIVATE controlleractions.h controllerinput_windows.h controllerinput_windows.cpp
+    target_sources(qor-qonsole PRIVATE controlleractions.h controllerregistration.h controllerinput_windows.h controllerinput_windows.cpp
         ../../input/src/playstation.cpp)
     target_include_directories(qor-qonsole PRIVATE ../../input/src)
     target_link_libraries(qor-qonsole PRIVATE user32)

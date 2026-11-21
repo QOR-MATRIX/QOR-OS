@@ -21,8 +21,9 @@ products ([UPSTREAM.md](UPSTREAM.md)).
 normal Release executable and read-only runtime dependency preview are recorded
 here. A private two-placement relocation retry passes on this developer host;
 only isolated test copies exist. A separate helpers-OFF controller candidate now
-builds and passes public Windows keyboard/focus checks; live registration and
-physical input remain unverified. The Pi image contract helper is an unwired
+builds and passes public Windows keyboard/focus checks. Opt-in in-process
+readback now observes the gamepad usage/window, with a flags-0 versus requested
+8192 mismatch retained as unresolved; physical input remains unverified. The Pi image contract helper is an unwired
 synthetic draft, with no production profile or image acceptance. Next qualify the
 candidate's native input evidence; clean-Windows and distribution prerequisites
 remain separate. Preserve the premium
@@ -1478,6 +1479,13 @@ full scope. Account/authentication integration and QPi remain on hold as above.
   minimum 4,000 MiB and live minimum 3,627 exceed the unchanged 3,072 floor.
   Original binary, private staging and all pending edits remain preserved.
   Receipt: `build/development-2026-11-20/session-06/`.
+  Session-08 adds default-off read-only registration/focus snapshots. Fourteen
+  synthetic Qt results and actual enabled/disabled runtime controls pass; keyboard
+  focus restores. Readback shows usage 1/5 targeting the requested window, but
+  reports flags 0 versus requested DEVNOTIFY 8192. Strict full-match stays false;
+  flag/notification and USB/hot-plug qualification are not passed. Physical input
+  was neither requested nor emulated. Existing baselines remain intact.
+  Receipt: `build/development-2026-11-20/session-08/`.
 - [ ] **First complete controller milestone: standard Linux**, separately with
   wired DualShock 4 and wired DualSense. Navigate Play/Media/Settings without a
   keyboard; launch an original game, move/interact, use the cooperative QOR overlay
@@ -1498,7 +1506,7 @@ full scope. Account/authentication integration and QPi remain on hold as above.
 | Device/capability | Current evidence | Remaining gate |
 |-------------------|------------------|----------------|
 | Windows Qonsole UI/executable | Source/ON history retained; normal Release/OFF public-key flow and two private placements pass with restored AutomationId, relative config and four native module snapshots; static preview retained | Clean-PC prerequisites/runtime; final selected dependency/notice inventory and rights; distribution staging validation; native instance identity/full launcher lifecycle |
-| Windows wired DualShock 4 / DualSense | Owner reports DS4/button-2 recognized but Cross fails in preserved b474280e standard EXE; Circle untested. DS4 reader/action source, 11 fixture results and normal helpers-OFF candidate build/public keyboard pass recorded; no controller emulated | Live registration evidence and separately coordinated physical Cross/Circle/D-pad, inactive/held/reconnect checks; DualSense remains unqualified |
+| Windows wired DualShock 4 / DualSense | Owner reports DS4/button-2 recognized but Cross fails in preserved b474280e standard EXE; Circle untested. DS4 reader/action source, 11 fixture results and normal helpers-OFF build/public keyboard pass; readback targets gamepad 1/5 at own window, with flags 0 versus requested 8192 unresolved; no controller emulated | Full flag/notification evidence and separately coordinated physical Cross/Circle/D-pad, inactive/held/reconnect checks; DualSense remains unqualified |
 | Standard Linux, wired DualShock 4 | Not run for Qonsole | Complete independent controller/game/overlay milestone above |
 | Standard Linux, wired DualSense | Not run for Qonsole | Same milestone, separate evidence; no native PS5 inference |
 | PS4 / PS5 native target | Feasibility unverified; PS4 14.02 is user-reported only | Officially supported route, rights, runtime/adapters and actual target evidence |

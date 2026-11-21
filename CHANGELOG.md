@@ -9,6 +9,14 @@ their changes since, and pulls of what is still shared, are recorded here.
 
 ## [Unreleased]
 
+- **Observe the running Qonsole input registration without controller emulation.**
+  An opt-in child-only diagnostic reads the process's own Raw Input registrations
+  and focus gate at startup/focus changes, with no timer or device output.
+  Strict matching rejects missing/duplicate/wrong-target/flag records. Fourteen
+  Qt results and enabled/default-off runtime controls pass. Actual readback shows
+  usage 1/5 and the requested window, but flags 0 versus requested DEVNOTIFY 8192;
+  exact flag qualification and physical/hot-plug behavior remain open.
+
 - **Draft an opt-in Pi image contract without production wiring.** A bounded
   in-memory helper rejects non-arm64, ambiguous/wrong caller-selected profiles,
   duplicate JSON fields and unavailable/malformed Prism authentication evidence.

@@ -20,8 +20,10 @@ adds foreground-only Raw Input for original DS4 USB-shaped reports, reusing the
 project's PlayStation parser and dispatching semantic actions without HID output
 or controller/keyboard emulation. Its isolated fixtures pass, and a separate
 normal Release candidate builds and passes the public Windows keyboard/focus
-flow. Native foreground ownership is observed; actual Raw Input registration
-readback and physical retest remain unverified. The owner's Cross failure in the
+flow. Default-off registration diagnostics now observe the process's own gamepad
+usage/window and active-gate states. Reported flags 0 differ from requested
+DEVNOTIFY 8192, so exact-flag matching stays false. Notification semantics,
+actual controller delivery and physical retest remain unverified. The owner's Cross failure in the
 preserved old EXE remains open. Keyboard/visible evidence stays separate from
 controller, full lifecycle, clean-PC and console acceptance.
 This small source entry point complements the premium C++/Qt stack. Shared

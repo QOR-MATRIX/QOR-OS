@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: LicenseRef-QOR-OS-Proprietary
 // Private in-memory reports only. No virtual/system controller or native reader.
 #include "controlleractions.h"
+#include "controllerregistration.h"
 
 #include <QtQml/QQmlComponent>
 #include <QtQml/QQmlEngine>
@@ -61,6 +62,33 @@ class QonsoleControllerTest : public QObject
 {
     Q_OBJECT
 private Q_SLOTS:
+    void exactRegistrationAndUnrelatedUsages()
+    {
+        const ControllerRegistration request { 1, 5, 0x2000, 123 };
+        QVERIFY(registrationMatchesRequest({ request }, request, true));
+        QVERIFY(registrationMatchesRequest({ { 1, 2, 0, 456 }, request }, request, true));
+    }
+
+    void missingFailedOrConflictingRegistrationCannotPass()
+    {
+        const ControllerRegistration request { 1, 5, 0x2000, 123 };
+        QVERIFY(!registrationMatchesRequest({}, request, true));
+        QVERIFY(!registrationMatchesRequest({ request }, request, false));
+        QVERIFY(!registrationMatchesRequest({ { 1, 5, 0x2000, 0 } }, { 1, 5, 0x2000, 0 }, true));
+        for (const auto &wrong : QList<ControllerRegistration> {
+                 { 1, 4, 0x2000, 123 }, { 2, 5, 0x2000, 123 }, { 1, 5, 0x2100, 123 }, { 1, 5, 0x2000, 456 } })
+            QVERIFY(!registrationMatchesRequest({ wrong }, request, true));
+    }
+
+    void duplicateRegistrationCannotEstablishOneTarget()
+    {
+        const ControllerRegistration request { 1, 5, 0x2000, 123 };
+        QVERIFY(!registrationMatchesRequest({ request, request }, request, true));
+        const ControllerRegistration other { 1, 5, 0x2000, 456 };
+        QVERIFY(!registrationMatchesRequest({ request, other }, request, true));
+        QVERIFY(!registrationMatchesRequest({ other, request }, request, true));
+    }
+
     void ds4FixtureUsesExistingCrossCircleMapping()
     {
         ControllerActions actions;

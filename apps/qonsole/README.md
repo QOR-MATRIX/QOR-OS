@@ -68,6 +68,36 @@ is unavailable in the current normal path; foreground ownership alone does not
 prove registration/delivery. Physical Cross/Circle/D-pad and reconnect remain
 unverified, as do clean-PC, Linux, distribution, CI/Release and console gates.
 
+## Opt-in registration observation
+
+With `QOR_QONSOLE_INPUT_DIAGNOSTICS=1` set only in the launched child's
+process environment, the normal helpers-OFF application emits
+`QONSOLE_INPUT_STATUS` JSON. Unset/default emits none. The diagnostic queries
+`GetRegisteredRawInputDevices` in the calling process at registration/focus
+changes, never polls, opens a device, changes registration flags or sends input.
+It records only its PID, requested/reported usage/flags/window and gate state.
+Read failure, a null target or missing/duplicate/mismatched usage records cannot
+produce an exact-request match. Other usages are not certified by that result.
+
+The separate `build/qonsole-windows-controller-observation/qor-qonsole.exe`,
+SHA-256 `afe47030725ac6e89a2d2595d6867662943d66cd07f1a99c89e617496ac499a1`,
+passes fourteen synthetic Qt results, two-program hardening, public keyboard
+Home/sample/Back focus restoration and the default-off quiet control. Both real
+processes exit 0. Its in-process readback observes gamepad 1/5 at the requested
+window, but reports flags **0** versus requested **8192**, so the strict
+`registrationMatchesRequest` value remains **false**. Active gate true/false is
+observed on owned-window minimize/restore. This is not raw controller event or
+background-suppression proof, and the cause/notification semantics of the flag
+mismatch remain unresolved. No comparison is weakened to turn this into a pass.
+
+[Microsoft documents DEVNOTIFY](https://learn.microsoft.com/en-us/windows/win32/api/winuser/ns-winuser-rawinputdevice)
+as arrival/removal notification behavior. Its presence in the request does not
+establish that a real hot-plug notification was delivered. Physical input,
+reconnect and full flag qualification still need separate evidence. Full logs,
+initial strict-Qt compile failure/correction and resource samples:
+`build/development-2026-11-20/session-08/`. Both earlier executable baselines remain
+unchanged; this provides no distribution, Linux, CI/Release or console pass.
+
 ## Dedicated local Windows executable
 
 The commands/results below describe the earlier verification-enabled milestone.
